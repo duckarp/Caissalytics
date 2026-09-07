@@ -68,8 +68,30 @@ public class GameAnalysisService : IGameAnalysisService
                 var evalBefore = evals[i - 1];
                 var evalAfter = eval;
 
+                // Handle terminal position (checkmate or stalemate) where engine returns null
+                bool inCheck = MoveGenerator.IsInCheck(positions[i], positions[i].ActiveColor);
+                var legalMoves = MoveGenerator.GenerateLegalMoves(positions[i]);
+                bool isTerminal = legalMoves.Count == 0;
+
                 double winBefore = evalBefore?.WhiteWinPercentage ?? 50.0;
-                double winAfter = evalAfter?.WhiteWinPercentage ?? 50.0;
+                double winAfter;
+                if (isTerminal)
+                {
+                    if (inCheck)
+                    {
+                        // Checkmate: the player who just moved won
+                        winAfter = (positions[i].ActiveColor == PieceColor.Black) ? 100.0 : 0.0;
+                    }
+                    else
+                    {
+                        // Stalemate: draw
+                        winAfter = 50.0;
+                    }
+                }
+                else
+                {
+                    winAfter = evalAfter?.WhiteWinPercentage ?? 50.0;
+                }
 
                 bool isWhite = plyIndex % 2 == 0;
                 double playerWinBefore = isWhite ? winBefore : 100.0 - winBefore;
@@ -84,15 +106,22 @@ public class GameAnalysisService : IGameAnalysisService
                     var tempPos = positions[i - 1];
                     foreach (var uci in evalBefore.PvMoves.Take(5))
                     {
-                        var m = ParseUciMove(uci, tempPos);
-                        if (m.IsEmpty) break;
-                        string san = SanParser.ToSan(tempPos, m);
-                        bestLineSans.Add(san);
-                        if (string.IsNullOrEmpty(bestMoveSan))
+                        try
                         {
-                            bestMoveSan = san;
+                            var m = ParseUciMove(uci, tempPos);
+                            if (m.IsEmpty) break;
+                            string san = SanParser.ToSan(tempPos, m);
+                            bestLineSans.Add(san);
+                            if (string.IsNullOrEmpty(bestMoveSan))
+                            {
+                                bestMoveSan = san;
+                            }
+                            tempPos = MoveGenerator.ApplyMove(tempPos, m);
                         }
-                        tempPos = MoveGenerator.ApplyMove(tempPos, m);
+                        catch
+                        {
+                            break;
+                        }
                     }
                 }
 

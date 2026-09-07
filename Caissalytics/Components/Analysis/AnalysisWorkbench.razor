@@ -153,8 +153,19 @@
 
 	private async void OnPositionChanged()
 	{
-		await SyncBoardAndEngineAsync();
-		await InvokeAsync(StateHasChanged);
+		try
+		{
+			if (_isDisposed) return;
+			await SyncBoardAndEngineAsync();
+			if (!_isDisposed)
+			{
+				await InvokeAsync(StateHasChanged);
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[AnalysisWorkbench] Exception in OnPositionChanged: {ex.Message}");
+		}
 	}
 
 	private async Task SyncBoardAndEngineAsync()

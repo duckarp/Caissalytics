@@ -156,6 +156,7 @@
 	private string _selectedSpeed = "Standard";
 	private string? _errorMessage;
 	private bool _isAnnotated = false;
+	private bool _isDisposed = false;
 
 	private int? CurrentPlyIndex
 	{
@@ -191,14 +192,24 @@
 
 		var progress = new Progress<GameAnalysisProgress>(p =>
 		{
+			if (_isDisposed) return;
 			_progress = p;
-			InvokeAsync(StateHasChanged);
+			_ = InvokeAsync(() =>
+			{
+				if (!_isDisposed)
+				{
+					StateHasChanged();
+				}
+			});
 		});
 
 		try
 		{
 			var report = await GameAnalysisService.AnalyzeGameAsync(Tab.Tree, options, progress, token);
-			Tab.AnalysisReport = report;
+			if (!_isDisposed)
+			{
+				Tab.AnalysisReport = report;
+			}
 		}
 		catch (OperationCanceledException)
 		{
@@ -206,18 +217,32 @@
 		}
 		catch (Exception ex)
 		{
-			_errorMessage = ex.Message;
+			if (!_isDisposed)
+			{
+				_errorMessage = ex.Message;
+			}
 		}
 		finally
 		{
 			_isAnalyzing = false;
-			await InvokeAsync(StateHasChanged);
+			if (!_isDisposed)
+			{
+				try
+				{
+					await InvokeAsync(StateHasChanged);
+				}
+				catch { }
+			}
 		}
 	}
 
 	private void CancelAnalysis()
 	{
-		_analysisCts?.Cancel();
+		try
+		{
+			_analysisCts?.Cancel();
+		}
+		catch { }
 	}
 
 	private void HandleChartPlySelected(int plyIndex)
@@ -242,9 +267,16 @@
 	{
 		if (Tab.AnalysisReport != null)
 		{
-			GameAnalysisService.AnnotateGameTree(Tab.Tree, Tab.AnalysisReport);
-			_isAnnotated = true;
-			StateHasChanged();
+			try
+			{
+				GameAnalysisService.AnnotateGameTree(Tab.Tree, Tab.AnalysisReport);
+				_isAnnotated = true;
+				StateHasChanged();
+			}
+			catch (Exception ex)
+			{
+				_errorMessage = $"Error annotating move tree: {ex.Message}";
+			}
 		}
 	}
 
@@ -273,7 +305,11 @@
 
 	public void Dispose()
 	{
-		_analysisCts?.Cancel();
-		_analysisCts?.Dispose();
+		_isDisposed = true;
+		try
+		{
+			_analysisCts?.Cancel();
+		}
+		catch { }
 	}
 }
