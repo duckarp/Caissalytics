@@ -1,0 +1,277 @@
+@namespace Caissalytics.Components.Analysis
+@using Caissalytics.Core
+@using Caissalytics.Engine
+@inject IGameAnalysisService GameAnalysisService
+@inject IEngineService EngineService
+@implements IDisposable
+
+<div class="gamereport-container">
+	@if (_isAnalyzing)
+	{
+		<div class="gamereport-progress-card">
+			<div class="progress-header-row">
+				<span class="progress-title-text">Analyzing game with Stockfish 17...</span>
+				<span class="progress-percent-text">@(_progress?.PercentComplete ?? 0)%</span>
+			</div>
+
+			<div class="gamereport-progress-track">
+				<div class="gamereport-progress-bar bar-w-@(Math.Clamp(_progress?.PercentComplete ?? 0, 0, 100))"></div>
+			</div>
+
+			<div class="progress-details-row">
+				<span>Move @(_progress?.CurrentPly ?? 0) of @(_progress?.TotalPlies ?? 0) (@(_progress?.CurrentMoveSan ?? "..."))</span>
+				<button class="btn-secondary" @onclick="CancelAnalysis">Cancel</button>
+			</div>
+		</div>
+	}
+	else if (Tab.AnalysisReport == null)
+	{
+		<div class="gamereport-cta-card">
+			<div class="gamereport-cta-icon">📊</div>
+			<h3 class="gamereport-cta-title">Full Game Analysis</h3>
+			<p class="gamereport-cta-desc">
+				Run Stockfish through every move of the game to generate player accuracy scores, detect blunders & mistakes, and build the interactive evaluation curve.
+			</p>
+
+			<div class="gamereport-speed-selector">
+				<button class="speed-option-btn @(_selectedSpeed == "Quick" ? "speed-active" : "")"
+						@onclick='() => _selectedSpeed = "Quick"'>
+					Quick Scan (80ms)
+				</button>
+				<button class="speed-option-btn @(_selectedSpeed == "Standard" ? "speed-active" : "")"
+						@onclick='() => _selectedSpeed = "Standard"'>
+					Standard (150ms)
+				</button>
+				<button class="speed-option-btn @(_selectedSpeed == "Deep" ? "speed-active" : "")"
+						@onclick='() => _selectedSpeed = "Deep"'>
+					Deep Analysis (400ms)
+				</button>
+			</div>
+
+			@if (!string.IsNullOrEmpty(_errorMessage))
+			{
+				<div class="modal-warning-box">
+					<span>@_errorMessage</span>
+				</div>
+			}
+
+			<button class="btn-primary" @onclick="StartAnalysisAsync">📊 Analyze Entire Game</button>
+		</div>
+	}
+	else
+	{
+		var report = Tab.AnalysisReport;
+		string whitePlayer = Tab.Tree.Headers.GetValueOrDefault("White", "White");
+		string blackPlayer = Tab.Tree.Headers.GetValueOrDefault("Black", "Black");
+
+		<!-- Accuracy Header -->
+		<div class="report-accuracy-grid">
+			<div class="accuracy-card">
+				<span class="accuracy-player-title" title="@whitePlayer">⚪ @whitePlayer</span>
+				<span class="accuracy-big-score @GetAccuracyClass(report.WhiteAccuracy)">@report.WhiteAccuracy.ToString("F1")%</span>
+				<span class="accuracy-meta-text">ACPL: @report.WhiteAcpl.ToString("F1")</span>
+			</div>
+			<div class="accuracy-card">
+				<span class="accuracy-player-title" title="@blackPlayer">⚫ @blackPlayer</span>
+				<span class="accuracy-big-score @GetAccuracyClass(report.BlackAccuracy)">@report.BlackAccuracy.ToString("F1")%</span>
+				<span class="accuracy-meta-text">ACPL: @report.BlackAcpl.ToString("F1")</span>
+			</div>
+		</div>
+
+		<!-- Advantage Graph -->
+		<EvaluationChart Plies="@report.Plies"
+						 ActivePly="@CurrentPlyIndex"
+						 OnSelectPly="HandleChartPlySelected" />
+
+		<!-- Move Quality Breakdown Table -->
+		<div class="quality-breakdown-card">
+			<div class="quality-card-header">Move Classification Breakdown</div>
+			<table class="quality-table">
+				<thead>
+					<tr>
+						<th>Classification</th>
+						<th>White</th>
+						<th>Black</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr class="quality-row">
+						<td><span class="quality-badge badge-best">Best</span></td>
+						<td>@report.WhiteBestCount</td>
+						<td>@report.BlackBestCount</td>
+					</tr>
+					<tr class="quality-row">
+						<td><span class="quality-badge badge-excellent">Excellent</span></td>
+						<td>@report.WhiteExcellentCount</td>
+						<td>@report.BlackExcellentCount</td>
+					</tr>
+					<tr class="quality-row">
+						<td><span class="quality-badge badge-good">Good</span></td>
+						<td>@report.WhiteGoodCount</td>
+						<td>@report.BlackGoodCount</td>
+					</tr>
+					<tr class="quality-row">
+						<td><span class="quality-badge badge-inaccuracy">Inaccuracies (?! )</span></td>
+						<td>@report.WhiteInaccuracyCount</td>
+						<td>@report.BlackInaccuracyCount</td>
+					</tr>
+					<tr class="quality-row">
+						<td><span class="quality-badge badge-mistake">Mistakes (?)</span></td>
+						<td>@report.WhiteMistakeCount</td>
+						<td>@report.BlackMistakeCount</td>
+					</tr>
+					<tr class="quality-row">
+						<td><span class="quality-badge badge-blunder">Blunders (??)</span></td>
+						<td>@report.WhiteBlunderCount</td>
+						<td>@report.BlackBlunderCount</td>
+					</tr>
+				</tbody>
+			</table>
+		</div>
+
+		<!-- Action Buttons -->
+		<div class="report-actions-row">
+			<button class="btn-primary" @onclick="AnnotateTree" disabled="@_isAnnotated">
+				@(_isAnnotated ? "✓ Tree Annotated" : "✨ Annotate Move Tree")
+			</button>
+			<button class="btn-secondary" @onclick="NextMistake">
+				🔍 Next Mistake ▶
+			</button>
+			<button class="btn-secondary" @onclick="() => Tab.AnalysisReport = null">
+				🔄 Re-analyze
+			</button>
+		</div>
+	}
+</div>
+
+@code {
+	[Parameter, EditorRequired] public AnalysisTab Tab { get; set; } = default!;
+	[Parameter] public EventCallback<int> OnSelectPly { get; set; }
+
+	private bool _isAnalyzing = false;
+	private CancellationTokenSource? _analysisCts;
+	private GameAnalysisProgress? _progress;
+	private string _selectedSpeed = "Standard";
+	private string? _errorMessage;
+	private bool _isAnnotated = false;
+
+	private int? CurrentPlyIndex
+	{
+		get
+		{
+			int count = -1;
+			var curr = Tab.Tree.CurrentNode;
+			while (curr.Parent != null)
+			{
+				count++;
+				curr = curr.Parent;
+			}
+			return curr == Tab.Tree.Root && count >= 0 ? count : null;
+		}
+	}
+
+	private async Task StartAnalysisAsync()
+	{
+		_errorMessage = null;
+		_isAnalyzing = true;
+		_isAnnotated = false;
+		_progress = new GameAnalysisProgress();
+
+		var options = _selectedSpeed switch
+		{
+			"Quick" => GameAnalysisOptions.Quick,
+			"Deep" => GameAnalysisOptions.Deep,
+			_ => GameAnalysisOptions.Standard
+		};
+
+		_analysisCts = new CancellationTokenSource();
+		var token = _analysisCts.Token;
+
+		var progress = new Progress<GameAnalysisProgress>(p =>
+		{
+			_progress = p;
+			InvokeAsync(StateHasChanged);
+		});
+
+		try
+		{
+			var report = await GameAnalysisService.AnalyzeGameAsync(Tab.Tree, options, progress, token);
+			Tab.AnalysisReport = report;
+		}
+		catch (OperationCanceledException)
+		{
+			// User canceled
+		}
+		catch (Exception ex)
+		{
+			_errorMessage = ex.Message;
+		}
+		finally
+		{
+			_isAnalyzing = false;
+			await InvokeAsync(StateHasChanged);
+		}
+	}
+
+	private void CancelAnalysis()
+	{
+		_analysisCts?.Cancel();
+	}
+
+	private void HandleChartPlySelected(int plyIndex)
+	{
+		var curr = Tab.Tree.Root;
+		for (int i = 0; i <= plyIndex; i++)
+		{
+			if (curr.Children.Count > 0)
+			{
+				curr = curr.Children[0];
+			}
+			else
+			{
+				break;
+			}
+		}
+		Tab.Tree.NavigateTo(curr);
+		OnSelectPly.InvokeAsync(plyIndex);
+	}
+
+	private void AnnotateTree()
+	{
+		if (Tab.AnalysisReport != null)
+		{
+			GameAnalysisService.AnnotateGameTree(Tab.Tree, Tab.AnalysisReport);
+			_isAnnotated = true;
+			StateHasChanged();
+		}
+	}
+
+	private void NextMistake()
+	{
+		if (Tab.AnalysisReport == null || Tab.AnalysisReport.Plies.Count == 0) return;
+
+		int current = CurrentPlyIndex ?? -1;
+		var mistakes = Tab.AnalysisReport.Plies.Where(p =>
+			p.Classification == MoveClassification.Blunder ||
+			p.Classification == MoveClassification.Mistake ||
+			p.Classification == MoveClassification.Inaccuracy).ToList();
+
+		if (mistakes.Count == 0) return;
+
+		var next = mistakes.FirstOrDefault(p => p.Ply > current) ?? mistakes[0];
+		HandleChartPlySelected(next.Ply);
+	}
+
+	private static string GetAccuracyClass(double acc)
+	{
+		if (acc >= 85.0) return "accuracy-score-high";
+		if (acc >= 70.0) return "accuracy-score-mid";
+		return "accuracy-score-low";
+	}
+
+	public void Dispose()
+	{
+		_analysisCts?.Cancel();
+		_analysisCts?.Dispose();
+	}
+}

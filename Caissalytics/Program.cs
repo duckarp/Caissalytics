@@ -10,6 +10,7 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddSingleton<IEngineService, EngineManager>();
 builder.Services.AddSingleton<IDatabaseService, DatabaseManager>();
+builder.Services.AddSingleton<IGameAnalysisService, GameAnalysisService>();
 builder.Services.AddScoped<WorkspaceState>();
 
 var app = builder.Build();

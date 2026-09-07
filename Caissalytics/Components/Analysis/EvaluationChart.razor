@@ -1,0 +1,128 @@
+@namespace Caissalytics.Components.Analysis
+@using Caissalytics.Engine
+
+<div class="eval-chart-wrapper">
+	<div class="eval-chart-title-bar">
+		<span>Advantage Graph</span>
+		@if (DisplayPly != null)
+		{
+			<span>
+				@(DisplayPly.MoveNumber)@(DisplayPly.IsWhiteMove ? "." : "...") @DisplayPly.MoveSan 
+				(@DisplayPly.FormattedScoreAfter) — @DisplayPly.Classification
+			</span>
+		}
+		else
+		{
+			<span>Click markers to navigate</span>
+		}
+	</div>
+
+	<svg class="eval-chart-svg" viewBox="0 0 800 130" preserveAspectRatio="none">
+		<!-- Zero baseline (50% win rate) -->
+		<line class="eval-chart-zero-line" x1="0" y1="65" x2="800" y2="65" />
+
+		<!-- Shaded advantage area -->
+		<path class="eval-chart-area-white" d="@BuildAreaPath()" />
+
+		<!-- Advantage curve -->
+		<path class="eval-chart-curve" d="@BuildCurvePath()" />
+
+		<!-- Active cursor vertical line -->
+		@if (ActivePly.HasValue && ActivePly.Value >= 0 && ActivePly.Value < Plies.Count)
+		{
+			double curX = GetX(ActivePly.Value, Plies.Count);
+			<line class="eval-chart-cursor" x1="@curX" y1="0" x2="@curX" y2="130" />
+		}
+
+		<!-- Interactive Blunder / Mistake / Inaccuracy dots -->
+		@for (int i = 0; i < Plies.Count; i++)
+		{
+			var p = Plies[i];
+			if (p.Classification == MoveClassification.Blunder ||
+				p.Classification == MoveClassification.Mistake ||
+				p.Classification == MoveClassification.Inaccuracy)
+			{
+				double cx = GetX(i, Plies.Count);
+				double cy = GetY(p.WinRateAfter);
+				int plyIdx = i;
+				string markerClass = p.Classification switch
+				{
+					MoveClassification.Blunder => "eval-chart-marker eval-marker-blunder",
+					MoveClassification.Mistake => "eval-chart-marker eval-marker-mistake",
+					_ => "eval-chart-marker eval-marker-inaccuracy"
+				};
+
+				<circle class="@markerClass"
+						cx="@cx"
+						cy="@cy"
+						r="4.5"
+						@onclick="() => OnSelectPly.InvokeAsync(plyIdx)"
+						@onmouseenter="() => _hoveredPly = plyIdx"
+						@onmouseleave="() => _hoveredPly = null">
+					<title>@($"{p.MoveNumber}{(p.IsWhiteMove ? "." : "...")} {p.MoveSan} ({p.FormattedScoreAfter}) - {p.Classification}")</title>
+				</circle>
+			}
+		}
+	</svg>
+</div>
+
+@code {
+	[Parameter, EditorRequired] public List<PlyAnalysis> Plies { get; set; } = new();
+	[Parameter] public int? ActivePly { get; set; }
+	[Parameter] public EventCallback<int> OnSelectPly { get; set; }
+
+	private int? _hoveredPly;
+
+	private const double SvgWidth = 800.0;
+	private const double SvgHeight = 130.0;
+	private const double ZeroY = 65.0;
+	private const double PadX = 20.0;
+
+	private double GetX(int index, int total)
+	{
+		if (total <= 1) return SvgWidth / 2.0;
+		return PadX + (index / (double)(total - 1)) * (SvgWidth - 2 * PadX);
+	}
+
+	private double GetY(double winRate)
+	{
+		double clamped = Math.Clamp(winRate, 0.0, 100.0);
+		return 125.0 - (clamped / 100.0) * 120.0;
+	}
+
+	private string BuildCurvePath()
+	{
+		if (Plies.Count == 0) return "";
+		var sb = new System.Text.StringBuilder();
+		for (int i = 0; i < Plies.Count; i++)
+		{
+			double x = GetX(i, Plies.Count);
+			double y = GetY(Plies[i].WinRateAfter);
+			sb.Append(i == 0 ? $"M {x:F1} {y:F1}" : $" L {x:F1} {y:F1}");
+		}
+		return sb.ToString();
+	}
+
+	private string BuildAreaPath()
+	{
+		if (Plies.Count == 0) return "";
+		var sb = new System.Text.StringBuilder();
+		double startX = GetX(0, Plies.Count);
+		double endX = GetX(Plies.Count - 1, Plies.Count);
+
+		sb.Append($"M {startX:F1} {ZeroY:F1}");
+		for (int i = 0; i < Plies.Count; i++)
+		{
+			double x = GetX(i, Plies.Count);
+			double y = GetY(Plies[i].WinRateAfter);
+			sb.Append($" L {x:F1} {y:F1}");
+		}
+		sb.Append($" L {endX:F1} {ZeroY:F1} Z");
+		return sb.ToString();
+	}
+
+	private PlyAnalysis? DisplayPly =>
+		_hoveredPly.HasValue && _hoveredPly.Value >= 0 && _hoveredPly.Value < Plies.Count
+			? Plies[_hoveredPly.Value]
+			: (ActivePly.HasValue && ActivePly.Value >= 0 && ActivePly.Value < Plies.Count ? Plies[ActivePly.Value] : null);
+}

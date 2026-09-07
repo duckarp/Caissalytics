@@ -122,6 +122,20 @@ public class AnalysisTab : WorkspaceTab
         }
     }
 
+    private GameAnalysisReport? _analysisReport;
+    public GameAnalysisReport? AnalysisReport
+    {
+        get => _analysisReport;
+        set
+        {
+            if (_analysisReport != value)
+            {
+                _analysisReport = value;
+                NotifyTabChanged();
+            }
+        }
+    }
+
     public AnalysisTab(string? title = null, string? pgn = null, string? startFen = null, string? targetDatabase = null, long? databaseGameId = null)
     {
         _customTitle = title ?? "Analysis Board";
@@ -282,7 +296,8 @@ public class WorkspaceState
                         IsAnalyzing = analysis.IsAnalyzing,
                         MultiPv = analysis.MultiPv,
                         TargetDatabase = analysis.TargetDatabase,
-                        DatabaseGameId = analysis.DatabaseGameId
+                        DatabaseGameId = analysis.DatabaseGameId,
+                        AnalysisReport = analysis.AnalysisReport
                     });
                     break;
 
@@ -341,7 +356,8 @@ public class WorkspaceState
                             Id = tabDto.Id,
                             Orientation = tabDto.Orientation ?? "white",
                             IsAnalyzing = tabDto.IsAnalyzing,
-                            MultiPv = tabDto.MultiPv > 0 ? tabDto.MultiPv : 3
+                            MultiPv = tabDto.MultiPv > 0 ? tabDto.MultiPv : 3,
+                            AnalysisReport = tabDto.AnalysisReport
                         };
 
                         if (tabDto.CurrentNodePath != null && tabDto.CurrentNodePath.Count > 0)

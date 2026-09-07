@@ -1,3 +1,5 @@
+using Caissalytics.Engine;
+
 namespace Caissalytics.Components;
 
 public class WorkspaceStateDto
@@ -18,4 +20,5 @@ public class WorkspaceTabDto
     public int MultiPv { get; set; } = 3;
     public string? TargetDatabase { get; set; }
     public long? DatabaseGameId { get; set; }
+    public GameAnalysisReport? AnalysisReport { get; set; }
 }

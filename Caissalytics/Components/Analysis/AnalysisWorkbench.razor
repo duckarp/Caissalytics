@@ -33,6 +33,8 @@
 		<div class="panel-header-tabs">
 			<button class="panel-tab-btn @(_activeRightTab == "moves" ? "tab-active" : "")" 
 					@onclick="@(() => _activeRightTab = "moves")">Moves & Annotations</button>
+			<button class="panel-tab-btn @(_activeRightTab == "report" ? "tab-active" : "")" 
+					@onclick="@(() => _activeRightTab = "report")">Game Report</button>
 			<button class="panel-tab-btn @(_activeRightTab == "reference" ? "tab-active" : "")" 
 					@onclick="@(() => _activeRightTab = "reference")">Opening Reference</button>
 			<button class="panel-tab-btn @(_activeRightTab == "tools" ? "tab-active" : "")" 
@@ -51,6 +53,12 @@
 									   OnAnnotationChanged="StateHasChanged"
 									   OnPromoteVariation="HandlePromoteVariation"
 									   OnDeleteSubtree="HandleDeleteSubtree" />
+				</div>
+			}
+			else if (_activeRightTab == "report")
+			{
+				<div class="panel-top-section">
+					<GameReportPanel Tab="Tab" />
 				</div>
 			}
 			else if (_activeRightTab == "reference")

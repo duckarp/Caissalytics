@@ -1,0 +1,405 @@
+/* Game Report & Full Analysis Styles */
+
+.gamereport-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+/* Pre-Analysis CTA Card */
+.gamereport-cta-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 36px 24px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  gap: 14px;
+}
+
+.gamereport-cta-icon {
+  font-size: 38px;
+  line-height: 1;
+}
+
+.gamereport-cta-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.gamereport-cta-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  max-width: 440px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.gamereport-speed-selector {
+  display: flex;
+  gap: 8px;
+  margin: 6px 0;
+}
+
+.speed-option-btn {
+  padding: 6px 14px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.speed-option-btn:hover {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.speed-option-btn.speed-active {
+  background-color: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* In-Progress State */
+.gamereport-progress-card {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  gap: 12px;
+}
+
+.progress-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.progress-title-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.progress-percent-text {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-blue);
+}
+
+.gamereport-progress-track {
+  width: 100%;
+  height: 8px;
+  background-color: var(--bg-surface);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.gamereport-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-blue), #38bdf8);
+  transition: width 0.2s ease-out;
+}
+
+.progress-details-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Post-Analysis: Accuracy Header */
+.report-accuracy-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.accuracy-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 12px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  gap: 4px;
+}
+
+.accuracy-player-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.accuracy-big-score {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  line-height: 1.1;
+}
+
+.accuracy-score-high {
+  color: #4ade80;
+}
+
+.accuracy-score-mid {
+  color: #38bdf8;
+}
+
+.accuracy-score-low {
+  color: #fb923c;
+}
+
+.accuracy-meta-text {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Move Quality Breakdown Table */
+.quality-breakdown-card {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.quality-card-header {
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+}
+
+.quality-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.quality-table th,
+.quality-table td {
+  padding: 8px 14px;
+  text-align: left;
+}
+
+.quality-table th {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.quality-table td:first-child {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.quality-table td:nth-child(2),
+.quality-table td:nth-child(3) {
+  text-align: center;
+  font-weight: 600;
+}
+
+.quality-row {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.quality-row:last-child {
+  border-bottom: none;
+}
+
+.quality-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.badge-blunder {
+  background-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.badge-mistake {
+  background-color: rgba(249, 115, 22, 0.15);
+  color: #f97316;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.badge-inaccuracy {
+  background-color: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+.badge-good {
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.badge-excellent {
+  background-color: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.badge-best {
+  background-color: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+/* Evaluation Chart */
+.eval-chart-wrapper {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.eval-chart-title-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+}
+
+.eval-chart-svg {
+  width: 100%;
+  height: 130px;
+  display: block;
+  cursor: crosshair;
+}
+
+.eval-chart-zero-line {
+  stroke: var(--border-subtle);
+  stroke-dasharray: 4 4;
+  stroke-width: 1;
+}
+
+.eval-chart-area-white {
+  fill: rgba(255, 255, 255, 0.12);
+}
+
+.eval-chart-area-black {
+  fill: rgba(0, 0, 0, 0.35);
+}
+
+.eval-chart-curve {
+  fill: none;
+  stroke: var(--accent-blue);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.eval-chart-cursor {
+  stroke: rgba(255, 255, 255, 0.5);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+
+.eval-chart-marker {
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.eval-chart-marker:hover {
+  transform: scale(1.4);
+}
+
+.eval-marker-blunder {
+  fill: #ef4444;
+  stroke: #ffffff;
+  stroke-width: 1.5;
+}
+
+.eval-marker-mistake {
+  fill: #f97316;
+  stroke: #ffffff;
+  stroke-width: 1.5;
+}
+
+.eval-marker-inaccuracy {
+  fill: #eab308;
+  stroke: #ffffff;
+  stroke-width: 1.5;
+}
+
+/* Tooltip */
+.eval-chart-tooltip {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-primary);
+  pointer-events: none;
+}
+
+/* Report Action Buttons */
+.report-actions-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.review-mistake-stepper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
