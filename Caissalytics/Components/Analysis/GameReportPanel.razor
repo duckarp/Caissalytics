@@ -86,47 +86,49 @@
 		<!-- Move Quality Breakdown Table -->
 		<div class="quality-breakdown-card">
 			<div class="quality-card-header">Move Classification Breakdown</div>
-			<table class="quality-table">
-				<thead>
-					<tr>
-						<th>Classification</th>
-						<th>White</th>
-						<th>Black</th>
-					</tr>
-				</thead>
-				<tbody>
-					<tr class="quality-row">
-						<td><span class="quality-badge badge-best">Best</span></td>
-						<td>@report.WhiteBestCount</td>
-						<td>@report.BlackBestCount</td>
-					</tr>
-					<tr class="quality-row">
-						<td><span class="quality-badge badge-excellent">Excellent</span></td>
-						<td>@report.WhiteExcellentCount</td>
-						<td>@report.BlackExcellentCount</td>
-					</tr>
-					<tr class="quality-row">
-						<td><span class="quality-badge badge-good">Good</span></td>
-						<td>@report.WhiteGoodCount</td>
-						<td>@report.BlackGoodCount</td>
-					</tr>
-					<tr class="quality-row">
-						<td><span class="quality-badge badge-inaccuracy">Inaccuracies (?! )</span></td>
-						<td>@report.WhiteInaccuracyCount</td>
-						<td>@report.BlackInaccuracyCount</td>
-					</tr>
-					<tr class="quality-row">
-						<td><span class="quality-badge badge-mistake">Mistakes (?)</span></td>
-						<td>@report.WhiteMistakeCount</td>
-						<td>@report.BlackMistakeCount</td>
-					</tr>
-					<tr class="quality-row">
-						<td><span class="quality-badge badge-blunder">Blunders (??)</span></td>
-						<td>@report.WhiteBlunderCount</td>
-						<td>@report.BlackBlunderCount</td>
-					</tr>
-				</tbody>
-			</table>
+			<div class="quality-table-wrapper">
+				<table class="quality-table">
+					<thead>
+						<tr>
+							<th>Classification</th>
+							<th>White</th>
+							<th>Black</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr class="quality-row">
+							<td><span class="quality-badge badge-best">Best</span></td>
+							<td>@report.WhiteBestCount</td>
+							<td>@report.BlackBestCount</td>
+						</tr>
+						<tr class="quality-row">
+							<td><span class="quality-badge badge-excellent">Excellent</span></td>
+							<td>@report.WhiteExcellentCount</td>
+							<td>@report.BlackExcellentCount</td>
+						</tr>
+						<tr class="quality-row">
+							<td><span class="quality-badge badge-good">Good</span></td>
+							<td>@report.WhiteGoodCount</td>
+							<td>@report.BlackGoodCount</td>
+						</tr>
+						<tr class="quality-row">
+							<td><span class="quality-badge badge-inaccuracy">Inaccuracy (?!)</span></td>
+							<td>@report.WhiteInaccuracyCount</td>
+							<td>@report.BlackInaccuracyCount</td>
+						</tr>
+						<tr class="quality-row">
+							<td><span class="quality-badge badge-mistake">Mistake (?)</span></td>
+							<td>@report.WhiteMistakeCount</td>
+							<td>@report.BlackMistakeCount</td>
+						</tr>
+						<tr class="quality-row">
+							<td><span class="quality-badge badge-blunder">Blunder (??)</span></td>
+							<td>@report.WhiteBlunderCount</td>
+							<td>@report.BlackBlunderCount</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
 		</div>
 
 		<!-- Action Buttons -->

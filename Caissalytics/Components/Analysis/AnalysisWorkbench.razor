@@ -57,7 +57,7 @@
 			}
 			else if (_activeRightTab == "report")
 			{
-				<div class="panel-top-section">
+				<div class="panel-top-section report-section-full">
 					<GameReportPanel Tab="Tab" />
 				</div>
 			}
@@ -96,15 +96,18 @@
 				</div>
 			}
 
-			<div class="panel-bottom-section">
-				<EngineAnalysisPanel Position="@Tab.Tree.CurrentNode.Position"
-									 IsAnalyzing="@Tab.IsAnalyzing"
-									 MultiPv="@Tab.MultiPv"
-									 EvalLines="@Tab.CurrentEvalLines"
-									 IsAnalyzingChanged="HandleAnalyzingToggled"
-									 MultiPvChanged="HandleMultiPvChanged"
-									 OnInsertPvVariation="HandleInsertPvVariation" />
-			</div>
+			@if (_activeRightTab != "report")
+			{
+				<div class="panel-bottom-section">
+					<EngineAnalysisPanel Position="@Tab.Tree.CurrentNode.Position"
+										 IsAnalyzing="@Tab.IsAnalyzing"
+										 MultiPv="@Tab.MultiPv"
+										 EvalLines="@Tab.CurrentEvalLines"
+										 IsAnalyzingChanged="HandleAnalyzingToggled"
+										 MultiPvChanged="HandleMultiPvChanged"
+										 OnInsertPvVariation="HandleInsertPvVariation" />
+				</div>
+			}
 		</div>
 	</div>
 </div>

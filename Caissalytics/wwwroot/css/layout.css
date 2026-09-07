@@ -109,6 +109,10 @@
   overflow: hidden;
 }
 
+.panel-top-section.report-section-full {
+  height: 100%;
+}
+
 .tools-panel-body {
   padding: 16px;
   gap: 12px;
@@ -152,3 +156,11 @@
   border-radius: 6px;
   overflow: hidden;
 }
+
+@media (max-height: 800px) {
+  .panel-bottom-section {
+    height: 180px;
+    min-height: 150px;
+  }
+}
+
