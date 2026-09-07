@@ -40,6 +40,57 @@ public class GameHeader
     public string Eco { get; set; } = string.Empty;
     public int PlyCount { get; set; }
     public string Pgn { get; set; } = string.Empty;
+
+    public string Platform
+    {
+        get
+        {
+            if (Site.Contains("lichess.org", StringComparison.OrdinalIgnoreCase) ||
+                Event.Contains("lichess", StringComparison.OrdinalIgnoreCase) ||
+                Site.StartsWith("lichess", StringComparison.OrdinalIgnoreCase))
+            {
+                return "lichess";
+            }
+
+            if (Site.Contains("chess.com", StringComparison.OrdinalIgnoreCase) ||
+                Site.Equals("Chess.com", StringComparison.OrdinalIgnoreCase) ||
+                Event.Contains("chess.com", StringComparison.OrdinalIgnoreCase) ||
+                Site.StartsWith("chess.com", StringComparison.OrdinalIgnoreCase))
+            {
+                return "chesscom";
+            }
+
+            if (!string.IsNullOrEmpty(Pgn))
+            {
+                if (Pgn.Contains("lichess.org", StringComparison.OrdinalIgnoreCase))
+                    return "lichess";
+                if (Pgn.Contains("chess.com", StringComparison.OrdinalIgnoreCase))
+                    return "chesscom";
+            }
+
+            return "";
+        }
+    }
+
+    public string PlatformName => Platform switch
+    {
+        "lichess" => "Lichess",
+        "chesscom" => "Chess.com",
+        _ => ""
+    };
+
+    public string? ExternalUrl
+    {
+        get
+        {
+            if (Site.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                Site.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                return Site;
+            }
+            return null;
+        }
+    }
 }
 
 public class PositionMoveStat

@@ -1,6 +1,7 @@
 @namespace Caissalytics.Components.Analysis
 @using Caissalytics.Core
 @using Caissalytics.Data
+@using Caissalytics.Components.Database
 @inject IDatabaseService DatabaseService
 @implements IDisposable
 
@@ -102,7 +103,10 @@
 						</div>
 
 						<div class="ref-game-meta">
-							<span class="ref-result-badge @GetResultClass(game.Result)">@game.Result</span>
+							<div class="ref-game-result-row">
+								<PlatformIcon Game="game" />
+								<span class="ref-result-badge @GetResultClass(game.Result)">@game.Result</span>
+							</div>
 							<span class="ref-game-submeta">@(string.IsNullOrEmpty(game.Date) ? "Unknown" : game.FormattedDate) @(string.IsNullOrEmpty(game.Eco) ? "" : $"• {game.Eco}")</span>
 						</div>
 					</div>

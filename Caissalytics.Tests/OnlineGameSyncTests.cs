@@ -161,6 +161,50 @@ public class OnlineGameSyncTests : IDisposable
         Assert.Contains(dbsAfter, d => d.Name == service.OnlineGamesDatabaseName);
     }
 
+    [Fact]
+    public void GameHeader_PlatformDetection_IdentifiesPlatformsCorrectly()
+    {
+        var lichessGame = new GameHeader
+        {
+            Site = "https://lichess.org/aBcDeFgH",
+            White = "player1",
+            Black = "player2"
+        };
+        Assert.Equal("lichess", lichessGame.Platform);
+        Assert.Equal("Lichess", lichessGame.PlatformName);
+        Assert.Equal("https://lichess.org/aBcDeFgH", lichessGame.ExternalUrl);
+
+        var chesscomGame = new GameHeader
+        {
+            Site = "https://www.chess.com/game/live/123456789",
+            White = "player1",
+            Black = "player2"
+        };
+        Assert.Equal("chesscom", chesscomGame.Platform);
+        Assert.Equal("Chess.com", chesscomGame.PlatformName);
+        Assert.Equal("https://www.chess.com/game/live/123456789", chesscomGame.ExternalUrl);
+
+        var chesscomSiteTag = new GameHeader
+        {
+            Site = "Chess.com",
+            Event = "Live Chess"
+        };
+        Assert.Equal("chesscom", chesscomSiteTag.Platform);
+        Assert.Equal("Chess.com", chesscomSiteTag.PlatformName);
+        Assert.Null(chesscomSiteTag.ExternalUrl);
+
+        var otbGame = new GameHeader
+        {
+            Site = "London ENG",
+            Event = "World Championship",
+            White = "Kasparov, G.",
+            Black = "Karpov, A."
+        };
+        Assert.Equal("", otbGame.Platform);
+        Assert.Equal("", otbGame.PlatformName);
+        Assert.Null(otbGame.ExternalUrl);
+    }
+
     private class DummyHttpClientFactory : IHttpClientFactory
     {
         public HttpClient CreateClient(string name)

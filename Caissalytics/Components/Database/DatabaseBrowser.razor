@@ -121,6 +121,10 @@
 				<table class="db-games-table">
 					<thead>
 						<tr>
+							@if (ShowPlatformColumn)
+							{
+								<th class="col-platform" title="Source platform">Site</th>
+							}
 							<th class="col-players">White</th>
 							<th class="col-elo">Elo</th>
 							<th class="col-players">Black</th>
@@ -137,6 +141,12 @@
 						@foreach (var game in _games)
 						{
 							<tr class="db-game-row" @ondblclick="() => OpenGameInAnalysis(game)">
+								@if (ShowPlatformColumn)
+								{
+									<td class="col-platform">
+										<PlatformIcon Game="game" />
+									</td>
+								}
 								<td class="col-players">@game.White</td>
 								<td class="col-elo">@(game.WhiteElo?.ToString() ?? "-")</td>
 								<td class="col-players">@game.Black</td>
@@ -220,7 +230,8 @@
 					<div class="modal-warning-title">⚠️ Confirmation Required</div>
 					<div>Are you sure you want to delete this game from <strong>@_currentDbName</strong>?</div>
 					<div class="modal-game-summary">
-						@_gameToDelete.White vs @_gameToDelete.Black (@_gameToDelete.FormattedDate) • @_gameToDelete.Result
+						<PlatformIcon Game="_gameToDelete" />
+						<span>@_gameToDelete.White vs @_gameToDelete.Black (@_gameToDelete.FormattedDate) • @_gameToDelete.Result</span>
 					</div>
 					<div class="modal-irreversible-warning">
 						This action cannot be undone. Do you want to continue?
@@ -250,6 +261,10 @@
 	private bool _showImportModal = false;
 	private bool _showDeleteModal = false;
 	private GameHeader? _gameToDelete;
+
+	private bool ShowPlatformColumn =>
+		string.Equals(_currentDbName, "My online games", StringComparison.OrdinalIgnoreCase) ||
+		_games.Any(g => !string.IsNullOrEmpty(g.Platform));
 
 	private int TotalPages => Math.Max(1, (int)Math.Ceiling(_totalCount / (double)_filter.PageSize));
 

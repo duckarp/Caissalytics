@@ -283,6 +283,85 @@
   background-color: var(--bg-surface-hover);
 }
 
+.col-platform {
+  width: 44px;
+  min-width: 44px;
+  max-width: 44px;
+  text-align: center;
+  padding: 4px 6px;
+  vertical-align: middle;
+}
+
+.platform-icon-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform var(--transition-fast), filter var(--transition-fast);
+}
+
+.platform-icon-link:hover {
+  transform: scale(1.15);
+  filter: brightness(1.2);
+}
+
+.platform-game-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  vertical-align: middle;
+}
+
+.platform-game-icon.lichess {
+  background-color: #24221f;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+}
+
+.platform-game-icon.chesscom {
+  background-color: #81b64c;
+  border: 1px solid rgba(129, 182, 76, 0.4);
+  color: #ffffff;
+}
+
+.platform-svg {
+  display: block;
+}
+
+.platform-svg.lichess-svg {
+  width: 15px;
+  height: 15px;
+}
+
+.platform-svg .lichess-g {
+  stroke: #ffffff;
+}
+
+.platform-svg .lichess-body {
+  fill: #ffffff;
+  stroke: #ffffff;
+}
+
+.platform-svg .lichess-detail {
+  fill: #24221f;
+  stroke: #24221f;
+}
+
+.platform-svg.chesscom-svg {
+  width: 15px;
+  height: 15px;
+}
+
+.platform-svg .chesscom-pawn {
+  fill: #ffffff;
+}
+
 .col-players {
   font-weight: 600;
   color: var(--text-primary);
@@ -536,6 +615,9 @@
 }
 
 .modal-game-summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-weight: 600;
   color: var(--text-primary);
   margin: 6px 0;

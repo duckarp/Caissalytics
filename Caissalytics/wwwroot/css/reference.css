@@ -228,6 +228,12 @@
   margin-left: 10px;
 }
 
+.ref-game-result-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .ref-result-badge {
   font-family: var(--font-mono);
   font-size: 11px;
