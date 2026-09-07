@@ -4,6 +4,7 @@
 @using Caissalytics.Components.Database
 @inject IDatabaseService DatabaseService
 @inject IUserProfileService ProfileService
+@inject IRepertoireService RepertoireService
 @implements IDisposable
 
 <div class="reference-panel">
@@ -48,18 +49,29 @@
 				<table class="reference-table">
 					<thead>
 						<tr>
+							<th>Rep</th>
 							<th>Move</th>
 							<th>Games</th>
 							<th>Score</th>
 							<th>Distribution</th>
+							<th>Avg Elo</th>
+							<th>Years</th>
 						</tr>
 					</thead>
 					<tbody>
 						@foreach (var move in _refResult.CandidateMoves)
 						{
-							<tr class="reference-row" @onclick="() => PlayCandidateMove(move.MoveSan)">
+							<tr class="reference-row @(move.IsRepertoireMove ? "in-repertoire" : "")" @onclick="() => PlayCandidateMove(move.MoveSan)">
+								<td>
+									<button class="star-bookmark-btn @(move.IsRepertoireMove ? "bookmarked" : "")"
+											title="@(move.IsRepertoireMove ? $"In Repertoire ({move.RepertoireStatus})" : "Add to repertoire")"
+											@onclick:stopPropagation="true"
+											@onclick="() => ToggleRepertoireMove(move)">
+										@(move.IsRepertoireMove ? "★" : "☆")
+									</button>
+								</td>
 								<td class="move-cell">@move.MoveSan</td>
-								<td class="number-cell">@move.TotalGames</td>
+								<td class="number-cell">@move.TotalGames.ToString("N0")</td>
 								<td class="score-cell">@move.ScoreRate.ToString("0.0")%</td>
 								<td class="bar-cell">
 									<div class="winrate-bar-track" title="White: @move.WhiteWinRate.ToString("0.0")% | Draw: @move.DrawRate.ToString("0.0")% | Black: @move.BlackWinRate.ToString("0.0")%">
@@ -68,6 +80,8 @@
 										<div class="bar-segment bar-black @($"bar-w-{move.BlackWinPct}")"></div>
 									</div>
 								</td>
+								<td class="number-cell">@(move.AvgRating.HasValue ? move.AvgRating.Value.ToString() : "-")</td>
+								<td class="number-cell">@move.YearRangeFormatted</td>
 							</tr>
 						}
 					</tbody>
@@ -203,6 +217,7 @@
 		try
 		{
 			_refResult = await DatabaseService.QueryPositionAsync(_selectedDb, Position.ZobristKey);
+			await AnnotateCandidateMovesAsync();
 		}
 		catch (Exception ex)
 		{
@@ -213,6 +228,58 @@
 			_isLoading = false;
 			StateHasChanged();
 		}
+	}
+
+	private async Task AnnotateCandidateMovesAsync()
+	{
+		if (_refResult == null || Position == null) return;
+
+		string fen = RepertoireService.NormalizeFen(FenParser.ToFen(Position));
+		string turnColor = Position.ActiveColor == PieceColor.White ? "white" : "black";
+		var repMoves = await RepertoireService.GetMovesForPositionAsync(fen, turnColor);
+
+		foreach (var m in _refResult.CandidateMoves)
+		{
+			var match = repMoves.FirstOrDefault(rm => string.Equals(rm.MoveSan, m.MoveSan, StringComparison.OrdinalIgnoreCase));
+			if (match != null)
+			{
+				m.IsRepertoireMove = true;
+				m.RepertoireStatus = match.Status;
+				m.RepertoireNote = match.Note;
+			}
+			else
+			{
+				m.IsRepertoireMove = false;
+				m.RepertoireStatus = null;
+				m.RepertoireNote = null;
+			}
+		}
+	}
+
+	private async Task ToggleRepertoireMove(PositionMoveStat move)
+	{
+		if (Position == null) return;
+		string fen = RepertoireService.NormalizeFen(FenParser.ToFen(Position));
+		string color = Position.ActiveColor == PieceColor.White ? "white" : "black";
+
+		if (move.IsRepertoireMove)
+		{
+			await RepertoireService.RemoveMoveAsync(fen, move.MoveSan, color);
+		}
+		else
+		{
+			await RepertoireService.AddOrUpdateMoveAsync(new RepertoireMove
+			{
+				Fen = fen,
+				MoveSan = move.MoveSan,
+				MoveUci = move.MoveUci,
+				Color = color,
+				Status = "main"
+			});
+		}
+
+		await AnnotateCandidateMovesAsync();
+		StateHasChanged();
 	}
 
 	private async Task HandleDatabaseSelected(ChangeEventArgs e)

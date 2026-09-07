@@ -121,6 +121,24 @@ public class PositionMoveStat
     public double BlackWinRate => TotalGames > 0 ? (BlackWins * 100.0 / TotalGames) : 0;
     public double ScoreRate => TotalGames > 0 ? ((WhiteWins + 0.5 * Draws) * 100.0 / TotalGames) : 0;
 
+    public int? AvgRating { get; set; }
+    public int? MinYear { get; set; }
+    public int? MaxYear { get; set; }
+    public double FrequencyPct { get; set; }
+    public bool IsRepertoireMove { get; set; }
+    public string? RepertoireNote { get; set; }
+    public string? RepertoireStatus { get; set; }
+
+    public string YearRangeFormatted
+    {
+        get
+        {
+            if (!MinYear.HasValue && !MaxYear.HasValue) return "";
+            if (MinYear == MaxYear) return $"{MinYear}";
+            return $"{MinYear} - {MaxYear}";
+        }
+    }
+
     public int WhiteWinPct => TotalGames > 0 ? Math.Clamp((int)Math.Round(WhiteWins * 100.0 / TotalGames), 0, 100) : 0;
     public int DrawPct => TotalGames > 0 ? Math.Clamp((int)Math.Round(Draws * 100.0 / TotalGames), 0, 100) : 0;
     public int BlackWinPct => TotalGames > 0 ? Math.Clamp((int)Math.Round(BlackWins * 100.0 / TotalGames), 0, 100) : 0;

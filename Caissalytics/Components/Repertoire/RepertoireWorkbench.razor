@@ -1,0 +1,506 @@
+@namespace Caissalytics.Components.Repertoire
+@using Caissalytics.Core
+@using Caissalytics.Data
+@using Caissalytics.Components.Board
+@using Caissalytics.Components.Database
+@inject IDatabaseService DatabaseService
+@inject IRepertoireService RepertoireService
+@inject IUserProfileService ProfileService
+@inject LichessExplorerClient LichessClient
+@inject WorkspaceState Workspace
+@implements IDisposable
+
+<div class="repertoire-workbench-container">
+	<!-- Left Column: Interactive Board & Controls -->
+	<div class="repertoire-board-area">
+		<div class="repertoire-opening-banner">
+			<div class="opening-name-group">
+				<span class="opening-eco-badge">@ActiveEco</span>
+				<span class="opening-name-text">@ActiveOpeningName</span>
+			</div>
+			<div class="opening-turn-indicator">
+				<span>@(_tree.CurrentNode.Position.ActiveColor == PieceColor.White ? "White to move" : "Black to move")</span>
+			</div>
+		</div>
+
+		<ChessgroundBoard @ref="_boardRef"
+						  Position="@_tree.CurrentNode.Position"
+						  LastMove="@(_tree.CurrentNode.IsRoot ? null : _tree.CurrentNode.Move)"
+						  Orientation="@_orientation"
+						  CanGoBack="@_tree.CanGoBack"
+						  CanGoForward="@_tree.CanGoForward"
+						  OnMoveMade="HandleBoardMove"
+						  OrientationChanged="HandleOrientationChanged"
+						  OnFirst="HandleFirst"
+						  OnPrev="HandlePrev"
+						  OnNext="HandleNext"
+						  OnLast="HandleLast"
+						  Tree="@_tree" />
+	</div>
+
+	<!-- Right Column: Opening Tree & Repertoire Explorer -->
+	<div class="repertoire-sidebar">
+		<!-- Source Selection & Repertoire Bar -->
+		<div class="repertoire-source-bar">
+			<div class="source-select-row">
+				<div class="source-selector-group">
+					<label class="source-label">Source:</label>
+					<select class="source-select" value="@_selectedSourceStr" @onchange="HandleSourceChanged">
+						<optgroup label="Local Databases">
+							@foreach (var db in _databases)
+							{
+								<option value="db:@db.Name">🗄️ @db.Name (@db.GameCount.ToString("N0") games)</option>
+							}
+						</optgroup>
+						<optgroup label="Online Explorer (Free)">
+							<option value="lichess:masters">👑 Lichess Masters (FIDE Master Games)</option>
+							<option value="lichess:community">🌐 Lichess Community (Rated Games)</option>
+						</optgroup>
+					</select>
+				</div>
+			</div>
+
+			<div class="repertoire-mode-pills">
+				<button class="rep-mode-pill @(_colorFilter == "all" ? "active" : "")"
+						@onclick='() => SetColorFilter("all")'>All Moves</button>
+				<button class="rep-mode-pill @(_colorFilter == "white" ? "active" : "")"
+						@onclick='() => SetColorFilter("white")'>White Repertoire</button>
+				<button class="rep-mode-pill @(_colorFilter == "black" ? "active" : "")"
+						@onclick='() => SetColorFilter("black")'>Black Repertoire</button>
+			</div>
+		</div>
+
+		<!-- Move Tree Table -->
+		<div class="repertoire-tree-section">
+			<div class="repertoire-section-title-row">
+				<span>Candidate Moves</span>
+				<span>@(_currentStats?.TotalPositionGames.ToString("N0") ?? "0") games</span>
+			</div>
+
+			<div class="repertoire-table-scroll">
+				@if (_isLoading)
+				{
+					<div class="reference-empty-state">
+						<span>Loading tree statistics...</span>
+					</div>
+				}
+				else if (_currentStats == null || _currentStats.CandidateMoves.Count == 0)
+				{
+					<div class="reference-empty-state">
+						<span class="empty-state-icon">📖</span>
+						<span>No recorded moves from this position.</span>
+					</div>
+				}
+				else
+				{
+					<table class="repertoire-table">
+						<thead>
+							<tr>
+								<th>Rep</th>
+								<th>Move</th>
+								<th>Games</th>
+								<th>Freq</th>
+								<th>Score</th>
+								<th>Distribution</th>
+								<th>Avg Elo</th>
+								<th>Years</th>
+							</tr>
+						</thead>
+						<tbody>
+							@foreach (var move in _currentStats.CandidateMoves)
+							{
+								bool isRep = move.IsRepertoireMove;
+								<tr class="tree-row @(isRep ? "in-repertoire" : "")" @onclick="() => PlayCandidateMove(move.MoveSan)">
+									<td>
+										<button class="star-bookmark-btn @(isRep ? "bookmarked" : "")"
+												title="@(isRep ? $"In Repertoire ({move.RepertoireStatus}). Click to edit note." : "Add to personal repertoire")"
+												@onclick:stopPropagation="true"
+												@onclick="() => ToggleRepertoireMove(move)">
+											@(isRep ? "★" : "☆")
+										</button>
+									</td>
+									<td class="move-san-cell">
+										@move.MoveSan
+										@if (!string.IsNullOrEmpty(move.RepertoireStatus))
+										{
+											<span class="rep-tag @move.RepertoireStatus.ToLowerInvariant()">@move.RepertoireStatus</span>
+										}
+									</td>
+									<td class="games-num-cell">@move.TotalGames.ToString("N0")</td>
+									<td class="games-num-cell">@move.FrequencyPct.ToString("0.0")%</td>
+									<td class="score-num-cell">@move.ScoreRate.ToString("0.0")%</td>
+									<td class="bar-cell">
+										<div class="winrate-bar-track" title="White: @move.WhiteWinRate.ToString("0.0")% | Draw: @move.DrawRate.ToString("0.0")% | Black: @move.BlackWinRate.ToString("0.0")%">
+											<div class="bar-segment bar-white @($"bar-w-{move.WhiteWinPct}")"></div>
+											<div class="bar-segment bar-draw @($"bar-w-{move.DrawPct}")"></div>
+											<div class="bar-segment bar-black @($"bar-w-{move.BlackWinPct}")"></div>
+										</div>
+									</td>
+									<td class="games-num-cell">@(move.AvgRating.HasValue ? move.AvgRating.Value.ToString() : "-")</td>
+									<td class="games-num-cell">@move.YearRangeFormatted</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				}
+			</div>
+		</div>
+
+		<!-- Master Games Section -->
+		<div class="repertoire-games-section">
+			<div class="repertoire-section-title-row">
+				<span>Top Games Reaching Position</span>
+				<span>@(_currentStats?.TopGames.Count ?? 0) displayed</span>
+			</div>
+
+			<div class="repertoire-games-scroll">
+				@if (_currentStats?.TopGames != null && _currentStats.TopGames.Count > 0)
+				{
+					@foreach (var g in _currentStats.TopGames)
+					{
+						<div class="rep-game-card" @onclick="() => OpenGameInAnalysis(g)">
+							<div class="rep-game-players-info">
+								<div class="rep-player-row">
+									<span>@g.White @(g.WhiteElo.HasValue ? $"({g.WhiteElo})" : "")</span>
+									<span> vs </span>
+									<span>@g.Black @(g.BlackElo.HasValue ? $"({g.BlackElo})" : "")</span>
+								</div>
+								<span class="rep-game-subinfo">
+									@(string.IsNullOrEmpty(g.Date) ? "Unknown" : g.FormattedDate)
+									@(!string.IsNullOrEmpty(g.Event) ? $" • {g.Event}" : "")
+									@(!string.IsNullOrEmpty(g.Eco) ? $" • {g.Eco}" : "")
+								</span>
+							</div>
+							<span class="rep-game-result-badge @GetResultClass(g.Result)">@g.Result</span>
+						</div>
+					}
+				}
+				else
+				{
+					<div class="reference-empty-state">
+						<span>No recorded games for this position.</span>
+					</div>
+				}
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- Repertoire Move Note Modal -->
+@if (_showNoteModal && _editingMove != null)
+{
+	<div class="rep-modal-backdrop" @onclick="() => _showNoteModal = false">
+		<div class="rep-modal-card" @onclick:stopPropagation="true">
+			<h3 class="rep-modal-title">Repertoire: @_editingMove.MoveSan (@_editingMove.Color)</h3>
+
+			<div class="rep-form-group">
+				<label class="rep-form-label">Move Status</label>
+				<select class="rep-form-select" @bind="_editingMove.Status">
+					<option value="main">Main Line (Primary recommendation)</option>
+					<option value="alt">Alternative (Solid secondary option)</option>
+					<option value="surprise">Surprise Weapon (Tactical / blitz line)</option>
+				</select>
+			</div>
+
+			<div class="rep-form-group">
+				<label class="rep-form-label">Personal Notes & Preparation</label>
+				<textarea class="rep-form-textarea"
+						  placeholder="Add tactical ideas, key plans, or warnings for this move..."
+						  @bind="_editingMove.Note"></textarea>
+			</div>
+
+			<div class="rep-modal-actions">
+				<button class="btn-puzzle btn-danger-soft" @onclick="RemoveRepertoireMoveAsync">
+					Remove from Repertoire
+				</button>
+				<button class="btn-puzzle btn-secondary-action" @onclick="() => _showNoteModal = false">
+					Cancel
+				</button>
+				<button class="btn-puzzle btn-next" @onclick="SaveRepertoireMoveAsync">
+					Save Move
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	[Parameter, EditorRequired] public RepertoireExplorerTab Tab { get; set; } = default!;
+
+	private ChessgroundBoard? _boardRef;
+	private GameTree _tree = new();
+	private string _orientation = "white";
+	private List<DatabaseInfo> _databases = new();
+	private string _selectedDb = "";
+	private string _selectedSourceStr = "db:Default";
+	private string _colorFilter = "all";
+	private PositionReferenceResult? _currentStats;
+	private RepertoireTree _repertoireTree = new();
+	private bool _isLoading = false;
+	private bool _showNoteModal = false;
+	private RepertoireMove? _editingMove;
+
+	private string ActiveOpeningName => OpeningCatalog.ResolveOpeningName(ActiveEco, PgnHandler.ExportPgn(_tree));
+	private string ActiveEco
+	{
+		get
+		{
+			if (_tree.CurrentNode.IsRoot) return "A00";
+			return _currentStats?.TopGames.FirstOrDefault(g => !string.IsNullOrEmpty(g.Eco))?.Eco ?? "A00";
+		}
+	}
+
+	protected override async Task OnInitializedAsync()
+	{
+		RepertoireService.OnRepertoireChanged += HandleRepertoireChanged;
+		DatabaseService.OnActiveDatabaseChanged += HandleActiveDatabaseChanged;
+
+		_repertoireTree = await RepertoireService.GetRepertoireAsync();
+		_databases = await DatabaseService.GetDatabasesAsync();
+
+		if (_databases.Count > 0)
+		{
+			var active = _databases.FirstOrDefault(d => d.IsActive) ?? _databases.First();
+			_selectedDb = active.Name;
+			_selectedSourceStr = $"db:{_selectedDb}";
+		}
+
+		await QueryStatsForCurrentPositionAsync();
+	}
+
+	private async void HandleRepertoireChanged()
+	{
+		_repertoireTree = await RepertoireService.GetRepertoireAsync();
+		await InvokeAsync(async () =>
+		{
+			await AnnotateCandidateMovesWithRepertoireAsync();
+			StateHasChanged();
+		});
+	}
+
+	private async void HandleActiveDatabaseChanged()
+	{
+		_databases = await DatabaseService.GetDatabasesAsync();
+		await InvokeAsync(StateHasChanged);
+	}
+
+	private async Task HandleSourceChanged(ChangeEventArgs e)
+	{
+		_selectedSourceStr = e.Value?.ToString() ?? "db:Default";
+		if (_selectedSourceStr.StartsWith("db:"))
+		{
+			_selectedDb = _selectedSourceStr.Substring(3);
+		}
+		await QueryStatsForCurrentPositionAsync();
+	}
+
+	private async Task SetColorFilter(string filter)
+	{
+		_colorFilter = filter;
+		await QueryStatsForCurrentPositionAsync();
+	}
+
+	private async Task HandleBoardMove(Move move)
+	{
+		_tree.AddMove(move);
+		await QueryStatsForCurrentPositionAsync();
+	}
+
+	private async Task PlayCandidateMove(string moveSan)
+	{
+		var move = SanParser.ParseSan(_tree.CurrentNode.Position, moveSan);
+		if (!move.IsEmpty)
+		{
+			_tree.AddMove(move);
+			if (_boardRef != null)
+			{
+				await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, move);
+			}
+			await QueryStatsForCurrentPositionAsync();
+		}
+	}
+
+	private async Task HandleFirst()
+	{
+		_tree.GoToStart();
+		if (_boardRef != null) await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, null);
+		await QueryStatsForCurrentPositionAsync();
+	}
+
+	private async Task HandlePrev()
+	{
+		_tree.GoBack();
+		if (_boardRef != null) await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, _tree.CurrentNode.IsRoot ? null : _tree.CurrentNode.Move);
+		await QueryStatsForCurrentPositionAsync();
+	}
+
+	private async Task HandleNext()
+	{
+		_tree.GoForward();
+		if (_boardRef != null) await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, _tree.CurrentNode.Move);
+		await QueryStatsForCurrentPositionAsync();
+	}
+
+	private async Task HandleLast()
+	{
+		_tree.GoToEnd();
+		if (_boardRef != null) await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, _tree.CurrentNode.Move);
+		await QueryStatsForCurrentPositionAsync();
+	}
+
+	private void HandleOrientationChanged(string orientation)
+	{
+		_orientation = orientation;
+	}
+
+	private async Task QueryStatsForCurrentPositionAsync()
+	{
+		_isLoading = true;
+		StateHasChanged();
+
+		try
+		{
+			var pos = _tree.CurrentNode.Position;
+
+			if (_selectedSourceStr == "lichess:masters")
+			{
+				string fen = FenParser.ToFen(pos);
+				_currentStats = await LichessClient.QueryAsync(fen, isMasters: true);
+			}
+			else if (_selectedSourceStr == "lichess:community")
+			{
+				string fen = FenParser.ToFen(pos);
+				_currentStats = await LichessClient.QueryAsync(fen, isMasters: false);
+			}
+			else
+			{
+				_currentStats = await DatabaseService.QueryPositionAsync(_selectedDb, pos.ZobristKey);
+			}
+
+			await AnnotateCandidateMovesWithRepertoireAsync();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[RepertoireWorkbench] Query error: {ex.Message}");
+		}
+		finally
+		{
+			_isLoading = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task AnnotateCandidateMovesWithRepertoireAsync()
+	{
+		if (_currentStats == null) return;
+
+		string fen = RepertoireService.NormalizeFen(FenParser.ToFen(_tree.CurrentNode.Position));
+		bool isWhiteTurn = _tree.CurrentNode.Position.ActiveColor == PieceColor.White;
+		string turnColor = isWhiteTurn ? "white" : "black";
+
+		var repMoves = await RepertoireService.GetMovesForPositionAsync(fen, turnColor);
+
+		foreach (var m in _currentStats.CandidateMoves)
+		{
+			var match = repMoves.FirstOrDefault(rm => string.Equals(rm.MoveSan, m.MoveSan, StringComparison.OrdinalIgnoreCase));
+			if (match != null)
+			{
+				m.IsRepertoireMove = true;
+				m.RepertoireStatus = match.Status;
+				m.RepertoireNote = match.Note;
+			}
+			else
+			{
+				m.IsRepertoireMove = false;
+				m.RepertoireStatus = null;
+				m.RepertoireNote = null;
+			}
+		}
+
+		if (_colorFilter == "white" && !isWhiteTurn)
+		{
+			_currentStats.CandidateMoves.Clear();
+		}
+		else if (_colorFilter == "black" && isWhiteTurn)
+		{
+			_currentStats.CandidateMoves.Clear();
+		}
+	}
+
+	private async Task ToggleRepertoireMove(PositionMoveStat move)
+	{
+		string fen = RepertoireService.NormalizeFen(FenParser.ToFen(_tree.CurrentNode.Position));
+		string color = _tree.CurrentNode.Position.ActiveColor == PieceColor.White ? "white" : "black";
+
+		var existing = (await RepertoireService.GetMovesForPositionAsync(fen, color))
+			.FirstOrDefault(m => string.Equals(m.MoveSan, move.MoveSan, StringComparison.OrdinalIgnoreCase));
+
+		if (existing != null)
+		{
+			_editingMove = new RepertoireMove
+			{
+				Id = existing.Id,
+				Fen = existing.Fen,
+				MoveSan = existing.MoveSan,
+				MoveUci = existing.MoveUci,
+				Color = existing.Color,
+				Status = existing.Status,
+				Note = existing.Note,
+				CreatedAt = existing.CreatedAt
+			};
+		}
+		else
+		{
+			_editingMove = new RepertoireMove
+			{
+				Fen = fen,
+				MoveSan = move.MoveSan,
+				MoveUci = move.MoveUci,
+				Color = color,
+				Status = "main",
+				Note = string.Empty
+			};
+		}
+
+		_showNoteModal = true;
+	}
+
+	private async Task SaveRepertoireMoveAsync()
+	{
+		if (_editingMove == null) return;
+		await RepertoireService.AddOrUpdateMoveAsync(_editingMove);
+		_showNoteModal = false;
+	}
+
+	private async Task RemoveRepertoireMoveAsync()
+	{
+		if (_editingMove == null) return;
+		await RepertoireService.RemoveMoveAsync(_editingMove.Fen, _editingMove.MoveSan, _editingMove.Color);
+		_showNoteModal = false;
+	}
+
+	private void OpenGameInAnalysis(GameHeader game)
+	{
+		Workspace.CreateAnalysisTab(
+			title: $"Analysis: {game.White} vs {game.Black}",
+			pgn: game.Pgn,
+			targetDatabase: _selectedDb,
+			databaseGameId: game.Id);
+	}
+
+	private static string GetResultClass(string result)
+	{
+		return result switch
+		{
+			"1-0" => "white-win",
+			"0-1" => "black-win",
+			_ => "draw"
+		};
+	}
+
+	public void Dispose()
+	{
+		RepertoireService.OnRepertoireChanged -= HandleRepertoireChanged;
+		DatabaseService.OnActiveDatabaseChanged -= HandleActiveDatabaseChanged;
+	}
+}

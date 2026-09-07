@@ -584,20 +584,24 @@ public class DatabaseManager : IDatabaseService
         using var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly");
         await conn.OpenAsync();
 
-        // 1. Candidate move frequencies & win rates
+        // 1. Candidate move frequencies, win rates, avg ratings & year ranges
         using (var moveCmd = conn.CreateCommand())
         {
             moveCmd.CommandText = @"
                 SELECT 
-                    next_move_san,
-                    next_move_uci,
+                    p.next_move_san,
+                    p.next_move_uci,
                     COUNT(*) as total_games,
-                    SUM(CASE WHEN result = '1-0' THEN 1 ELSE 0 END) as white_wins,
-                    SUM(CASE WHEN result = '1/2-1/2' THEN 1 ELSE 0 END) as draws,
-                    SUM(CASE WHEN result = '0-1' THEN 1 ELSE 0 END) as black_wins
-                FROM positions
-                WHERE zobrist_key = $zobrist
-                GROUP BY next_move_san
+                    SUM(CASE WHEN p.result = '1-0' THEN 1 ELSE 0 END) as white_wins,
+                    SUM(CASE WHEN p.result = '1/2-1/2' THEN 1 ELSE 0 END) as draws,
+                    SUM(CASE WHEN p.result = '0-1' THEN 1 ELSE 0 END) as black_wins,
+                    ROUND(AVG(CASE WHEN p.ply % 2 = 0 THEN g.white_elo ELSE g.black_elo END)) as avg_elo,
+                    MIN(SUBSTR(g.date, 1, 4)) as min_year,
+                    MAX(SUBSTR(g.date, 1, 4)) as max_year
+                FROM positions p
+                JOIN games g ON g.id = p.game_id
+                WHERE p.zobrist_key = $zobrist
+                GROUP BY p.next_move_san
                 ORDER BY total_games DESC;";
 
             moveCmd.Parameters.AddWithValue("$zobrist", signedKey);
@@ -605,6 +609,12 @@ public class DatabaseManager : IDatabaseService
             using var reader = await moveCmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
+                int? avgRating = reader.IsDBNull(6) ? null : (int)reader.GetDouble(6);
+                string? minYearStr = reader.IsDBNull(7) ? null : reader.GetString(7);
+                string? maxYearStr = reader.IsDBNull(8) ? null : reader.GetString(8);
+                int? minYear = int.TryParse(minYearStr, out int minY) && minY > 1000 ? minY : null;
+                int? maxYear = int.TryParse(maxYearStr, out int maxY) && maxY > 1000 ? maxY : null;
+
                 var stat = new PositionMoveStat
                 {
                     MoveSan = reader.GetString(0),
@@ -612,10 +622,21 @@ public class DatabaseManager : IDatabaseService
                     TotalGames = reader.GetInt32(2),
                     WhiteWins = reader.GetInt32(3),
                     Draws = reader.GetInt32(4),
-                    BlackWins = reader.GetInt32(5)
+                    BlackWins = reader.GetInt32(5),
+                    AvgRating = avgRating,
+                    MinYear = minYear,
+                    MaxYear = maxYear
                 };
                 result.CandidateMoves.Add(stat);
                 result.TotalPositionGames += stat.TotalGames;
+            }
+
+            if (result.TotalPositionGames > 0)
+            {
+                foreach (var move in result.CandidateMoves)
+                {
+                    move.FrequencyPct = (move.TotalGames * 100.0) / result.TotalPositionGames;
+                }
             }
         }
 

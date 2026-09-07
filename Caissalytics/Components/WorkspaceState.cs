@@ -196,6 +196,18 @@ public class PuzzleTrainerTab : WorkspaceTab
     }
 }
 
+public class RepertoireExplorerTab : WorkspaceTab
+{
+    public override string Title => "Opening Tree";
+    public override string Icon => "📖";
+    public string? DatabaseScope { get; set; }
+
+    public RepertoireExplorerTab(string? databaseScope = null)
+    {
+        DatabaseScope = databaseScope;
+    }
+}
+
 
 public class WorkspaceState
 {
@@ -325,6 +337,27 @@ public class WorkspaceState
         return tab;
     }
 
+    public RepertoireExplorerTab CreateRepertoireTab(string? databaseScope = null)
+    {
+        var existing = Tabs.OfType<RepertoireExplorerTab>().FirstOrDefault();
+        if (existing != null)
+        {
+            if (!string.IsNullOrEmpty(databaseScope))
+            {
+                existing.DatabaseScope = databaseScope;
+            }
+            ActiveTab = existing;
+            NotifyStateChanged();
+            return existing;
+        }
+
+        var tab = new RepertoireExplorerTab(databaseScope);
+        Tabs.Add(tab);
+        ActiveTab = tab;
+        NotifyStateChanged();
+        return tab;
+    }
+
     public void SelectTab(Guid id)
     {
         var target = Tabs.FirstOrDefault(t => t.Id == id);
@@ -427,6 +460,16 @@ public class WorkspaceState
                         Title = puzzles.Title
                     });
                     break;
+
+                case RepertoireExplorerTab repertoire:
+                    dto.Tabs.Add(new WorkspaceTabDto
+                    {
+                        Id = repertoire.Id,
+                        Type = "repertoire",
+                        Title = repertoire.Title,
+                        DatabaseScope = repertoire.DatabaseScope
+                    });
+                    break;
             }
         }
 
@@ -505,6 +548,11 @@ public class WorkspaceState
                     {
                         var puzzlesTab = new PuzzleTrainerTab { Id = tabDto.Id };
                         Tabs.Add(puzzlesTab);
+                    }
+                    else if (tabDto.Type == "repertoire")
+                    {
+                        var repertoireTab = new RepertoireExplorerTab(tabDto.DatabaseScope) { Id = tabDto.Id };
+                        Tabs.Add(repertoireTab);
                     }
                 }
 

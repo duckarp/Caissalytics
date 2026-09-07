@@ -17,6 +17,8 @@ appBuilder.Services.AddSingleton<IUserProfileService, UserProfileService>();
 appBuilder.Services.AddSingleton<IUserAnalyticsService, UserAnalyticsService>();
 appBuilder.Services.AddSingleton<IUpdateService, UpdateService>();
 appBuilder.Services.AddSingleton<IPuzzleService, PuzzleService>();
+appBuilder.Services.AddSingleton<IRepertoireService, RepertoireService>();
+appBuilder.Services.AddSingleton<LichessExplorerClient>();
 appBuilder.Services.AddScoped<WorkspaceState>();
 
 // Register root desktop component
