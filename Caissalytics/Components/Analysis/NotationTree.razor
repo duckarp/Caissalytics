@@ -2,6 +2,16 @@
 @using Caissalytics.Core
 
 <div class="notation-panel-container">
+	@if (HasClocks)
+	{
+		<div class="notation-toolbar-row">
+			<button class="notation-toggle-btn @(_showClocks ? "active" : "")"
+					title="Toggle clock times display"
+					@onclick="() => _showClocks = !_showClocks">
+				⏱ Clocks @(_showClocks ? "On" : "Off")
+			</button>
+		</div>
+	}
 	<div class="notation-tree-scrollable">
 		@if (Tree.Root.Children.Count == 0)
 		{
@@ -21,6 +31,23 @@
 @code {
 	[Parameter, EditorRequired] public GameTree Tree { get; set; } = default!;
 	[Parameter] public EventCallback<MoveNode> OnSelectNode { get; set; }
+
+	private bool _showClocks = true;
+
+	private bool HasClocks
+	{
+		get
+		{
+			if (Tree?.Root == null) return false;
+			var cur = Tree.Root;
+			while (cur.Children.Count > 0)
+			{
+				cur = cur.Children[0];
+				if (!string.IsNullOrEmpty(cur.Clock)) return true;
+			}
+			return false;
+		}
+	}
 
 	private RenderFragment RenderNodeChildren(MoveNode parent, bool isMainline) => __builder =>
 	{
@@ -62,6 +89,11 @@
 				<span class="nag-glyph">@node.NagSymbol()</span>
 			}
 		</button>
+
+		@if (!string.IsNullOrWhiteSpace(node.FormattedClock) && _showClocks)
+		{
+			<span class="move-clock-badge" title="Time remaining: @node.FormattedClock">@node.FormattedClock</span>
+		}
 
 		@if (!string.IsNullOrWhiteSpace(node.Comment))
 		{

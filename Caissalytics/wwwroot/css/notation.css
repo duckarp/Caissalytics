@@ -93,6 +93,64 @@
   margin: 0 4px;
 }
 
+/* Move Clocks */
+.move-clock-badge {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin: 0 2px;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: baseline;
+  user-select: none;
+  opacity: 0.8;
+  transition: opacity var(--transition-fast), border-color var(--transition-fast);
+}
+
+.move-clock-badge:hover {
+  opacity: 1;
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+
+.notation-toolbar-row {
+  display: flex;
+  justify-content: flex-end;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface-elevated);
+}
+
+.notation-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 6px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.notation-toggle-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
+.notation-toggle-btn.active {
+  color: var(--accent-blue);
+  background-color: var(--bg-surface);
+  border-color: var(--accent-blue);
+}
+
 /* Starting state empty text */
 .empty-notation-prompt {
   display: flex;

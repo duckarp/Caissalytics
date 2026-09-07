@@ -119,4 +119,29 @@ public class CoreTests
         Assert.Single(importedTree.Root.Children);
         Assert.Equal(2, importedTree.Root.Children[0].Children.Count);
     }
+
+    [Fact]
+    public void PgnHandler_ClockAndCommentParsing_ExtractsClocksCleanly()
+    {
+        string pgnWithClocks = "1. e4 {[%clk 0:04:21]} e5 {[%clk 0:00:45] Great defensive resource!} 2. Nf3 {[%clk 0:04:15][%eval +0.25]} *";
+        var tree = PgnHandler.ImportPgn(pgnWithClocks);
+
+        var e4 = tree.Root.Children[0];
+        Assert.Equal("e4", e4.San);
+        Assert.Equal("0:04:21", e4.Clock);
+        Assert.Equal("4:21", e4.FormattedClock);
+        Assert.Null(e4.Comment);
+
+        var e5 = e4.Children[0];
+        Assert.Equal("e5", e5.San);
+        Assert.Equal("0:00:45", e5.Clock);
+        Assert.Equal("0:45", e5.FormattedClock);
+        Assert.Equal("Great defensive resource!", e5.Comment);
+
+        var nf3 = e5.Children[0];
+        Assert.Equal("Nf3", nf3.San);
+        Assert.Equal("0:04:15", nf3.Clock);
+        Assert.Equal("+0.25", nf3.Eval);
+        Assert.Null(nf3.Comment);
+    }
 }

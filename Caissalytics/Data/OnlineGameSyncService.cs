@@ -200,7 +200,7 @@ public class OnlineGameSyncService : IOnlineGameSyncService
             PercentComplete = syncBoth ? 10 : 20
         });
 
-        string url = $"https://lichess.org/api/games/user/{Uri.EscapeDataString(username)}?max={maxGames}&clocks=true&evals=true&opening=true";
+        string url = $"https://lichess.org/api/games/user/{Uri.EscapeDataString(username)}?max={maxGames}&clocks=false&evals=true&opening=true";
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Accept.ParseAdd("application/x-chess-pgn");
 

@@ -10,7 +10,27 @@ public class MoveNode
     public List<MoveNode> Children { get; } = new();
 
     public string? Comment { get; set; }
+    public string? Clock { get; set; }
+    public string? Eval { get; set; }
     public List<int> Nags { get; } = new();
+
+    public string? FormattedClock
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(Clock)) return null;
+            string c = Clock.Trim();
+            if (c.StartsWith("0:") && c.Length > 2)
+            {
+                c = c[2..];
+                if (c.StartsWith("0") && c.Length > 1 && c[1] != ':')
+                {
+                    c = c[1..];
+                }
+            }
+            return c;
+        }
+    }
 
     public bool IsRoot => Parent == null;
     public bool IsMainline => Parent == null || (Parent.Children.Count > 0 && Parent.Children[0] == this);

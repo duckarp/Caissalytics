@@ -67,7 +67,15 @@ public static class PgnHandler
             sb.Append($" ${nag}");
         }
 
-        if (!string.IsNullOrWhiteSpace(node.Comment))
+        if (!string.IsNullOrWhiteSpace(node.Clock) && !string.IsNullOrWhiteSpace(node.Comment))
+        {
+            sb.Append($" {{[%clk {node.Clock}] {node.Comment.Trim()}}}");
+        }
+        else if (!string.IsNullOrWhiteSpace(node.Clock))
+        {
+            sb.Append($" {{[%clk {node.Clock}]}}");
+        }
+        else if (!string.IsNullOrWhiteSpace(node.Comment))
         {
             sb.Append($" {{{node.Comment.Trim()}}}");
         }
@@ -178,9 +186,7 @@ public static class PgnHandler
                 string comment = tok.Substring(1, tok.Length - 2).Trim();
                 if (!tree.CurrentNode.IsRoot)
                 {
-                    tree.CurrentNode.Comment = string.IsNullOrEmpty(tree.CurrentNode.Comment)
-                        ? comment
-                        : $"{tree.CurrentNode.Comment} {comment}";
+                    ParseAndAttachComment(tree.CurrentNode, comment);
                 }
             }
             else if (tok.StartsWith("$") && int.TryParse(tok.Substring(1), out int nag))
@@ -208,6 +214,50 @@ public static class PgnHandler
                     tree.AddMove(move);
                 }
             }
+        }
+    }
+
+    private static readonly Regex ClkRegex = new(@"\[%clk\s+([0-9:]+)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex EvalRegex = new(@"\[%eval\s+([#+-]?[0-9.]+)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex EmtRegex = new(@"\[%emt\s+([0-9:]+)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex CslCalRegex = new(@"\[%(?:csl|cal)\s+[^\]]+\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+    private static void ParseAndAttachComment(MoveNode node, string rawComment)
+    {
+        if (string.IsNullOrWhiteSpace(rawComment)) return;
+
+        // Extract clock time if present
+        var clkMatch = ClkRegex.Match(rawComment);
+        if (clkMatch.Success)
+        {
+            node.Clock = clkMatch.Groups[1].Value;
+            rawComment = ClkRegex.Replace(rawComment, "");
+        }
+
+        // Extract engine eval if present
+        var evalMatch = EvalRegex.Match(rawComment);
+        if (evalMatch.Success)
+        {
+            string evalVal = evalMatch.Groups[1].Value;
+            if (!evalVal.StartsWith("+") && !evalVal.StartsWith("-") && !evalVal.StartsWith("#"))
+            {
+                evalVal = "+" + evalVal;
+            }
+            node.Eval = evalVal;
+            rawComment = EvalRegex.Replace(rawComment, "");
+        }
+
+        // Strip other machine annotations
+        rawComment = EmtRegex.Replace(rawComment, "");
+        rawComment = CslCalRegex.Replace(rawComment, "");
+
+        // Keep real human commentary
+        string cleaned = Regex.Replace(rawComment, @"\s+", " ").Trim();
+        if (!string.IsNullOrEmpty(cleaned))
+        {
+            node.Comment = string.IsNullOrEmpty(node.Comment)
+                ? cleaned
+                : $"{node.Comment} {cleaned}";
         }
     }
 }
