@@ -9,6 +9,7 @@ namespace Caissalytics.Data;
 public class TablebaseService : ITablebaseService, IDisposable
 {
     private readonly HttpClient _httpClient;
+    private readonly bool _ownsHttpClient;
     private readonly ConcurrentDictionary<string, TablebaseResult> _cache = new();
     private readonly string _configFilePath;
     private string? _localSyzygyPath;
@@ -46,8 +47,16 @@ public class TablebaseService : ITablebaseService, IDisposable
 
     public TablebaseService(HttpClient? httpClient = null)
     {
-        _httpClient = httpClient ?? new HttpClient();
-        _httpClient.Timeout = TimeSpan.FromSeconds(5);
+        if (httpClient != null)
+        {
+            _httpClient = httpClient;
+            _ownsHttpClient = false;
+        }
+        else
+        {
+            _httpClient = new HttpClient();
+            _ownsHttpClient = true;
+        }
 
         string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         string configDir = Path.Combine(localAppData, "Caissalytics");
@@ -151,8 +160,11 @@ public class TablebaseService : ITablebaseService, IDisposable
 
         try
         {
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeoutCts.CancelAfter(TimeSpan.FromSeconds(5));
+
             string url = $"https://tablebase.lichess.ovh/standard?fen={Uri.EscapeDataString(normalizedFen)}";
-            var response = await _httpClient.GetFromJsonAsync<LichessTablebaseApiResponse>(url, ct);
+            var response = await _httpClient.GetFromJsonAsync<LichessTablebaseApiResponse>(url, timeoutCts.Token);
             if (response == null) return null;
 
             var result = MapApiResponse(normalizedFen, response);
@@ -297,7 +309,10 @@ public class TablebaseService : ITablebaseService, IDisposable
 
     public void Dispose()
     {
-        _httpClient.Dispose();
+        if (_ownsHttpClient)
+        {
+            _httpClient.Dispose();
+        }
     }
 
     private class TablebaseConfigDto

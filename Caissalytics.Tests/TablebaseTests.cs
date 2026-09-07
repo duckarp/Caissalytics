@@ -142,6 +142,19 @@ public class TablebaseTests
         Assert.Equal(1, handler.CallCount);
     }
 
+    [Fact]
+    public async Task TablebaseService_CanBeConstructedWithStartedHttpClient()
+    {
+        var handler = new MockHttpMessageHandler("{}");
+        var client = new HttpClient(handler);
+        // Execute a request so the HttpClient has started
+        await client.GetAsync("https://example.com");
+
+        // Constructing TablebaseService must NOT throw InvalidOperationException
+        var ex = Record.Exception(() => new TablebaseService(client));
+        Assert.Null(ex);
+    }
+
     private class MockHttpMessageHandler : HttpMessageHandler
     {
         private readonly string _responseContent;
