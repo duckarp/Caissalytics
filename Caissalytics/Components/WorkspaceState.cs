@@ -208,6 +208,18 @@ public class RepertoireExplorerTab : WorkspaceTab
     }
 }
 
+public class OpponentDossierTab : WorkspaceTab
+{
+    public override string Title => "Opponent Prep";
+    public override string Icon => "🕵️‍♂️";
+    public string? TargetPlayer { get; set; }
+
+    public OpponentDossierTab(string? targetPlayer = null)
+    {
+        TargetPlayer = targetPlayer;
+    }
+}
+
 
 public class WorkspaceState
 {
@@ -358,6 +370,27 @@ public class WorkspaceState
         return tab;
     }
 
+    public OpponentDossierTab CreateOpponentDossierTab(string? targetPlayer = null)
+    {
+        var existing = Tabs.OfType<OpponentDossierTab>().FirstOrDefault();
+        if (existing != null)
+        {
+            if (!string.IsNullOrEmpty(targetPlayer))
+            {
+                existing.TargetPlayer = targetPlayer;
+            }
+            ActiveTab = existing;
+            NotifyStateChanged();
+            return existing;
+        }
+
+        var tab = new OpponentDossierTab(targetPlayer);
+        Tabs.Add(tab);
+        ActiveTab = tab;
+        NotifyStateChanged();
+        return tab;
+    }
+
     public void SelectTab(Guid id)
     {
         var target = Tabs.FirstOrDefault(t => t.Id == id);
@@ -470,6 +503,16 @@ public class WorkspaceState
                         DatabaseScope = repertoire.DatabaseScope
                     });
                     break;
+
+                case OpponentDossierTab dossier:
+                    dto.Tabs.Add(new WorkspaceTabDto
+                    {
+                        Id = dossier.Id,
+                        Type = "dossier",
+                        Title = dossier.Title,
+                        Player = dossier.TargetPlayer
+                    });
+                    break;
             }
         }
 
@@ -553,6 +596,11 @@ public class WorkspaceState
                     {
                         var repertoireTab = new RepertoireExplorerTab(tabDto.DatabaseScope) { Id = tabDto.Id };
                         Tabs.Add(repertoireTab);
+                    }
+                    else if (tabDto.Type == "dossier")
+                    {
+                        var dossierTab = new OpponentDossierTab(tabDto.Player) { Id = tabDto.Id };
+                        Tabs.Add(dossierTab);
                     }
                 }
 

@@ -8,6 +8,7 @@
 @using Caissalytics.Components.Analytics
 @using Caissalytics.Components.Puzzles
 @using Caissalytics.Components.Repertoire
+@using Caissalytics.Components.Dossier
 @inject WorkspaceState Workspace
 @inject IJSRuntime JS
 @implements IAsyncDisposable
@@ -74,6 +75,14 @@ else
 			bool isActive = tab == Workspace.ActiveTab;
 			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
 				<RepertoireWorkbench Tab="tab" />
+			</div>
+		}
+
+		@foreach (var tab in Workspace.Tabs.OfType<OpponentDossierTab>())
+		{
+			bool isActive = tab == Workspace.ActiveTab;
+			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+				<OpponentDossierWorkbench Tab="tab" />
 			</div>
 		}
 	</div>

@@ -22,4 +22,5 @@ public class WorkspaceTabDto
     public long? DatabaseGameId { get; set; }
     public GameAnalysisReport? AnalysisReport { get; set; }
     public string? DatabaseScope { get; set; }
+    public string? Player { get; set; }
 }

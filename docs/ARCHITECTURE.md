@@ -166,7 +166,37 @@ Position candidate lookups join `positions` with `games` to calculate in a singl
 
 ---
 
-## 5. Web Audio API Synthesis (`soundService.js`)
+## 5. Opponent Dossier & Repertoire Scouting Engine (`OpponentDossierService.cs`)
+
+The Opponent Preparation subsystem extracts structured tactical and opening intelligence from raw master databases and online player profiles:
+
+### Repertoire Aggregation & Opening Branching
+- Scans opponent games across the target database (matching White or Black player names).
+- For White games, isolates 1st move weapons (`1.e4`, `1.d4`, `1.c4`, `1.Nf3`) and groups them by frequency and win rate.
+- For Black games, identifies responses against `1.e4`, `1.d4`, and flank systems.
+- Resolves ECO codes to standard opening names using [`OpeningCatalog.ResolveOpeningName`](file:///home/tomask/projects/Caissalytics/Caissalytics/Data/OpeningCatalog.cs).
+
+### Playing Style & Duration Tendencies
+- Groups games by move count:
+  - **Miniatures & Short Games**: $< 30$ moves (tactical decisions / early resignations).
+  - **Standard Games**: $30 - 49$ moves.
+  - **Deep Endgames**: $50+$ moves (technical stamina battles).
+- Categorizes player style:
+  - *Tactical & Direct* ($\ge 40\%$ short games)
+  - *Endgame Grinder* ($\ge 35\%$ long endgames)
+  - *Dynamic Attacker* (substantially higher win rate in short games than in endgames)
+  - *Solid & Classical* (balanced performance across all game phases)
+
+### Automated Vulnerability Detection
+The heuristic vulnerability scanner flags actionable weaknesses:
+- **Low Scoring Repertoire Lines**: Flags lines where the opponent's score is $\le 35\%$ across $\ge 2$ games, generating targeted preparation recommendations.
+- **Defensive Chinks**: Pinpoints specific openings as Black with high loss rates.
+- **Phase Fatigue**: Identifies tactical fragility in the early phase or technical decline in deep endgames.
+- **Color Asymmetry**: Detects significant disparity between White and Black performance.
+
+---
+
+## 6. Web Audio API Synthesis (`soundService.js`)
 
 Unlike traditional chess applications that package heavy `.mp3` or `.wav` sound files (which introduce file latency and disk footprint), Caissalytics synthesizes all chess sound effects in real time via the Web Audio API:
 
@@ -186,7 +216,7 @@ Unlike traditional chess applications that package heavy `.mp3` or `.wav` sound 
 
 ---
 
-## 6. Frontend Presentation & State Management
+## 7. Frontend Presentation & State Management
 
 ### Photino Desktop Window Host
 - Single native window host initialized in `Program.cs`.
@@ -198,6 +228,7 @@ Unlike traditional chess applications that package heavy `.mp3` or `.wav` sound 
   - `AnalysisWorkbenchTab`
   - `DatabaseExplorerTab`
   - `RepertoireExplorerTab`
+  - `OpponentDossierTab`
   - `PuzzlesTab`
   - `AnalyticsTab`
   - `SettingsTab`

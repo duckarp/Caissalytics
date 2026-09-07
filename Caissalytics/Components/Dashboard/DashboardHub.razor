@@ -44,8 +44,14 @@
 
 		<div class="action-card" @onclick="() => Workspace.CreateRepertoireTab()">
 			<div class="card-icon">📖</div>
-			<h2 class="card-title">Opening Tree & Repertoire</h2>
+			<h2 class="card-title">Opening Tree &amp; Repertoire</h2>
 			<p class="card-description">Explore move frequency, win rates, and master games from your databases and build your personal repertoire.</p>
+		</div>
+
+		<div class="action-card" @onclick="() => Workspace.CreateOpponentDossierTab()">
+			<div class="card-icon">🕵️‍♂️</div>
+			<h2 class="card-title">Opponent Preparation</h2>
+			<p class="card-description">Generate comprehensive scouting dossiers on tournament opponents, analyze their opening repertoire, and expose weaknesses.</p>
 		</div>
 
 		<div class="action-card" @onclick="() => Workspace.CreateAnalyticsTab()">

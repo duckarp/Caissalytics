@@ -91,7 +91,53 @@ Switch between statistical sources seamlessly:
 
 ---
 
-## 4. Tactics & Blunder Workbench 🎯
+## 4. Opponent Preparation & Scouting Dossier 🕵️‍♂️
+
+Prepare for tournament, league, and online matches by generating comprehensive scouting reports on any opponent.
+
+### Player Search & Instant Autocomplete
+- Type any opponent's name in the top search bar (e.g. *Kasparov*, *Carlsen*, *Movsesian*).
+- As you type, the auto-suggest dropdown pulls matching players directly from your selected SQLite database.
+- Choose between searching your **Active Database**, the master **Reference Database**, or **All Databases**.
+
+### On-The-Fly Online Fetching (Lichess & Chess.com)
+- Don't have games of your upcoming opponent in your local database?
+- Click **🌐 Fetch Online Games** in the toolbar.
+- Enter your opponent's handle on Lichess or Chess.com to automatically download their latest game history and immediately generate their dossier!
+
+### Scouting Dossier Overview
+The generated report provides instant insights:
+- **Rating Profile**: Peak Elo, Average Elo, and latest active rating.
+- **Overall & Color Record**: Detailed win / draw / loss breakdown and visual proportion bars for White vs. Black.
+- **Playing Style Profile**:
+  - *Tactical & Direct*: Decisive games frequently concluding in miniatures under 30 moves.
+  - *Endgame Grinder*: High stamina in technical endgames past move 50.
+  - *Dynamic Attacker*: Aggressive middlegame play with lower technical endurance.
+  - *Solid & Classical*: Balanced, structured play across all game phases.
+
+### Repertoire Scouting & Target Weaknesses
+- **White Repertoire (When Opponent is White)**:
+  - Categorizes 1st move weapons (`1.e4`, `1.d4`, `1.c4`, `1.Nf3`) by frequency (*Primary Weapon*, *Secondary Line*, *Occasional Choice*).
+  - Displays top opening variations, game counts, and scoring percentages.
+  - **⚠️ Target Weakness Alert**: Automatically flags lines where the opponent's score drops below 35%, recommending effective theoretical responses.
+- **Black Repertoire (When Opponent is Black)**:
+  - Details favored defenses against `1.e4`, `1.d4`, and flank systems.
+  - **🎯 Recommended Attack Alert**: Pinpoints defenses where the opponent historically struggles, guiding your opening choices when playing White.
+
+### Game Length Tendencies
+- Breaks down scoring rates across:
+  - Miniatures & Short Games (< 30 moves)
+  - Standard Games (30–49 moves)
+  - Deep Endgames (50+ moves)
+
+### Games Archive & 1-Click Deep Analysis
+- Browse all recorded games for the opponent with result indicators, ECO codes, and move counts.
+- Click **Analyze** on any game to immediately launch it into the **Stockfish 18 Analysis Workbench**.
+- Click **Export Games** to create a study PGN collection for offline preparation.
+
+---
+
+## 5. Tactics & Blunder Workbench 🎯
 
 Improve your tactical vision and eliminate recurring game mistakes.
 
@@ -109,7 +155,7 @@ Improve your tactical vision and eliminate recurring game mistakes.
 
 ---
 
-## 5. Online Game Sync & Career Analytics 🌐
+## 6. Online Game Sync & Career Analytics 🌐
 
 Connect your online identities to track progress and study personal trends.
 
@@ -129,7 +175,7 @@ Under **Control Center → Profile & Handles**:
 
 ---
 
-## 6. Audio Engine & Visual Board Themes 🎨 🔊
+## 7. Audio Engine & Visual Board Themes 🎨 🔊
 
 ### Synthesized Web Audio Engine
 Caissalytics features an integrated zero-latency sound engine that synthesizes realistic acoustic feedback via the Web Audio API without downloading audio files:
@@ -155,7 +201,7 @@ Choose between 6 vector board styles rendered via crisp SVGs that never blur:
 
 ---
 
-## 7. Engine Management & Auto-Updater ⚙️
+## 8. Engine Management & Auto-Updater ⚙️
 
 ### Custom Chess Engines
 - **1-Click Stockfish 18**: Automatically download and configure the latest Stockfish build.

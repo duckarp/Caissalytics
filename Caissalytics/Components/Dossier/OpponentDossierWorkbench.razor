@@ -1,0 +1,635 @@
+@namespace Caissalytics.Components.Dossier
+@using Caissalytics.Data
+@using Caissalytics.Components
+@inject IOpponentDossierService DossierService
+@inject IDatabaseService DatabaseService
+@inject WorkspaceState Workspace
+@implements IDisposable
+
+<div class="dossier-container">
+	<!-- Top Bar: Player Search & Source Selector -->
+	<header class="dossier-search-bar">
+		<div class="dossier-search-left">
+			<span class="dossier-search-icon">🕵️‍♂️</span>
+			<div class="dossier-input-wrapper">
+				<input type="text"
+					   class="dossier-search-input"
+					   placeholder="Search opponent name (e.g. Kasparov, Carlsen, Movsesian)..."
+					   @bind="_searchQuery"
+					   @bind:event="oninput"
+					   @onkeyup="HandleKeyUp" />
+
+				@if (_showSuggestions && _suggestions.Count > 0)
+				{
+					<div class="dossier-autocomplete-list">
+						@foreach (var p in _suggestions)
+						{
+							<div class="autocomplete-item" @onclick="() => SelectPlayer(p)">
+								<span>@p</span>
+								<span>🔍</span>
+							</div>
+						}
+					</div>
+				}
+			</div>
+
+			<button class="dossier-action-btn btn-primary" @onclick="() => SearchPlayerAsync(_searchQuery)">
+				Scout Opponent
+			</button>
+		</div>
+
+		<div class="dossier-search-actions">
+			<select class="dossier-db-select" value="@_selectedDb" @onchange="HandleDbChanged">
+				@foreach (var db in _databases)
+				{
+					<option value="@db.Name">@db.Name (@db.GameCount.ToString("N0") games)</option>
+				}
+			</select>
+
+			<button class="dossier-action-btn" @onclick="() => _showOnlineFetchModal = true" title="Download games for any online player on Lichess or Chess.com">
+				<span>🌐</span>
+				<span>Fetch Online Games</span>
+			</button>
+		</div>
+	</header>
+
+	<!-- Content Viewport -->
+	@if (_isLoading)
+	{
+		<div class="dossier-empty-state">
+			<div class="workspace-loading-spinner"></div>
+			<div class="empty-state-title">Generating Scouting Dossier...</div>
+			<div class="empty-state-desc">Analyzing game records, parsing opening lines, and computing tactical tendencies.</div>
+		</div>
+	}
+	else if (_currentReport == null)
+	{
+		<div class="dossier-empty-state">
+			<span class="empty-state-icon">♟️</span>
+			<div class="empty-state-title">No Opponent Selected</div>
+			<div class="empty-state-desc">
+				Type a player's name above to generate a comprehensive pre-game scouting report, or fetch their latest games from Lichess / Chess.com.
+			</div>
+		</div>
+	}
+	else
+	{
+		<div class="dossier-content-scroll">
+			<!-- Hero Card: Dossier Overview -->
+			<div class="dossier-hero-card">
+				<div class="hero-main-row">
+					<div class="hero-identity">
+						<div class="hero-avatar-icon">👤</div>
+						<div>
+							<h2 class="hero-name">@_currentReport.PlayerName</h2>
+							<div class="hero-badges-row">
+								<span class="hero-badge">Database: @_currentReport.DatabaseSource</span>
+								@if (_currentReport.PeakElo.HasValue)
+								{
+									<span class="hero-badge hero-badge-elo">Peak Elo: @_currentReport.PeakElo</span>
+								}
+								@if (_currentReport.AvgElo.HasValue)
+								{
+									<span class="hero-badge hero-badge-elo">Avg Elo: @_currentReport.AvgElo</span>
+								}
+								<span class="hero-badge hero-badge-style">Style: @_currentReport.PlayingStyle</span>
+								@if (!string.IsNullOrEmpty(_currentReport.EarliestDate))
+								{
+									<span class="hero-badge">@_currentReport.EarliestDate — @_currentReport.LatestDate</span>
+								}
+							</div>
+						</div>
+					</div>
+
+					<div class="dossier-hero-actions">
+						<button class="dossier-action-btn" @onclick="ExportPgnStudyAsync">
+							<span>💾</span>
+							<span>Export Games (@_currentReport.TotalGames)</span>
+						</button>
+					</div>
+				</div>
+
+				<!-- Performance Stat Cards -->
+				<div class="hero-stats-grid">
+					<div class="stat-pill-card">
+						<span class="stat-pill-label">Total Games</span>
+						<span class="stat-pill-value">@_currentReport.TotalGames.ToString("N0")</span>
+						<span class="stat-pill-sub">@_currentReport.OverallScore% score (@_currentReport.TotalWins W / @_currentReport.TotalDraws D / @_currentReport.TotalLosses L)</span>
+						@RenderRatioBar(_currentReport.TotalWins, _currentReport.TotalDraws, _currentReport.TotalLosses, _currentReport.TotalGames)
+					</div>
+
+					<div class="stat-pill-card">
+						<span class="stat-pill-label">When Playing White</span>
+						<span class="stat-pill-value">@_currentReport.WhiteScore%</span>
+						<span class="stat-pill-sub">@_currentReport.WhiteGamesCount games (@_currentReport.WhiteWins W / @_currentReport.WhiteDraws D / @_currentReport.WhiteLosses L)</span>
+						@RenderRatioBar(_currentReport.WhiteWins, _currentReport.WhiteDraws, _currentReport.WhiteLosses, _currentReport.WhiteGamesCount)
+					</div>
+
+					<div class="stat-pill-card">
+						<span class="stat-pill-label">When Playing Black</span>
+						<span class="stat-pill-value">@_currentReport.BlackScore%</span>
+						<span class="stat-pill-sub">@_currentReport.BlackGamesCount games (@_currentReport.BlackWins W / @_currentReport.BlackDraws D / @_currentReport.BlackLosses L)</span>
+						@RenderRatioBar(_currentReport.BlackWins, _currentReport.BlackDraws, _currentReport.BlackLosses, _currentReport.BlackGamesCount)
+					</div>
+
+					<div class="stat-pill-card">
+						<span class="stat-pill-label">Tactical Tendency</span>
+						<span class="stat-pill-value">@_currentReport.PlayingStyle</span>
+						<span class="stat-pill-sub">@_currentReport.LengthTendencies.ShortGamesCount short games (&lt;30 moves)</span>
+					</div>
+				</div>
+			</div>
+
+			<!-- Vulnerability Alerts (if detected) -->
+			@if (_currentReport.Vulnerabilities.Count > 0)
+			{
+				<div class="vulnerabilities-panel">
+					@foreach (var vuln in _currentReport.Vulnerabilities)
+					{
+						<div class="vulnerability-card">
+							<div class="vuln-header-row">
+								<span class="vuln-title">
+									<span>⚠️</span>
+									<span>@vuln.Title</span>
+								</span>
+								<span class="vuln-badge @(vuln.Severity == "High" ? "severity-high" : "severity-moderate")">
+									@vuln.Severity Priority
+								</span>
+							</div>
+							<div class="vuln-desc">@vuln.Description</div>
+							<div class="vuln-recommendation">🎯 Recommendation: @vuln.Recommendation</div>
+						</div>
+					}
+				</div>
+			}
+
+			<!-- Navigation Tabs inside Dossier -->
+			<nav class="dossier-nav-tabs">
+				<button class="dossier-tab-btn @(_activeSection == "white" ? "active" : "")" @onclick='() => _activeSection = "white"'>
+					<span>⚪ White Repertoire (@_currentReport.WhiteGamesCount)</span>
+				</button>
+				<button class="dossier-tab-btn @(_activeSection == "black" ? "active" : "")" @onclick='() => _activeSection = "black"'>
+					<span>⚫ Black Repertoire (@_currentReport.BlackGamesCount)</span>
+				</button>
+				<button class="dossier-tab-btn @(_activeSection == "style" ? "active" : "")" @onclick='() => _activeSection = "style"'>
+					<span>📊 Playing Style &amp; Phases</span>
+				</button>
+				<button class="dossier-tab-btn @(_activeSection == "games" ? "active" : "")" @onclick='() => _activeSection = "games"'>
+					<span>🗄️ Games Archive (@_currentReport.RecentGames.Count)</span>
+				</button>
+			</nav>
+
+			<!-- Section 1: White Repertoire -->
+			@if (_activeSection == "white")
+			{
+				<div class="repertoire-branches-grid">
+					@if (_currentReport.WhiteRepertoire.Count == 0)
+					{
+						<div class="dossier-empty-state">
+							<div class="empty-state-title">No games as White found</div>
+						</div>
+					}
+					else
+					{
+						@foreach (var branch in _currentReport.WhiteRepertoire)
+						{
+							<div class="repertoire-branch-card">
+								<div class="branch-card-header">
+									<div class="branch-move-title">
+										<span class="move-pill-tag">@branch.Move</span>
+										<span class="branch-cat-badge">@branch.Category</span>
+									</div>
+									<div class="branch-stat-summary">
+										<span><strong>@branch.GameCount</strong> games (@branch.FrequencyPct%)</span>
+										<span class="branch-score-highlight">Score: @branch.ScorePct%</span>
+										<span>(@branch.Wins W / @branch.Draws D / @branch.Losses L)</span>
+									</div>
+								</div>
+
+								@if (branch.KeyLines.Count > 0)
+								{
+									<table class="branch-lines-table">
+										<thead>
+											<tr>
+												<th>ECO</th>
+												<th>Opening Name</th>
+												<th>Key Sequence</th>
+												<th>Games</th>
+												<th>Score</th>
+												<th>Action</th>
+											</tr>
+										</thead>
+										<tbody>
+											@foreach (var line in branch.KeyLines)
+											{
+												<tr>
+													<td><strong>@line.Eco</strong></td>
+													<td>@line.Name</td>
+													<td>@line.MoveSequence</td>
+													<td>@line.GameCount</td>
+													<td><strong>@line.ScorePct%</strong> (@line.Wins/@line.Draws/@line.Losses)</td>
+													<td>
+														@if (line.SampleGameId.HasValue)
+														{
+															<button class="game-action-btn" @onclick="() => LoadGameById(line.SampleGameId.Value)" title="Open sample game in Stockfish Analysis">
+																Analyze
+															</button>
+														}
+													</td>
+												</tr>
+											}
+										</tbody>
+									</table>
+								}
+							</div>
+						}
+					}
+				</div>
+			}
+
+			<!-- Section 2: Black Repertoire -->
+			@if (_activeSection == "black")
+			{
+				<div class="repertoire-branches-grid">
+					@if (_currentReport.BlackRepertoire.Count == 0)
+					{
+						<div class="dossier-empty-state">
+							<div class="empty-state-title">No games as Black found</div>
+						</div>
+					}
+					else
+					{
+						@foreach (var branch in _currentReport.BlackRepertoire)
+						{
+							<div class="repertoire-branch-card">
+								<div class="branch-card-header">
+									<div class="branch-move-title">
+										<span class="move-pill-tag">@branch.Move</span>
+										<span class="branch-cat-badge">@branch.Category</span>
+									</div>
+									<div class="branch-stat-summary">
+										<span><strong>@branch.GameCount</strong> games (@branch.FrequencyPct%)</span>
+										<span class="branch-score-highlight">Score: @branch.ScorePct%</span>
+										<span>(@branch.Wins W / @branch.Draws D / @branch.Losses L)</span>
+									</div>
+								</div>
+
+								@if (branch.KeyLines.Count > 0)
+								{
+									<table class="branch-lines-table">
+										<thead>
+											<tr>
+												<th>ECO</th>
+												<th>Opening Name</th>
+												<th>Key Sequence</th>
+												<th>Games</th>
+												<th>Score</th>
+												<th>Action</th>
+											</tr>
+										</thead>
+										<tbody>
+											@foreach (var line in branch.KeyLines)
+											{
+												<tr>
+													<td><strong>@line.Eco</strong></td>
+													<td>@line.Name</td>
+													<td>@line.MoveSequence</td>
+													<td>@line.GameCount</td>
+													<td><strong>@line.ScorePct%</strong> (@line.Wins/@line.Draws/@line.Losses)</td>
+													<td>
+														@if (line.SampleGameId.HasValue)
+														{
+															<button class="game-action-btn" @onclick="() => LoadGameById(line.SampleGameId.Value)" title="Open sample game in Stockfish Analysis">
+																Analyze
+															</button>
+														}
+													</td>
+												</tr>
+											}
+										</tbody>
+									</table>
+								}
+							</div>
+						}
+					}
+				</div>
+			}
+
+			<!-- Section 3: Style & Tendencies -->
+			@if (_activeSection == "style")
+			{
+				<div class="style-tendencies-grid">
+					<div class="style-card">
+						<span class="style-card-title">Playing Style Profile</span>
+						<span class="hero-badge hero-badge-style">@_currentReport.PlayingStyle</span>
+						<p class="style-card-desc">@_currentReport.StyleDescription</p>
+					</div>
+
+					<div class="style-card">
+						<span class="style-card-title">Performance by Game Length</span>
+						<div class="stat-pill-sub">Short Games (&lt; 30 moves): <strong>@_currentReport.LengthTendencies.ShortGamesCount</strong> games (Score: @_currentReport.LengthTendencies.ShortGamesScore%)</div>
+						<div class="stat-pill-sub">Standard Games (30–49 moves): <strong>@_currentReport.LengthTendencies.MediumGamesCount</strong> games (Score: @_currentReport.LengthTendencies.MediumGamesScore%)</div>
+						<div class="stat-pill-sub">Deep Endgames (50+ moves): <strong>@_currentReport.LengthTendencies.LongGamesCount</strong> games (Score: @_currentReport.LengthTendencies.LongGamesScore%)</div>
+					</div>
+				</div>
+			}
+
+			<!-- Section 4: Games Archive -->
+			@if (_activeSection == "games")
+			{
+				<div class="dossier-games-table-wrapper">
+					<table class="dossier-games-table">
+						<thead>
+							<tr>
+								<th>Date</th>
+								<th>White</th>
+								<th>Black</th>
+								<th>Result</th>
+								<th>ECO</th>
+								<th>Moves</th>
+								<th>Action</th>
+							</tr>
+						</thead>
+						<tbody>
+							@foreach (var g in _currentReport.RecentGames)
+							{
+								<tr>
+									<td>@g.FormattedDate</td>
+									<td>@g.White @(g.WhiteElo.HasValue ? $"({g.WhiteElo})" : "")</td>
+									<td>@g.Black @(g.BlackElo.HasValue ? $"({g.BlackElo})" : "")</td>
+									<td>
+										<span class="@GetResultClass(g.Result)">@g.Result</span>
+									</td>
+									<td><strong>@g.Eco</strong></td>
+									<td>@(g.PlyCount > 0 ? (g.PlyCount / 2).ToString() : "-")</td>
+									<td>
+										<button class="game-action-btn" @onclick="() => OpenGameInAnalysis(g)">
+											Analyze
+										</button>
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			}
+		</div>
+	}
+</div>
+
+<!-- Fetch Online Modal -->
+@if (_showOnlineFetchModal)
+{
+	<div class="fetch-modal-overlay" @onclick="() => _showOnlineFetchModal = false">
+		<div class="fetch-modal-content" @onclick:stopPropagation>
+			<h3 class="modal-title">Fetch Opponent Games from Online</h3>
+			<p class="modal-desc">Download games directly from Lichess or Chess.com for instant scouting.</p>
+
+			<div class="modal-form-row">
+				<label class="field-label">Platform</label>
+				<select class="modal-input" @bind="_fetchPlatform">
+					<option value="Lichess">Lichess</option>
+					<option value="Chess.com">Chess.com</option>
+				</select>
+			</div>
+
+			<div class="modal-form-row">
+				<label class="field-label">Player Username</label>
+				<input class="modal-input" placeholder="e.g. DrNykterstein, MagnusCarlsen" @bind="_fetchUsername" />
+			</div>
+
+			@if (!string.IsNullOrEmpty(_fetchStatus))
+			{
+				<div class="stat-pill-sub">@_fetchStatus</div>
+			}
+
+			<div class="modal-actions">
+				<button class="dossier-action-btn" @onclick="() => _showOnlineFetchModal = false">Cancel</button>
+				<button class="dossier-action-btn btn-primary" @onclick="FetchOnlineAsync" disabled="@_isFetchingOnline">
+					@(_isFetchingOnline ? "Fetching..." : "Download & Scout")
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	[Parameter] public OpponentDossierTab Tab { get; set; } = default!;
+
+	private string _searchQuery = "";
+	private List<string> _suggestions = new();
+	private bool _showSuggestions = false;
+
+	private List<DatabaseInfo> _databases = new();
+	private string _selectedDb = "";
+
+	private bool _isLoading = false;
+	private OpponentScoutingReport? _currentReport;
+	private string _activeSection = "white";
+
+	// Online Fetch state
+	private bool _showOnlineFetchModal = false;
+	private string _fetchPlatform = "Lichess";
+	private string _fetchUsername = "";
+	private bool _isFetchingOnline = false;
+	private string _fetchStatus = "";
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadDatabasesAsync();
+
+		if (!string.IsNullOrEmpty(Tab.TargetPlayer))
+		{
+			_searchQuery = Tab.TargetPlayer;
+			await SearchPlayerAsync(_searchQuery);
+		}
+	}
+
+	private async Task LoadDatabasesAsync()
+	{
+		_databases = await DatabaseService.GetDatabasesAsync();
+		var active = await DatabaseService.GetActiveDatabaseAsync();
+		_selectedDb = active.Name;
+	}
+
+	private async Task HandleDbChanged(ChangeEventArgs e)
+	{
+		_selectedDb = e.Value?.ToString() ?? "";
+		if (!string.IsNullOrWhiteSpace(_searchQuery))
+		{
+			await SearchPlayerAsync(_searchQuery);
+		}
+	}
+
+	private async Task HandleKeyUp(KeyboardEventArgs e)
+	{
+		if (e.Key == "Enter")
+		{
+			_showSuggestions = false;
+			await SearchPlayerAsync(_searchQuery);
+			return;
+		}
+
+		if (_searchQuery.Trim().Length >= 2)
+		{
+			_suggestions = await DossierService.SearchKnownPlayersAsync(_searchQuery, _selectedDb);
+			_showSuggestions = _suggestions.Count > 0;
+		}
+		else
+		{
+			_showSuggestions = false;
+		}
+	}
+
+	private async Task SelectPlayer(string player)
+	{
+		_searchQuery = player;
+		_showSuggestions = false;
+		await SearchPlayerAsync(player);
+	}
+
+	private async Task SearchPlayerAsync(string playerName)
+	{
+		if (string.IsNullOrWhiteSpace(playerName)) return;
+
+		_isLoading = true;
+		_showSuggestions = false;
+		Tab.TargetPlayer = playerName.Trim();
+		StateHasChanged();
+
+		try
+		{
+			_currentReport = await DossierService.GenerateDossierAsync(playerName.Trim(), _selectedDb);
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[OpponentDossier] Error generating report: {ex.Message}");
+		}
+		finally
+		{
+			_isLoading = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task LoadGameById(long gameId)
+	{
+		var game = await DatabaseService.GetGameByIdAsync(_selectedDb, gameId);
+		if (game != null)
+		{
+			OpenGameInAnalysis(game);
+		}
+	}
+
+	private void OpenGameInAnalysis(GameHeader game)
+	{
+		string title = $"{game.White} vs {game.Black} ({game.FormattedDate})";
+		Workspace.CreateAnalysisTab(title: title, pgn: game.Pgn, targetDatabase: _selectedDb, databaseGameId: game.Id);
+	}
+
+	private async Task FetchOnlineAsync()
+	{
+		if (string.IsNullOrWhiteSpace(_fetchUsername)) return;
+
+		_isFetchingOnline = true;
+		_fetchStatus = $"Connecting to {_fetchPlatform} for '{_fetchUsername}'...";
+		StateHasChanged();
+
+		try
+		{
+			var result = await DossierService.FetchOnlineOpponentGamesAsync(_fetchPlatform, _fetchUsername, maxGames: 60);
+			if (result.Errors.Count > 0)
+			{
+				_fetchStatus = string.Join(" ", result.Errors);
+			}
+			else
+			{
+				_fetchStatus = $"Imported {result.TotalImported} games!";
+				_showOnlineFetchModal = false;
+				_searchQuery = _fetchUsername;
+				await SearchPlayerAsync(_fetchUsername);
+			}
+		}
+		catch (Exception ex)
+		{
+			_fetchStatus = $"Error: {ex.Message}";
+		}
+		finally
+		{
+			_isFetchingOnline = false;
+			StateHasChanged();
+		}
+	}
+
+	private void ExportPgnStudyAsync()
+	{
+		if (_currentReport == null || _currentReport.RecentGames.Count == 0) return;
+		var sb = new System.Text.StringBuilder();
+		foreach (var g in _currentReport.RecentGames)
+		{
+			sb.AppendLine(g.Pgn);
+			sb.AppendLine();
+		}
+		string pgnText = sb.ToString();
+		Workspace.CreateAnalysisTab(title: $"Dossier: {_currentReport.PlayerName}", pgn: pgnText);
+	}
+
+	private static string GetResultClass(string result) => result switch
+	{
+		"1-0" => "result-tag-win",
+		"0-1" => "result-tag-loss",
+		"1/2-1/2" => "result-tag-draw",
+		_ => ""
+	};
+
+	private static RenderFragment RenderRatioBar(int wins, int draws, int losses, int total) => builder =>
+	{
+		if (total <= 0) return;
+		double wPct = Math.Round(wins * 100.0 / total, 1);
+		double dPct = Math.Round(draws * 100.0 / total, 1);
+		double lPct = Math.Max(0.0, 100.0 - wPct - dPct);
+
+		builder.OpenElement(0, "svg");
+		builder.AddAttribute(1, "class", "ratio-svg");
+		builder.AddAttribute(2, "viewBox", "0 0 100 6");
+		builder.AddAttribute(3, "preserveAspectRatio", "none");
+
+		int seq = 4;
+		if (wPct > 0)
+		{
+			builder.OpenElement(seq++, "rect");
+			builder.AddAttribute(seq++, "x", "0");
+			builder.AddAttribute(seq++, "y", "0");
+			builder.AddAttribute(seq++, "width", wPct.ToString(System.Globalization.CultureInfo.InvariantCulture));
+			builder.AddAttribute(seq++, "height", "6");
+			builder.AddAttribute(seq++, "class", "bar-win");
+			builder.CloseElement();
+		}
+		if (dPct > 0)
+		{
+			builder.OpenElement(seq++, "rect");
+			builder.AddAttribute(seq++, "x", wPct.ToString(System.Globalization.CultureInfo.InvariantCulture));
+			builder.AddAttribute(seq++, "y", "0");
+			builder.AddAttribute(seq++, "width", dPct.ToString(System.Globalization.CultureInfo.InvariantCulture));
+			builder.AddAttribute(seq++, "height", "6");
+			builder.AddAttribute(seq++, "class", "bar-draw");
+			builder.CloseElement();
+		}
+		if (lPct > 0)
+		{
+			builder.OpenElement(seq++, "rect");
+			builder.AddAttribute(seq++, "x", (wPct + dPct).ToString(System.Globalization.CultureInfo.InvariantCulture));
+			builder.AddAttribute(seq++, "y", "0");
+			builder.AddAttribute(seq++, "width", lPct.ToString(System.Globalization.CultureInfo.InvariantCulture));
+			builder.AddAttribute(seq++, "height", "6");
+			builder.AddAttribute(seq++, "class", "bar-loss");
+			builder.CloseElement();
+		}
+
+		builder.CloseElement(); // svg
+	};
+
+	public void Dispose()
+	{
+	}
+}
