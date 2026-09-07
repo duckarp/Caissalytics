@@ -133,7 +133,9 @@
 		Tab.DatabaseGameId = gameId;
 		string white = Tab.Tree.Headers.GetValueOrDefault("White", "White");
 		string black = Tab.Tree.Headers.GetValueOrDefault("Black", "Black");
-		Tab.SetTitle($"{white} vs {black}");
+		string dateStr = DateHelper.Format(Tab.Tree.Headers.GetValueOrDefault("Date", ""));
+		string dateSuffix = string.IsNullOrEmpty(dateStr) ? "" : $" ({dateStr})";
+		Tab.SetTitle($"{white} vs {black}{dateSuffix}");
 		_showSaveModal = false;
 		StateHasChanged();
 	}
@@ -197,7 +199,7 @@
 
 	private void HandleReferenceGameOpened(GameHeader game)
 	{
-		string title = $"{game.White} vs {game.Black} ({game.Date})";
+		string title = $"{game.White} vs {game.Black} ({game.FormattedDate})";
 		Workspace.CreateAnalysisTab(title: title, pgn: game.Pgn);
 	}
 

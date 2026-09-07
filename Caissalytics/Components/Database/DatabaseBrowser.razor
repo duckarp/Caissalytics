@@ -145,7 +145,7 @@
 									<span class="ref-result-badge @GetResultClass(game.Result)">@game.Result</span>
 								</td>
 								<td class="col-eco">@game.Eco</td>
-								<td class="col-date">@game.Date</td>
+								<td class="col-date">@game.FormattedDate</td>
 								<td class="col-event" title="@game.Event">@game.Event</td>
 								<td class="col-moves">@game.PlyCount</td>
 								<td class="col-actions">
@@ -220,7 +220,7 @@
 					<div class="modal-warning-title">⚠️ Confirmation Required</div>
 					<div>Are you sure you want to delete this game from <strong>@_currentDbName</strong>?</div>
 					<div class="modal-game-summary">
-						@_gameToDelete.White vs @_gameToDelete.Black (@_gameToDelete.Date) • @_gameToDelete.Result
+						@_gameToDelete.White vs @_gameToDelete.Black (@_gameToDelete.FormattedDate) • @_gameToDelete.Result
 					</div>
 					<div class="modal-irreversible-warning">
 						This action cannot be undone. Do you want to continue?
@@ -418,7 +418,7 @@
 
 	private void OpenGameInAnalysis(GameHeader game)
 	{
-		string title = $"{game.White} vs {game.Black} ({game.Date})";
+		string title = $"{game.White} vs {game.Black} ({game.FormattedDate})";
 		Workspace.CreateAnalysisTab(title: title, pgn: game.Pgn, targetDatabase: _currentDbName, databaseGameId: game.Id);
 	}
 

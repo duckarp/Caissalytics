@@ -1,3 +1,5 @@
+using Caissalytics.Core;
+
 namespace Caissalytics.Data;
 
 public class DatabaseInfo
@@ -31,6 +33,7 @@ public class GameHeader
     public int? BlackElo { get; set; }
     public string Result { get; set; } = "*";
     public string Date { get; set; } = "????.??.??";
+    public string FormattedDate => DateHelper.Format(Date);
     public string Event { get; set; } = string.Empty;
     public string Site { get; set; } = string.Empty;
     public string Round { get; set; } = string.Empty;

@@ -84,8 +84,8 @@
 						</select>
 					</div>
 					<div class="modal-form-group">
-						<label class="filter-label">Date (YYYY.MM.DD)</label>
-						<input class="modal-input" placeholder="YYYY.MM.DD" @bind="_date" />
+						<label class="filter-label">Date (DD.MM.YYYY)</label>
+						<input class="modal-input" placeholder="DD.MM.YYYY" @bind="_date" />
 					</div>
 				</div>
 
@@ -168,7 +168,7 @@
 			_white = Tree.Headers.GetValueOrDefault("White", "White");
 			_black = Tree.Headers.GetValueOrDefault("Black", "Black");
 			_result = Tree.Headers.GetValueOrDefault("Result", "*");
-			_date = Tree.Headers.GetValueOrDefault("Date", DateTime.UtcNow.ToString("yyyy.MM.dd"));
+			_date = DateHelper.Format(Tree.Headers.GetValueOrDefault("Date", DateTime.UtcNow.ToString("dd.MM.yyyy")));
 			_event = Tree.Headers.GetValueOrDefault("Event", "Casual Game");
 			_eco = Tree.Headers.GetValueOrDefault("ECO", "");
 
@@ -205,11 +205,13 @@
 
 		try
 		{
+			string pgnDate = DateHelper.ToPgnDate(_date);
+
 			// Update Tree headers
 			Tree.Headers["White"] = _white;
 			Tree.Headers["Black"] = _black;
 			Tree.Headers["Result"] = _result;
-			Tree.Headers["Date"] = _date;
+			Tree.Headers["Date"] = pgnDate;
 			Tree.Headers["Event"] = _event;
 			if (_whiteElo.HasValue) Tree.Headers["WhiteElo"] = _whiteElo.Value.ToString();
 			if (_blackElo.HasValue) Tree.Headers["BlackElo"] = _blackElo.Value.ToString();
@@ -229,7 +231,7 @@
 				WhiteElo = _whiteElo,
 				BlackElo = _blackElo,
 				Result = _result,
-				Date = _date,
+				Date = pgnDate,
 				Event = _event,
 				Site = Tree.Headers.GetValueOrDefault("Site", ""),
 				Round = Tree.Headers.GetValueOrDefault("Round", ""),

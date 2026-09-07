@@ -103,7 +103,7 @@
 
 						<div class="ref-game-meta">
 							<span class="ref-result-badge @GetResultClass(game.Result)">@game.Result</span>
-							<span class="ref-game-submeta">@(string.IsNullOrEmpty(game.Date) ? "Unknown" : game.Date) @(string.IsNullOrEmpty(game.Eco) ? "" : $"• {game.Eco}")</span>
+							<span class="ref-game-submeta">@(string.IsNullOrEmpty(game.Date) ? "Unknown" : game.FormattedDate) @(string.IsNullOrEmpty(game.Eco) ? "" : $"• {game.Eco}")</span>
 						</div>
 					</div>
 				}
