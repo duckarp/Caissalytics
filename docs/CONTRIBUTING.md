@@ -101,6 +101,11 @@ To maintain pristine UI performance, crisp styling, and clean separation of conc
 - Code in `Caissalytics.Core` must remain pure C# with **zero** external UI or framework dependencies.
 - Any new move generation or notation parsing rules must include comprehensive unit tests.
 
+### 4. Continuous Documentation Maintenance
+- Whenever a feature, UI control, workflow, or configuration option is added or modified, the corresponding documentation **must** be updated as part of the pull request:
+  - User-facing capabilities, controls, and workflows -> `docs/FEATURES.md` and `README.md`
+  - Internal architecture, service contracts, schema, or system data flow -> `docs/ARCHITECTURE.md`
+
 ---
 
 ## 🧪 Testing Guidelines
