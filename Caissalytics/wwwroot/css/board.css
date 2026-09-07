@@ -102,6 +102,49 @@
   flex-shrink: 0;
 }
 
+/* Captured Material Tray & Advantage Score */
+.captured-material-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
+.captured-pieces-list {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.captured-piece {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+/* Consecutive pawns overlap slightly, identical to Lichess */
+.captured-piece.pawn + .captured-piece.pawn {
+  margin-left: -6px;
+}
+
+.material-advantage-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  line-height: 1;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  padding: 1px 4px;
+}
+
 /* Digital Chessboard Clock */
 .board-clock-badge {
   display: inline-flex;

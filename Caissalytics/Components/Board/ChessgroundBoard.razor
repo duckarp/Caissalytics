@@ -14,6 +14,7 @@
 				{
 					<span class="player-elo-badge">@TopPlayerElo</span>
 				}
+				@RenderCapturedMaterial(TopCapturedPieces, TopMaterialAdvantage)
 			</div>
 			@if (ClockState.HasClocks && !string.IsNullOrEmpty(TopClockFormatted))
 			{
@@ -66,6 +67,7 @@
 				{
 					<span class="player-elo-badge">@BottomPlayerElo</span>
 				}
+				@RenderCapturedMaterial(BottomCapturedPieces, BottomMaterialAdvantage)
 			</div>
 			@if (ClockState.HasClocks && !string.IsNullOrEmpty(BottomClockFormatted))
 			{
@@ -136,7 +138,15 @@
 	private string? BlackElo => Tree != null && Tree.Headers.TryGetValue("BlackElo", out var be) && !string.IsNullOrWhiteSpace(be) && be != "?" ? be : null;
 
 	private bool HasPlayerInfo => WhiteName != "White" || BlackName != "Black" || WhiteElo != null || BlackElo != null;
-	private bool ShowPlayerBars => Tree != null && (ClockState.HasClocks || HasPlayerInfo);
+	private bool ShowPlayerBars => Tree != null && (ClockState.HasClocks || HasPlayerInfo || MaterialState.HasCaptures);
+
+	private BoardMaterialState MaterialState => MaterialHelper.GetMaterialState(Position);
+
+	private List<CapturedPiece> TopCapturedPieces => TopPlayerIsWhite ? MaterialState.WhiteCaptured : MaterialState.BlackCaptured;
+	private int TopMaterialAdvantage => TopPlayerIsWhite ? MaterialState.WhiteAdvantage : MaterialState.BlackAdvantage;
+
+	private List<CapturedPiece> BottomCapturedPieces => BottomPlayerIsWhite ? MaterialState.WhiteCaptured : MaterialState.BlackCaptured;
+	private int BottomMaterialAdvantage => BottomPlayerIsWhite ? MaterialState.WhiteAdvantage : MaterialState.BlackAdvantage;
 
 	private bool TopPlayerIsWhite => Orientation != "white";
 	private bool BottomPlayerIsWhite => Orientation == "white";
@@ -154,6 +164,42 @@
 	private string? BottomClockFormatted => BottomPlayerIsWhite ? ClockState.WhiteClockFormatted : ClockState.BlackClockFormatted;
 	private bool BottomIsActive => !ClockState.IsGameOver && (BottomPlayerIsWhite ? ClockState.IsWhiteTurn : !ClockState.IsWhiteTurn);
 	private bool BottomIsLowTime => BottomPlayerIsWhite ? ClockState.WhiteLowTime : ClockState.BlackLowTime;
+
+	private static RenderFragment RenderCapturedMaterial(List<CapturedPiece> captured, int advantage) => builder =>
+	{
+		if (captured.Count == 0 && advantage <= 0) return;
+
+		builder.OpenElement(0, "div");
+		builder.AddAttribute(1, "class", "captured-material-group");
+
+		if (captured.Count > 0)
+		{
+			builder.OpenElement(2, "div");
+			builder.AddAttribute(3, "class", "captured-pieces-list");
+			int seq = 4;
+			foreach (var piece in captured)
+			{
+				builder.OpenElement(seq++, "span");
+				string colorClass = piece.Color == PieceColor.White ? "white" : "black";
+				string typeClass = piece.Type.ToString().ToLowerInvariant();
+				builder.AddAttribute(seq++, "class", $"captured-piece {typeClass} {colorClass}");
+				builder.AddAttribute(seq++, "title", $"Captured {colorClass} {typeClass}");
+				builder.CloseElement();
+			}
+			builder.CloseElement(); // captured-pieces-list
+		}
+
+		if (advantage > 0)
+		{
+			builder.OpenElement(100, "span");
+			builder.AddAttribute(101, "class", "material-advantage-badge");
+			builder.AddAttribute(102, "title", $"Material lead: +{advantage}");
+			builder.AddContent(103, $"+{advantage}");
+			builder.CloseElement();
+		}
+
+		builder.CloseElement(); // captured-material-group
+	};
 
 	private static RenderFragment RenderPieceIcon(bool isWhite) => builder =>
 	{
