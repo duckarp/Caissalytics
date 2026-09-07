@@ -51,15 +51,34 @@
 }
 
 .player-piece-indicator {
-  font-size: 16px;
-  line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.player-piece-indicator .piece-icon-svg {
   width: 18px;
   height: 18px;
-  color: var(--text-primary);
-  flex-shrink: 0;
+  display: block;
+}
+
+.player-piece-indicator .pawn-white-path {
+  fill: #ffffff;
+  stroke: #161b22;
+  stroke-width: 2.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.player-piece-indicator .pawn-black-path {
+  fill: #1f242c;
+  stroke: #9ca3af;
+  stroke-width: 2.5px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .player-name-text {

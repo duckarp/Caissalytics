@@ -8,7 +8,7 @@
 	{
 		<div class="board-player-bar top-bar">
 			<div class="player-info-group">
-				<span class="player-piece-indicator">@(TopPlayerIsWhite ? "♙" : "♟")</span>
+				@RenderPieceIcon(TopPlayerIsWhite)
 				<span class="player-name-text">@TopPlayerName</span>
 				@if (!string.IsNullOrEmpty(TopPlayerElo))
 				{
@@ -60,7 +60,7 @@
 	{
 		<div class="board-player-bar bottom-bar">
 			<div class="player-info-group">
-				<span class="player-piece-indicator">@(BottomPlayerIsWhite ? "♙" : "♟")</span>
+				@RenderPieceIcon(BottomPlayerIsWhite)
 				<span class="player-name-text">@BottomPlayerName</span>
 				@if (!string.IsNullOrEmpty(BottomPlayerElo))
 				{
@@ -154,6 +154,26 @@
 	private string? BottomClockFormatted => BottomPlayerIsWhite ? ClockState.WhiteClockFormatted : ClockState.BlackClockFormatted;
 	private bool BottomIsActive => !ClockState.IsGameOver && (BottomPlayerIsWhite ? ClockState.IsWhiteTurn : !ClockState.IsWhiteTurn);
 	private bool BottomIsLowTime => BottomPlayerIsWhite ? ClockState.WhiteLowTime : ClockState.BlackLowTime;
+
+	private static RenderFragment RenderPieceIcon(bool isWhite) => builder =>
+	{
+		builder.OpenElement(0, "span");
+		builder.AddAttribute(1, "class", isWhite ? "player-piece-indicator piece-white" : "player-piece-indicator piece-black");
+		builder.AddAttribute(2, "title", isWhite ? "White" : "Black");
+
+		builder.OpenElement(3, "svg");
+		builder.AddAttribute(4, "class", "piece-icon-svg");
+		builder.AddAttribute(5, "viewBox", "0 0 45 45");
+		builder.AddAttribute(6, "aria-hidden", "true");
+
+		builder.OpenElement(7, "path");
+		builder.AddAttribute(8, "class", isWhite ? "pawn-white-path" : "pawn-black-path");
+		builder.AddAttribute(9, "d", "M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z");
+		builder.CloseElement(); // path
+
+		builder.CloseElement(); // svg
+		builder.CloseElement(); // span
+	};
 
 	private readonly string _elementId = $"board_{Guid.NewGuid():N}";
 	private IJSObjectReference? _module;
