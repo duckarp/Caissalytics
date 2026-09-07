@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 
 namespace Caissalytics.Data;
@@ -19,10 +20,22 @@ public class OnlineGameSyncService : IOnlineGameSyncService
         _httpClientFactory = httpClientFactory;
 
         string configDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".local", "share", "Caissalytics");
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Caissalytics");
         Directory.CreateDirectory(configDir);
         _configFilePath = Path.Combine(configDir, "online_sync_config.json");
+
+        // Windows legacy migration if user had .local/share/Caissalytics
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && !File.Exists(_configFilePath))
+        {
+            string legacyPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".local", "share", "Caissalytics", "online_sync_config.json");
+            if (File.Exists(legacyPath))
+            {
+                try { File.Copy(legacyPath, _configFilePath, overwrite: false); } catch { }
+            }
+        }
     }
 
     public OnlineGameSyncService(

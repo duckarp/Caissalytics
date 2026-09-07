@@ -254,7 +254,7 @@
 									<label class="field-label">Executable File Path</label>
 									<div class="input-with-action-row">
 										<input class="field-input"
-											   placeholder="e.g. /usr/games/stockfish or /usr/local/bin/lc0"
+											   placeholder="e.g. /usr/games/stockfish, C:\Chess\stockfish.exe, or /usr/local/bin/lc0"
 											   @bind="_customExecutablePath"
 											   @bind:event="oninput" />
 										<button class="btn-primary"
@@ -289,7 +289,7 @@
 						{
 							<div class="scan-engine-box">
 								<p class="scan-desc">
-									Caissalytics can automatically inspect standard system directories (<code>/usr/games</code>, <code>/usr/bin</code>, <code>/usr/local/bin</code>)
+									Caissalytics can automatically inspect standard system directories
 									and search your system PATH for popular UCI engines (<code>stockfish</code>, <code>lc0</code>, <code>komodo</code>, <code>crafty</code>).
 								</p>
 

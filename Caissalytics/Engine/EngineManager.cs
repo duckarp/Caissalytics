@@ -68,7 +68,8 @@ public class EngineManager : IEngineService, IDisposable
             }
 
             // Ensure official Stockfish 17 is always in the registry
-            if (!_engines.Any(e => e.Id == "stockfish-17"))
+            var sf17 = _engines.FirstOrDefault(e => e.Id == "stockfish-17");
+            if (sf17 == null)
             {
                 _engines.Insert(0, new EngineInfo
                 {
@@ -76,13 +77,49 @@ public class EngineManager : IEngineService, IDisposable
                     Name = "Stockfish 17",
                     Version = "17.0",
                     Author = "The Stockfish Developers",
-                    DownloadUrl = "https://github.com/official-stockfish/Stockfish/releases/download/sf_17/stockfish-ubuntu-x86-64-avx2.tar",
+                    DownloadUrl = GetDefaultStockfishDownloadUrl(),
                     IsCustom = false
                 });
+            }
+            else if (!sf17.IsInstalled)
+            {
+                // Keep URL aligned with current platform if not yet installed
+                sf17.DownloadUrl = GetDefaultStockfishDownloadUrl();
             }
 
             UpdateActiveFlag();
         }
+    }
+
+    public static string GetDefaultStockfishDownloadUrl()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return "https://github.com/official-stockfish/Stockfish/releases/download/sf_17/stockfish-windows-x86-64-avx2.zip";
+        }
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return "https://github.com/official-stockfish/Stockfish/releases/download/sf_17/stockfish-macos-m1-apple-silicon.tar";
+        }
+        return "https://github.com/official-stockfish/Stockfish/releases/download/sf_17/stockfish-ubuntu-x86-64-avx2.tar";
+    }
+
+    private static string? FindExecutableInDirectory(string dir)
+    {
+        if (!Directory.Exists(dir)) return null;
+
+        var files = Directory.GetFiles(dir, "*", SearchOption.AllDirectories);
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return files.FirstOrDefault(f => f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
+        }
+
+        return files.FirstOrDefault(f =>
+            !f.EndsWith(".tar", StringComparison.OrdinalIgnoreCase) &&
+            !f.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
+            !f.EndsWith(".gz", StringComparison.OrdinalIgnoreCase) &&
+            !f.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) &&
+            !f.EndsWith(".md", StringComparison.OrdinalIgnoreCase));
     }
 
     private void SaveConfig()
@@ -131,8 +168,7 @@ public class EngineManager : IEngineService, IDisposable
                 string engineDir = Path.Combine(_engineStorageDir, eng.Id);
                 if (Directory.Exists(engineDir))
                 {
-                    var files = Directory.GetFiles(engineDir, "*", SearchOption.AllDirectories);
-                    var binary = files.FirstOrDefault(f => !f.EndsWith(".tar") && !f.EndsWith(".txt") && !f.EndsWith(".md"));
+                    var binary = FindExecutableInDirectory(engineDir);
                     if (binary != null)
                     {
                         eng.ExecutablePath = binary;
@@ -161,12 +197,22 @@ public class EngineManager : IEngineService, IDisposable
         var pathEnv = Environment.GetEnvironmentVariable("PATH");
         if (string.IsNullOrEmpty(pathEnv)) return null;
 
-        var paths = pathEnv.Split(Path.PathSeparator);
+        var extensions = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? new[] { ".exe", ".cmd", ".bat", "" }
+            : new[] { "" };
+
+        var paths = pathEnv.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
         foreach (var p in paths)
         {
-            string full = Path.Combine(p, binaryName);
-            if (File.Exists(full))
-                return full;
+            foreach (var ext in extensions)
+            {
+                string fullName = binaryName.EndsWith(ext, StringComparison.OrdinalIgnoreCase)
+                    ? binaryName
+                    : binaryName + ext;
+                string full = Path.Combine(p, fullName);
+                if (File.Exists(full))
+                    return full;
+            }
         }
         return null;
     }
@@ -221,32 +267,44 @@ public class EngineManager : IEngineService, IDisposable
         if (engine == null || string.IsNullOrEmpty(engine.DownloadUrl))
             return false;
 
+        string downloadUrl = engine.DownloadUrl;
+        if (engine.Id == "stockfish-17")
+        {
+            downloadUrl = GetDefaultStockfishDownloadUrl();
+        }
+
         string targetDir = Path.Combine(_engineStorageDir, engine.Id);
         Directory.CreateDirectory(targetDir);
-        string tempTar = Path.Combine(targetDir, "engine_download.tar");
+        bool isZip = downloadUrl.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+        string tempArchive = Path.Combine(targetDir, isZip ? "engine_download.zip" : "engine_download.tar");
 
         try
         {
             progress?.Report(10);
 
-            using (var response = await _httpClient.GetAsync(engine.DownloadUrl, HttpCompletionOption.ResponseHeadersRead))
+            using (var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead))
             {
                 response.EnsureSuccessStatusCode();
-                using var fs = new FileStream(tempTar, FileMode.Create, FileAccess.Write, FileShare.None);
+                using var fs = new FileStream(tempArchive, FileMode.Create, FileAccess.Write, FileShare.None);
                 await response.Content.CopyToAsync(fs);
             }
 
             progress?.Report(60);
 
-            TarFile.ExtractToDirectory(tempTar, targetDir, overwriteFiles: true);
+            if (isZip)
+            {
+                ZipFile.ExtractToDirectory(tempArchive, targetDir, overwriteFiles: true);
+            }
+            else
+            {
+                TarFile.ExtractToDirectory(tempArchive, targetDir, overwriteFiles: true);
+            }
 
-            try { File.Delete(tempTar); } catch { }
+            try { File.Delete(tempArchive); } catch { }
 
             progress?.Report(85);
 
-            var files = Directory.GetFiles(targetDir, "*", SearchOption.AllDirectories);
-            var binary = files.FirstOrDefault(f => !f.EndsWith(".tar") && !f.EndsWith(".txt") && !f.EndsWith(".md"));
-
+            var binary = FindExecutableInDirectory(targetDir);
             if (binary == null)
                 return false;
 
@@ -456,7 +514,14 @@ public class EngineManager : IEngineService, IDisposable
     public async Task<IReadOnlyList<EngineInfo>> ScanSystemEnginesAsync()
     {
         var candidateNames = new[] { "stockfish", "stockfish17", "stockfish16", "lc0", "komodo", "crafty" };
-        var candidateDirs = new[] { "/usr/games", "/usr/bin", "/usr/local/bin", "/opt/chess" };
+        var candidateDirs = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+            ? new[]
+            {
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ChessBase", "Engines"),
+                @"C:\Chess",
+                @"C:\Engines"
+            }
+            : new[] { "/usr/games", "/usr/bin", "/usr/local/bin", "/opt/chess" };
         var foundList = new List<string>();
 
         // Check candidate directories
@@ -470,6 +535,14 @@ public class EngineManager : IEngineService, IDisposable
                 if (File.Exists(path) && !foundList.Contains(path))
                 {
                     foundList.Add(path);
+                }
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    string exePath = Path.Combine(dir, name + ".exe");
+                    if (File.Exists(exePath) && !foundList.Contains(exePath))
+                    {
+                        foundList.Add(exePath);
+                    }
                 }
             }
         }

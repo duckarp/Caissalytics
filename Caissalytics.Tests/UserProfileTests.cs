@@ -123,4 +123,29 @@ public class UserProfileTests
         Assert.False(profile.MatchesPlayer("DrNykterstein"));
         Assert.False(profile.MatchesPlayer("Player", "1503014"));
     }
+
+    [Fact]
+    public async Task UserProfileService_DefaultConstructor_InitializesWithoutThrowing()
+    {
+        var service = new UserProfileService();
+        var profile = await service.GetProfileAsync();
+        Assert.NotNull(profile);
+    }
+
+    [Fact]
+    public void EngineManager_GetDefaultStockfishDownloadUrl_ReturnsPlatformValidUrl()
+    {
+        string url = Caissalytics.Engine.EngineManager.GetDefaultStockfishDownloadUrl();
+        Assert.False(string.IsNullOrEmpty(url));
+        Assert.StartsWith("https://github.com/official-stockfish/Stockfish/releases/download/", url);
+
+        if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
+        {
+            Assert.EndsWith(".zip", url);
+        }
+        else
+        {
+            Assert.EndsWith(".tar", url);
+        }
+    }
 }

@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text.Json;
 
 namespace Caissalytics.Data;
@@ -14,10 +15,22 @@ public class UserProfileService : IUserProfileService
     {
         _syncService = syncService;
         string configDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".local", "share", "Caissalytics");
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Caissalytics");
         Directory.CreateDirectory(configDir);
         _profileFilePath = Path.Combine(configDir, "user_profile.json");
+
+        // Windows legacy migration if user had .local/share/Caissalytics
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && !File.Exists(_profileFilePath))
+        {
+            string legacyPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".local", "share", "Caissalytics", "user_profile.json");
+            if (File.Exists(legacyPath))
+            {
+                try { File.Copy(legacyPath, _profileFilePath, overwrite: false); } catch { }
+            }
+        }
     }
 
     public UserProfileService(string customFilePath, IOnlineGameSyncService? syncService = null)

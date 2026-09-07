@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using System.Text;
 using Caissalytics.Core;
 using Microsoft.Data.Sqlite;
@@ -17,10 +18,34 @@ public class DatabaseManager : IDatabaseService
     public DatabaseManager()
     {
         _storageDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".local", "share", "Caissalytics", "databases");
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Caissalytics", "databases");
 
         Directory.CreateDirectory(_storageDir);
+
+        // Windows legacy migration if user had .local/share/Caissalytics/databases
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            string legacyDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+                ".local", "share", "Caissalytics", "databases");
+            if (Directory.Exists(legacyDir))
+            {
+                try
+                {
+                    foreach (var file in Directory.GetFiles(legacyDir, "*.db"))
+                    {
+                        string dest = Path.Combine(_storageDir, Path.GetFileName(file));
+                        if (!File.Exists(dest))
+                        {
+                            File.Copy(file, dest, overwrite: false);
+                        }
+                    }
+                }
+                catch { }
+            }
+        }
+
         _ = EnsureDefaultDatabaseAsync();
     }
 
