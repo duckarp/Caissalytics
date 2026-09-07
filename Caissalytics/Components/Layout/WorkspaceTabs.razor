@@ -40,6 +40,12 @@
 				<span class="header-db-name">Database</span>
 			</button>
 		}
+		<button class="btn-secondary header-puzzles-btn"
+				title="Puzzle Trainer & Personal Blunder Buster"
+				@onclick="() => Workspace.CreatePuzzleTrainerTab()">
+			<span>🧩</span>
+			<span class="header-puzzles-label">Puzzles</span>
+		</button>
 		<button class="btn-secondary header-analytics-btn"
 				title="Personal Chess Analytics & Performance Insights"
 				@onclick="() => Workspace.CreateAnalyticsTab()">

@@ -93,6 +93,10 @@
 
 			<!-- Actions -->
 			<div class="header-button-group">
+				<button class="btn-action-refresh" title="Train Blunders from Your Games" @onclick='() => Workspace.CreatePuzzleTrainerTab("blunders")'>
+					<span>🧩</span>
+					<span>Train Blunders</span>
+				</button>
 				<button class="btn-action-refresh" title="Refresh Analytics" disabled="@_isLoading" @onclick="LoadReportAsync">
 					<span>@(_isLoading ? "⏳" : "🔄")</span>
 					<span>Refresh</span>

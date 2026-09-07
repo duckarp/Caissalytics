@@ -16,6 +16,7 @@ appBuilder.Services.AddSingleton<IOnlineGameSyncService, OnlineGameSyncService>(
 appBuilder.Services.AddSingleton<IUserProfileService, UserProfileService>();
 appBuilder.Services.AddSingleton<IUserAnalyticsService, UserAnalyticsService>();
 appBuilder.Services.AddSingleton<IUpdateService, UpdateService>();
+appBuilder.Services.AddSingleton<IPuzzleService, PuzzleService>();
 appBuilder.Services.AddScoped<WorkspaceState>();
 
 // Register root desktop component

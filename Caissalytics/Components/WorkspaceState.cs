@@ -184,6 +184,19 @@ public class AnalyticsTab : WorkspaceTab
     }
 }
 
+public class PuzzleTrainerTab : WorkspaceTab
+{
+    public override string Title => "Puzzle Trainer";
+    public override string Icon => "🧩";
+    public string? InitialMode { get; set; }
+
+    public PuzzleTrainerTab(string? initialMode = null)
+    {
+        InitialMode = initialMode;
+    }
+}
+
+
 public class WorkspaceState
 {
     public List<WorkspaceTab> Tabs { get; } = new();
@@ -291,6 +304,27 @@ public class WorkspaceState
         return tab;
     }
 
+    public PuzzleTrainerTab CreatePuzzleTrainerTab(string? initialMode = null)
+    {
+        var existing = Tabs.OfType<PuzzleTrainerTab>().FirstOrDefault();
+        if (existing != null)
+        {
+            if (!string.IsNullOrEmpty(initialMode))
+            {
+                existing.InitialMode = initialMode;
+            }
+            ActiveTab = existing;
+            NotifyStateChanged();
+            return existing;
+        }
+
+        var tab = new PuzzleTrainerTab(initialMode);
+        Tabs.Add(tab);
+        ActiveTab = tab;
+        NotifyStateChanged();
+        return tab;
+    }
+
     public void SelectTab(Guid id)
     {
         var target = Tabs.FirstOrDefault(t => t.Id == id);
@@ -384,6 +418,15 @@ public class WorkspaceState
                         DatabaseScope = analytics.DatabaseScope
                     });
                     break;
+
+                case PuzzleTrainerTab puzzles:
+                    dto.Tabs.Add(new WorkspaceTabDto
+                    {
+                        Id = puzzles.Id,
+                        Type = "puzzles",
+                        Title = puzzles.Title
+                    });
+                    break;
             }
         }
 
@@ -457,6 +500,11 @@ public class WorkspaceState
                     {
                         var analyticsTab = new AnalyticsTab(tabDto.DatabaseScope) { Id = tabDto.Id };
                         Tabs.Add(analyticsTab);
+                    }
+                    else if (tabDto.Type == "puzzles")
+                    {
+                        var puzzlesTab = new PuzzleTrainerTab { Id = tabDto.Id };
+                        Tabs.Add(puzzlesTab);
                     }
                 }
 

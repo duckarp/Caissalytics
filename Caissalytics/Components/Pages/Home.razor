@@ -6,6 +6,7 @@
 @using Caissalytics.Components.Database
 @using Caissalytics.Components.Settings
 @using Caissalytics.Components.Analytics
+@using Caissalytics.Components.Puzzles
 @inject WorkspaceState Workspace
 @inject IJSRuntime JS
 @implements IAsyncDisposable
@@ -56,6 +57,14 @@ else
 			bool isActive = tab == Workspace.ActiveTab;
 			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
 				<PersonalAnalyticsDashboard Tab="tab" />
+			</div>
+		}
+
+		@foreach (var tab in Workspace.Tabs.OfType<PuzzleTrainerTab>())
+		{
+			bool isActive = tab == Workspace.ActiveTab;
+			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+				<PuzzleWorkbench Tab="tab" />
 			</div>
 		}
 	</div>

@@ -1,0 +1,499 @@
+@namespace Caissalytics.Components.Puzzles
+@using System.Diagnostics
+@using Caissalytics.Core
+@using Caissalytics.Data
+@using Caissalytics.Components.Board
+@inject IPuzzleService PuzzleService
+@inject IDatabaseService DatabaseService
+@inject WorkspaceState Workspace
+@implements IDisposable
+
+<div class="puzzles-workbench-container">
+	<!-- Left: Board & Turn Header -->
+	<div class="puzzles-board-area">
+		@if (_currentPuzzle != null)
+		{
+			<div class="puzzles-turn-indicator">
+				<div class="turn-pill">
+					<span class="turn-color-dot @(_currentPuzzle.PlayerColor == "white" ? "white" : "black")"></span>
+					<span>@(_currentPuzzle.PlayerColor == "white" ? "White to move" : "Black to move")</span>
+				</div>
+				<div class="puzzle-rating-tag" title="Puzzle Difficulty Rating">
+					<span>🎯 Est. Rating: @_currentPuzzle.Rating</span>
+				</div>
+				<div class="puzzle-rating-tag">
+					<span>#@(_currentIndex + 1) of @_puzzles.Count</span>
+				</div>
+			</div>
+
+			<ChessgroundBoard @ref="_boardRef"
+							  Position="@_puzzleTree.CurrentNode.Position"
+							  LastMove="@(_puzzleTree.CurrentNode.IsRoot ? null : _puzzleTree.CurrentNode.Move)"
+							  Orientation="@_orientation"
+							  CanGoBack="false"
+							  CanGoForward="false"
+							  Tree="@_puzzleTree"
+							  OnMoveMade="HandleMoveMade" />
+		}
+		else if (_isLoading)
+		{
+			<div class="puzzles-turn-indicator">
+				<span>Loading puzzles...</span>
+			</div>
+		}
+		else
+		{
+			<div class="puzzles-turn-indicator">
+				<span>No puzzles found for this filter.</span>
+			</div>
+		}
+	</div>
+
+	<!-- Right: Sidebar with Stats, Feedback, Context, and Actions -->
+	<div class="puzzles-sidebar">
+		<!-- 1. Stats Card -->
+		<div class="puzzles-card">
+			<div class="puzzles-stats-grid">
+				<div class="puzzles-stat-box">
+					<span class="stat-box-label">Puzzle Rating</span>
+					<span class="stat-box-value">@_stats.CurrentRating 🏆</span>
+				</div>
+				<div class="puzzles-stat-box">
+					<span class="stat-box-label">Current Streak</span>
+					<span class="stat-box-value @(_stats.CurrentStreak >= 3 ? "streak-hot" : "")">
+						🔥 @_stats.CurrentStreak
+					</span>
+				</div>
+				<div class="puzzles-stat-box">
+					<span class="stat-box-label">Solved</span>
+					<span class="stat-box-value">@_stats.SolvedCount / @_stats.TotalAttempts</span>
+				</div>
+				<div class="puzzles-stat-box">
+					<span class="stat-box-label">Accuracy</span>
+					<span class="stat-box-value">@($"{_stats.WinRate:F0}%")</span>
+				</div>
+			</div>
+
+			<!-- Mode Filter Buttons -->
+			<div class="puzzles-filter-row">
+				<button class="puzzles-filter-btn @(_filterMode == "all" ? "active" : "")"
+						@onclick='() => ChangeFilterMode("all")'>All</button>
+				<button class="puzzles-filter-btn @(_filterMode == "blunders" ? "active" : "")"
+						@onclick='() => ChangeFilterMode("blunders")'>My Blunders</button>
+				<button class="puzzles-filter-btn @(_filterMode == "curated" ? "active" : "")"
+						@onclick='() => ChangeFilterMode("curated")'>Master Tactics</button>
+				<button class="puzzles-filter-btn @(_filterMode == "review" ? "active" : "")"
+						@onclick='() => ChangeFilterMode("review")'>Review</button>
+			</div>
+		</div>
+
+		<!-- 2. Game Context Card -->
+		@if (_currentPuzzle != null)
+		{
+			<div class="puzzles-card">
+				<div class="puzzles-game-origin">
+					<div class="origin-header-row">
+						<span class="origin-badge @(_currentPuzzle.IsUserBlunder ? "blunder-badge" : "")">
+							@(_currentPuzzle.IsUserBlunder ? "Your Real Game" : _currentPuzzle.Source)
+						</span>
+						@if (!string.IsNullOrEmpty(_currentPuzzle.Opening))
+						{
+							<span class="origin-meta">@_currentPuzzle.Opening</span>
+						}
+					</div>
+					<h3 class="origin-players">@_currentPuzzle.WhitePlayer vs @_currentPuzzle.BlackPlayer</h3>
+					<p class="origin-meta">
+						@(!string.IsNullOrEmpty(_currentPuzzle.Event) ? _currentPuzzle.Event : "")
+						@(!string.IsNullOrEmpty(_currentPuzzle.Date) ? $" ({_currentPuzzle.Date})" : "")
+					</p>
+					@if (!string.IsNullOrEmpty(_currentPuzzle.PlayedBlunderSan))
+					{
+						<p class="origin-meta">
+							Game move: <strong class="feedback-moves-sequence">@_currentPuzzle.PlayedBlunderSan</strong>
+						</p>
+					}
+				</div>
+
+				<!-- Feedback & State Alerts -->
+				@if (_solveState == SolveState.Solving)
+				{
+					<div class="puzzles-feedback-box feedback-prompt">
+						<div class="feedback-headline">
+							<span>🎯</span>
+							<span>Your turn! Find the best move for @(_currentPuzzle.PlayerColor == "white" ? "White" : "Black")</span>
+						</div>
+						@if (_solutionStep > 0)
+						{
+							<p class="feedback-explanation">Good move! Now find the continuation...</p>
+						}
+					</div>
+				}
+				else if (_solveState == SolveState.Success)
+				{
+					<div class="puzzles-feedback-box feedback-success">
+						<div class="feedback-headline">
+							<span>🎉</span>
+							<span>Solved! +15 Rating</span>
+						</div>
+						<p class="feedback-explanation">@_currentPuzzle.Explanation</p>
+						<div class="feedback-moves-sequence">
+							Solution: @string.Join(" ", _currentPuzzle.SolutionMovesSan)
+						</div>
+					</div>
+				}
+				else if (_solveState == SolveState.BlunderPlayed)
+				{
+					<div class="puzzles-feedback-box feedback-blunder">
+						<div class="feedback-headline">
+							<span>⚠️</span>
+							<span>You played the real-game blunder!</span>
+						</div>
+						<p class="feedback-explanation">
+							In the game, @_currentPuzzle.PlayedBlunderSan was played. Can you find the winning tactical alternative?
+						</p>
+					</div>
+				}
+				else if (_solveState == SolveState.WrongMove)
+				{
+					<div class="puzzles-feedback-box feedback-wrong">
+						<div class="feedback-headline">
+							<span>❌</span>
+							<span>Not quite the best move.</span>
+						</div>
+						<p class="feedback-explanation">Try again or reveal the tactical solution below.</p>
+					</div>
+				}
+				else if (_solveState == SolveState.SolutionRevealed)
+				{
+					<div class="puzzles-feedback-box feedback-prompt">
+						<div class="feedback-headline">
+							<span>💡</span>
+							<span>Solution Revealed</span>
+						</div>
+						<p class="feedback-explanation">@_currentPuzzle.Explanation</p>
+						<div class="feedback-moves-sequence">
+							Winning moves: @string.Join(" ", _currentPuzzle.SolutionMovesSan)
+						</div>
+					</div>
+				}
+
+				<!-- Action Buttons -->
+				<div class="puzzles-action-row">
+					@if (_solveState == SolveState.Success || _solveState == SolveState.SolutionRevealed)
+					{
+						<button class="btn-puzzle btn-next" @onclick="NextPuzzle">
+							<span>Next Puzzle</span>
+							<span>➔</span>
+						</button>
+					}
+					else
+					{
+						<button class="btn-puzzle btn-secondary-action" @onclick="ShowSolution">
+							<span>💡 Solution</span>
+						</button>
+						<button class="btn-puzzle btn-secondary-action" @onclick="ResetPuzzle">
+							<span>↺ Reset</span>
+						</button>
+						<button class="btn-puzzle btn-secondary-action" @onclick="NextPuzzle">
+							<span>Skip</span>
+						</button>
+					}
+
+					<button class="btn-puzzle btn-secondary-action" @onclick="OpenInAnalysisBoard" title="Explore position in Stockfish Analysis Board">
+						<span>♟️ Analyze</span>
+					</button>
+				</div>
+			</div>
+		}
+
+		<!-- 3. Extract / Scan Card -->
+		<div class="puzzles-card">
+			<div class="puzzles-extract-box">
+				<h4 class="extract-box-title">Extract My Blunders</h4>
+				<p class="extract-box-desc">
+					Automatically scan your synced online games (or active database) for mistakes and generate personal blunder drills.
+				</p>
+				<button class="btn-extract" @onclick="ExtractUserBlundersAsync" disabled="@_isExtracting">
+					@if (_isExtracting)
+					{
+						<span>⏳ Scanning games...</span>
+					}
+					else
+					{
+						<span>🔍 Scan Games for Blunders</span>
+					}
+				</button>
+				@if (!string.IsNullOrEmpty(_extractStatus))
+				{
+					<p class="extract-box-desc">@_extractStatus</p>
+				}
+			</div>
+		</div>
+	</div>
+</div>
+
+@code {
+	[Parameter, EditorRequired] public PuzzleTrainerTab Tab { get; set; } = default!;
+
+	private enum SolveState
+	{
+		Solving,
+		Success,
+		BlunderPlayed,
+		WrongMove,
+		SolutionRevealed
+	}
+
+	private ChessgroundBoard? _boardRef;
+	private PuzzleStats _stats = new();
+	private List<ChessPuzzle> _puzzles = new();
+	private int _currentIndex = 0;
+	private ChessPuzzle? _currentPuzzle;
+	private GameTree _puzzleTree = new();
+	private string _orientation = "white";
+	private int _solutionStep = 0;
+	private SolveState _solveState = SolveState.Solving;
+	private string _filterMode = "all";
+	private bool _isLoading = true;
+	private bool _isExtracting = false;
+	private string? _extractStatus;
+	private readonly Stopwatch _stopwatch = new();
+
+	protected override async Task OnInitializedAsync()
+	{
+		PuzzleService.OnPuzzleStatsChanged += HandleStatsChanged;
+		_stats = await PuzzleService.GetStatsAsync();
+
+		if (!string.IsNullOrEmpty(Tab.InitialMode))
+		{
+			_filterMode = Tab.InitialMode;
+		}
+
+		await LoadPuzzlesAsync();
+	}
+
+	private async void HandleStatsChanged()
+	{
+		_stats = await PuzzleService.GetStatsAsync();
+		await InvokeAsync(StateHasChanged);
+	}
+
+	private async Task ChangeFilterMode(string mode)
+	{
+		if (_filterMode == mode) return;
+		_filterMode = mode;
+		_currentIndex = 0;
+		await LoadPuzzlesAsync();
+	}
+
+	private async Task LoadPuzzlesAsync()
+	{
+		_isLoading = true;
+		_extractStatus = null;
+		StateHasChanged();
+
+		var filter = new PuzzleFilterOptions { Mode = _filterMode };
+		_puzzles = await PuzzleService.GetPuzzlesAsync(filter);
+		_isLoading = false;
+
+		if (_puzzles.Count > 0)
+		{
+			if (_currentIndex >= _puzzles.Count) _currentIndex = 0;
+			SetupPuzzle(_currentIndex);
+		}
+		else
+		{
+			_currentPuzzle = null;
+		}
+
+		StateHasChanged();
+	}
+
+	private void SetupPuzzle(int index)
+	{
+		if (index < 0 || index >= _puzzles.Count) return;
+
+		_currentIndex = index;
+		_currentPuzzle = _puzzles[index];
+		_puzzleTree = new GameTree(_currentPuzzle.Fen);
+		_orientation = _currentPuzzle.PlayerColor;
+		_solutionStep = 0;
+		_solveState = SolveState.Solving;
+		_stopwatch.Restart();
+
+		if (_boardRef != null)
+		{
+			_ = _boardRef.UpdateBoardStateAsync(_puzzleTree.CurrentNode.Position, null);
+		}
+	}
+
+	private async Task HandleMoveMade(Move move)
+	{
+		if (_currentPuzzle == null || _solveState == SolveState.Success || _solveState == SolveState.SolutionRevealed)
+		{
+			return;
+		}
+
+		var pos = _puzzleTree.CurrentNode.Position;
+		string playedSan = SanParser.ToSan(pos, move);
+
+		if (_solutionStep < _currentPuzzle.SolutionMovesSan.Count)
+		{
+			string expectedSan = _currentPuzzle.SolutionMovesSan[_solutionStep];
+
+			if (string.Equals(playedSan, expectedSan, StringComparison.OrdinalIgnoreCase))
+			{
+				// Correct move!
+				_puzzleTree.AddMove(move);
+				_solutionStep++;
+
+				if (_boardRef != null)
+				{
+					await _boardRef.UpdateBoardStateAsync(_puzzleTree.CurrentNode.Position, move);
+				}
+
+				if (_solutionStep >= _currentPuzzle.SolutionMovesSan.Count)
+				{
+					// Puzzle fully solved!
+					_solveState = SolveState.Success;
+					_stopwatch.Stop();
+					int timeSpent = (int)_stopwatch.Elapsed.TotalSeconds;
+					await PuzzleService.RecordAttemptAsync(_currentPuzzle.Id, isSuccess: true, timeSpent);
+					StateHasChanged();
+				}
+				else
+				{
+					// Opponent's counter-move
+					StateHasChanged();
+					await Task.Delay(350);
+
+					if (_solutionStep < _currentPuzzle.SolutionMovesSan.Count)
+					{
+						string replySan = _currentPuzzle.SolutionMovesSan[_solutionStep];
+						var replyMove = SanParser.ParseSan(_puzzleTree.CurrentNode.Position, replySan);
+						if (!replyMove.IsEmpty)
+						{
+							_puzzleTree.AddMove(replyMove);
+							_solutionStep++;
+							if (_boardRef != null)
+							{
+								await _boardRef.UpdateBoardStateAsync(_puzzleTree.CurrentNode.Position, replyMove);
+							}
+						}
+					}
+					StateHasChanged();
+				}
+				return;
+			}
+		}
+
+		// Wrong move!
+		bool isRealGameBlunder = !string.IsNullOrEmpty(_currentPuzzle.PlayedBlunderSan) &&
+			(playedSan.StartsWith(_currentPuzzle.PlayedBlunderSan.TrimEnd('?', '!')) ||
+			 _currentPuzzle.PlayedBlunderSan.StartsWith(playedSan));
+
+		_solveState = isRealGameBlunder ? SolveState.BlunderPlayed : SolveState.WrongMove;
+		_stopwatch.Stop();
+		int timeSpentFail = (int)_stopwatch.Elapsed.TotalSeconds;
+		await PuzzleService.RecordAttemptAsync(_currentPuzzle.Id, isSuccess: false, timeSpentFail);
+
+		// Revert to position before wrong move
+		if (_boardRef != null)
+		{
+			await _boardRef.UpdateBoardStateAsync(_puzzleTree.CurrentNode.Position, _puzzleTree.CurrentNode.IsRoot ? null : _puzzleTree.CurrentNode.Move);
+		}
+
+		StateHasChanged();
+	}
+
+	private void ResetPuzzle()
+	{
+		if (_currentPuzzle == null) return;
+		SetupPuzzle(_currentIndex);
+		StateHasChanged();
+	}
+
+	private void ShowSolution()
+	{
+		if (_currentPuzzle == null) return;
+		_solveState = SolveState.SolutionRevealed;
+
+		// Play through all remaining solution moves on the board
+		while (_solutionStep < _currentPuzzle.SolutionMovesSan.Count)
+		{
+			string san = _currentPuzzle.SolutionMovesSan[_solutionStep];
+			var move = SanParser.ParseSan(_puzzleTree.CurrentNode.Position, san);
+			if (move.IsEmpty) break;
+			_puzzleTree.AddMove(move);
+			_solutionStep++;
+		}
+
+		if (_boardRef != null)
+		{
+			_ = _boardRef.UpdateBoardStateAsync(_puzzleTree.CurrentNode.Position, _puzzleTree.CurrentNode.Move);
+		}
+
+		StateHasChanged();
+	}
+
+	private void NextPuzzle()
+	{
+		if (_puzzles.Count == 0) return;
+		_currentIndex = (_currentIndex + 1) % _puzzles.Count;
+		SetupPuzzle(_currentIndex);
+		StateHasChanged();
+	}
+
+	private void OpenInAnalysisBoard()
+	{
+		if (_currentPuzzle == null) return;
+
+		string pgn = PgnHandler.ExportPgn(_puzzleTree);
+		Workspace.CreateAnalysisTab(
+			title: $"Analysis: {_currentPuzzle.Title}",
+			pgn: pgn,
+			startFen: _currentPuzzle.Fen,
+			targetDatabase: _currentPuzzle.DatabaseName,
+			databaseGameId: _currentPuzzle.GameId);
+	}
+
+	private async Task ExtractUserBlundersAsync()
+	{
+		_isExtracting = true;
+		_extractStatus = null;
+		StateHasChanged();
+
+		try
+		{
+			string targetDb = "My online games";
+			var dbs = await DatabaseService.GetDatabasesAsync();
+			var onlineDb = dbs.FirstOrDefault(d => string.Equals(d.Name, targetDb, StringComparison.OrdinalIgnoreCase));
+			if (onlineDb == null || onlineDb.GameCount == 0)
+			{
+				var active = await DatabaseService.GetActiveDatabaseAsync();
+				targetDb = active.Name;
+			}
+
+			int found = await PuzzleService.ExtractPuzzlesFromDatabaseAsync(targetDb);
+			_extractStatus = found > 0
+				? $"Extracted {found} tactical blunders from '{targetDb}'!"
+				: $"No blunder annotations found in '{targetDb}'. Try analyzing your games with Stockfish first!";
+
+			await LoadPuzzlesAsync();
+		}
+		catch (Exception ex)
+		{
+			_extractStatus = $"Extraction error: {ex.Message}";
+		}
+		finally
+		{
+			_isExtracting = false;
+			StateHasChanged();
+		}
+	}
+
+	public void Dispose()
+	{
+		PuzzleService.OnPuzzleStatsChanged -= HandleStatsChanged;
+	}
+}
