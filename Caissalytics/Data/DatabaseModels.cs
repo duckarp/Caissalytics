@@ -11,6 +11,7 @@ public class DatabaseInfo
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime LastModified { get; set; } = DateTime.UtcNow;
     public bool IsActive { get; set; }
+    public bool IsReference { get; set; }
 
     public string FormattedSize
     {
@@ -22,6 +23,18 @@ public class DatabaseInfo
             return $"{SizeBytes / (1024.0 * 1024.0 * 1024.0):F2} GB";
         }
     }
+}
+
+public class MasterCatalogItem
+{
+    public string Id { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Tag { get; set; } = "Curated";
+    public string DatabaseName { get; set; } = string.Empty;
+    public int EstimatedGameCount { get; set; }
+    public string Era { get; set; } = string.Empty;
+    public bool IsInstalled { get; set; }
 }
 
 public class GameHeader

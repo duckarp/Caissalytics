@@ -13,7 +13,7 @@
 			<select class="reference-db-select" value="@_selectedDb" @onchange="HandleDatabaseSelected">
 				@foreach (var db in _databases)
 				{
-					<option value="@db.Name">@db.Name (@db.GameCount games)</option>
+					<option value="@db.Name">@db.Name @(db.IsReference ? "⭐ [Ref]" : "") (@db.GameCount games)</option>
 				}
 			</select>
 		</div>
@@ -150,6 +150,7 @@
 	protected override async Task OnInitializedAsync()
 	{
 		DatabaseService.OnActiveDatabaseChanged += HandleActiveDatabaseChanged;
+		DatabaseService.OnReferenceDatabaseChanged += HandleReferenceDatabaseChanged;
 		ProfileService.OnProfileChanged += HandleProfileChanged;
 		await LoadProfileAsync();
 		await RefreshDatabasesAsync();
@@ -181,10 +182,15 @@
 	private async Task RefreshDatabasesAsync()
 	{
 		_databases = await DatabaseService.GetDatabasesAsync();
-		var active = _databases.FirstOrDefault(d => d.IsActive) ?? _databases.FirstOrDefault();
-		if (active != null)
+		if (string.IsNullOrEmpty(_selectedDb) || !_databases.Any(d => string.Equals(d.Name, _selectedDb, StringComparison.OrdinalIgnoreCase)))
 		{
-			_selectedDb = active.Name;
+			var refDb = _databases.FirstOrDefault(d => d.IsReference) 
+			            ?? _databases.FirstOrDefault(d => d.IsActive) 
+			            ?? _databases.FirstOrDefault();
+			if (refDb != null)
+			{
+				_selectedDb = refDb.Name;
+			}
 		}
 		await QueryPositionStatsAsync();
 	}
@@ -212,11 +218,19 @@
 	private async Task HandleDatabaseSelected(ChangeEventArgs e)
 	{
 		_selectedDb = e.Value?.ToString() ?? "";
-		await DatabaseService.SetActiveDatabaseAsync(_selectedDb);
 		await QueryPositionStatsAsync();
 	}
 
 	private async void HandleActiveDatabaseChanged()
+	{
+		await InvokeAsync(async () =>
+		{
+			_databases = await DatabaseService.GetDatabasesAsync();
+			StateHasChanged();
+		});
+	}
+
+	private async void HandleReferenceDatabaseChanged()
 	{
 		await InvokeAsync(async () =>
 		{
@@ -255,6 +269,7 @@
 	public void Dispose()
 	{
 		DatabaseService.OnActiveDatabaseChanged -= HandleActiveDatabaseChanged;
+		DatabaseService.OnReferenceDatabaseChanged -= HandleReferenceDatabaseChanged;
 		ProfileService.OnProfileChanged -= HandleProfileChanged;
 	}
 }

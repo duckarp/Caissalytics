@@ -1036,4 +1036,297 @@
   line-height: 1.4;
 }
 
+/* ==========================================================================
+   Master Reference Library & Reference Database Styles
+   ========================================================================== */
+
+.db-card-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.db-badge-reference {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.22) 0%, rgba(202, 138, 4, 0.12) 100%);
+  border: 1px solid rgba(234, 179, 8, 0.5);
+  color: #fbbf24;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  letter-spacing: 0.02em;
+}
+
+.db-card-btn-ref {
+  color: #fbbf24;
+  border-color: rgba(234, 179, 8, 0.35);
+}
+
+.db-card-btn-ref:hover {
+  background-color: rgba(234, 179, 8, 0.15);
+  border-color: #fbbf24;
+  color: #fef08a;
+}
+
+.btn-header-ref {
+  border-color: rgba(234, 179, 8, 0.4);
+  color: #fbbf24;
+}
+
+.btn-header-ref:hover {
+  background-color: rgba(234, 179, 8, 0.15);
+  border-color: #fbbf24;
+}
+
+.btn-master-lib {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(99, 102, 241, 0.15) 100%);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: var(--text-primary);
+}
+
+.btn-master-lib:hover {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.22) 0%, rgba(99, 102, 241, 0.25) 100%);
+  border-color: rgba(99, 102, 241, 0.7);
+}
+
+/* Master Library Modal */
+.master-lib-modal {
+  max-width: 820px;
+  width: 95vw;
+}
+
+.master-lib-header-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.master-lib-header-info .modal-icon {
+  font-size: 28px;
+}
+
+.master-lib-header-info .modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.master-lib-header-info .modal-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 2px 0 0 0;
+}
+
+.master-lib-body {
+  padding: 16px 20px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.master-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+}
+
+.master-card {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  transition: all var(--transition-fast);
+}
+
+.master-card:hover {
+  border-color: var(--border-focus);
+  transform: translateY(-1px);
+}
+
+.master-card-installed {
+  border-color: rgba(46, 160, 67, 0.35);
+  background: linear-gradient(180deg, rgba(46, 160, 67, 0.05) 0%, var(--bg-surface-elevated) 100%);
+}
+
+.master-card-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.master-tag {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.master-tag-recommended {
+  background-color: rgba(234, 179, 8, 0.18);
+  color: #fbbf24;
+  border: 1px solid rgba(234, 179, 8, 0.35);
+}
+
+.master-tag-classical {
+  background-color: rgba(59, 130, 246, 0.18);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+}
+
+.master-tag-modern {
+  background-color: rgba(168, 85, 247, 0.18);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+}
+
+.master-era {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.master-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.master-card-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  margin: 0;
+  flex: 1;
+}
+
+.master-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 10px;
+  margin-top: 4px;
+}
+
+.master-games-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
+.master-installed-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.master-installed-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-success);
+}
+
+.btn-xs-reference {
+  background-color: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.35);
+  color: #fbbf24;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.btn-xs-reference:hover {
+  background-color: rgba(234, 179, 8, 0.25);
+  border-color: #fbbf24;
+}
+
+.btn-install-master {
+  background-color: var(--accent-blue);
+  color: #ffffff;
+  border: none;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast);
+}
+
+.btn-install-master:hover {
+  background-color: #2b7fff;
+}
+
+/* Install Progress Card */
+.master-install-progress-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.master-install-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--border-subtle);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.master-install-status-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.install-progress-track {
+  width: 100%;
+  max-width: 400px;
+  height: 8px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.install-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-blue), #6366f1);
+  transition: width 0.25s ease;
+}
+
+.install-progress-pct {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+/* Percentage utility classes for progress without inline styles */
+.prog-w-0   { width: 0%; }
+.prog-w-10  { width: 10%; }
+.prog-w-20  { width: 20%; }
+.prog-w-30  { width: 30%; }
+.prog-w-40  { width: 40%; }
+.prog-w-50  { width: 50%; }
+.prog-w-60  { width: 60%; }
+.prog-w-70  { width: 70%; }
+.prog-w-80  { width: 80%; }
+.prog-w-90  { width: 90%; }
+.prog-w-100 { width: 100%; }
+
 

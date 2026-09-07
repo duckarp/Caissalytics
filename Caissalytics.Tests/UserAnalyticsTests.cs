@@ -10,14 +10,19 @@ public class UserAnalyticsTests
     {
         public List<GameHeader> Headers { get; set; } = new();
         public event Action? OnActiveDatabaseChanged;
+        public event Action? OnReferenceDatabaseChanged;
         public event Action<string>? OnDatabaseModified;
 
         public Task<List<GameHeader>> GetAllGameHeadersAsync(string? databaseName = null) => Task.FromResult(Headers);
         public Task<List<DatabaseInfo>> GetDatabasesAsync() => Task.FromResult(new List<DatabaseInfo>());
         public Task<DatabaseInfo> GetActiveDatabaseAsync() => Task.FromResult(new DatabaseInfo { Name = "Default" });
         public Task SetActiveDatabaseAsync(string name) => Task.CompletedTask;
+        public Task<string> GetReferenceDatabaseAsync() => Task.FromResult("ClassicalMasters");
+        public Task SetReferenceDatabaseAsync(string name) => Task.CompletedTask;
         public Task<DatabaseInfo> CreateDatabaseAsync(string name) => Task.FromResult(new DatabaseInfo { Name = name });
         public Task<bool> DeleteDatabaseAsync(string name) => Task.FromResult(true);
+        public Task<List<MasterCatalogItem>> GetMasterCatalogAsync() => Task.FromResult(new List<MasterCatalogItem>());
+        public Task InstallMasterDatabaseAsync(string catalogId, IProgress<(int current, int total, string status)>? progress = null, CancellationToken cancellationToken = default) => Task.CompletedTask;
         public Task<PositionReferenceResult> QueryPositionAsync(string? databaseName, ulong zobristKey, int maxGames = 25) => Task.FromResult(new PositionReferenceResult());
         public Task<(List<GameHeader> Games, int TotalCount)> SearchGamesAsync(string? databaseName, GameFilter filter) => Task.FromResult((Headers, Headers.Count));
         public Task<GameHeader?> GetGameByIdAsync(string? databaseName, long gameId) => Task.FromResult(Headers.FirstOrDefault(h => h.Id == gameId));

@@ -487,4 +487,64 @@ public class DatabaseTests : IDisposable
         var (gamesFinal, countFinal) = await _dbManager.SearchGamesAsync("RewriteTest", new GameFilter());
         Assert.Equal(2, countFinal);
     }
+
+    [Fact]
+    public async Task SetReferenceDatabase_PersistsAndFlagsIsReference()
+    {
+        await _dbManager.CreateDatabaseAsync("Masters1");
+        await _dbManager.CreateDatabaseAsync("Masters2");
+
+        await _dbManager.SetReferenceDatabaseAsync("Masters2");
+        string refDb = await _dbManager.GetReferenceDatabaseAsync();
+        Assert.Equal("Masters2", refDb);
+
+        var dbs = await _dbManager.GetDatabasesAsync();
+        var m2 = dbs.FirstOrDefault(d => d.Name == "Masters2");
+        var m1 = dbs.FirstOrDefault(d => d.Name == "Masters1");
+
+        Assert.NotNull(m2);
+        Assert.True(m2.IsReference);
+        Assert.NotNull(m1);
+        Assert.False(m1.IsReference);
+
+        // Verify persistence across new DatabaseManager instance
+        var dbManager2 = new DatabaseManager(_testDir);
+        string refDb2 = await dbManager2.GetReferenceDatabaseAsync();
+        Assert.Equal("Masters2", refDb2);
+    }
+
+    [Fact]
+    public async Task MasterCatalog_ReturnsAvailableCollections()
+    {
+        var catalog = await _dbManager.GetMasterCatalogAsync();
+        Assert.NotEmpty(catalog);
+        Assert.Contains(catalog, c => c.Id == "world-champions");
+        Assert.Contains(catalog, c => c.Id == "grandmaster-classics");
+        Assert.Contains(catalog, c => c.Id == "candidates-matches");
+    }
+
+    [Fact]
+    public async Task InstallMasterDatabase_InstallsAndIndexesOpeningTree()
+    {
+        var progressReports = new List<string>();
+        var progress = new Progress<(int current, int total, string status)>(p =>
+        {
+            progressReports.Add(p.status);
+        });
+
+        await _dbManager.InstallMasterDatabaseAsync("world-champions", progress);
+
+        var dbs = await _dbManager.GetDatabasesAsync();
+        var installed = dbs.FirstOrDefault(d => d.Name == "WorldChampions");
+        Assert.NotNull(installed);
+        Assert.True(installed.GameCount >= 10);
+        Assert.True(installed.IsReference);
+
+        // Verify opening tree position querying
+        var startPos = FenParser.Parse(BoardPosition.StartFen);
+        var result = await _dbManager.QueryPositionAsync("WorldChampions", startPos.ZobristKey);
+        Assert.NotNull(result);
+        Assert.True(result.TotalPositionGames >= 10);
+        Assert.Contains(result.CandidateMoves, m => m.MoveSan == "e4" || m.MoveSan == "d4");
+    }
 }

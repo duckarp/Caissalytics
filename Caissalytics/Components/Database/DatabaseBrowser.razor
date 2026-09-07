@@ -25,35 +25,43 @@
 				<div class="db-card @(isSelected ? "db-card-active" : "")" @onclick="() => SelectDatabaseAsync(db.Name)">
 					<div class="db-card-top">
 						<span class="db-card-name">@db.Name</span>
-						@if (db.IsActive)
-						{
-							<span class="db-badge-active">Active</span>
-						}
+						<div class="db-card-badges">
+							@if (db.IsReference)
+							{
+								<span class="db-badge-reference" title="Designated reference database for opening analysis">⭐ Reference</span>
+							}
+							@if (db.IsActive)
+							{
+								<span class="db-badge-active">Active</span>
+							}
+						</div>
 					</div>
 					<div class="db-card-meta">
 						<span>@db.GameCount.ToString("N0") games</span>
 						<span>•</span>
 						<span>@db.FormattedSize</span>
 					</div>
-					@if (_databases.Count > 1 || isOnlineDb)
-					{
-						<div class="db-card-actions">
-							@if (isOnlineDb)
-							{
-								<button class="db-card-btn db-card-btn-sync" title="Sync online games from Lichess &amp; Chess.com" @onclick:stopPropagation="true" @onclick="OpenOnlineSyncModal">🔄 Sync</button>
-							}
-							@if (_databases.Count > 1)
-							{
-								<button class="db-card-btn" title="Delete database" @onclick:stopPropagation="true" @onclick="() => PromptDeleteDatabase(db)">🗑️ Delete</button>
-							}
-						</div>
-					}
+					<div class="db-card-actions">
+						@if (!db.IsReference)
+						{
+							<button class="db-card-btn db-card-btn-ref" title="Set as primary reference database for opening analysis" @onclick:stopPropagation="true" @onclick="() => SetAsReferenceDb(db.Name)">⭐ Set Ref</button>
+						}
+						@if (isOnlineDb)
+						{
+							<button class="db-card-btn db-card-btn-sync" title="Sync online games from Lichess &amp; Chess.com" @onclick:stopPropagation="true" @onclick="OpenOnlineSyncModal">🔄 Sync</button>
+						}
+						@if (_databases.Count > 1)
+						{
+							<button class="db-card-btn" title="Delete database" @onclick:stopPropagation="true" @onclick="() => PromptDeleteDatabase(db)">🗑️ Delete</button>
+						}
+					</div>
 				</div>
 			}
 		</div>
 
 		<div class="db-sidebar-footer">
 			<button class="btn-primary" @onclick="AddNewGame">+ Add a new game</button>
+			<button class="btn-secondary btn-master-lib" @onclick="OpenMasterLibraryModal">📚 Master Library</button>
 			<button class="btn-secondary" @onclick="() => _showImportModal = true">📥 Import PGN</button>
 		</div>
 	</div>
@@ -63,10 +71,19 @@
 		<div class="db-main-header">
 			<div class="db-title-group">
 				<h2 class="db-current-title">@_currentDbName</h2>
+				@if (IsCurrentDbReference)
+				{
+					<span class="db-badge-reference" title="Primary Reference Database for opening analysis">⭐ Reference DB</span>
+				}
 				<span class="db-game-count-badge">@_totalCount.ToString("N0") games</span>
 			</div>
 
 			<div class="db-header-actions">
+				@if (!IsCurrentDbReference)
+				{
+					<button class="btn-secondary btn-header-ref" title="Designate this database as the Master Reference for opening analysis" @onclick="() => SetAsReferenceDb(_currentDbName)">⭐ Set as Reference</button>
+				}
+				<button class="btn-secondary btn-master-lib" @onclick="OpenMasterLibraryModal">📚 Master Library</button>
 				@if (IsOnlineGamesDb(_currentDbName))
 				{
 					<button class="btn-secondary" @onclick="OpenOnlineSyncModal">🔄 Sync games</button>
@@ -300,6 +317,74 @@
 	</div>
 }
 
+<!-- Master Reference Library Modal -->
+@if (_showMasterLibModal)
+{
+	<div class="modal-backdrop" @onclick="CloseMasterLibraryModal">
+		<div class="modal-dialog master-lib-modal" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<div class="master-lib-header-info">
+					<span class="modal-icon">📚</span>
+					<div>
+						<h3 class="modal-title">Master Reference Library</h3>
+						<p class="modal-subtitle">Curated Grandmaster collections to power your Opening Explorer and game study.</p>
+					</div>
+				</div>
+				<button class="modal-close-btn" @onclick="CloseMasterLibraryModal" disabled="@_isInstallingMaster">✕</button>
+			</div>
+			<div class="modal-body master-lib-body">
+				@if (_isInstallingMaster)
+				{
+					<div class="master-install-progress-card">
+						<div class="master-install-spinner"></div>
+						<div class="master-install-status-text">@_installStatus</div>
+						<div class="install-progress-track">
+							<div class="install-progress-bar @($"prog-w-{(int)Math.Round(_installProgressPct / 10.0) * 10}")"></div>
+						</div>
+						<span class="install-progress-pct">@_installProgressPct%</span>
+					</div>
+				}
+				else
+				{
+					<div class="master-catalog-grid">
+						@foreach (var item in _masterCatalog)
+						{
+							<div class="master-card @(item.IsInstalled ? "master-card-installed" : "")">
+								<div class="master-card-top-row">
+									<span class="master-tag master-tag-@item.Tag.ToLowerInvariant()">@item.Tag</span>
+									<span class="master-era">@item.Era</span>
+								</div>
+								<h4 class="master-card-title">@item.Title</h4>
+								<p class="master-card-desc">@item.Description</p>
+								<div class="master-card-footer">
+									<span class="master-games-count">@item.EstimatedGameCount games</span>
+									@if (item.IsInstalled)
+									{
+										<div class="master-installed-actions">
+											<span class="master-installed-badge">✓ Installed</span>
+											@if (!string.Equals(item.DatabaseName, _referenceDbName, StringComparison.OrdinalIgnoreCase))
+											{
+												<button class="btn-xs-reference" title="Designate as primary reference database" @onclick="() => SetAsReferenceDb(item.DatabaseName)">Set as Ref</button>
+											}
+										</div>
+									}
+									else
+									{
+										<button class="btn-install-master" @onclick="() => InstallMasterCollection(item.Id)">Install Collection</button>
+									}
+								</div>
+							</div>
+						}
+					</div>
+				}
+			</div>
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="CloseMasterLibraryModal" disabled="@_isInstallingMaster">Close</button>
+			</div>
+		</div>
+	</div>
+}
+
 <!-- Online Games Sync Dialog -->
 <OnlineGamesSyncDialog IsOpen="_showOnlineSyncModal"
 					   OnClose="HandleSyncDialogClosed"
@@ -310,6 +395,7 @@
 
 	private List<DatabaseInfo> _databases = new();
 	private string _currentDbName = "ClassicalMasters";
+	private string _referenceDbName = "ClassicalMasters";
 	private List<GameHeader> _games = new();
 	private int _totalCount = 0;
 	private bool _isLoading = false;
@@ -325,6 +411,14 @@
 	private DatabaseInfo? _dbToDelete;
 	private bool _showOnlineSyncModal = false;
 	private UserProfile _userProfile = new();
+
+	private bool _showMasterLibModal = false;
+	private bool _isInstallingMaster = false;
+	private string _installStatus = "";
+	private int _installProgressPct = 0;
+	private List<MasterCatalogItem> _masterCatalog = new();
+
+	private bool IsCurrentDbReference => string.Equals(_currentDbName, _referenceDbName, StringComparison.OrdinalIgnoreCase);
 
 	private bool IsOnlineGamesDb(string? name) =>
 		string.Equals(name, SyncService.OnlineGamesDatabaseName, StringComparison.OrdinalIgnoreCase);
@@ -342,6 +436,7 @@
 	protected override async Task OnInitializedAsync()
 	{
 		DatabaseService.OnActiveDatabaseChanged += HandleActiveDatabaseChanged;
+		DatabaseService.OnReferenceDatabaseChanged += HandleReferenceDatabaseChanged;
 		DatabaseService.OnDatabaseModified += HandleDatabaseModified;
 		ProfileService.OnProfileChanged += HandleProfileChanged;
 		await LoadProfileAsync();
@@ -365,6 +460,7 @@
 	private async Task LoadDatabasesAsync()
 	{
 		_databases = await DatabaseService.GetDatabasesAsync();
+		_referenceDbName = await DatabaseService.GetReferenceDatabaseAsync();
 		if (!_databases.Any(d => string.Equals(d.Name, _currentDbName, StringComparison.OrdinalIgnoreCase)))
 		{
 			var active = _databases.FirstOrDefault(d => d.IsActive) ?? _databases.FirstOrDefault();
@@ -374,6 +470,71 @@
 			}
 		}
 		await LoadGamesAsync();
+	}
+
+	private async Task SetAsReferenceDb(string dbName)
+	{
+		await DatabaseService.SetReferenceDatabaseAsync(dbName);
+		_referenceDbName = dbName;
+		await LoadDatabasesAsync();
+	}
+
+	private async Task OpenMasterLibraryModal()
+	{
+		_showMasterLibModal = true;
+		_isInstallingMaster = false;
+		_masterCatalog = await DatabaseService.GetMasterCatalogAsync();
+	}
+
+	private void CloseMasterLibraryModal()
+	{
+		if (!_isInstallingMaster)
+		{
+			_showMasterLibModal = false;
+		}
+	}
+
+	private async Task InstallMasterCollection(string catalogId)
+	{
+		_isInstallingMaster = true;
+		_installStatus = "Initializing installation...";
+		_installProgressPct = 0;
+		StateHasChanged();
+
+		var progress = new Progress<(int current, int total, string status)>(p =>
+		{
+			_installProgressPct = p.total > 0 ? (int)((double)p.current / p.total * 100) : p.current;
+			_installStatus = p.status;
+			StateHasChanged();
+		});
+
+		try
+		{
+			await DatabaseService.InstallMasterDatabaseAsync(catalogId, progress);
+			await Task.Delay(300);
+			_masterCatalog = await DatabaseService.GetMasterCatalogAsync();
+			await LoadDatabasesAsync();
+			_showMasterLibModal = false;
+		}
+		catch (Exception ex)
+		{
+			_installStatus = $"Installation error: {ex.Message}";
+		}
+		finally
+		{
+			_isInstallingMaster = false;
+			StateHasChanged();
+		}
+	}
+
+	private async void HandleReferenceDatabaseChanged()
+	{
+		await InvokeAsync(async () =>
+		{
+			_referenceDbName = await DatabaseService.GetReferenceDatabaseAsync();
+			_databases = await DatabaseService.GetDatabasesAsync();
+			StateHasChanged();
+		});
 	}
 
 	private async Task SelectDatabaseAsync(string dbName)
@@ -586,6 +747,7 @@
 	public void Dispose()
 	{
 		DatabaseService.OnActiveDatabaseChanged -= HandleActiveDatabaseChanged;
+		DatabaseService.OnReferenceDatabaseChanged -= HandleReferenceDatabaseChanged;
 		DatabaseService.OnDatabaseModified -= HandleDatabaseModified;
 		ProfileService.OnProfileChanged -= HandleProfileChanged;
 	}
