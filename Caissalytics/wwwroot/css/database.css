@@ -768,3 +768,157 @@
   color: var(--accent-danger-hover);
 }
 
+/* --- Online Games Sync Modal --- */
+.sync-modal-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sync-modal-icon {
+  font-size: 16px;
+}
+
+.sync-stage-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-blue);
+  margin-top: 4px;
+}
+
+.sync-target-info-card {
+  background-color: rgba(56, 139, 253, 0.08);
+  border: 1px solid rgba(56, 139, 253, 0.25);
+  border-radius: 6px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sync-target-icon {
+  font-size: 22px;
+}
+
+.sync-target-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sync-target-title {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.sync-target-subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.platform-input-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.platform-label-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.platform-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.platform-badge-lichess {
+  background-color: rgba(255, 255, 255, 0.1);
+  color: #f0f0f0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.platform-badge-chesscom {
+  background-color: rgba(129, 182, 76, 0.15);
+  color: #81b64c;
+  border: 1px solid rgba(129, 182, 76, 0.3);
+}
+
+.sync-notice-box {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.sync-notice-icon {
+  font-size: 14px;
+  margin-top: 1px;
+}
+
+.sync-notice-text {
+  flex: 1;
+}
+
+.sync-breakdown-card {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 12px 14px;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.sync-breakdown-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.sync-breakdown-total {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sync-stat-number {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--accent-blue);
+}
+
+.sync-error-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+  text-align: left;
+}
+
+.sync-error-item {
+  background-color: rgba(218, 54, 51, 0.12);
+  border: 1px solid var(--accent-danger);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--accent-danger);
+  line-height: 1.4;
+}
+
+

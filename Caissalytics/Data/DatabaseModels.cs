@@ -87,6 +87,7 @@ public class PgnImportProgress
 {
     public int GamesParsed { get; set; }
     public int GamesSaved { get; set; }
+    public int GamesSkipped { get; set; }
     public long BytesProcessed { get; set; }
     public long TotalBytes { get; set; }
     public string CurrentStage { get; set; } = "Initializing";

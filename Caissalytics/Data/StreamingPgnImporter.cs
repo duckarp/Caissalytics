@@ -15,11 +15,13 @@ public class StreamingPgnImporter
         TextReader reader,
         long totalBytes = 0,
         IProgress<PgnImportProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool deduplicate = false)
     {
         var stopwatch = Stopwatch.StartNew();
         int gamesParsed = 0;
         int gamesSaved = 0;
+        int gamesSkipped = 0;
         long bytesProcessed = 0;
 
         using var connection = new SqliteConnection(connectionString);
@@ -65,6 +67,11 @@ public class StreamingPgnImporter
         var ppMoveSan = insertPosCmd.Parameters.Add("$next_move_san", SqliteType.Text);
         var ppMoveUci = insertPosCmd.Parameters.Add("$next_move_uci", SqliteType.Text);
         var ppResult = insertPosCmd.Parameters.Add("$result", SqliteType.Text);
+
+        var checkExistsCmd = connection.CreateCommand();
+        checkExistsCmd.Transaction = transaction;
+        checkExistsCmd.CommandText = "SELECT 1 FROM games WHERE site = $site LIMIT 1;";
+        var pCheckSite = checkExistsCmd.Parameters.Add("$site", SqliteType.Text);
 
         var headerLines = new List<string>();
         var movetext = new StringBuilder();
@@ -127,6 +134,7 @@ public class StreamingPgnImporter
             {
                 GamesParsed = gamesParsed,
                 GamesSaved = gamesSaved,
+                GamesSkipped = gamesSkipped,
                 BytesProcessed = bytesProcessed,
                 TotalBytes = Math.Max(totalBytes, bytesProcessed),
                 CurrentStage = "Complete",
@@ -161,6 +169,28 @@ public class StreamingPgnImporter
                 else if (movesStr.EndsWith("1/2-1/2")) result = "1/2-1/2";
             }
 
+            // Normalize canonical game URL (for Lichess and Chess.com)
+            string site = headers.GetValueOrDefault("Site", "");
+            if (string.IsNullOrWhiteSpace(site) || site == "Chess.com" || site == "?")
+            {
+                if (headers.TryGetValue("Link", out var link) && !string.IsNullOrWhiteSpace(link))
+                {
+                    site = link;
+                }
+            }
+
+            // Deduplication check: skip if game URL already exists
+            if (deduplicate && !string.IsNullOrWhiteSpace(site))
+            {
+                pCheckSite.Value = site;
+                var exists = await checkExistsCmd.ExecuteScalarAsync(cancellationToken);
+                if (exists != null && Convert.ToInt64(exists) > 0)
+                {
+                    gamesSkipped++;
+                    return;
+                }
+            }
+
             // Build full PGN text for game storage
             var rawPgn = new StringBuilder();
             foreach (var hl in headerLines) rawPgn.AppendLine(hl);
@@ -175,7 +205,7 @@ public class StreamingPgnImporter
             pResult.Value = result;
             pDate.Value = headers.GetValueOrDefault("Date", "????.??.??");
             pEvent.Value = headers.GetValueOrDefault("Event", "");
-            pSite.Value = headers.GetValueOrDefault("Site", "");
+            pSite.Value = site;
             pRound.Value = headers.GetValueOrDefault("Round", "");
             pEco.Value = headers.GetValueOrDefault("ECO", "");
             pPgn.Value = rawPgn.ToString();
@@ -234,11 +264,13 @@ public class StreamingPgnImporter
                 transaction = connection.BeginTransaction();
                 insertGameCmd.Transaction = transaction;
                 insertPosCmd.Transaction = transaction;
+                checkExistsCmd.Transaction = transaction;
 
                 progress?.Report(new PgnImportProgress
                 {
                     GamesParsed = gamesParsed,
                     GamesSaved = gamesSaved,
+                    GamesSkipped = gamesSkipped,
                     BytesProcessed = bytesProcessed,
                     TotalBytes = Math.Max(totalBytes, bytesProcessed),
                     CurrentStage = "Importing",

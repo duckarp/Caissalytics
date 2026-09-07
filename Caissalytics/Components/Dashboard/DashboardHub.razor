@@ -1,5 +1,6 @@
 @namespace Caissalytics.Components.Dashboard
 @using Caissalytics.Data
+@using Caissalytics.Components.Database
 @inject WorkspaceState Workspace
 @inject IEngineService EngineService
 @inject IDatabaseService DatabaseService
@@ -30,6 +31,12 @@
 			<p class="card-description">Import a game or study from your computer. Supports full notation, branching variations, and annotations.</p>
 			<InputFile OnChange="HandlePgnUpload" class="hidden-file-input" accept=".pgn" />
 		</label>
+
+		<div class="action-card" @onclick="() => _showOnlineSyncModal = true">
+			<div class="card-icon">🌐</div>
+			<h2 class="card-title">My Online Games</h2>
+			<p class="card-description">Sync and analyze your games from Lichess and Chess.com into your local database.</p>
+		</div>
 	</div>
 
 	<div class="dashboard-section">
@@ -99,11 +106,22 @@
 	</div>
 </div>
 
+<OnlineGamesSyncDialog IsOpen="_showOnlineSyncModal"
+					   OnClose="() => _showOnlineSyncModal = false"
+					   OnDatabaseSelected="HandleOnlineDbSelected" />
+
 @code {
 	private EngineInfo? _activeEngine;
 	private DatabaseInfo? _activeDb;
 	private bool _isInstalling = false;
 	private int _installProgress = 0;
+	private bool _showOnlineSyncModal = false;
+
+	private async Task HandleOnlineDbSelected(string dbName)
+	{
+		await DatabaseService.SetActiveDatabaseAsync(dbName);
+		Workspace.CreateDatabaseTab();
+	}
 
 	protected override async Task OnInitializedAsync()
 	{

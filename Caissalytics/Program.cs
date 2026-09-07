@@ -20,9 +20,11 @@ builder.Services.Configure<Microsoft.AspNetCore.SignalR.HubOptions>(options =>
     options.MaximumReceiveMessageSize = 10 * 1024 * 1024; // 10 MB
 });
 
+builder.Services.AddHttpClient();
 builder.Services.AddSingleton<IEngineService, EngineManager>();
 builder.Services.AddSingleton<IDatabaseService, DatabaseManager>();
 builder.Services.AddSingleton<IGameAnalysisService, GameAnalysisService>();
+builder.Services.AddSingleton<IOnlineGameSyncService, OnlineGameSyncService>();
 builder.Services.AddScoped<WorkspaceState>();
 
 var app = builder.Build();

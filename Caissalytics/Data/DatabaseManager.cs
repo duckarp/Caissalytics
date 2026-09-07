@@ -566,14 +566,15 @@ public class DatabaseManager : IDatabaseService
         string databaseName,
         Stream stream,
         IProgress<PgnImportProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool deduplicate = false)
     {
         string path = GetDbPath(databaseName);
         await InitializeSchemaAsync(path);
 
         using var reader = new StreamReader(stream, Encoding.UTF8);
         long totalBytes = stream.CanSeek ? stream.Length : 0;
-        await _importer.ImportAsync($"Data Source={path}", reader, totalBytes, progress, cancellationToken);
+        await _importer.ImportAsync($"Data Source={path}", reader, totalBytes, progress, cancellationToken, deduplicate);
         OnDatabaseModified?.Invoke(databaseName);
         OnActiveDatabaseChanged?.Invoke();
     }
@@ -582,14 +583,15 @@ public class DatabaseManager : IDatabaseService
         string databaseName,
         string pgnText,
         IProgress<PgnImportProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool deduplicate = false)
     {
         string path = GetDbPath(databaseName);
         await InitializeSchemaAsync(path);
 
         using var reader = new StringReader(pgnText);
         long totalBytes = Encoding.UTF8.GetByteCount(pgnText);
-        await _importer.ImportAsync($"Data Source={path}", reader, totalBytes, progress, cancellationToken);
+        await _importer.ImportAsync($"Data Source={path}", reader, totalBytes, progress, cancellationToken, deduplicate);
         OnDatabaseModified?.Invoke(databaseName);
         OnActiveDatabaseChanged?.Invoke();
     }
@@ -624,6 +626,7 @@ public class DatabaseManager : IDatabaseService
             CREATE INDEX IF NOT EXISTS idx_games_black ON games(black);
             CREATE INDEX IF NOT EXISTS idx_games_eco ON games(eco);
             CREATE INDEX IF NOT EXISTS idx_games_date ON games(date);
+            CREATE INDEX IF NOT EXISTS idx_games_site ON games(site);
 
             CREATE TABLE IF NOT EXISTS positions (
                 game_id INTEGER NOT NULL,

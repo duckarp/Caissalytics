@@ -1,0 +1,298 @@
+@namespace Caissalytics.Components.Database
+@using Caissalytics.Data
+@inject IOnlineGameSyncService SyncService
+@inject IDatabaseService DatabaseService
+
+@if (IsOpen)
+{
+	<div class="modal-backdrop" @onclick="HandleBackdropClick">
+		<div class="modal-dialog modal-dialog-large" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<div class="sync-modal-title-group">
+					<span class="sync-modal-icon">🌐</span>
+					<h3 class="modal-title">Sync My Online Games</h3>
+				</div>
+				<button class="modal-close-btn" @onclick="CloseDialog">✕</button>
+			</div>
+
+			<div class="modal-body">
+				@if (_isSyncing)
+				{
+					<div class="progress-container">
+						<div class="progress-bar-track">
+							<div class="progress-bar-fill @($"bar-w-{_progress.PercentComplete}")"></div>
+						</div>
+
+						<div class="sync-stage-text">@_progress.CurrentStage</div>
+
+						<div class="progress-stats-grid">
+							<div>Platform: @(_progress.Platform.Length > 0 ? _progress.Platform : "Syncing")</div>
+							<div>Progress: @_progress.PercentComplete%</div>
+							<div>Games Processed: @_progress.GamesDownloaded</div>
+							<div>New Games Saved: @_progress.GamesImported</div>
+							<div>Duplicates Skipped: @_progress.GamesSkipped</div>
+							<div>Target DB: @SyncService.OnlineGamesDatabaseName</div>
+						</div>
+					</div>
+				}
+				else if (_isFinished && _result != null)
+				{
+					<div class="reference-empty-state">
+						@if (_result.Success)
+						{
+							<span class="empty-state-icon">✅</span>
+							<h4>Sync Completed!</h4>
+							<p>Successfully synced online games into <strong>@SyncService.OnlineGamesDatabaseName</strong> in @_result.Duration.ToString(@"mm\:ss").</p>
+
+							<div class="sync-breakdown-card">
+								<div class="sync-breakdown-row">
+									<span>♞ Lichess Games Added:</span>
+									<span class="sync-stat-number">@_result.TotalLichessGames</span>
+								</div>
+								<div class="sync-breakdown-row">
+									<span>♟️ Chess.com Games Added:</span>
+									<span class="sync-stat-number">@_result.TotalChessComGames</span>
+								</div>
+								<div class="sync-breakdown-row sync-breakdown-total">
+									<span>Total Games in Database:</span>
+									<span class="sync-stat-number">@_existingGamesCount.ToString("N0")</span>
+								</div>
+							</div>
+						}
+						else
+						{
+							<span class="empty-state-icon">⚠️</span>
+							<h4>Sync Finished with Issues</h4>
+						}
+
+						@if (_result.Errors.Count > 0)
+						{
+							<div class="sync-error-list">
+								@foreach (var err in _result.Errors)
+								{
+									<div class="sync-error-item">⚠️ @err</div>
+								}
+							</div>
+						}
+					</div>
+				}
+				else
+				{
+					<div class="sync-target-info-card">
+						<div class="sync-target-icon">📁</div>
+						<div class="sync-target-details">
+							<div class="sync-target-title">Target Database: <strong>@SyncService.OnlineGamesDatabaseName</strong></div>
+							<div class="sync-target-subtitle">
+								@if (_databaseExists)
+								{
+									<span>Currently contains @_existingGamesCount.ToString("N0") games.</span>
+								}
+								else
+								{
+									<span>Will be automatically created on first sync.</span>
+								}
+							</div>
+						</div>
+					</div>
+
+					<div class="modal-form-group">
+						<div class="platform-input-header">
+							<div class="platform-label-group">
+								<span class="platform-badge platform-badge-lichess">♞ Lichess</span>
+								<span class="filter-label">Username</span>
+							</div>
+						</div>
+						<input class="modal-input"
+							   placeholder="e.g. magnuscarlsen"
+							   @bind="_config.LichessUsername"
+							   @bind:event="oninput" />
+					</div>
+
+					<div class="modal-form-group">
+						<div class="platform-input-header">
+							<div class="platform-label-group">
+								<span class="platform-badge platform-badge-chesscom">♟️ Chess.com</span>
+								<span class="filter-label">Username</span>
+							</div>
+						</div>
+						<input class="modal-input"
+							   placeholder="e.g. hikaru"
+							   @bind="_config.ChessComUsername"
+							   @bind:event="oninput" />
+					</div>
+
+					<div class="modal-form-group">
+						<label class="filter-label">Batch Size / History Limit</label>
+						<select class="filter-select" @bind="_config.MaxGamesPerPlatform">
+							<option value="50">Latest 50 games per platform</option>
+							<option value="100">Latest 100 games per platform (Recommended)</option>
+							<option value="250">Latest 250 games per platform</option>
+							<option value="500">Latest 500 games per platform</option>
+						</select>
+					</div>
+
+					<div class="sync-notice-box">
+						<span class="sync-notice-icon">💡</span>
+						<span class="sync-notice-text">
+							Games are automatically deduplicated by URL. Subsequent syncs will quickly skip existing games and only import newly played games.
+						</span>
+					</div>
+
+					@if (!string.IsNullOrEmpty(_errorMessage))
+					{
+						<div class="ref-result-black">@_errorMessage</div>
+					}
+				}
+			</div>
+
+			<div class="modal-footer">
+				@if (_isSyncing)
+				{
+					<button class="btn-secondary" @onclick="CancelSync">Cancel</button>
+				}
+				else if (_isFinished)
+				{
+					<button class="btn-secondary" @onclick="() => _isFinished = false">Back</button>
+					<button class="btn-primary" @onclick="OpenOnlineDatabaseAsync">Open Database</button>
+				}
+				else
+				{
+					<button class="btn-secondary" @onclick="CloseDialog">Cancel</button>
+					<button class="btn-primary" disabled="@(!CanSync)" @onclick="StartSyncAsync">Sync Now</button>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	[Parameter] public bool IsOpen { get; set; }
+	[Parameter] public EventCallback OnClose { get; set; }
+	[Parameter] public EventCallback<string> OnDatabaseSelected { get; set; }
+
+	private OnlineSyncConfig _config = new();
+	private bool _isSyncing = false;
+	private bool _isFinished = false;
+	private OnlineSyncProgress _progress = new();
+	private OnlineSyncResult? _result;
+	private CancellationTokenSource? _syncCts;
+	private string _errorMessage = "";
+	private bool _databaseExists = false;
+	private int _existingGamesCount = 0;
+	private bool _prevIsOpen = false;
+
+	private bool CanSync =>
+		!string.IsNullOrWhiteSpace(_config.LichessUsername) ||
+		!string.IsNullOrWhiteSpace(_config.ChessComUsername);
+
+	protected override async Task OnInitializedAsync()
+	{
+		_config = await SyncService.GetConfigAsync();
+	}
+
+	protected override async Task OnParametersSetAsync()
+	{
+		if (IsOpen && !_prevIsOpen)
+		{
+			_isFinished = false;
+			_isSyncing = false;
+			_errorMessage = "";
+			await RefreshDatabaseStatusAsync();
+		}
+		_prevIsOpen = IsOpen;
+	}
+
+	private async Task RefreshDatabaseStatusAsync()
+	{
+		try
+		{
+			var databases = await DatabaseService.GetDatabasesAsync();
+			var db = databases.FirstOrDefault(d => string.Equals(d.Name, SyncService.OnlineGamesDatabaseName, StringComparison.OrdinalIgnoreCase));
+			if (db != null)
+			{
+				_databaseExists = true;
+				_existingGamesCount = db.GameCount;
+			}
+			else
+			{
+				_databaseExists = false;
+				_existingGamesCount = 0;
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[OnlineGamesSyncDialog] Error refreshing DB status: {ex.Message}");
+		}
+	}
+
+	private async Task StartSyncAsync()
+	{
+		if (!CanSync) return;
+
+		_isSyncing = true;
+		_isFinished = false;
+		_errorMessage = "";
+		_result = null;
+		_syncCts = new CancellationTokenSource();
+
+		await SyncService.SaveConfigAsync(_config);
+
+		var progressReporter = new Progress<OnlineSyncProgress>(p =>
+		{
+			_progress = p;
+			InvokeAsync(StateHasChanged);
+		});
+
+		try
+		{
+			_result = await SyncService.SyncGamesAsync(_config, progressReporter, _syncCts.Token);
+			_isFinished = true;
+			await RefreshDatabaseStatusAsync();
+		}
+		catch (OperationCanceledException)
+		{
+			_errorMessage = "Sync was cancelled.";
+		}
+		catch (Exception ex)
+		{
+			_errorMessage = $"Sync error: {ex.Message}";
+		}
+		finally
+		{
+			_isSyncing = false;
+			StateHasChanged();
+		}
+	}
+
+	private void CancelSync()
+	{
+		_syncCts?.Cancel();
+	}
+
+	private async Task OpenOnlineDatabaseAsync()
+	{
+		await CloseDialog();
+		if (OnDatabaseSelected.HasDelegate)
+		{
+			await OnDatabaseSelected.InvokeAsync(SyncService.OnlineGamesDatabaseName);
+		}
+	}
+
+	private async Task CloseDialog()
+	{
+		IsOpen = false;
+		_isFinished = false;
+		if (OnClose.HasDelegate)
+		{
+			await OnClose.InvokeAsync();
+		}
+	}
+
+	private async Task HandleBackdropClick()
+	{
+		if (!_isSyncing)
+		{
+			await CloseDialog();
+		}
+	}
+}
