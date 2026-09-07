@@ -3,30 +3,80 @@
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
-<div class="board-column">
-	<div class="board-wrapper">
-		<div id="@_elementId" class="chessground-target"></div>
-
-		@if (_showPromotionDialog)
-		{
-			<div class="promotion-dialog-overlay">
-				<div class="promotion-dialog-content">
-					<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Queen)" title="Queen">
-						@(_pendingPromotionColor == PieceColor.White ? "♕" : "♛")
-					</button>
-					<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Rook)" title="Rook">
-						@(_pendingPromotionColor == PieceColor.White ? "♖" : "♜")
-					</button>
-					<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Bishop)" title="Bishop">
-						@(_pendingPromotionColor == PieceColor.White ? "♗" : "♝")
-					</button>
-					<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Knight)" title="Knight">
-						@(_pendingPromotionColor == PieceColor.White ? "♘" : "♞")
-					</button>
-				</div>
+<div class="board-column @(SideGauge != null ? "has-side-gauge" : "")">
+	@if (ShowPlayerBars)
+	{
+		<div class="board-player-bar top-bar">
+			<div class="player-info-group">
+				<span class="player-piece-indicator">@(TopPlayerIsWhite ? "♙" : "♟")</span>
+				<span class="player-name-text">@TopPlayerName</span>
+				@if (!string.IsNullOrEmpty(TopPlayerElo))
+				{
+					<span class="player-elo-badge">@TopPlayerElo</span>
+				}
 			</div>
+			@if (ClockState.HasClocks && !string.IsNullOrEmpty(TopClockFormatted))
+			{
+				<div class="board-clock-badge @(TopIsActive ? "clock-active" : "") @(TopIsLowTime ? "clock-low-time" : "")"
+					 title="Time remaining: @TopClock">
+					<span class="clock-icon">⏱</span>
+					<span class="clock-digits">@TopClockFormatted</span>
+				</div>
+			}
+		</div>
+	}
+
+	<div class="board-middle-row">
+		@if (SideGauge != null)
+		{
+			@SideGauge
 		}
+		<div class="board-wrapper">
+			<div id="@_elementId" class="chessground-target"></div>
+
+			@if (_showPromotionDialog)
+			{
+				<div class="promotion-dialog-overlay">
+					<div class="promotion-dialog-content">
+						<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Queen)" title="Queen">
+							@(_pendingPromotionColor == PieceColor.White ? "♕" : "♛")
+						</button>
+						<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Rook)" title="Rook">
+							@(_pendingPromotionColor == PieceColor.White ? "♖" : "♜")
+						</button>
+						<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Bishop)" title="Bishop">
+							@(_pendingPromotionColor == PieceColor.White ? "♗" : "♝")
+						</button>
+						<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Knight)" title="Knight">
+							@(_pendingPromotionColor == PieceColor.White ? "♘" : "♞")
+						</button>
+					</div>
+				</div>
+			}
+		</div>
 	</div>
+
+	@if (ShowPlayerBars)
+	{
+		<div class="board-player-bar bottom-bar">
+			<div class="player-info-group">
+				<span class="player-piece-indicator">@(BottomPlayerIsWhite ? "♙" : "♟")</span>
+				<span class="player-name-text">@BottomPlayerName</span>
+				@if (!string.IsNullOrEmpty(BottomPlayerElo))
+				{
+					<span class="player-elo-badge">@BottomPlayerElo</span>
+				}
+			</div>
+			@if (ClockState.HasClocks && !string.IsNullOrEmpty(BottomClockFormatted))
+			{
+				<div class="board-clock-badge @(BottomIsActive ? "clock-active" : "") @(BottomIsLowTime ? "clock-low-time" : "")"
+					 title="Time remaining: @BottomClock">
+					<span class="clock-icon">⏱</span>
+					<span class="clock-digits">@BottomClockFormatted</span>
+				</div>
+			}
+		</div>
+	}
 
 	<div class="board-controls-toolbar">
 		<button class="board-control-btn" title="First Move" @onclick="OnFirst" disabled="@(!CanGoBack)">
@@ -74,6 +124,36 @@
 	[Parameter] public EventCallback OnPrev { get; set; }
 	[Parameter] public EventCallback OnNext { get; set; }
 	[Parameter] public EventCallback OnLast { get; set; }
+
+	[Parameter] public GameTree? Tree { get; set; }
+	[Parameter] public RenderFragment? SideGauge { get; set; }
+
+	private BoardClockState ClockState => GameClockHelper.GetClockState(Tree);
+
+	private string WhiteName => Tree?.Headers.GetValueOrDefault("White", "White") ?? "White";
+	private string BlackName => Tree?.Headers.GetValueOrDefault("Black", "Black") ?? "Black";
+	private string? WhiteElo => Tree != null && Tree.Headers.TryGetValue("WhiteElo", out var we) && !string.IsNullOrWhiteSpace(we) && we != "?" ? we : null;
+	private string? BlackElo => Tree != null && Tree.Headers.TryGetValue("BlackElo", out var be) && !string.IsNullOrWhiteSpace(be) && be != "?" ? be : null;
+
+	private bool HasPlayerInfo => WhiteName != "White" || BlackName != "Black" || WhiteElo != null || BlackElo != null;
+	private bool ShowPlayerBars => Tree != null && (ClockState.HasClocks || HasPlayerInfo);
+
+	private bool TopPlayerIsWhite => Orientation != "white";
+	private bool BottomPlayerIsWhite => Orientation == "white";
+
+	private string TopPlayerName => TopPlayerIsWhite ? WhiteName : BlackName;
+	private string? TopPlayerElo => TopPlayerIsWhite ? WhiteElo : BlackElo;
+	private string? TopClock => TopPlayerIsWhite ? ClockState.WhiteClock : ClockState.BlackClock;
+	private string? TopClockFormatted => TopPlayerIsWhite ? ClockState.WhiteClockFormatted : ClockState.BlackClockFormatted;
+	private bool TopIsActive => !ClockState.IsGameOver && (TopPlayerIsWhite ? ClockState.IsWhiteTurn : !ClockState.IsWhiteTurn);
+	private bool TopIsLowTime => TopPlayerIsWhite ? ClockState.WhiteLowTime : ClockState.BlackLowTime;
+
+	private string BottomPlayerName => BottomPlayerIsWhite ? WhiteName : BlackName;
+	private string? BottomPlayerElo => BottomPlayerIsWhite ? WhiteElo : BlackElo;
+	private string? BottomClock => BottomPlayerIsWhite ? ClockState.WhiteClock : ClockState.BlackClock;
+	private string? BottomClockFormatted => BottomPlayerIsWhite ? ClockState.WhiteClockFormatted : ClockState.BlackClockFormatted;
+	private bool BottomIsActive => !ClockState.IsGameOver && (BottomPlayerIsWhite ? ClockState.IsWhiteTurn : !ClockState.IsWhiteTurn);
+	private bool BottomIsLowTime => BottomPlayerIsWhite ? ClockState.WhiteLowTime : ClockState.BlackLowTime;
 
 	private readonly string _elementId = $"board_{Guid.NewGuid():N}";
 	private IJSObjectReference? _module;

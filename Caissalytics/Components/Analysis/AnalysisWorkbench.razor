@@ -11,9 +11,6 @@
 <div class="workbench-layout" @onkeydown="HandleGlobalKey" tabindex="0">
 	<div class="workbench-left-panel">
 		<div class="board-eval-row">
-			<EvaluationGauge TopLine="@(Tab.CurrentEvalLines.Count > 0 ? Tab.CurrentEvalLines[0] : null)"
-							 IsAnalyzing="@Tab.IsAnalyzing" />
-
 			<ChessgroundBoard @ref="_boardRef"
 							  Position="@Tab.Tree.CurrentNode.Position"
 							  LastMove="@(Tab.Tree.CurrentNode.IsRoot ? null : Tab.Tree.CurrentNode.Move)"
@@ -25,7 +22,13 @@
 							  OnFirst="HandleFirst"
 							  OnPrev="HandlePrev"
 							  OnNext="HandleNext"
-							  OnLast="HandleLast" />
+							  OnLast="HandleLast"
+							  Tree="@Tab.Tree">
+				<SideGauge>
+					<EvaluationGauge TopLine="@(Tab.CurrentEvalLines.Count > 0 ? Tab.CurrentEvalLines[0] : null)"
+									 IsAnalyzing="@Tab.IsAnalyzing" />
+				</SideGauge>
+			</ChessgroundBoard>
 		</div>
 	</div>
 

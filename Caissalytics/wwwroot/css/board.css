@@ -2,7 +2,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
+}
+
+/* Middle Row for side gauge + chessboard */
+.board-middle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .board-wrapper {
@@ -19,18 +26,133 @@
   height: 100%;
 }
 
+/* Player Bars Above & Below Board */
+.board-player-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: var(--board-size);
+  min-height: 32px;
+  padding: 2px 4px;
+  box-sizing: border-box;
+}
+
+.board-column.has-side-gauge .board-player-bar {
+  max-width: calc(var(--board-size) + 40px);
+}
+
+.player-info-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.player-piece-indicator {
+  font-size: 16px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.player-name-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-elo-badge {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-muted);
+  background-color: var(--bg-surface-elevated);
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+/* Digital Chessboard Clock */
+.board-clock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 5px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  user-select: none;
+  transition: all var(--transition-fast);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.board-clock-badge.clock-active {
+  color: var(--text-primary);
+  background-color: var(--bg-surface-hover);
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 1px var(--accent-blue), 0 2px 6px rgba(33, 150, 243, 0.2);
+}
+
+.board-clock-badge.clock-low-time {
+  color: #ff5252;
+  border-color: #ff5252;
+}
+
+.board-clock-badge.clock-active.clock-low-time {
+  box-shadow: 0 0 0 1px #ff5252, 0 2px 6px rgba(255, 82, 82, 0.25);
+}
+
+.board-clock-badge .clock-icon {
+  font-size: 11px;
+  opacity: 0.7;
+}
+
+.board-clock-badge.clock-active .clock-icon {
+  opacity: 1;
+  color: var(--accent-blue);
+}
+
+.board-clock-badge.clock-low-time .clock-icon {
+  color: #ff5252;
+}
+
+.board-clock-badge .clock-digits {
+  letter-spacing: 0.5px;
+}
+
 /* Board Controls Toolbar below board */
 .board-controls-toolbar {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
-  width: var(--board-size);
+  width: 100%;
+  max-width: var(--board-size);
   padding: 4px 8px;
   background-color: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   box-sizing: border-box;
+}
+
+.board-column.has-side-gauge .board-controls-toolbar {
+  max-width: calc(var(--board-size) + 40px);
 }
 
 .board-control-btn {
