@@ -1,0 +1,100 @@
+@namespace Caissalytics.Components.Analysis
+@using Caissalytics.Core
+
+<div class="annotation-palette-container">
+	<div class="glyph-button-row">
+		<button class="glyph-btn" disabled="@(ActiveNode.IsRoot)" @onclick="() => ToggleNag(1)" title="Good move (!)">!</button>
+		<button class="glyph-btn" disabled="@(ActiveNode.IsRoot)" @onclick="() => ToggleNag(2)" title="Mistake (?)">?</button>
+		<button class="glyph-btn" disabled="@(ActiveNode.IsRoot)" @onclick="() => ToggleNag(3)" title="Brilliant move (!!)">!!</button>
+		<button class="glyph-btn" disabled="@(ActiveNode.IsRoot)" @onclick="() => ToggleNag(4)" title="Blunder (??)">??</button>
+		<button class="glyph-btn" disabled="@(ActiveNode.IsRoot)" @onclick="() => ToggleNag(5)" title="Interesting move (!?)">!?</button>
+		<button class="glyph-btn" disabled="@(ActiveNode.IsRoot)" @onclick="() => ToggleNag(6)" title="Dubious move (?!)">?!</button>
+		<button class="glyph-btn" disabled="@(ActiveNode.IsRoot)" @onclick="() => ToggleNag(14)" title="White is slightly better (+=)">+=</button>
+		<button class="glyph-btn" disabled="@(ActiveNode.IsRoot)" @onclick="() => ToggleNag(15)" title="Black is slightly better (=+)">=+</button>
+		<button class="glyph-btn" disabled="@(ActiveNode.IsRoot)" @onclick="() => ToggleNag(16)" title="White has a clear advantage (±)">±</button>
+		<button class="glyph-btn" disabled="@(ActiveNode.IsRoot)" @onclick="() => ToggleNag(17)" title="Black has a clear advantage (∓)">∓</button>
+		<button class="glyph-btn" disabled="@(ActiveNode.IsRoot)" @onclick="() => ToggleNag(18)" title="White is winning (+-)">+-</button>
+		<button class="glyph-btn" disabled="@(ActiveNode.IsRoot)" @onclick="() => ToggleNag(19)" title="Black is winning (-+)">-+</button>
+		<button class="glyph-btn" disabled="@(ActiveNode.IsRoot)" @onclick="() => ToggleNag(10)" title="Equal position (=)">=</button>
+
+		@if (!ActiveNode.IsRoot && ActiveNode.Nags.Count > 0)
+		{
+			<button class="glyph-btn" @onclick="ClearNags" title="Clear Glyphs">✕</button>
+		}
+
+		@if (!ActiveNode.IsRoot && !ActiveNode.IsMainline)
+		{
+			<button class="glyph-btn" @onclick="() => OnPromoteVariation.InvokeAsync(ActiveNode)" title="Promote Variation to Mainline">⬆ Main</button>
+			<button class="glyph-btn" @onclick="() => OnDeleteSubtree.InvokeAsync(ActiveNode)" title="Delete Variation">🗑</button>
+		}
+	</div>
+
+	<div class="comment-input-row">
+		<input class="comment-input-field" 
+			   type="text" 
+			   placeholder="Add a comment to this move..." 
+			   @bind="_commentText" 
+			   @bind:event="oninput"
+			   @onkeydown="HandleKeyDown"
+			   disabled="@(ActiveNode.IsRoot)" />
+		<button class="comment-save-btn" disabled="@(ActiveNode.IsRoot)" @onclick="SaveComment">Save</button>
+	</div>
+</div>
+
+@code {
+	[Parameter, EditorRequired] public MoveNode ActiveNode { get; set; } = default!;
+	[Parameter] public EventCallback OnAnnotationChanged { get; set; }
+	[Parameter] public EventCallback<MoveNode> OnPromoteVariation { get; set; }
+	[Parameter] public EventCallback<MoveNode> OnDeleteSubtree { get; set; }
+
+	private string _commentText = "";
+	private Guid _lastNodeId;
+
+	protected override void OnParametersSet()
+	{
+		if (ActiveNode.Id != _lastNodeId)
+		{
+			_lastNodeId = ActiveNode.Id;
+			_commentText = ActiveNode.Comment ?? "";
+		}
+	}
+
+	private async Task ToggleNag(int nag)
+	{
+		if (ActiveNode.IsRoot) return;
+
+		if (ActiveNode.Nags.Contains(nag))
+		{
+			ActiveNode.Nags.Remove(nag);
+		}
+		else
+		{
+			ActiveNode.Nags.Clear();
+			ActiveNode.Nags.Add(nag);
+		}
+
+		await OnAnnotationChanged.InvokeAsync();
+	}
+
+	private async Task ClearNags()
+	{
+		ActiveNode.Nags.Clear();
+		await OnAnnotationChanged.InvokeAsync();
+	}
+
+	private async Task SaveComment()
+	{
+		if (ActiveNode.IsRoot) return;
+
+		ActiveNode.Comment = string.IsNullOrWhiteSpace(_commentText) ? null : _commentText.Trim();
+		await OnAnnotationChanged.InvokeAsync();
+	}
+
+	private async Task HandleKeyDown(KeyboardEventArgs e)
+	{
+		if (e.Key == "Enter")
+		{
+			await SaveComment();
+		}
+	}
+}

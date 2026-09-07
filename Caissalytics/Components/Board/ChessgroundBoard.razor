@@ -1,0 +1,208 @@
+@namespace Caissalytics.Components.Board
+@using Caissalytics.Core
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div class="board-wrapper">
+	<div id="@_elementId" class="chessground-target"></div>
+
+	@if (_showPromotionDialog)
+	{
+		<div class="promotion-dialog-overlay">
+			<div class="promotion-dialog-content">
+				<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Queen)" title="Queen">
+					@(_pendingPromotionColor == PieceColor.White ? "♕" : "♛")
+				</button>
+				<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Rook)" title="Rook">
+					@(_pendingPromotionColor == PieceColor.White ? "♖" : "♜")
+				</button>
+				<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Bishop)" title="Bishop">
+					@(_pendingPromotionColor == PieceColor.White ? "♗" : "♝")
+				</button>
+				<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Knight)" title="Knight">
+					@(_pendingPromotionColor == PieceColor.White ? "♘" : "♞")
+				</button>
+			</div>
+		</div>
+	}
+</div>
+
+<div class="board-controls-toolbar">
+	<button class="board-control-btn" title="First Move" @onclick="OnFirst" disabled="@(!CanGoBack)">⏮</button>
+	<button class="board-control-btn" title="Previous Move" @onclick="OnPrev" disabled="@(!CanGoBack)">◀</button>
+	<button class="board-control-btn" title="Next Move" @onclick="OnNext" disabled="@(!CanGoForward)">▶</button>
+	<button class="board-control-btn" title="Last Move" @onclick="OnLast" disabled="@(!CanGoForward)">⏭</button>
+	<div class="control-divider"></div>
+	<button class="board-control-btn" title="Flip Board" @onclick="ToggleOrientation">🔄</button>
+</div>
+
+@code {
+	[Parameter, EditorRequired] public BoardPosition Position { get; set; } = default!;
+	[Parameter] public Move? LastMove { get; set; }
+	[Parameter] public string Orientation { get; set; } = "white";
+	[Parameter] public EventCallback<Move> OnMoveMade { get; set; }
+	[Parameter] public EventCallback<string> OrientationChanged { get; set; }
+
+	[Parameter] public bool CanGoBack { get; set; }
+	[Parameter] public bool CanGoForward { get; set; }
+	[Parameter] public EventCallback OnFirst { get; set; }
+	[Parameter] public EventCallback OnPrev { get; set; }
+	[Parameter] public EventCallback OnNext { get; set; }
+	[Parameter] public EventCallback OnLast { get; set; }
+
+	private readonly string _elementId = $"board_{Guid.NewGuid():N}";
+	private IJSObjectReference? _module;
+	private DotNetObjectReference<ChessgroundBoard>? _dotNetRef;
+	private bool _isInitialized = false;
+	private bool _isDisposed = false;
+
+	private bool _showPromotionDialog = false;
+	private Square _pendingFrom = Square.None;
+	private Square _pendingTo = Square.None;
+	private PieceColor _pendingPromotionColor = PieceColor.White;
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			_dotNetRef = DotNetObjectReference.Create(this);
+			_module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/chessgroundInterop.js");
+
+			var dests = MoveGenerator.GetLegalDestinations(Position);
+			string turnColor = Position.ActiveColor == PieceColor.White ? "white" : "black";
+			string fen = FenParser.ToFen(Position, includeCounters: false);
+
+			var config = new
+			{
+				fen = fen,
+				orientation = Orientation,
+				turnColor = turnColor,
+				dests = dests
+			};
+
+			await _module.InvokeVoidAsync("initBoard", _elementId, _dotNetRef, config);
+			_isInitialized = true;
+		}
+	}
+
+	public async Task UpdateBoardStateAsync(BoardPosition pos, Move? lastMove, List<object>? shapes = null)
+	{
+		if (_isDisposed || !_isInitialized || _module == null) return;
+
+		Position = pos;
+		LastMove = lastMove;
+
+		var dests = MoveGenerator.GetLegalDestinations(pos);
+		string turnColor = pos.ActiveColor == PieceColor.White ? "white" : "black";
+		string fen = FenParser.ToFen(pos, includeCounters: false);
+		bool inCheck = MoveGenerator.IsInCheck(pos, pos.ActiveColor);
+
+		string[]? lastMoveArr = lastMove.HasValue && !lastMove.Value.IsEmpty
+			? [lastMove.Value.From.Name(), lastMove.Value.To.Name()]
+			: null;
+
+		try
+		{
+			await _module.InvokeVoidAsync("updateBoard", _elementId, fen, Orientation, turnColor, dests, lastMoveArr, inCheck);
+
+			if (shapes != null)
+			{
+				await _module.InvokeVoidAsync("drawShapes", _elementId, shapes);
+			}
+		}
+		catch (ObjectDisposedException) { }
+		catch (JSDisconnectedException) { }
+		catch (JSException) { }
+		catch (InvalidOperationException) { }
+	}
+
+	public async Task RedrawAsync()
+	{
+		if (_isDisposed || !_isInitialized || _module == null) return;
+		try
+		{
+			await _module.InvokeVoidAsync("redrawBoard", _elementId);
+		}
+		catch { }
+	}
+
+	[JSInvokable]
+	public async Task OnPieceMoved(string orig, string dest)
+	{
+		var fromSq = SquareExtensions.Parse(orig);
+		var toSq = SquareExtensions.Parse(dest);
+
+		if (fromSq == Square.None || toSq == Square.None) return;
+
+		var piece = Position[fromSq];
+		bool isPawn = piece.Type == PieceType.Pawn;
+		bool isPromo = isPawn && (toSq.Rank() == 7 || toSq.Rank() == 0);
+
+		if (isPromo)
+		{
+			_pendingFrom = fromSq;
+			_pendingTo = toSq;
+			_pendingPromotionColor = piece.Color;
+			_showPromotionDialog = true;
+			StateHasChanged();
+			return;
+		}
+
+		// Find matching legal move
+		var legalMoves = MoveGenerator.GenerateLegalMoves(Position);
+		var move = legalMoves.FirstOrDefault(m => m.From == fromSq && m.To == toSq);
+
+		if (!move.IsEmpty)
+		{
+			await OnMoveMade.InvokeAsync(move);
+		}
+		else
+		{
+			// Invalid move: revert board
+			await UpdateBoardStateAsync(Position, LastMove);
+		}
+	}
+
+	private async Task SelectPromotion(PieceType promoType)
+	{
+		_showPromotionDialog = false;
+		var legalMoves = MoveGenerator.GenerateLegalMoves(Position);
+		var move = legalMoves.FirstOrDefault(m => m.From == _pendingFrom && m.To == _pendingTo && m.Promotion == promoType);
+
+		if (!move.IsEmpty)
+		{
+			await OnMoveMade.InvokeAsync(move);
+		}
+		else
+		{
+			await UpdateBoardStateAsync(Position, LastMove);
+		}
+	}
+
+	private async Task ToggleOrientation()
+	{
+		Orientation = Orientation == "white" ? "black" : "white";
+		await OrientationChanged.InvokeAsync(Orientation);
+		await UpdateBoardStateAsync(Position, LastMove);
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		_isDisposed = true;
+		try
+		{
+			if (_module != null)
+			{
+				await _module.InvokeVoidAsync("destroyBoard", _elementId);
+				await _module.DisposeAsync();
+			}
+		}
+		catch { }
+
+		try
+		{
+			_dotNetRef?.Dispose();
+		}
+		catch { }
+	}
+}

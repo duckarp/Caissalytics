@@ -1,0 +1,72 @@
+@namespace Caissalytics.Components.Analysis
+@using Caissalytics.Engine
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div id="@_elementId" class="eval-gauge-container" title="Stockfish Evaluation">
+	<div class="eval-gauge-track">
+		<div class="eval-gauge-white-bar"></div>
+	</div>
+	<div class="eval-score-label label-white-side"></div>
+	<div class="eval-score-label label-black-side"></div>
+</div>
+
+@code {
+	[Parameter] public EngineEvaluationLine? TopLine { get; set; }
+	[Parameter] public bool IsAnalyzing { get; set; }
+
+	private readonly string _elementId = $"eval_{Guid.NewGuid():N}";
+	private IJSObjectReference? _evalModule;
+	private bool _isDisposed = false;
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			_evalModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/evalInterop.js");
+		}
+
+		await UpdateGaugeAsync();
+	}
+
+	protected override async Task OnParametersSetAsync()
+	{
+		await UpdateGaugeAsync();
+	}
+
+	private async Task UpdateGaugeAsync()
+	{
+		if (_isDisposed || _evalModule == null) return;
+
+		double whitePct = 50.0;
+		string scoreText = "0.0";
+
+		if (IsAnalyzing && TopLine != null)
+		{
+			whitePct = TopLine.WhiteWinPercentage;
+			scoreText = TopLine.FormattedScore;
+		}
+
+		try
+		{
+			await _evalModule.InvokeVoidAsync("setEval", _elementId, whitePct, scoreText);
+		}
+		catch (ObjectDisposedException) { }
+		catch (JSDisconnectedException) { }
+		catch (JSException) { }
+		catch (InvalidOperationException) { }
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		_isDisposed = true;
+		if (_evalModule != null)
+		{
+			try
+			{
+				await _evalModule.DisposeAsync();
+			}
+			catch { }
+		}
+	}
+}

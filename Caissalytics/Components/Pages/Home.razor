@@ -1,0 +1,37 @@
+@page "/"
+@namespace Caissalytics.Components.Pages
+@using Caissalytics.Components.Layout
+@using Caissalytics.Components.Dashboard
+@using Caissalytics.Components.Analysis
+@inject WorkspaceState Workspace
+@implements IDisposable
+
+<PageTitle>Caissalytics - Chess Analysis & Database</PageTitle>
+
+<WorkspaceTabs />
+
+<div class="workspace-view-container">
+	<div class="@(Workspace.ActiveTab is DashboardTab ? "workspace-view" : "workspace-view view-hidden")">
+		<DashboardHub />
+	</div>
+
+	@foreach (var tab in Workspace.Tabs.OfType<AnalysisTab>())
+	{
+		bool isActive = tab == Workspace.ActiveTab;
+		<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+			<AnalysisWorkbench Tab="tab" />
+		</div>
+	}
+</div>
+
+@code {
+	protected override void OnInitialized()
+	{
+		Workspace.OnChange += StateHasChanged;
+	}
+
+	public void Dispose()
+	{
+		Workspace.OnChange -= StateHasChanged;
+	}
+}

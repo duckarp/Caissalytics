@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Caissalytics.Tests/Caissalytics.Tests.csproj" />
+  <Project Path="Caissalytics/Caissalytics.csproj" />
+</Solution>

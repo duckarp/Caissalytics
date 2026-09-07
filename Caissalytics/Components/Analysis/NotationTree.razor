@@ -1,0 +1,71 @@
+@namespace Caissalytics.Components.Analysis
+@using Caissalytics.Core
+
+<div class="notation-panel-container">
+	<div class="notation-tree-scrollable">
+		@if (Tree.Root.Children.Count == 0)
+		{
+			<div class="empty-notation-prompt">
+				<span>Make a move on the board to start notation</span>
+			</div>
+		}
+		else
+		{
+			<div class="move-list-flow">
+				@RenderNodeChildren(Tree.Root, isMainline: true)
+			</div>
+		}
+	</div>
+</div>
+
+@code {
+	[Parameter, EditorRequired] public GameTree Tree { get; set; } = default!;
+	[Parameter] public EventCallback<MoveNode> OnSelectNode { get; set; }
+
+	private RenderFragment RenderNodeChildren(MoveNode parent, bool isMainline) => __builder =>
+	{
+		if (parent.Children.Count == 0) return;
+
+		var mainChild = parent.Children[0];
+		@RenderSingleMove(mainChild, forceNumber: false)
+
+		for (int i = 1; i < parent.Children.Count; i++)
+		{
+			var varChild = parent.Children[i];
+			<span class="variation-block">
+				<span class="variation-delimiter">(</span>
+				@RenderSingleMove(varChild, forceNumber: true)
+				@RenderNodeChildren(varChild, isMainline: false)
+				<span class="variation-delimiter">)</span>
+			</span>
+		}
+
+		@RenderNodeChildren(mainChild, isMainline)
+	};
+
+	private RenderFragment RenderSingleMove(MoveNode node, bool forceNumber) => __builder =>
+	{
+		bool isCurrent = node == Tree.CurrentNode;
+		string btnClass = isCurrent ? "move-button move-current" : "move-button";
+
+		if (node.IsWhiteMove || forceNumber)
+		{
+			<span class="move-number">
+				@node.MoveNumber@(node.IsWhiteMove ? "." : "...")
+			</span>
+		}
+
+		<button class="@btnClass" @onclick="() => OnSelectNode.InvokeAsync(node)">
+			<span>@node.San</span>
+			@if (node.Nags.Count > 0)
+			{
+				<span class="nag-glyph">@node.NagSymbol()</span>
+			}
+		</button>
+
+		@if (!string.IsNullOrWhiteSpace(node.Comment))
+		{
+			<span class="move-comment-text">{@node.Comment}</span>
+		}
+	};
+}

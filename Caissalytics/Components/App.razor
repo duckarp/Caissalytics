@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+	<base href="/"/>
+	<ResourcePreloader/>
+	<link rel="stylesheet" href="@Assets["lib/chessground/chessground.base.css"]"/>
+	<link rel="stylesheet" href="@Assets["lib/chessground/chessground.brown.css"]"/>
+	<link rel="stylesheet" href="@Assets["lib/chessground/chessground.cburnett.css"]"/>
+	<link rel="stylesheet" href="@Assets["css/theme.css"]"/>
+	<link rel="stylesheet" href="@Assets["css/tabs.css"]"/>
+	<link rel="stylesheet" href="@Assets["css/dashboard.css"]"/>
+	<link rel="stylesheet" href="@Assets["css/layout.css"]"/>
+	<link rel="stylesheet" href="@Assets["css/board.css"]"/>
+	<link rel="stylesheet" href="@Assets["css/eval.css"]"/>
+	<link rel="stylesheet" href="@Assets["css/notation.css"]"/>
+	<link rel="stylesheet" href="@Assets["css/annotation.css"]"/>
+	<link rel="stylesheet" href="@Assets["css/engine.css"]"/>
+	<HeadOutlet @rendermode="InteractiveServer"/>
+</head>
+
+<body>
+<Routes @rendermode="InteractiveServer"/>
+<script src="@Assets["_framework/blazor.web.js"]"></script>
+</body>
+
+</html>

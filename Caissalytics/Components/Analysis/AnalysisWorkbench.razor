@@ -1,0 +1,318 @@
+@namespace Caissalytics.Components.Analysis
+@using Caissalytics.Core
+@using Caissalytics.Engine
+@using Caissalytics.Components.Board
+@inject IEngineService EngineService
+@inject IJSRuntime JS
+@implements IDisposable
+
+<div class="workbench-layout" @onkeydown="HandleGlobalKey" tabindex="0">
+	<div class="workbench-left-panel">
+		<div class="board-eval-row">
+			<EvaluationGauge TopLine="@(Tab.CurrentEvalLines.Count > 0 ? Tab.CurrentEvalLines[0] : null)"
+							 IsAnalyzing="@Tab.IsAnalyzing" />
+
+			<ChessgroundBoard @ref="_boardRef"
+							  Position="@Tab.Tree.CurrentNode.Position"
+							  LastMove="@(Tab.Tree.CurrentNode.IsRoot ? null : Tab.Tree.CurrentNode.Move)"
+							  Orientation="@Tab.Orientation"
+							  CanGoBack="@Tab.Tree.CanGoBack"
+							  CanGoForward="@Tab.Tree.CanGoForward"
+							  OnMoveMade="HandleUserMove"
+							  OrientationChanged="HandleOrientationChanged"
+							  OnFirst="HandleFirst"
+							  OnPrev="HandlePrev"
+							  OnNext="HandleNext"
+							  OnLast="HandleLast" />
+		</div>
+	</div>
+
+	<div class="workbench-right-panel">
+		<div class="panel-header-tabs">
+			<button class="panel-tab-btn @(_activeRightTab == "moves" ? "tab-active" : "")" 
+					@onclick="@(() => _activeRightTab = "moves")">Moves & Annotations</button>
+			<button class="panel-tab-btn @(_activeRightTab == "tools" ? "tab-active" : "")" 
+					@onclick="@(() => _activeRightTab = "tools")">PGN & FEN</button>
+		</div>
+
+		<div class="panel-body-content">
+			@if (_activeRightTab == "moves")
+			{
+				<div class="panel-top-section">
+					<NotationTree Tree="@Tab.Tree" OnSelectNode="HandleSelectNode" />
+					<AnnotationPalette ActiveNode="@Tab.Tree.CurrentNode"
+									   OnAnnotationChanged="StateHasChanged"
+									   OnPromoteVariation="HandlePromoteVariation"
+									   OnDeleteSubtree="HandleDeleteSubtree" />
+				</div>
+			}
+			else
+			{
+				<div class="panel-top-section tools-panel-body">
+					<h3 class="section-title">Game Headers</h3>
+					<div class="headers-grid">
+						<span class="header-key">White:</span>
+						<span class="header-value">@(Tab.Tree.Headers.GetValueOrDefault("White", "White"))</span>
+						<span class="header-key">Black:</span>
+						<span class="header-value">@(Tab.Tree.Headers.GetValueOrDefault("Black", "Black"))</span>
+						<span class="header-key">Event:</span>
+						<span class="header-value">@(Tab.Tree.Headers.GetValueOrDefault("Event", "Casual Analysis"))</span>
+						<span class="header-key">Result:</span>
+						<span class="header-value">@(Tab.Tree.Headers.GetValueOrDefault("Result", "*"))</span>
+					</div>
+
+					<h3 class="tools-subheading">FEN</h3>
+					<input class="comment-input-field" readonly value="@FenParser.ToFen(Tab.Tree.CurrentNode.Position)" />
+
+					<h3 class="tools-subheading">PGN Export</h3>
+					<textarea class="comment-input-field pgn-export-area" rows="6" readonly>@PgnHandler.ExportPgn(Tab.Tree)</textarea>
+				</div>
+			}
+
+			<div class="panel-bottom-section">
+				<EngineAnalysisPanel Position="@Tab.Tree.CurrentNode.Position"
+									 IsAnalyzing="@Tab.IsAnalyzing"
+									 MultiPv="@Tab.MultiPv"
+									 EvalLines="@Tab.CurrentEvalLines"
+									 IsAnalyzingChanged="HandleAnalyzingToggled"
+									 MultiPvChanged="HandleMultiPvChanged"
+									 OnInsertPvVariation="HandleInsertPvVariation" />
+			</div>
+		</div>
+	</div>
+</div>
+
+@code {
+	[Parameter, EditorRequired] public AnalysisTab Tab { get; set; } = default!;
+
+	private ChessgroundBoard? _boardRef;
+	private string _activeRightTab = "moves";
+	private CancellationTokenSource? _engineCts;
+	private bool _isDisposed = false;
+
+	protected override void OnInitialized()
+	{
+		Tab.Tree.PositionChanged += OnPositionChanged;
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender && Tab.IsAnalyzing)
+		{
+			await RestartEngineAnalysisAsync();
+		}
+	}
+
+	private async void OnPositionChanged()
+	{
+		await SyncBoardAndEngineAsync();
+		await InvokeAsync(StateHasChanged);
+	}
+
+	private async Task SyncBoardAndEngineAsync()
+	{
+		var shapes = GenerateBestMoveShapes();
+		if (_boardRef != null)
+		{
+			await _boardRef.UpdateBoardStateAsync(
+				Tab.Tree.CurrentNode.Position,
+				Tab.Tree.CurrentNode.IsRoot ? null : Tab.Tree.CurrentNode.Move,
+				shapes);
+		}
+
+		if (Tab.IsAnalyzing)
+		{
+			await RestartEngineAnalysisAsync();
+		}
+	}
+
+	private async Task HandleUserMove(Move move)
+	{
+		Tab.Tree.AddMove(move);
+	}
+
+	private async Task HandleSelectNode(MoveNode node)
+	{
+		Tab.Tree.NavigateTo(node);
+	}
+
+	private void HandleFirst() => Tab.Tree.GoToStart();
+	private void HandlePrev() => Tab.Tree.GoBack();
+	private void HandleNext() => Tab.Tree.GoForward();
+	private void HandleLast() => Tab.Tree.GoToEnd();
+
+	private void HandleOrientationChanged(string orientation)
+	{
+		Tab.Orientation = orientation;
+	}
+
+	private void HandlePromoteVariation(MoveNode node)
+	{
+		Tab.Tree.PromoteVariation(node);
+	}
+
+	private void HandleDeleteSubtree(MoveNode node)
+	{
+		Tab.Tree.DeleteSubtree(node);
+	}
+
+	private async Task HandleAnalyzingToggled(bool analyzing)
+	{
+		Tab.IsAnalyzing = analyzing;
+		if (analyzing)
+		{
+			await RestartEngineAnalysisAsync();
+		}
+		else
+		{
+			_engineCts?.Cancel();
+			await EngineService.StopAnalysisAsync();
+			Tab.CurrentEvalLines.Clear();
+			if (_boardRef != null)
+			{
+				await _boardRef.UpdateBoardStateAsync(
+					Tab.Tree.CurrentNode.Position,
+					Tab.Tree.CurrentNode.IsRoot ? null : Tab.Tree.CurrentNode.Move,
+					new List<object>());
+			}
+		}
+		StateHasChanged();
+	}
+
+	private async Task HandleMultiPvChanged(int count)
+	{
+		Tab.MultiPv = count;
+		if (Tab.IsAnalyzing)
+		{
+			await RestartEngineAnalysisAsync();
+		}
+	}
+
+	private async Task RestartEngineAnalysisAsync()
+	{
+		if (_isDisposed) return;
+
+		try
+		{
+			_engineCts?.Cancel();
+			_engineCts?.Dispose();
+		}
+		catch { }
+
+		_engineCts = new CancellationTokenSource();
+
+		string fen = FenParser.ToFen(Tab.Tree.CurrentNode.Position);
+
+		try
+		{
+			await EngineService.StartAnalysisAsync(fen, Tab.MultiPv, async lines =>
+			{
+				if (_isDisposed) return;
+
+				Tab.CurrentEvalLines = lines;
+				var shapes = GenerateBestMoveShapes();
+				if (_boardRef != null && !_isDisposed)
+				{
+					try
+					{
+						await _boardRef.UpdateBoardStateAsync(
+							Tab.Tree.CurrentNode.Position,
+							Tab.Tree.CurrentNode.IsRoot ? null : Tab.Tree.CurrentNode.Move,
+							shapes);
+					}
+					catch (ObjectDisposedException) { }
+				}
+
+				if (!_isDisposed)
+				{
+					try
+					{
+						await InvokeAsync(StateHasChanged);
+					}
+					catch (ObjectDisposedException) { }
+					catch (InvalidOperationException) { }
+				}
+			}, _engineCts.Token);
+		}
+		catch (OperationCanceledException) { }
+	}
+
+	private List<object> GenerateBestMoveShapes()
+	{
+		var shapes = new List<object>();
+		if (Tab.IsAnalyzing && Tab.CurrentEvalLines.Count > 0)
+		{
+			var top = Tab.CurrentEvalLines[0];
+			if (!string.IsNullOrEmpty(top.BestMove) && top.BestMove.Length >= 4)
+			{
+				string orig = top.BestMove.Substring(0, 2);
+				string dest = top.BestMove.Substring(2, 2);
+				shapes.Add(new { orig = orig, dest = dest, brush = "green" });
+			}
+		}
+		return shapes;
+	}
+
+	private async Task HandleInsertPvVariation(List<string> uciMoves)
+	{
+		var tempPos = Tab.Tree.CurrentNode.Position.Clone();
+		var baseNode = Tab.Tree.CurrentNode;
+
+		foreach (var uci in uciMoves)
+		{
+			if (uci.Length < 4) break;
+			var from = SquareExtensions.Parse(uci.Substring(0, 2));
+			var to = SquareExtensions.Parse(uci.Substring(2, 2));
+			var promo = uci.Length > 4 ? uci[4] switch
+			{
+				'q' => PieceType.Queen,
+				'r' => PieceType.Rook,
+				'b' => PieceType.Bishop,
+				'n' => PieceType.Knight,
+				_ => PieceType.None
+			} : PieceType.None;
+
+			var legal = MoveGenerator.GenerateLegalMoves(tempPos);
+			var move = legal.FirstOrDefault(m => m.From == from && m.To == to && (promo == PieceType.None || m.Promotion == promo));
+			if (move.IsEmpty) break;
+
+			Tab.Tree.AddMove(move);
+			tempPos = MoveGenerator.ApplyMove(tempPos, move);
+		}
+
+		Tab.Tree.NavigateTo(baseNode);
+	}
+
+	private void HandleGlobalKey(KeyboardEventArgs e)
+	{
+		if (e.Key == "ArrowLeft")
+		{
+			HandlePrev();
+		}
+		else if (e.Key == "ArrowRight")
+		{
+			HandleNext();
+		}
+		else if (e.Key == "Home")
+		{
+			HandleFirst();
+		}
+		else if (e.Key == "End")
+		{
+			HandleLast();
+		}
+	}
+
+	public void Dispose()
+	{
+		_isDisposed = true;
+		Tab.Tree.PositionChanged -= OnPositionChanged;
+		try
+		{
+			_engineCts?.Cancel();
+			_engineCts?.Dispose();
+		}
+		catch { }
+		_ = EngineService.StopAnalysisAsync();
+	}
+}

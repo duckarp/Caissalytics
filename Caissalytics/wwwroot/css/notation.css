@@ -1,0 +1,104 @@
+.notation-panel-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.notation-tree-scrollable {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.8;
+  font-family: var(--font-sans);
+}
+
+.move-list-flow {
+  display: inline;
+}
+
+.move-number {
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  margin-right: 4px;
+  user-select: none;
+}
+
+.move-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  margin: 1px 2px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  transition: background-color var(--transition-fast);
+}
+
+.move-button:hover {
+  background-color: var(--bg-surface-hover);
+}
+
+.move-button.move-current {
+  background-color: var(--accent-blue);
+  color: #ffffff;
+  font-weight: 600;
+}
+
+/* Branching Variations */
+.variation-block {
+  display: inline;
+  color: var(--text-secondary);
+  background-color: var(--bg-surface-elevated);
+  padding: 2px 6px;
+  margin: 2px 4px;
+  border-radius: 4px;
+  border-left: 2px solid var(--accent-warning);
+}
+
+.variation-delimiter {
+  color: var(--text-muted);
+  font-weight: 600;
+  user-select: none;
+}
+
+/* NAG Badges */
+.nag-glyph {
+  font-size: 12px;
+  font-weight: 700;
+  margin-left: 2px;
+  color: var(--accent-warning);
+}
+
+.nag-blunder {
+  color: var(--accent-danger);
+}
+
+.nag-brilliant {
+  color: #10b981;
+}
+
+/* Comments */
+.move-comment-text {
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 13px;
+  margin: 0 4px;
+}
+
+/* Starting state empty text */
+.empty-notation-prompt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-muted);
+  font-size: 14px;
+}

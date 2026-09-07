@@ -1,0 +1,202 @@
+@namespace Caissalytics.Components.Analysis
+@using Caissalytics.Core
+@using Caissalytics.Engine
+@inject IEngineService EngineService
+
+<div class="engine-panel-container">
+	<div class="engine-toolbar-header">
+		<div class="engine-controls-left">
+			<label class="engine-toggle-switch">
+				<input type="checkbox" checked="@IsAnalyzing" @onchange="ToggleAnalysis" disabled="@(!_isEngineInstalled || _isInstalling)" />
+				<span>Stockfish</span>
+			</label>
+
+			<select class="multipv-select-dropdown" value="@MultiPv" @onchange="HandleMultiPvChange" disabled="@(!IsAnalyzing)">
+				<option value="1">1 Line</option>
+				<option value="2">2 Lines</option>
+				<option value="3">3 Lines</option>
+				<option value="4">4 Lines</option>
+				<option value="5">5 Lines</option>
+			</select>
+		</div>
+
+		<div class="engine-stats-right">
+			@if (IsAnalyzing && EvalLines.Count > 0)
+			{
+				var top = EvalLines[0];
+				<span>depth: @top.Depth</span>
+				<span>nps: @FormatNps(top.Nps)</span>
+			}
+			else
+			{
+				<span>Engine Idle</span>
+			}
+		</div>
+	</div>
+
+	@if (!_isEngineInstalled)
+	{
+		<div class="engine-install-banner">
+			<div class="banner-text-block">
+				<span class="banner-title">Stockfish 17 is not installed yet</span>
+				<span class="banner-subtext">
+					@if (_isInstalling)
+					{
+						<span>Downloading and unpacking official binary (@_installProgress%)...</span>
+					}
+					else
+					{
+						<span>Enable 1-click deep engine analysis, live eval bar, and best-move arrows.</span>
+					}
+				</span>
+			</div>
+			<button class="banner-install-btn" @onclick="InstallStockfish" disabled="@_isInstalling">
+				@(_isInstalling ? "Installing..." : "⚡ 1-Click Install")
+			</button>
+		</div>
+	}
+	else
+	{
+		<div class="multipv-lines-list">
+			@if (!IsAnalyzing)
+			{
+				<div class="empty-notation-prompt">
+					<span>Toggle Stockfish analysis ON to evaluate candidate moves</span>
+				</div>
+			}
+			else if (EvalLines.Count == 0)
+			{
+				<div class="empty-notation-prompt">
+					<span>Evaluating position...</span>
+				</div>
+			}
+			else
+			{
+				@foreach (var line in EvalLines)
+				{
+					string formattedLine = FormatPvToSan(Position, line.PvMoves);
+					<div class="pv-line-row">
+						<div class="pv-eval-chip">@line.FormattedScore</div>
+						<div class="pv-moves-text" title="@formattedLine">@formattedLine</div>
+						<button class="add-variation-btn" title="Add this candidate line as a variation" @onclick="() => AddPvAsVariation(line.PvMoves)">
+							+ Variation
+						</button>
+					</div>
+				}
+			}
+		</div>
+	}
+</div>
+
+@code {
+	[Parameter, EditorRequired] public BoardPosition Position { get; set; } = default!;
+	[Parameter] public bool IsAnalyzing { get; set; }
+	[Parameter] public int MultiPv { get; set; } = 3;
+	[Parameter] public List<EngineEvaluationLine> EvalLines { get; set; } = new();
+	[Parameter] public EventCallback<bool> IsAnalyzingChanged { get; set; }
+	[Parameter] public EventCallback<int> MultiPvChanged { get; set; }
+	[Parameter] public EventCallback<List<string>> OnInsertPvVariation { get; set; }
+
+	private bool _isEngineInstalled = false;
+	private bool _isInstalling = false;
+	private int _installProgress = 0;
+
+	protected override async Task OnInitializedAsync()
+	{
+		var active = await EngineService.GetActiveEngineAsync();
+		_isEngineInstalled = active?.IsInstalled == true;
+	}
+
+	private async Task ToggleAnalysis(ChangeEventArgs e)
+	{
+		bool enabled = (bool)(e.Value ?? false);
+		await IsAnalyzingChanged.InvokeAsync(enabled);
+	}
+
+	private async Task HandleMultiPvChange(ChangeEventArgs e)
+	{
+		if (int.TryParse(e.Value?.ToString(), out int val))
+		{
+			await MultiPvChanged.InvokeAsync(val);
+		}
+	}
+
+	private async Task InstallStockfish()
+	{
+		_isInstalling = true;
+		var progress = new Progress<int>(p =>
+		{
+			_installProgress = p;
+			InvokeAsync(StateHasChanged);
+		});
+
+		bool success = await EngineService.InstallEngineAsync("stockfish-17", progress);
+		_isInstalling = false;
+		if (success)
+		{
+			_isEngineInstalled = true;
+			await IsAnalyzingChanged.InvokeAsync(true);
+		}
+		StateHasChanged();
+	}
+
+	private async Task AddPvAsVariation(List<string> uciMoves)
+	{
+		if (uciMoves.Count > 0)
+		{
+			await OnInsertPvVariation.InvokeAsync(uciMoves);
+		}
+	}
+
+	private string FormatPvToSan(BoardPosition startPos, List<string> uciMoves)
+	{
+		if (uciMoves.Count == 0) return "";
+
+		var sb = new System.Text.StringBuilder();
+		var tempPos = startPos.Clone();
+		int maxMoves = Math.Min(8, uciMoves.Count);
+
+		for (int i = 0; i < maxMoves; i++)
+		{
+			string uci = uciMoves[i];
+			if (uci.Length < 4) break;
+
+			var from = SquareExtensions.Parse(uci.Substring(0, 2));
+			var to = SquareExtensions.Parse(uci.Substring(2, 2));
+			var promo = uci.Length > 4 ? uci[4] switch
+			{
+				'q' => PieceType.Queen,
+				'r' => PieceType.Rook,
+				'b' => PieceType.Bishop,
+				'n' => PieceType.Knight,
+				_ => PieceType.None
+			} : PieceType.None;
+
+			var legal = MoveGenerator.GenerateLegalMoves(tempPos);
+			var move = legal.FirstOrDefault(m => m.From == from && m.To == to && (promo == PieceType.None || m.Promotion == promo));
+			if (move.IsEmpty) break;
+
+			string san = SanParser.ToSan(tempPos, move);
+			if (tempPos.ActiveColor == PieceColor.White || i == 0)
+			{
+				sb.Append(tempPos.FullmoveNumber);
+				sb.Append(tempPos.ActiveColor == PieceColor.White ? ". " : "... ");
+			}
+			sb.Append(san);
+			sb.Append(' ');
+
+			tempPos = MoveGenerator.ApplyMove(tempPos, move);
+		}
+
+		return sb.ToString().Trim();
+	}
+
+	private string FormatNps(long nps)
+	{
+		if (nps >= 1_000_000)
+			return $"{nps / 1_000_000.0:F1}M";
+		if (nps >= 1_000)
+			return $"{nps / 1_000.0:F0}k";
+		return nps.ToString();
+	}
+}

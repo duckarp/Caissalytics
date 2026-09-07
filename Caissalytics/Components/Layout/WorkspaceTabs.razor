@@ -1,0 +1,44 @@
+@namespace Caissalytics.Components.Layout
+@inject WorkspaceState Workspace
+
+<header class="app-header">
+	<div class="app-brand">
+		<span class="brand-title">Caissalytics</span>
+		<span class="brand-badge">Alpha</span>
+	</div>
+	<div class="header-actions">
+		<button class="btn-primary" @onclick="() => Workspace.CreateAnalysisTab()">+ New Board</button>
+	</div>
+</header>
+
+<nav class="workspace-tabs-container">
+	<div class="tab-list">
+		@foreach (var tab in Workspace.Tabs)
+		{
+			bool isActive = tab == Workspace.ActiveTab;
+			string tabClass = isActive ? "workspace-tab tab-active" : "workspace-tab";
+
+			<button class="@tabClass" @onclick="() => Workspace.SelectTab(tab.Id)">
+				<span class="tab-icon">@tab.Icon</span>
+				<span>@tab.Title</span>
+				@if (tab.CanClose)
+				{
+					<span class="tab-close-btn" @onclick="() => Workspace.CloseTab(tab.Id)" @onclick:stopPropagation="true">✕</span>
+				}
+			</button>
+		}
+		<button class="new-tab-btn" title="Open new analysis board" @onclick="() => Workspace.CreateAnalysisTab()">+</button>
+	</div>
+</nav>
+
+@code {
+	protected override void OnInitialized()
+	{
+		Workspace.OnChange += StateHasChanged;
+	}
+
+	public void Dispose()
+	{
+		Workspace.OnChange -= StateHasChanged;
+	}
+}
