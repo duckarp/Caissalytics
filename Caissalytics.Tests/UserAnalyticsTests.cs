@@ -209,4 +209,55 @@ public class UserAnalyticsTests
         Assert.Empty(report.TopOpenings);
         Assert.Empty(report.RecentGames);
     }
+
+    [Fact]
+    public async Task UserAnalyticsService_SeparatesPlatformRatingsAccurately()
+    {
+        var fakeDb = new FakeDatabaseService();
+        var fakeProfile = new FakeUserProfileService
+        {
+            Profile = new UserProfile
+            {
+                LichessUsername = "duckarp",
+                ChessComUsername = "duckarp"
+            }
+        };
+
+        fakeDb.Headers = new List<GameHeader>
+        {
+            // 2 Lichess games
+            new() { Id = 1, Site = "https://lichess.org/abc", White = "duckarp", Black = "Opp1", WhiteElo = 2000, Result = "1-0", Date = "2026.01.01" },
+            new() { Id = 2, Site = "https://lichess.org/def", White = "Opp2", Black = "duckarp", BlackElo = 2062, Result = "1-0", Date = "2026.01.02" },
+
+            // 2 Chess.com games
+            new() { Id = 3, Site = "Chess.com", White = "duckarp", Black = "Opp3", WhiteElo = 1750, Result = "1-0", Date = "2026.02.01" },
+            new() { Id = 4, Site = "Chess.com", White = "Opp4", Black = "duckarp", BlackElo = 1825, Result = "0-1", Date = "2026.02.02" }
+        };
+
+        var analyticsService = new UserAnalyticsService(fakeDb, fakeProfile);
+        var report = await analyticsService.GenerateAnalyticsReportAsync("My online games", fakeProfile.Profile);
+
+        Assert.Equal(4, report.TotalGames);
+        Assert.Equal(2, report.PlatformRatings.Count);
+
+        var lichess = report.PlatformRatings.FirstOrDefault(p => p.PlatformId == "lichess");
+        Assert.NotNull(lichess);
+        Assert.Equal("Lichess", lichess.PlatformName);
+        Assert.Equal(2062, lichess.PeakRating);
+        Assert.Equal(2062, lichess.CurrentRating);
+        Assert.Equal(2, lichess.Points.Count);
+
+        var chesscom = report.PlatformRatings.FirstOrDefault(p => p.PlatformId == "chesscom");
+        Assert.NotNull(chesscom);
+        Assert.Equal("Chess.com", chesscom.PlatformName);
+        Assert.Equal(1825, chesscom.PeakRating);
+        Assert.Equal(1825, chesscom.CurrentRating);
+        Assert.Equal(2, chesscom.Points.Count);
+
+        // Test PlatformFilter: Filtering to lichess only
+        var lichessReport = await analyticsService.GenerateAnalyticsReportAsync("My online games", fakeProfile.Profile, new AnalyticsFilterOptions { PlatformFilter = "lichess" });
+        Assert.Equal(2, lichessReport.TotalGames);
+        Assert.Single(lichessReport.PlatformRatings);
+        Assert.Equal("lichess", lichessReport.PlatformRatings[0].PlatformId);
+    }
 }

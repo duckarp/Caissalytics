@@ -40,8 +40,24 @@ public class RatingHistoryPoint
     public string UserColor { get; set; } = "white";
     public string Result { get; set; } = "draw"; // "win", "draw", "loss"
     public string Platform { get; set; } = "";
+    public string PlatformName => Platform switch
+    {
+        "lichess" => "Lichess",
+        "chesscom" => "Chess.com",
+        _ => "OTB / Local"
+    };
     public string Eco { get; set; } = "";
     public string OpeningName { get; set; } = "";
+}
+
+public class PlatformRatingOverview
+{
+    public string PlatformId { get; set; } = ""; // "lichess", "chesscom", "otb"
+    public string PlatformName { get; set; } = ""; // "Lichess", "Chess.com", "OTB / Local"
+    public int? CurrentRating { get; set; }
+    public int? PeakRating { get; set; }
+    public int? LowestRating { get; set; }
+    public List<RatingHistoryPoint> Points { get; set; } = new();
 }
 
 public class OpeningPerformanceStat
@@ -125,6 +141,7 @@ public class PersonalAnalyticsReport
     public ColorPerformance BlackStats { get; set; } = new();
 
     public List<RatingHistoryPoint> RatingHistory { get; set; } = new();
+    public List<PlatformRatingOverview> PlatformRatings { get; set; } = new();
     public List<OpeningPerformanceStat> TopOpenings { get; set; } = new();
     public List<PersonalGameSummary> RecentGames { get; set; } = new();
 

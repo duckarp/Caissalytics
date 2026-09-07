@@ -58,7 +58,7 @@
 				<select class="control-select" value="@_selectedScope" @onchange="OnScopeChanged">
 					@if (_hasOnlineGamesDb)
 					{
-						<option value="My online games">🌐 My online games</option>
+						<option value="My online games">🌐 My online games (MoG)</option>
 					}
 					<option value="ALL">🗄️ All Databases (Aggregated)</option>
 					@foreach (var db in _availableDatabases.Where(d => d.Name != "My online games"))
@@ -67,6 +67,20 @@
 					}
 				</select>
 			</div>
+
+			<!-- Platform Filter (when scope supports multiple platforms) -->
+			@if (ShouldShowPlatformFilter())
+			{
+				<div class="platform-filter-pillbox">
+					<button class="@GetPlatformPillClass("all")" @onclick='() => SetPlatformFilter("all")'>All Platforms</button>
+					<button class="@GetPlatformPillClass("lichess")" @onclick='() => SetPlatformFilter("lichess")'>Lichess</button>
+					<button class="@GetPlatformPillClass("chesscom")" @onclick='() => SetPlatformFilter("chesscom")'>Chess.com</button>
+					@if (_selectedScope == "ALL")
+					{
+						<button class="@GetPlatformPillClass("otb")" @onclick='() => SetPlatformFilter("otb")'>OTB / Local</button>
+					}
+				</div>
+			}
 
 			<!-- Time Filter Pills -->
 			<div class="time-filter-pillbox">
@@ -103,7 +117,7 @@
 			<span class="empty-icon">📊</span>
 			<h2 class="empty-title">No Matching Games Found</h2>
 			<p class="empty-desc">
-				We couldn't find any games in <strong>@_selectedScope</strong> matching your player profile handles:
+				We couldn't find any games in <strong>@(FormatScopeName(_selectedScope))</strong> matching your player profile handles:
 			</p>
 			<div class="empty-handles-box">
 				@if (_report?.Profile?.HasLichess == true)
@@ -190,31 +204,52 @@
 				</div>
 			</div>
 
-			<div class="hero-kpi-card">
+			<div class="hero-kpi-card hero-kpi-rating-card">
 				<div class="kpi-card-header">
 					<span class="kpi-label">RATING STATUS</span>
 					<span class="kpi-icon">📈</span>
 				</div>
-				<div class="kpi-value-row">
-					@if (_report.CurrentRating.HasValue)
-					{
-						<span class="kpi-main-value rating-accent">@_report.CurrentRating.Value</span>
-					}
-					else
-					{
-						<span class="kpi-main-value text-muted">Unrated</span>
-					}
-				</div>
-				<div class="kpi-sub-row">
-					@if (_report.PeakRating.HasValue)
-					{
-						<span class="kpi-hint">Peak: <strong>@_report.PeakRating.Value</strong> · Low: <strong>@_report.LowestRating</strong></span>
-					}
-					else
-					{
-						<span class="kpi-hint">No ratings recorded</span>
-					}
-				</div>
+				@if (_report.PlatformRatings.Count > 1)
+				{
+					<div class="kpi-platform-rating-list">
+						@foreach (var p in _report.PlatformRatings)
+						{
+							<div class="kpi-platform-rating-item">
+								<div class="platform-rating-top">
+									<span class="platform-rating-name">@p.PlatformName</span>
+									<span class="platform-rating-current rating-accent">@(p.CurrentRating?.ToString() ?? "—")</span>
+								</div>
+								<div class="platform-rating-sub">
+									<span class="platform-rating-peak">Peak: <strong>@(p.PeakRating?.ToString() ?? "—")</strong></span>
+									<span class="platform-rating-count">(@p.Points.Count games)</span>
+								</div>
+							</div>
+						}
+					</div>
+				}
+				else
+				{
+					<div class="kpi-value-row">
+						@if (_report.CurrentRating.HasValue)
+						{
+							<span class="kpi-main-value rating-accent">@_report.CurrentRating.Value</span>
+						}
+						else
+						{
+							<span class="kpi-main-value text-muted">Unrated</span>
+						}
+					</div>
+					<div class="kpi-sub-row">
+						@if (_report.PeakRating.HasValue)
+						{
+							<span class="kpi-hint">Peak: <strong>@_report.PeakRating.Value</strong> · Low: <strong>@_report.LowestRating</strong></span>
+						}
+						else
+						{
+							<span class="kpi-hint">No ratings recorded</span>
+						}
+					</div>
+				}
 			</div>
 		</section>
 
@@ -234,7 +269,11 @@
 					<div class="color-sub-card color-white-side">
 						<div class="color-header-row">
 							<div class="color-label-group">
-								<span class="color-pawn-icon pawn-white">♙</span>
+								<span class="analytics-piece-indicator piece-white" title="White">
+									<svg class="analytics-pawn-svg" viewBox="0 0 45 45" aria-hidden="true">
+										<path class="analytics-pawn-white" d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" />
+									</svg>
+								</span>
 								<span class="color-name">As White</span>
 							</div>
 							<span class="color-winrate-badge">@_report.WhiteStats.WinRate.ToString("F1")% Win</span>
@@ -266,7 +305,11 @@
 					<div class="color-sub-card color-black-side">
 						<div class="color-header-row">
 							<div class="color-label-group">
-								<span class="color-pawn-icon pawn-black">♟</span>
+								<span class="analytics-piece-indicator piece-black" title="Black">
+									<svg class="analytics-pawn-svg" viewBox="0 0 45 45" aria-hidden="true">
+										<path class="analytics-pawn-black" d="M22.5 9c-2.21 0-4 1.79-4 4 0 .89.29 1.71.78 2.38C17.33 16.5 16 18.59 16 21c0 2.03.94 3.84 2.41 5.03-3 1.06-7.41 5.55-7.41 13.47h23c0-7.92-4.41-12.41-7.41-13.47 1.47-1.19 2.41-3 2.41-5.03 0-2.41-1.33-4.5-3.28-5.62.49-.67.78-1.49.78-2.38 0-2.21-1.79-4-4-4z" />
+									</svg>
+								</span>
 								<span class="color-name">As Black</span>
 							</div>
 							<span class="color-winrate-badge">@_report.BlackStats.WinRate.ToString("F1")% Win</span>
@@ -303,13 +346,34 @@
 						<span class="card-section-icon">📈</span>
 						<h2 class="card-heading">Rating Progression & Trajectory</h2>
 					</div>
-					@if (_report.PeakRating.HasValue)
+					@if (_report.PlatformRatings.Count > 1)
+					{
+						<div class="rating-platform-pillbox">
+							@foreach (var plat in _report.PlatformRatings)
+							{
+								var pid = plat.PlatformId;
+								<button class="@GetRatingPlatformTabClass(pid)"
+										@onclick='() => SetRatingPlatform(pid)'>
+									<span>@plat.PlatformName</span>
+									@if (plat.PeakRating.HasValue)
+									{
+										<span class="platform-tab-peak">(@plat.PeakRating.Value)</span>
+									}
+								</button>
+							}
+							<button class='@GetRatingPlatformTabClass("combined")'
+									@onclick='() => SetRatingPlatform("combined")'>
+								<span>Combined</span>
+							</button>
+						</div>
+					}
+					else if (_report.PeakRating.HasValue)
 					{
 						<span class="rating-peak-tag">Peak: @_report.PeakRating.Value</span>
 					}
 				</div>
 
-				<RatingTrendChart Points="_report.RatingHistory" />
+				<RatingTrendChart Points="@GetSelectedRatingPoints()" />
 			</div>
 		</section>
 
@@ -443,7 +507,7 @@
 							<span class="result-pill pill-@game.Result">@game.ResultDisplay.ToUpperInvariant()</span>
 							<div class="game-meta-block">
 								<div class="game-opponent-line">
-									<span class="game-color-tag">(@game.UserColor)</span>
+									<span class="game-color-tag tag-@game.UserColor.ToLowerInvariant()">@game.UserColor</span>
 									<span class="opponent-vs">vs.</span>
 									<strong class="opponent-name">@game.OpponentName</strong>
 									@if (game.OpponentRating.HasValue && game.OpponentRating.Value > 0)
@@ -479,6 +543,8 @@
 	private List<DatabaseInfo> _availableDatabases = new();
 	private string _selectedScope = "";
 	private string _timeFilter = "all";
+	private string _platformFilter = "all";
+	private string _selectedRatingPlatform = "";
 	private string _openingColorFilter = "all";
 	private string _openingSearchTerm = "";
 	private string _openingSortBy = "games";
@@ -515,7 +581,8 @@
 		{
 			var options = new AnalyticsFilterOptions
 			{
-				TimeFilter = _timeFilter
+				TimeFilter = _timeFilter,
+				PlatformFilter = _platformFilter
 			};
 
 			_report = await AnalyticsService.GenerateAnalyticsReportAsync(_selectedScope, filter: options);
@@ -534,6 +601,8 @@
 	private async Task OnScopeChanged(ChangeEventArgs e)
 	{
 		_selectedScope = e.Value?.ToString() ?? "";
+		_platformFilter = "all";
+		_selectedRatingPlatform = "";
 		if (Tab != null) Tab.DatabaseScope = _selectedScope;
 		await LoadReportAsync();
 	}
@@ -541,6 +610,8 @@
 	private async Task SwitchToAllDatabases()
 	{
 		_selectedScope = "ALL";
+		_platformFilter = "all";
+		_selectedRatingPlatform = "";
 		if (Tab != null) Tab.DatabaseScope = _selectedScope;
 		await LoadReportAsync();
 	}
@@ -553,6 +624,75 @@
 			await LoadReportAsync();
 		}
 	}
+
+	private bool ShouldShowPlatformFilter()
+	{
+		return _selectedScope == "My online games" || _selectedScope == "ALL";
+	}
+
+	private async Task SetPlatformFilter(string platform)
+	{
+		if (_platformFilter != platform)
+		{
+			_platformFilter = platform;
+			await LoadReportAsync();
+		}
+	}
+
+	private string GetPlatformPillClass(string platform)
+	{
+		return _platformFilter == platform ? "platform-pill pill-active" : "platform-pill";
+	}
+
+	private void SetRatingPlatform(string platformId)
+	{
+		_selectedRatingPlatform = platformId;
+	}
+
+	private string GetRatingPlatformTabClass(string platformId)
+	{
+		string active = GetEffectiveRatingPlatform();
+		return string.Equals(active, platformId, StringComparison.OrdinalIgnoreCase)
+			? "rating-platform-tab tab-active"
+			: "rating-platform-tab";
+	}
+
+	private string GetEffectiveRatingPlatform()
+	{
+		if (_report?.PlatformRatings == null || _report.PlatformRatings.Count == 0)
+			return "combined";
+
+		if (!string.IsNullOrEmpty(_selectedRatingPlatform))
+		{
+			if (_selectedRatingPlatform == "combined" || _report.PlatformRatings.Any(p => p.PlatformId == _selectedRatingPlatform))
+			{
+				return _selectedRatingPlatform;
+			}
+		}
+
+		return _report.PlatformRatings[0].PlatformId;
+	}
+
+	private List<RatingHistoryPoint> GetSelectedRatingPoints()
+	{
+		if (_report == null) return new();
+
+		string active = GetEffectiveRatingPlatform();
+		if (active == "combined")
+		{
+			return _report.RatingHistory;
+		}
+
+		var platform = _report.PlatformRatings.FirstOrDefault(p => p.PlatformId == active);
+		return platform?.Points ?? _report.RatingHistory;
+	}
+
+	private string FormatScopeName(string scope) => scope switch
+	{
+		"My online games" => "My online games (MoG)",
+		"ALL" => "All Databases (Aggregated)",
+		_ => scope
+	};
 
 	private string GetTimePillClass(string filter)
 	{

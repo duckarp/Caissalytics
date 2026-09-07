@@ -272,6 +272,34 @@ public class UserAnalyticsService : IUserAnalyticsService
         report.PeakRating = peak;
         report.LowestRating = low;
 
+        // Group by platform for independent rating timelines
+        var platformGroups = report.RatingHistory.GroupBy(p => p.Platform);
+        foreach (var pGroup in platformGroups)
+        {
+            string pId = string.IsNullOrWhiteSpace(pGroup.Key) ? "otb" : pGroup.Key;
+            string pName = pId switch
+            {
+                "lichess" => "Lichess",
+                "chesscom" => "Chess.com",
+                _ => "OTB / Local"
+            };
+
+            var pts = pGroup.ToList();
+            if (pts.Count > 0)
+            {
+                report.PlatformRatings.Add(new PlatformRatingOverview
+                {
+                    PlatformId = pId,
+                    PlatformName = pName,
+                    CurrentRating = pts.Last().Rating,
+                    PeakRating = pts.Max(p => p.Rating),
+                    LowestRating = pts.Min(p => p.Rating),
+                    Points = pts
+                });
+            }
+        }
+        report.PlatformRatings = report.PlatformRatings.OrderByDescending(p => p.Points.Count).ToList();
+
         // 7. Opening Repertoire Matrix
         var openingGroups = userGames
             .Where(u => u.Result != "unknown")

@@ -149,6 +149,7 @@
 	border-color: #3b82f6;
 }
 
+.platform-filter-pillbox,
 .time-filter-pillbox {
 	display: flex;
 	background: var(--color-bg, #0f172a);
@@ -158,6 +159,7 @@
 	gap: 2px;
 }
 
+.platform-pill,
 .time-pill {
 	background: transparent;
 	border: none;
@@ -170,10 +172,12 @@
 	transition: all 0.2s ease;
 }
 
+.platform-pill:hover,
 .time-pill:hover {
 	color: #ffffff;
 }
 
+.platform-pill.pill-active,
 .time-pill.pill-active {
 	background: #3b82f6;
 	color: #ffffff;
@@ -347,6 +351,61 @@
 	color: #94a3b8;
 }
 
+.hero-kpi-rating-card {
+	justify-content: space-between;
+}
+
+.kpi-platform-rating-list {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-top: 2px;
+}
+
+.kpi-platform-rating-item {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	padding: 6px 10px;
+	background: var(--color-bg, #0f172a);
+	border: 1px solid var(--color-border, #334155);
+	border-radius: 6px;
+}
+
+.platform-rating-top {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.platform-rating-name {
+	font-size: 12px;
+	font-weight: 700;
+	color: #e2e8f0;
+}
+
+.platform-rating-current {
+	font-size: 15px;
+	font-weight: 800;
+}
+
+.platform-rating-sub {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	font-size: 11px;
+	color: #94a3b8;
+}
+
+.platform-rating-peak strong {
+	color: #f59e0b;
+}
+
+.platform-rating-count {
+	font-size: 10px;
+	color: #64748b;
+}
+
 /* --------------------------------------------------------------------------
    3. Split Row (Color Performance & Rating Progression)
    -------------------------------------------------------------------------- */
@@ -428,18 +487,48 @@
 	gap: 8px;
 }
 
-.color-pawn-icon {
-	font-size: 20px;
+.analytics-piece-indicator {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 32px;
+	height: 32px;
+	border-radius: 8px;
+	flex-shrink: 0;
 }
 
-.pawn-white {
-	color: #f8fafc;
-	filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.5));
+.analytics-piece-indicator.piece-white {
+	background: #f8fafc;
+	border: 1px solid #cbd5e1;
+	box-shadow: 0 1px 4px rgba(255, 255, 255, 0.2);
 }
 
-.pawn-black {
-	color: #94a3b8;
-	filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.8));
+.analytics-piece-indicator.piece-black {
+	background: #090d16;
+	border: 1px solid #475569;
+	box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.analytics-pawn-svg {
+	width: 22px;
+	height: 22px;
+	display: block;
+}
+
+.analytics-pawn-white {
+	fill: #ffffff;
+	stroke: #0f172a;
+	stroke-width: 2.5px;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+}
+
+.analytics-pawn-black {
+	fill: #1e293b;
+	stroke: #94a3b8;
+	stroke-width: 2.5px;
+	stroke-linecap: round;
+	stroke-linejoin: round;
 }
 
 .color-name {
@@ -602,6 +691,45 @@
 	border-radius: 6px;
 }
 
+.rating-platform-pillbox {
+	display: flex;
+	background: var(--color-bg, #0f172a);
+	border: 1px solid var(--color-border, #334155);
+	border-radius: 8px;
+	padding: 2px;
+	gap: 2px;
+}
+
+.rating-platform-tab {
+	background: transparent;
+	border: none;
+	color: var(--color-text-secondary, #94a3b8);
+	padding: 5px 10px;
+	border-radius: 6px;
+	font-size: 11px;
+	font-weight: 700;
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	transition: all 0.2s ease;
+}
+
+.rating-platform-tab:hover {
+	color: #ffffff;
+}
+
+.rating-platform-tab.tab-active {
+	background: #3b82f6;
+	color: #ffffff;
+	box-shadow: 0 1px 4px rgba(59, 130, 246, 0.3);
+}
+
+.platform-tab-peak {
+	font-size: 10px;
+	opacity: 0.85;
+}
+
 /* Tooltip */
 .rating-tooltip-card {
 	position: absolute;
@@ -629,6 +757,16 @@
 .rating-tooltip-date {
 	font-size: 11px;
 	color: #94a3b8;
+}
+
+.rating-tooltip-platform {
+	font-size: 10px;
+	font-weight: 700;
+	padding: 1px 6px;
+	border-radius: 3px;
+	background: rgba(59, 130, 246, 0.2);
+	color: #60a5fa;
+	border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .rating-tooltip-rating {
@@ -689,6 +827,28 @@
 .rating-tooltip-color {
 	font-size: 11px;
 	color: #94a3b8;
+}
+
+.rating-tooltip-color.color-tag-white {
+	background: #ffffff;
+	color: #0f172a;
+	border: 1px solid #cbd5e1;
+	padding: 1px 6px;
+	border-radius: 3px;
+	font-weight: 700;
+	font-size: 10px;
+	text-transform: capitalize;
+}
+
+.rating-tooltip-color.color-tag-black {
+	background: #090d16;
+	color: #e2e8f0;
+	border: 1px solid #475569;
+	padding: 1px 6px;
+	border-radius: 3px;
+	font-weight: 700;
+	font-size: 10px;
+	text-transform: capitalize;
 }
 
 .rating-tooltip-opening {
@@ -904,23 +1064,32 @@
 .color-badge {
 	font-size: 11px;
 	font-weight: 700;
-	padding: 2px 6px;
+	padding: 2px 7px;
 	border-radius: 4px;
+	display: inline-block;
+	text-align: center;
 }
 
 .badge-white {
-	background: rgba(255, 255, 255, 0.12);
-	color: #ffffff;
+	background: #ffffff;
+	color: #0f172a;
+	border: 1px solid #cbd5e1;
+	box-shadow: 0 1px 2px rgba(255, 255, 255, 0.15);
+	font-weight: 800;
 }
 
 .badge-black {
-	background: rgba(100, 116, 139, 0.25);
-	color: #cbd5e1;
+	background: #090d16;
+	color: #e2e8f0;
+	border: 1px solid #475569;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+	font-weight: 800;
 }
 
 .badge-both {
-	background: rgba(168, 85, 247, 0.15);
-	color: #c084fc;
+	background: rgba(168, 85, 247, 0.2);
+	color: #d8b4fe;
+	border: 1px solid rgba(168, 85, 247, 0.4);
 }
 
 .col-games {
@@ -1069,8 +1238,25 @@
 }
 
 .game-color-tag {
-	font-size: 12px;
-	color: #94a3b8;
+	font-size: 11px;
+	font-weight: 700;
+	padding: 2px 7px;
+	border-radius: 4px;
+	text-transform: capitalize;
+}
+
+.game-color-tag.tag-white {
+	background: #ffffff;
+	color: #0f172a;
+	border: 1px solid #cbd5e1;
+	box-shadow: 0 1px 2px rgba(255, 255, 255, 0.15);
+}
+
+.game-color-tag.tag-black {
+	background: #090d16;
+	color: #e2e8f0;
+	border: 1px solid #475569;
+	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .opponent-vs {

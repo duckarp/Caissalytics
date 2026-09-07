@@ -66,6 +66,10 @@
 				<div class="rating-tooltip-card">
 					<div class="rating-tooltip-header">
 						<span class="rating-tooltip-date">@_hoveredPoint.Source.DateStr</span>
+						@if (!string.IsNullOrEmpty(_hoveredPoint.Source.PlatformName))
+						{
+							<span class="rating-tooltip-platform">@_hoveredPoint.Source.PlatformName</span>
+						}
 						<span class="rating-tooltip-rating">@_hoveredPoint.Source.Rating</span>
 					</div>
 					<div class="rating-tooltip-body">
@@ -78,7 +82,7 @@
 						</div>
 						<div class="rating-tooltip-meta">
 							<span class="rating-tooltip-badge badge-@_hoveredPoint.Source.Result">@_hoveredPoint.Source.Result.ToUpperInvariant()</span>
-							<span class="rating-tooltip-color">(@_hoveredPoint.Source.UserColor)</span>
+							<span class="rating-tooltip-color color-tag-@_hoveredPoint.Source.UserColor.ToLowerInvariant()">@_hoveredPoint.Source.UserColor</span>
 							@if (!string.IsNullOrEmpty(_hoveredPoint.Source.OpeningName))
 							{
 								<span class="rating-tooltip-opening">@_hoveredPoint.Source.OpeningName</span>
