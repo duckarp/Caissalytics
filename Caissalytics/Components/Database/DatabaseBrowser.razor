@@ -44,7 +44,6 @@
 
 		<div class="db-sidebar-footer">
 			<button class="btn-primary" @onclick="AddNewGame">+ Add a new game</button>
-			<button class="btn-secondary" @onclick="() => _showOnlineSyncModal = true">🌐 My Online Games</button>
 			<button class="btn-secondary" @onclick="() => _showImportModal = true">📥 Import PGN</button>
 		</div>
 	</div>
@@ -58,7 +57,6 @@
 			</div>
 
 			<div class="db-header-actions">
-				<button class="btn-secondary" @onclick="() => _showOnlineSyncModal = true">🌐 My Online Games</button>
 				<button class="btn-primary" @onclick="AddNewGame">+ Add a new game</button>
 				<button class="btn-secondary" @onclick="() => _showImportModal = true">📥 Import PGN</button>
 			</div>
@@ -208,11 +206,6 @@
 				 OnClose="() => _showImportModal = false"
 				 OnImportCompleted="HandleImportCompletedAsync" />
 
-<!-- Online Games Sync Modal -->
-<OnlineGamesSyncDialog IsOpen="_showOnlineSyncModal"
-					   OnClose="() => _showOnlineSyncModal = false"
-					   OnDatabaseSelected="HandleOnlineDbSelectedAsync" />
-
 <!-- Delete Game Confirmation Modal -->
 @if (_showDeleteModal && _gameToDelete != null)
 {
@@ -255,7 +248,6 @@
 	private bool _showNewDbModal = false;
 	private string _newDbName = "";
 	private bool _showImportModal = false;
-	private bool _showOnlineSyncModal = false;
 	private bool _showDeleteModal = false;
 	private GameHeader? _gameToDelete;
 
@@ -372,12 +364,6 @@
 	private async Task HandleImportCompletedAsync()
 	{
 		await LoadDatabasesAsync();
-	}
-
-	private async Task HandleOnlineDbSelectedAsync(string dbName)
-	{
-		await LoadDatabasesAsync();
-		await SelectDatabaseAsync(dbName);
 	}
 
 	private async void HandleActiveDatabaseChanged()
