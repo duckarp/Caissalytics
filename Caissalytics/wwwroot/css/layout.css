@@ -39,7 +39,7 @@
 
 .board-eval-row {
   display: flex;
-  align-items: stretch;
+  align-items: flex-start;
   gap: 12px;
 }
 
