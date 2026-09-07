@@ -90,6 +90,32 @@
   white-space: nowrap;
 }
 
+.player-name-text.player-name-user {
+  color: var(--accent-blue);
+  font-weight: 700;
+}
+
+.player-user-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background-color: rgba(59, 130, 246, 0.15);
+  color: var(--accent-blue);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  border-radius: 3px;
+  margin-left: 6px;
+  line-height: 1.2;
+  vertical-align: middle;
+}
+
+.board-player-bar.bar-is-user {
+  background-color: rgba(59, 130, 246, 0.05);
+  border-left: 3px solid var(--accent-blue);
+}
+
 .player-elo-badge {
   font-size: 11px;
   font-family: var(--font-mono);

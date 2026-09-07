@@ -3,6 +3,7 @@
 @using Caissalytics.Data
 @using Caissalytics.Components.Database
 @inject IDatabaseService DatabaseService
+@inject IUserProfileService ProfileService
 @implements IDisposable
 
 <div class="reference-panel">
@@ -87,14 +88,26 @@
 					<div class="ref-game-item" @onclick="() => OpenGame(game)">
 						<div class="ref-game-players">
 							<div class="ref-player-line">
-								<span class="ref-player-name">@game.White</span>
+								<span class="ref-player-name @(_userProfile.MatchesPlayer(game.White) ? "player-name-user" : "")">
+									@game.White
+									@if (_userProfile.MatchesPlayer(game.White))
+									{
+										<span class="db-user-tag" title="You (matches your profile)">You</span>
+									}
+								</span>
 								@if (game.WhiteElo.HasValue)
 								{
 									<span class="ref-player-elo">(@game.WhiteElo)</span>
 								}
 							</div>
 							<div class="ref-player-line">
-								<span class="ref-player-name">@game.Black</span>
+								<span class="ref-player-name @(_userProfile.MatchesPlayer(game.Black) ? "player-name-user" : "")">
+									@game.Black
+									@if (_userProfile.MatchesPlayer(game.Black))
+									{
+										<span class="db-user-tag" title="You (matches your profile)">You</span>
+									}
+								</span>
 								@if (game.BlackElo.HasValue)
 								{
 									<span class="ref-player-elo">(@game.BlackElo)</span>
@@ -132,11 +145,28 @@
 	private PositionReferenceResult? _refResult;
 	private ulong _lastZobristKey = 0;
 	private bool _isLoading = false;
+	private UserProfile _userProfile = new();
 
 	protected override async Task OnInitializedAsync()
 	{
 		DatabaseService.OnActiveDatabaseChanged += HandleActiveDatabaseChanged;
+		ProfileService.OnProfileChanged += HandleProfileChanged;
+		await LoadProfileAsync();
 		await RefreshDatabasesAsync();
+	}
+
+	private async Task LoadProfileAsync()
+	{
+		_userProfile = await ProfileService.GetProfileAsync();
+	}
+
+	private async void HandleProfileChanged()
+	{
+		await InvokeAsync(async () =>
+		{
+			await LoadProfileAsync();
+			StateHasChanged();
+		});
 	}
 
 	protected override async Task OnParametersSetAsync()
@@ -225,5 +255,6 @@
 	public void Dispose()
 	{
 		DatabaseService.OnActiveDatabaseChanged -= HandleActiveDatabaseChanged;
+		ProfileService.OnProfileChanged -= HandleProfileChanged;
 	}
 }

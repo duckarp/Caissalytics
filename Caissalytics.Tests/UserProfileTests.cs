@@ -87,4 +87,40 @@ public class UserProfileTests
             }
         }
     }
+
+    [Theory]
+    [InlineData("DrNykterstein", null, true)]
+    [InlineData("drnykterstein", null, true)]
+    [InlineData("MagnusCarlsen", null, true)]
+    [InlineData("magnuscarlsen", null, true)]
+    [InlineData("Magnus Carlsen", null, true)]
+    [InlineData("Carlsen, Magnus", null, true)]
+    [InlineData("Carlsen, M.", null, true)]
+    [InlineData("GM Magnus Carlsen", null, true)]
+    [InlineData("RandomOpponent", "1503014", true)]
+    [InlineData("RandomOpponent", null, false)]
+    [InlineData("Hikaru", null, false)]
+    public void MatchesPlayer_IdentifiesUserCorrectly(string playerName, string? fideId, bool expectedMatch)
+    {
+        var profile = new UserProfile
+        {
+            FirstName = "Magnus",
+            LastName = "Carlsen",
+            FideId = "1503014",
+            LichessUsername = "DrNykterstein",
+            ChessComUsername = "MagnusCarlsen"
+        };
+
+        Assert.Equal(expectedMatch, profile.MatchesPlayer(playerName, fideId));
+    }
+
+    [Fact]
+    public void MatchesPlayer_EmptyProfile_NeverMatches()
+    {
+        var profile = new UserProfile();
+
+        Assert.False(profile.MatchesPlayer("Magnus Carlsen"));
+        Assert.False(profile.MatchesPlayer("DrNykterstein"));
+        Assert.False(profile.MatchesPlayer("Player", "1503014"));
+    }
 }

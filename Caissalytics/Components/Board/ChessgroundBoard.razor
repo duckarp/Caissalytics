@@ -1,15 +1,23 @@
 @namespace Caissalytics.Components.Board
 @using Caissalytics.Core
+@using Caissalytics.Data
 @inject IJSRuntime JS
+@inject IUserProfileService ProfileService
 @implements IAsyncDisposable
 
 <div class="board-column @(SideGauge != null ? "has-side-gauge" : "")">
 	@if (ShowPlayerBars)
 	{
-		<div class="board-player-bar top-bar">
+		<div class="board-player-bar top-bar @(TopPlayerIsUser ? "bar-is-user" : "")">
 			<div class="player-info-group">
 				@RenderPieceIcon(TopPlayerIsWhite)
-				<span class="player-name-text">@TopPlayerName</span>
+				<span class="player-name-text @(TopPlayerIsUser ? "player-name-user" : "")">
+					@TopPlayerName
+					@if (TopPlayerIsUser)
+					{
+						<span class="player-user-badge" title="You (matches your profile)">You</span>
+					}
+				</span>
 				@if (!string.IsNullOrEmpty(TopPlayerElo))
 				{
 					<span class="player-elo-badge">@TopPlayerElo</span>
@@ -59,10 +67,16 @@
 
 	@if (ShowPlayerBars)
 	{
-		<div class="board-player-bar bottom-bar">
+		<div class="board-player-bar bottom-bar @(BottomPlayerIsUser ? "bar-is-user" : "")">
 			<div class="player-info-group">
 				@RenderPieceIcon(BottomPlayerIsWhite)
-				<span class="player-name-text">@BottomPlayerName</span>
+				<span class="player-name-text @(BottomPlayerIsUser ? "player-name-user" : "")">
+					@BottomPlayerName
+					@if (BottomPlayerIsUser)
+					{
+						<span class="player-user-badge" title="You (matches your profile)">You</span>
+					}
+				</span>
 				@if (!string.IsNullOrEmpty(BottomPlayerElo))
 				{
 					<span class="player-elo-badge">@BottomPlayerElo</span>
@@ -164,6 +178,37 @@
 	private string? BottomClockFormatted => BottomPlayerIsWhite ? ClockState.WhiteClockFormatted : ClockState.BlackClockFormatted;
 	private bool BottomIsActive => !ClockState.IsGameOver && (BottomPlayerIsWhite ? ClockState.IsWhiteTurn : !ClockState.IsWhiteTurn);
 	private bool BottomIsLowTime => BottomPlayerIsWhite ? ClockState.WhiteLowTime : ClockState.BlackLowTime;
+
+	private UserProfile _userProfile = new();
+
+	private string? WhiteFideId => Tree != null && Tree.Headers.TryGetValue("WhiteFideId", out var id) ? id : null;
+	private string? BlackFideId => Tree != null && Tree.Headers.TryGetValue("BlackFideId", out var id) ? id : null;
+
+	private bool WhiteIsUser => _userProfile.MatchesPlayer(WhiteName, WhiteFideId);
+	private bool BlackIsUser => _userProfile.MatchesPlayer(BlackName, BlackFideId);
+
+	private bool TopPlayerIsUser => TopPlayerIsWhite ? WhiteIsUser : BlackIsUser;
+	private bool BottomPlayerIsUser => BottomPlayerIsWhite ? WhiteIsUser : BlackIsUser;
+
+	protected override async Task OnInitializedAsync()
+	{
+		ProfileService.OnProfileChanged += HandleProfileChanged;
+		await LoadProfileAsync();
+	}
+
+	private async Task LoadProfileAsync()
+	{
+		_userProfile = await ProfileService.GetProfileAsync();
+	}
+
+	private async void HandleProfileChanged()
+	{
+		await InvokeAsync(async () =>
+		{
+			await LoadProfileAsync();
+			StateHasChanged();
+		});
+	}
 
 	private static RenderFragment RenderCapturedMaterial(List<CapturedPiece> captured, int advantage) => builder =>
 	{
@@ -360,6 +405,7 @@
 	public async ValueTask DisposeAsync()
 	{
 		_isDisposed = true;
+		ProfileService.OnProfileChanged -= HandleProfileChanged;
 		try
 		{
 			if (_module != null)

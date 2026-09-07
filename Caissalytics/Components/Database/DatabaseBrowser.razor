@@ -2,6 +2,7 @@
 @using Caissalytics.Data
 @inject IDatabaseService DatabaseService
 @inject IOnlineGameSyncService SyncService
+@inject IUserProfileService ProfileService
 @inject WorkspaceState Workspace
 @implements IDisposable
 
@@ -153,17 +154,28 @@
 					<tbody>
 						@foreach (var game in _games)
 						{
-							<tr class="db-game-row" @ondblclick="() => OpenGameInAnalysis(game)">
+							<tr class="db-game-row @(IsUserGame(game) ? "db-game-row-user" : "")" @ondblclick="() => OpenGameInAnalysis(game)">
 								@if (ShowPlatformColumn)
 								{
 									<td class="col-platform">
 										<PlatformIcon Game="game" />
 									</td>
 								}
-								<td class="col-players">@game.White</td>
+								<td class="col-players @(IsWhiteUser(game) ? "player-name-user" : "")">
+									<span>@game.White</span>
+									@if (IsWhiteUser(game))
+									{
+										<span class="db-user-tag" title="You (matches your profile)">You</span>
+									}
+								</td>
 								<td class="col-elo">@(game.WhiteElo?.ToString() ?? "-")</td>
-								<td class="col-players">@game.Black</td>
-								<td class="col-elo">@(game.BlackElo?.ToString() ?? "-")</td>
+								<td class="col-players @(IsBlackUser(game) ? "player-name-user" : "")">
+									<span>@game.Black</span>
+									@if (IsBlackUser(game))
+									{
+										<span class="db-user-tag" title="You (matches your profile)">You</span>
+									}
+								</td>
 								<td class="col-result">
 									<span class="ref-result-badge @GetResultClass(game.Result)">@game.Result</span>
 								</td>
@@ -312,6 +324,7 @@
 	private bool _showDeleteDbModal = false;
 	private DatabaseInfo? _dbToDelete;
 	private bool _showOnlineSyncModal = false;
+	private UserProfile _userProfile = new();
 
 	private bool IsOnlineGamesDb(string? name) =>
 		string.Equals(name, SyncService.OnlineGamesDatabaseName, StringComparison.OrdinalIgnoreCase);
@@ -320,13 +333,33 @@
 		IsOnlineGamesDb(_currentDbName) ||
 		_games.Any(g => !string.IsNullOrEmpty(g.Platform));
 
+	private bool IsWhiteUser(GameHeader game) => _userProfile.MatchesPlayer(game.White);
+	private bool IsBlackUser(GameHeader game) => _userProfile.MatchesPlayer(game.Black);
+	private bool IsUserGame(GameHeader game) => IsWhiteUser(game) || IsBlackUser(game);
+
 	private int TotalPages => Math.Max(1, (int)Math.Ceiling(_totalCount / (double)_filter.PageSize));
 
 	protected override async Task OnInitializedAsync()
 	{
 		DatabaseService.OnActiveDatabaseChanged += HandleActiveDatabaseChanged;
 		DatabaseService.OnDatabaseModified += HandleDatabaseModified;
+		ProfileService.OnProfileChanged += HandleProfileChanged;
+		await LoadProfileAsync();
 		await LoadDatabasesAsync();
+	}
+
+	private async Task LoadProfileAsync()
+	{
+		_userProfile = await ProfileService.GetProfileAsync();
+	}
+
+	private async void HandleProfileChanged()
+	{
+		await InvokeAsync(async () =>
+		{
+			await LoadProfileAsync();
+			StateHasChanged();
+		});
 	}
 
 	private async Task LoadDatabasesAsync()
@@ -554,5 +587,6 @@
 	{
 		DatabaseService.OnActiveDatabaseChanged -= HandleActiveDatabaseChanged;
 		DatabaseService.OnDatabaseModified -= HandleDatabaseModified;
+		ProfileService.OnProfileChanged -= HandleProfileChanged;
 	}
 }
