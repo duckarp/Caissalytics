@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
@@ -21,6 +22,7 @@ public class DatabaseManager : IDatabaseService
     private readonly object _settingsLock = new();
     private readonly SemaphoreSlim _lock = new(1, 1);
     private readonly StreamingPgnImporter _importer = new();
+    private readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromMinutes(5) };
 
     public event Action? OnActiveDatabaseChanged;
     public event Action? OnReferenceDatabaseChanged;
@@ -34,6 +36,7 @@ public class DatabaseManager : IDatabaseService
 
         Directory.CreateDirectory(_storageDir);
         _configFilePath = Path.Combine(_storageDir, "database_settings.json");
+        _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Caissalytics/1.0 (Desktop; Open Source)");
 
         // Windows legacy migration if user had .local/share/Caissalytics/databases
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -265,35 +268,93 @@ public class DatabaseManager : IDatabaseService
             new MasterCatalogItem
             {
                 Id = "world-champions",
-                Title = "World Champions & Legends",
-                Description = "Immortal masterpieces from Steinitz, Lasker, Capablanca, Alekhine, Fischer, Kasparov, Kramnik, Anand, and Carlsen.",
+                Title = "World Champions Compendium",
+                Description = "Over 3,700 complete master tournament games from Fischer, Kasparov, Capablanca, and Morphy.",
                 Tag = "Recommended",
                 DatabaseName = "WorldChampions",
-                EstimatedGameCount = 14,
-                Era = "1851 – 2023",
-                IsInstalled = existingDbs.Contains("WorldChampions")
+                EstimatedGameCount = 3750,
+                Era = "1851 – 2005",
+                IsInstalled = existingDbs.Contains("WorldChampions"),
+                DownloadUrls = new List<string>
+                {
+                    "https://www.pgnmentor.com/players/Fischer.zip",
+                    "https://www.pgnmentor.com/players/Kasparov.zip",
+                    "https://www.pgnmentor.com/players/Capablanca.zip",
+                    "https://www.pgnmentor.com/players/Morphy.zip"
+                }
             },
             new MasterCatalogItem
             {
-                Id = "grandmaster-classics",
-                Title = "Classical Grandmaster Masterpieces",
-                Description = "Legendary games covering King's Indian, Sicilian Dragon, Najdorf, Ruy Lopez, French, and Queen's Gambit.",
-                Tag = "Classical",
-                DatabaseName = "GrandmasterClassics",
-                EstimatedGameCount = 4,
-                Era = "1958 – 1999",
-                IsInstalled = existingDbs.Contains("GrandmasterClassics")
-            },
-            new MasterCatalogItem
-            {
-                Id = "candidates-matches",
-                Title = "FIDE Candidates & Title Clashes",
-                Description = "Critical clashes from modern FIDE Candidates tournaments (Madrid 2022, Toronto 2024).",
+                Id = "modern-titans",
+                Title = "Modern Titans (Carlsen & Anand)",
+                Description = "Massive collection of over 9,200 Grandmaster games from modern World Champions Magnus Carlsen and Viswanathan Anand.",
                 Tag = "Modern",
-                DatabaseName = "CandidatesMatches",
-                EstimatedGameCount = 2,
-                Era = "2022 – 2024",
-                IsInstalled = existingDbs.Contains("CandidatesMatches")
+                DatabaseName = "ModernTitans",
+                EstimatedGameCount = 9200,
+                Era = "1984 – 2024",
+                IsInstalled = existingDbs.Contains("ModernTitans"),
+                DownloadUrls = new List<string>
+                {
+                    "https://www.pgnmentor.com/players/Carlsen.zip",
+                    "https://www.pgnmentor.com/players/Anand.zip"
+                }
+            },
+            new MasterCatalogItem
+            {
+                Id = "bobby-fischer",
+                Title = "Bobby Fischer Complete Career",
+                Description = "All 827 official tournament and match games of 11th World Champion Robert James Fischer.",
+                Tag = "Classic",
+                DatabaseName = "BobbyFischer",
+                EstimatedGameCount = 827,
+                Era = "1955 – 1992",
+                IsInstalled = existingDbs.Contains("BobbyFischer"),
+                DownloadUrls = new List<string>
+                {
+                    "https://www.pgnmentor.com/players/Fischer.zip"
+                }
+            },
+            new MasterCatalogItem
+            {
+                Id = "garry-kasparov",
+                Title = "Garry Kasparov Complete Career",
+                Description = "Over 2,100 master games from the 13th World Champion Garry Kasparov.",
+                Tag = "Classic",
+                DatabaseName = "GarryKasparov",
+                EstimatedGameCount = 2128,
+                Era = "1976 – 2005",
+                IsInstalled = existingDbs.Contains("GarryKasparov"),
+                DownloadUrls = new List<string>
+                {
+                    "https://www.pgnmentor.com/players/Kasparov.zip"
+                }
+            },
+            new MasterCatalogItem
+            {
+                Id = "mikhail-tal",
+                Title = "Mikhail Tal: The Magician from Riga",
+                Description = "Over 2,400 attacking and tactical games of 8th World Champion Mikhail Tal.",
+                Tag = "Tactics",
+                DatabaseName = "MikhailTal",
+                EstimatedGameCount = 2431,
+                Era = "1949 – 1992",
+                IsInstalled = existingDbs.Contains("MikhailTal"),
+                DownloadUrls = new List<string>
+                {
+                    "https://www.pgnmentor.com/players/Tal.zip"
+                }
+            },
+            new MasterCatalogItem
+            {
+                Id = "offline-starter",
+                Title = "Curated Masterpieces (Instant Offline)",
+                Description = "Essential historic games covering key opening lines from Steinitz to Carlsen. Instant setup without internet.",
+                Tag = "Offline",
+                DatabaseName = "MasterClassics",
+                EstimatedGameCount = 20,
+                Era = "1851 – 2024",
+                IsInstalled = existingDbs.Contains("MasterClassics"),
+                DownloadUrls = new List<string>()
             }
         };
 
@@ -312,29 +373,65 @@ public class DatabaseManager : IDatabaseService
             throw new ArgumentException($"Unknown catalog item '{catalogId}'");
         }
 
-        progress?.Report((0, 100, $"Preparing database '{item.DatabaseName}'..."));
-
-        string pgnText = item.Id switch
-        {
-            "world-champions" => CuratedMasterGames.GetWorldChampionsPgn(),
-            "grandmaster-classics" => CuratedMasterGames.GetGrandmasterClassicsPgn(),
-            "candidates-matches" => CuratedMasterGames.GetCandidatesMatchesPgn(),
-            _ => CuratedMasterGames.GetWorldChampionsPgn()
-        };
-
+        progress?.Report((5, 100, $"Preparing database '{item.DatabaseName}'..."));
         await CreateDatabaseAsync(item.DatabaseName);
+        string dbPath = GetDbPath(item.DatabaseName);
 
-        progress?.Report((30, 100, $"Indexing {item.Title} games into opening tree..."));
+        bool downloadedAny = false;
 
-        var importProgress = new Progress<PgnImportProgress>(p =>
+        if (item.DownloadUrls != null && item.DownloadUrls.Count > 0)
         {
-            int mapped = 30 + (int)(p.PercentComplete * 0.65);
-            progress?.Report((mapped, 100, $"Indexed {p.GamesSaved} games..."));
-        });
+            for (int i = 0; i < item.DownloadUrls.Count; i++)
+            {
+                var url = item.DownloadUrls[i];
+                string name = Path.GetFileNameWithoutExtension(url);
+                int basePct = 10 + (int)((double)i / item.DownloadUrls.Count * 80);
+                int nextPct = 10 + (int)((double)(i + 1) / item.DownloadUrls.Count * 80);
+                progress?.Report((basePct, 100, $"Downloading and importing {name} ({i + 1}/{item.DownloadUrls.Count})..."));
 
-        await ImportPgnTextAsync(item.DatabaseName, pgnText, importProgress, cancellationToken, deduplicate: true);
+                try
+                {
+                    using var request = new HttpRequestMessage(HttpMethod.Get, url);
+                    using var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                        using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
+                        foreach (var entry in archive.Entries)
+                        {
+                            if (entry.FullName.EndsWith(".pgn", StringComparison.OrdinalIgnoreCase))
+                            {
+                                using var entryStream = entry.Open();
+                                using var reader = new StreamReader(entryStream);
+                                var subProgress = new Progress<PgnImportProgress>(p =>
+                                {
+                                    int currentPct = basePct + (int)(p.PercentComplete * (nextPct - basePct) / 100.0);
+                                    progress?.Report((currentPct, 100, $"Importing {name}: {p.GamesSaved:N0} games indexed..."));
+                                });
+                                await _importer.ImportAsync($"Data Source={dbPath}", reader, entry.Length, subProgress, cancellationToken, deduplicate: true);
+                                downloadedAny = true;
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[DatabaseManager] Download error for {url}: {ex.Message}");
+                }
+            }
+        }
 
-        // Automatically set as Reference Database if user installs the recommended collection or has default
+        // If offline, download failed, or item has no download URLs:
+        if (!downloadedAny)
+        {
+            progress?.Report((50, 100, $"Installing curated starter games for '{item.Title}'..."));
+            string pgnText = CuratedMasterGames.GetWorldChampionsPgn() + "\n\n" +
+                             CuratedMasterGames.GetGrandmasterClassicsPgn() + "\n\n" +
+                             CuratedMasterGames.GetCandidatesMatchesPgn();
+            await ImportPgnTextAsync(item.DatabaseName, pgnText, null, cancellationToken, deduplicate: true);
+        }
+
+        // Automatically set as Reference Database if recommended or user has default
         if (string.Equals(item.Id, "world-champions", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(_referenceDatabaseName, "ClassicalMasters", StringComparison.OrdinalIgnoreCase))
         {

@@ -357,7 +357,7 @@
 								<h4 class="master-card-title">@item.Title</h4>
 								<p class="master-card-desc">@item.Description</p>
 								<div class="master-card-footer">
-									<span class="master-games-count">@item.EstimatedGameCount games</span>
+									<span class="master-games-count">@item.EstimatedGameCount.ToString("N0") games</span>
 									@if (item.IsInstalled)
 									{
 										<div class="master-installed-actions">

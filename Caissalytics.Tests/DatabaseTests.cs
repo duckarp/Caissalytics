@@ -519,8 +519,11 @@ public class DatabaseTests : IDisposable
         var catalog = await _dbManager.GetMasterCatalogAsync();
         Assert.NotEmpty(catalog);
         Assert.Contains(catalog, c => c.Id == "world-champions");
-        Assert.Contains(catalog, c => c.Id == "grandmaster-classics");
-        Assert.Contains(catalog, c => c.Id == "candidates-matches");
+        Assert.Contains(catalog, c => c.Id == "modern-titans");
+        Assert.Contains(catalog, c => c.Id == "bobby-fischer");
+        Assert.Contains(catalog, c => c.Id == "garry-kasparov");
+        Assert.Contains(catalog, c => c.Id == "mikhail-tal");
+        Assert.Contains(catalog, c => c.Id == "offline-starter");
     }
 
     [Fact]

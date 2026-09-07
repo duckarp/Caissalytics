@@ -35,6 +35,7 @@ public class MasterCatalogItem
     public int EstimatedGameCount { get; set; }
     public string Era { get; set; } = string.Empty;
     public bool IsInstalled { get; set; }
+    public List<string> DownloadUrls { get; set; } = new();
 }
 
 public class GameHeader
