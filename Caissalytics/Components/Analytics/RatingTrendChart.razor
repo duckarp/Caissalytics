@@ -1,0 +1,214 @@
+@namespace Caissalytics.Components.Analytics
+@using Caissalytics.Data
+
+<div class="rating-chart-wrapper">
+	@if (Points == null || Points.Count < 2)
+	{
+		<div class="rating-chart-empty">
+			<span class="rating-chart-empty-icon">📈</span>
+			<span class="rating-chart-empty-title">Insufficient Rating History</span>
+			<span class="rating-chart-empty-hint">At least 2 rated games are needed to render a progression timeline.</span>
+		</div>
+	}
+	else
+	{
+		<div class="rating-chart-container">
+			<svg class="rating-chart-svg" viewBox="0 0 800 240" preserveAspectRatio="none">
+				<defs>
+					<linearGradient id="rating-area-gradient" x1="0" y1="0" x2="0" y2="1">
+						<stop offset="0%" class="gradient-stop-top" />
+						<stop offset="100%" class="gradient-stop-bottom" />
+					</linearGradient>
+				</defs>
+
+				<!-- Horizontal Gridlines & Y-Axis Labels -->
+				@foreach (var grid in _gridLines)
+				{
+					<line class="rating-grid-line"
+						  x1="60"
+						  y1="@grid.Y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)"
+						  x2="780"
+						  y2="@grid.Y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)" />
+					<!text class="rating-axis-label"
+						  x="50"
+						  y="@((grid.Y + 4).ToString("F1", System.Globalization.CultureInfo.InvariantCulture))"
+						  text-anchor="end">
+						@grid.Rating
+					</!text>
+				}
+
+				<!-- Shaded Area Under Curve -->
+				<path class="rating-area-path" d="@_areaPathD" fill="url(#rating-area-gradient)" />
+
+				<!-- Trend Line -->
+				<path class="rating-line-path" d="@_linePathD" />
+
+				<!-- Data Points -->
+				@for (int i = 0; i < _renderedPoints.Count; i++)
+				{
+					var pt = _renderedPoints[i];
+					string pointClass = pt.IsSelected ? "rating-point point-selected" : "rating-point";
+					if (pt.Source.Result == "win") pointClass += " point-win";
+					else if (pt.Source.Result == "loss") pointClass += " point-loss";
+					else pointClass += " point-draw";
+
+					<circle class="@pointClass"
+							cx="@pt.X.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)"
+							cy="@pt.Y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)"
+							r="4"
+							@onmouseenter="() => _hoveredPoint = pt"
+							@onmouseleave="() => _hoveredPoint = null" />
+				}
+			</svg>
+
+			@if (_hoveredPoint != null)
+			{
+				<div class="rating-tooltip-card">
+					<div class="rating-tooltip-header">
+						<span class="rating-tooltip-date">@_hoveredPoint.Source.DateStr</span>
+						<span class="rating-tooltip-rating">@_hoveredPoint.Source.Rating</span>
+					</div>
+					<div class="rating-tooltip-body">
+						<div class="rating-tooltip-opponent">
+							vs. <span class="opponent-name">@_hoveredPoint.Source.OpponentName</span>
+							@if (_hoveredPoint.Source.OpponentRating.HasValue && _hoveredPoint.Source.OpponentRating.Value > 0)
+							{
+								<span class="opponent-elo">(@_hoveredPoint.Source.OpponentRating.Value)</span>
+							}
+						</div>
+						<div class="rating-tooltip-meta">
+							<span class="rating-tooltip-badge badge-@_hoveredPoint.Source.Result">@_hoveredPoint.Source.Result.ToUpperInvariant()</span>
+							<span class="rating-tooltip-color">(@_hoveredPoint.Source.UserColor)</span>
+							@if (!string.IsNullOrEmpty(_hoveredPoint.Source.OpeningName))
+							{
+								<span class="rating-tooltip-opening">@_hoveredPoint.Source.OpeningName</span>
+							}
+						</div>
+					</div>
+				</div>
+			}
+		</div>
+
+		<div class="rating-chart-footer">
+			<div class="rating-stat-pill">
+				<span class="pill-label">Lowest:</span>
+				<span class="pill-value">@_minRating</span>
+			</div>
+			<div class="rating-stat-pill">
+				<span class="pill-label">Peak:</span>
+				<span class="pill-value pill-peak">@_maxRating</span>
+			</div>
+			<div class="rating-stat-pill">
+				<span class="pill-label">Current:</span>
+				<span class="pill-value pill-current">@Points.Last().Rating</span>
+			</div>
+			<div class="rating-stat-pill">
+				<span class="pill-label">Total Rated Games:</span>
+				<span class="pill-value">@Points.Count</span>
+			</div>
+		</div>
+	}
+</div>
+
+@code {
+	[Parameter] public List<RatingHistoryPoint> Points { get; set; } = new();
+
+	private record GridLine(double Y, int Rating);
+	private record RenderedPoint(double X, double Y, RatingHistoryPoint Source, bool IsSelected = false);
+
+	private List<GridLine> _gridLines = new();
+	private List<RenderedPoint> _renderedPoints = new();
+	private string _linePathD = "";
+	private string _areaPathD = "";
+	private int _minRating = 0;
+	private int _maxRating = 0;
+	private RenderedPoint? _hoveredPoint;
+
+	protected override void OnParametersSet()
+	{
+		CalculateChart();
+	}
+
+	private void CalculateChart()
+	{
+		_gridLines.Clear();
+		_renderedPoints.Clear();
+		_linePathD = "";
+		_areaPathD = "";
+
+		if (Points == null || Points.Count < 2) return;
+
+		int rawMin = Points.Min(p => p.Rating);
+		int rawMax = Points.Max(p => p.Rating);
+
+		_minRating = rawMin;
+		_maxRating = rawMax;
+
+		// Pad scale to multiples of 50
+		int lowerBound = (rawMin / 50) * 50 - 50;
+		int upperBound = ((rawMax + 49) / 50) * 50 + 50;
+		if (upperBound - lowerBound < 150)
+		{
+			upperBound = lowerBound + 150;
+		}
+
+		double chartLeft = 60.0;
+		double chartRight = 780.0;
+		double chartTop = 25.0;
+		double chartBottom = 205.0;
+		double chartWidth = chartRight - chartLeft;
+		double chartHeight = chartBottom - chartTop;
+
+		// 4 to 5 horizontal grid lines
+		int step = (upperBound - lowerBound) / 4;
+		if (step < 25) step = 25;
+
+		for (int r = lowerBound; r <= upperBound; r += step)
+		{
+			double norm = 1.0 - (double)(r - lowerBound) / (upperBound - lowerBound);
+			double y = chartTop + norm * chartHeight;
+			_gridLines.Add(new GridLine(y, r));
+		}
+
+		// Calculate data points
+		var lineSb = new System.Text.StringBuilder();
+		var areaSb = new System.Text.StringBuilder();
+
+		int n = Points.Count;
+		for (int i = 0; i < n; i++)
+		{
+			var pt = Points[i];
+			double x = chartLeft + (n == 1 ? chartWidth / 2.0 : (double)i / (n - 1) * chartWidth);
+			double norm = 1.0 - (double)(pt.Rating - lowerBound) / (upperBound - lowerBound);
+			double y = chartTop + Math.Clamp(norm, 0.0, 1.0) * chartHeight;
+
+			_renderedPoints.Add(new RenderedPoint(x, y, pt));
+
+			string xStr = x.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+			string yStr = y.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+
+			if (i == 0)
+			{
+				lineSb.Append($"M {xStr},{yStr}");
+				areaSb.Append($"M {xStr},{chartBottom.ToString("F1", System.Globalization.CultureInfo.InvariantCulture)} L {xStr},{yStr}");
+			}
+			else
+			{
+				lineSb.Append($" L {xStr},{yStr}");
+				areaSb.Append($" L {xStr},{yStr}");
+			}
+		}
+
+		if (_renderedPoints.Count > 0)
+		{
+			string lastX = _renderedPoints.Last().X.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+			string bottomY = chartBottom.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+			string firstX = _renderedPoints.First().X.ToString("F1", System.Globalization.CultureInfo.InvariantCulture);
+
+			areaSb.Append($" L {lastX},{bottomY} L {firstX},{bottomY} Z");
+		}
+
+		_linePathD = lineSb.ToString();
+		_areaPathD = areaSb.ToString();
+	}
+}

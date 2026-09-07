@@ -172,6 +172,18 @@ public class SettingsTab : WorkspaceTab
     public override string Icon => "⚙️";
 }
 
+public class AnalyticsTab : WorkspaceTab
+{
+    public override string Title => "Personal Insights";
+    public override string Icon => "📊";
+    public string? DatabaseScope { get; set; }
+
+    public AnalyticsTab(string? databaseScope = null)
+    {
+        DatabaseScope = databaseScope;
+    }
+}
+
 public class WorkspaceState
 {
     public List<WorkspaceTab> Tabs { get; } = new();
@@ -252,6 +264,27 @@ public class WorkspaceState
         }
 
         var tab = new SettingsTab();
+        Tabs.Add(tab);
+        ActiveTab = tab;
+        NotifyStateChanged();
+        return tab;
+    }
+
+    public AnalyticsTab CreateAnalyticsTab(string? databaseScope = null)
+    {
+        var existing = Tabs.OfType<AnalyticsTab>().FirstOrDefault();
+        if (existing != null)
+        {
+            if (!string.IsNullOrEmpty(databaseScope))
+            {
+                existing.DatabaseScope = databaseScope;
+            }
+            ActiveTab = existing;
+            NotifyStateChanged();
+            return existing;
+        }
+
+        var tab = new AnalyticsTab(databaseScope);
         Tabs.Add(tab);
         ActiveTab = tab;
         NotifyStateChanged();
@@ -341,6 +374,16 @@ public class WorkspaceState
                         Title = settings.Title
                     });
                     break;
+
+                case AnalyticsTab analytics:
+                    dto.Tabs.Add(new WorkspaceTabDto
+                    {
+                        Id = analytics.Id,
+                        Type = "analytics",
+                        Title = analytics.Title,
+                        DatabaseScope = analytics.DatabaseScope
+                    });
+                    break;
             }
         }
 
@@ -409,6 +452,11 @@ public class WorkspaceState
                     {
                         var settingsTab = new SettingsTab { Id = tabDto.Id };
                         Tabs.Add(settingsTab);
+                    }
+                    else if (tabDto.Type == "analytics")
+                    {
+                        var analyticsTab = new AnalyticsTab(tabDto.DatabaseScope) { Id = tabDto.Id };
+                        Tabs.Add(analyticsTab);
                     }
                 }
 

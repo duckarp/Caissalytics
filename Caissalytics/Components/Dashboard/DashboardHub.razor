@@ -36,6 +36,12 @@
 			<p class="card-description">Sync and analyze your games from Lichess and Chess.com into your local database.</p>
 		</div>
 
+		<div class="action-card" @onclick="() => Workspace.CreateAnalyticsTab()">
+			<div class="card-icon">📊</div>
+			<h2 class="card-title">Personal Insights</h2>
+			<p class="card-description">Explore your win/loss performance, White vs Black stats, rating timeline, and opening repertoire.</p>
+		</div>
+
 		<div class="action-card" @onclick="() => Workspace.CreateSettingsTab()">
 			<div class="card-icon">⚙️</div>
 			<h2 class="card-title">Control Center</h2>

@@ -13,6 +13,7 @@ public interface IDatabaseService
 
     Task<PositionReferenceResult> QueryPositionAsync(string? databaseName, ulong zobristKey, int maxGames = 25);
     Task<(List<GameHeader> Games, int TotalCount)> SearchGamesAsync(string? databaseName, GameFilter filter);
+    Task<List<GameHeader>> GetAllGameHeadersAsync(string? databaseName = null);
     Task<GameHeader?> GetGameByIdAsync(string? databaseName, long gameId);
     Task<long> SaveGameAsync(string databaseName, GameHeader game);
     Task<bool> DeleteGameAsync(string databaseName, long gameId);

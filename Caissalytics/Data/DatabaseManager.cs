@@ -429,6 +429,58 @@ public class DatabaseManager : IDatabaseService
         return (games, totalCount);
     }
 
+    public async Task<List<GameHeader>> GetAllGameHeadersAsync(string? databaseName = null)
+    {
+        var games = new List<GameHeader>();
+
+        if (string.Equals(databaseName, "ALL", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(databaseName, "All Databases", StringComparison.OrdinalIgnoreCase))
+        {
+            var files = Directory.GetFiles(_storageDir, "*.db");
+            foreach (var file in files)
+            {
+                try
+                {
+                    using var conn = new SqliteConnection($"Data Source={file};Mode=ReadOnly");
+                    await conn.OpenAsync();
+                    using var cmd = conn.CreateCommand();
+                    cmd.CommandText = @"
+                        SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn
+                        FROM games
+                        ORDER BY date DESC, id DESC;";
+                    using var reader = await cmd.ExecuteReaderAsync();
+                    while (await reader.ReadAsync())
+                    {
+                        games.Add(ReadGameHeader(reader));
+                    }
+                }
+                catch { }
+            }
+            return games.OrderByDescending(g => g.Date).ThenByDescending(g => g.Id).ToList();
+        }
+
+        string dbName = string.IsNullOrWhiteSpace(databaseName) ? _activeDatabaseName : databaseName;
+        string path = GetDbPath(dbName);
+        if (!File.Exists(path)) return games;
+
+        using (var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly"))
+        {
+            await conn.OpenAsync();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn
+                FROM games
+                ORDER BY date DESC, id DESC;";
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                games.Add(ReadGameHeader(reader));
+            }
+        }
+
+        return games;
+    }
+
     public async Task<GameHeader?> GetGameByIdAsync(string? databaseName, long gameId)
     {
         string dbName = string.IsNullOrWhiteSpace(databaseName) ? _activeDatabaseName : databaseName;

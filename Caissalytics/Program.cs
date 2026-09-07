@@ -26,6 +26,7 @@ builder.Services.AddSingleton<IDatabaseService, DatabaseManager>();
 builder.Services.AddSingleton<IGameAnalysisService, GameAnalysisService>();
 builder.Services.AddSingleton<IOnlineGameSyncService, OnlineGameSyncService>();
 builder.Services.AddSingleton<IUserProfileService, UserProfileService>();
+builder.Services.AddSingleton<IUserAnalyticsService, UserAnalyticsService>();
 builder.Services.AddScoped<WorkspaceState>();
 
 var app = builder.Build();

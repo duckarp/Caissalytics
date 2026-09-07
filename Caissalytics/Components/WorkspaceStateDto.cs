@@ -11,7 +11,7 @@ public class WorkspaceStateDto
 public class WorkspaceTabDto
 {
     public Guid Id { get; set; }
-    public string Type { get; set; } = "dashboard"; // "dashboard", "analysis", "database", "settings"
+    public string Type { get; set; } = "dashboard"; // "dashboard", "analysis", "database", "settings", "analytics"
     public string? Title { get; set; }
     public string? Pgn { get; set; }
     public List<int>? CurrentNodePath { get; set; }
@@ -21,4 +21,5 @@ public class WorkspaceTabDto
     public string? TargetDatabase { get; set; }
     public long? DatabaseGameId { get; set; }
     public GameAnalysisReport? AnalysisReport { get; set; }
+    public string? DatabaseScope { get; set; }
 }

@@ -29,6 +29,12 @@
 				<span class="header-db-name">Database</span>
 			</button>
 		}
+		<button class="btn-secondary header-analytics-btn"
+				title="Personal Chess Analytics & Performance Insights"
+				@onclick="() => Workspace.CreateAnalyticsTab()">
+			<span>📊</span>
+			<span class="header-analytics-label">Insights</span>
+		</button>
 		<button class="btn-secondary header-control-btn"
 				title="Open Settings & Control Center (User profile, engine management, sync accounts)"
 				@onclick="() => Workspace.CreateSettingsTab()">

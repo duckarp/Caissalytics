@@ -1,0 +1,659 @@
+@namespace Caissalytics.Components.Analytics
+@using Caissalytics.Data
+@inject IUserAnalyticsService AnalyticsService
+@inject IDatabaseService DatabaseService
+@inject IUserProfileService ProfileService
+@inject WorkspaceState Workspace
+@implements IDisposable
+
+<div class="analytics-dashboard-container">
+	<!-- 1. Header Toolbar -->
+	<header class="analytics-header-bar">
+		<div class="analytics-profile-badge">
+			<div class="profile-avatar-circle">
+				<span>@GetInitials()</span>
+			</div>
+			<div class="profile-info-block">
+				<div class="profile-name-row">
+					<h1 class="profile-display-name">@(_report?.Profile.FullName ?? "My Chess Analytics")</h1>
+					@if (_report?.Profile.HasFideId == true)
+					{
+						<a class="profile-platform-badge badge-fide"
+						   href="@_report.Profile.FideProfileUrl"
+						   target="_blank"
+						   rel="noopener"
+						   title="FIDE ID: @_report.Profile.FideId">
+							<span>FIDE: @_report.Profile.FideId</span>
+						</a>
+					}
+					@if (_report?.Profile.HasLichess == true)
+					{
+						<a class="profile-platform-badge badge-lichess"
+						   href="@_report.Profile.LichessProfileUrl"
+						   target="_blank"
+						   rel="noopener"
+						   title="Lichess Profile">
+							<span>lichess.org/@_report.Profile.LichessUsername</span>
+						</a>
+					}
+					@if (_report?.Profile.HasChessCom == true)
+					{
+						<a class="profile-platform-badge badge-chesscom"
+						   href="@_report.Profile.ChessComProfileUrl"
+						   target="_blank"
+						   rel="noopener"
+						   title="Chess.com Profile">
+							<span>chess.com/@_report.Profile.ChessComUsername</span>
+						</a>
+					}
+				</div>
+				<span class="profile-subtext">Personal performance insights, opening repertoire matrix, and rating progression.</span>
+			</div>
+		</div>
+
+		<div class="analytics-controls-row">
+			<!-- Scope Selector -->
+			<div class="control-group">
+				<label class="control-label">Database Scope:</label>
+				<select class="control-select" value="@_selectedScope" @onchange="OnScopeChanged">
+					@if (_hasOnlineGamesDb)
+					{
+						<option value="My online games">🌐 My online games</option>
+					}
+					<option value="ALL">🗄️ All Databases (Aggregated)</option>
+					@foreach (var db in _availableDatabases.Where(d => d.Name != "My online games"))
+					{
+						<option value="@db.Name">📁 @db.Name (@db.GameCount.ToString("N0") games)</option>
+					}
+				</select>
+			</div>
+
+			<!-- Time Filter Pills -->
+			<div class="time-filter-pillbox">
+				<button class="@GetTimePillClass("all")" @onclick="@(() => SetTimeFilter("all"))">All Time</button>
+				<button class="@GetTimePillClass("year")" @onclick="@(() => SetTimeFilter("year"))">Past Year</button>
+				<button class="@GetTimePillClass("90d")" @onclick="@(() => SetTimeFilter("90d"))">90 Days</button>
+				<button class="@GetTimePillClass("30d")" @onclick="@(() => SetTimeFilter("30d"))">30 Days</button>
+			</div>
+
+			<!-- Actions -->
+			<div class="header-button-group">
+				<button class="btn-action-refresh" title="Refresh Analytics" disabled="@_isLoading" @onclick="LoadReportAsync">
+					<span>@(_isLoading ? "⏳" : "🔄")</span>
+					<span>Refresh</span>
+				</button>
+				<button class="btn-action-settings" title="Open Profile & Settings" @onclick="() => Workspace.CreateSettingsTab()">
+					<span>⚙️</span>
+					<span>Settings</span>
+				</button>
+			</div>
+		</div>
+	</header>
+
+	@if (_isLoading)
+	{
+		<div class="analytics-loading-screen">
+			<div class="loading-spinner"></div>
+			<span class="loading-text">Computing personal metrics and opening statistics...</span>
+		</div>
+	}
+	else if (_report == null || _report.TotalGames == 0)
+	{
+		<div class="analytics-empty-screen">
+			<span class="empty-icon">📊</span>
+			<h2 class="empty-title">No Matching Games Found</h2>
+			<p class="empty-desc">
+				We couldn't find any games in <strong>@_selectedScope</strong> matching your player profile handles:
+			</p>
+			<div class="empty-handles-box">
+				@if (_report?.Profile?.HasLichess == true)
+				{
+					<span class="empty-handle-tag">Lichess: @_report.Profile.LichessUsername</span>
+				}
+				@if (_report?.Profile?.HasChessCom == true)
+				{
+					<span class="empty-handle-tag">Chess.com: @_report.Profile.ChessComUsername</span>
+				}
+				@if (!string.IsNullOrWhiteSpace(_report?.Profile?.FullName) && _report.Profile.FullName != "Anonymous Player")
+				{
+					<span class="empty-handle-tag">Name: @_report.Profile.FullName</span>
+				}
+			</div>
+			<div class="empty-actions-row">
+				<button class="btn-primary" @onclick="() => Workspace.CreateSettingsTab()">
+					⚙️ Configure Player Profile
+				</button>
+				<button class="btn-secondary" @onclick="SwitchToAllDatabases">
+					🗄️ Search Across All Databases
+				</button>
+			</div>
+		</div>
+	}
+	else
+	{
+		<!-- 2. Hero KPI Metric Cards -->
+		<section class="analytics-hero-grid">
+			<div class="hero-kpi-card">
+				<div class="kpi-card-header">
+					<span class="kpi-label">TOTAL GAMES</span>
+					<span class="kpi-icon">♟️</span>
+				</div>
+				<div class="kpi-value-row">
+					<span class="kpi-main-value">@_report.TotalGames.ToString("N0")</span>
+				</div>
+				<div class="kpi-sub-row">
+					<span class="kpi-record-pill record-win">@_report.Wins W</span>
+					<span class="kpi-record-pill record-draw">@_report.Draws D</span>
+					<span class="kpi-record-pill record-loss">@_report.Losses L</span>
+				</div>
+			</div>
+
+			<div class="hero-kpi-card">
+				<div class="kpi-card-header">
+					<span class="kpi-label">OVERALL WIN RATE</span>
+					<span class="kpi-icon">🎯</span>
+				</div>
+				<div class="kpi-value-row">
+					<span class="kpi-main-value win-accent">@_report.WinRate.ToString("F1")%</span>
+				</div>
+				<div class="kpi-sub-row">
+					<div class="kpi-mini-bar">
+						<div class="mini-bar-fill @($"bar-w-{_report.WinPct}")"></div>
+					</div>
+					<span class="kpi-hint">@_report.Wins out of @_report.TotalGames games</span>
+				</div>
+			</div>
+
+			<div class="hero-kpi-card">
+				<div class="kpi-card-header">
+					<span class="kpi-label">SCORE RATE</span>
+					<span class="kpi-icon">⚖️</span>
+				</div>
+				<div class="kpi-value-row">
+					<span class="kpi-main-value score-accent">@_report.ScoreRate.ToString("F1")%</span>
+				</div>
+				<div class="kpi-sub-row">
+					<span class="kpi-hint">Calculated as (Wins + 0.5×Draws)</span>
+				</div>
+			</div>
+
+			<div class="hero-kpi-card">
+				<div class="kpi-card-header">
+					<span class="kpi-label">CURRENT STREAK</span>
+					<span class="kpi-icon">🔥</span>
+				</div>
+				<div class="kpi-value-row">
+					<span class="kpi-main-value @GetStreakClass(_report.CurrentStreak)">@_report.CurrentStreak</span>
+				</div>
+				<div class="kpi-sub-row">
+					<span class="kpi-hint">Best Win Streak: <strong class="streak-accent">@_report.BestWinStreak Wins</strong></span>
+				</div>
+			</div>
+
+			<div class="hero-kpi-card">
+				<div class="kpi-card-header">
+					<span class="kpi-label">RATING STATUS</span>
+					<span class="kpi-icon">📈</span>
+				</div>
+				<div class="kpi-value-row">
+					@if (_report.CurrentRating.HasValue)
+					{
+						<span class="kpi-main-value rating-accent">@_report.CurrentRating.Value</span>
+					}
+					else
+					{
+						<span class="kpi-main-value text-muted">Unrated</span>
+					}
+				</div>
+				<div class="kpi-sub-row">
+					@if (_report.PeakRating.HasValue)
+					{
+						<span class="kpi-hint">Peak: <strong>@_report.PeakRating.Value</strong> · Low: <strong>@_report.LowestRating</strong></span>
+					}
+					else
+					{
+						<span class="kpi-hint">No ratings recorded</span>
+					}
+				</div>
+			</div>
+		</section>
+
+		<!-- 3. Split Row: Color Performance & Rating Progression -->
+		<section class="analytics-split-row">
+			<!-- White vs Black Card -->
+			<div class="analytics-card card-color-split">
+				<div class="card-title-bar">
+					<div class="card-title-group">
+						<span class="card-section-icon">⚔️</span>
+						<h2 class="card-heading">Color Performance (White vs. Black)</h2>
+					</div>
+				</div>
+
+				<div class="color-split-container">
+					<!-- White Side -->
+					<div class="color-sub-card color-white-side">
+						<div class="color-header-row">
+							<div class="color-label-group">
+								<span class="color-pawn-icon pawn-white">♙</span>
+								<span class="color-name">As White</span>
+							</div>
+							<span class="color-winrate-badge">@_report.WhiteStats.WinRate.ToString("F1")% Win</span>
+						</div>
+
+						<div class="color-stats-grid">
+							<div class="color-stat-item">
+								<span class="stat-label">Games</span>
+								<span class="stat-value">@_report.WhiteStats.TotalGames</span>
+							</div>
+							<div class="color-stat-item">
+								<span class="stat-label">Score</span>
+								<span class="stat-value">@_report.WhiteStats.ScoreRate.ToString("F1")%</span>
+							</div>
+							<div class="color-stat-item">
+								<span class="stat-label">Record</span>
+								<span class="stat-value">@_report.WhiteStats.Wins W · @_report.WhiteStats.Draws D · @_report.WhiteStats.Losses L</span>
+							</div>
+						</div>
+
+						<div class="winrate-bar-track">
+							<div class="bar-segment bar-win @($"bar-w-{_report.WhiteStats.WinPct}")" title="Wins: @_report.WhiteStats.WinRate.ToString("F1")%"></div>
+							<div class="bar-segment bar-draw @($"bar-w-{_report.WhiteStats.DrawPct}")" title="Draws: @_report.WhiteStats.DrawRate.ToString("F1")%"></div>
+							<div class="bar-segment bar-loss @($"bar-w-{_report.WhiteStats.LossPct}")" title="Losses: @_report.WhiteStats.LossRate.ToString("F1")%"></div>
+						</div>
+					</div>
+
+					<!-- Black Side -->
+					<div class="color-sub-card color-black-side">
+						<div class="color-header-row">
+							<div class="color-label-group">
+								<span class="color-pawn-icon pawn-black">♟</span>
+								<span class="color-name">As Black</span>
+							</div>
+							<span class="color-winrate-badge">@_report.BlackStats.WinRate.ToString("F1")% Win</span>
+						</div>
+
+						<div class="color-stats-grid">
+							<div class="color-stat-item">
+								<span class="stat-label">Games</span>
+								<span class="stat-value">@_report.BlackStats.TotalGames</span>
+							</div>
+							<div class="color-stat-item">
+								<span class="stat-label">Score</span>
+								<span class="stat-value">@_report.BlackStats.ScoreRate.ToString("F1")%</span>
+							</div>
+							<div class="color-stat-item">
+								<span class="stat-label">Record</span>
+								<span class="stat-value">@_report.BlackStats.Wins W · @_report.BlackStats.Draws D · @_report.BlackStats.Losses L</span>
+							</div>
+						</div>
+
+						<div class="winrate-bar-track">
+							<div class="bar-segment bar-win @($"bar-w-{_report.BlackStats.WinPct}")" title="Wins: @_report.BlackStats.WinRate.ToString("F1")%"></div>
+							<div class="bar-segment bar-draw @($"bar-w-{_report.BlackStats.DrawPct}")" title="Draws: @_report.BlackStats.DrawRate.ToString("F1")%"></div>
+							<div class="bar-segment bar-loss @($"bar-w-{_report.BlackStats.LossPct}")" title="Losses: @_report.BlackStats.LossRate.ToString("F1")%"></div>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<!-- Rating Progression Card -->
+			<div class="analytics-card card-rating-timeline">
+				<div class="card-title-bar">
+					<div class="card-title-group">
+						<span class="card-section-icon">📈</span>
+						<h2 class="card-heading">Rating Progression & Trajectory</h2>
+					</div>
+					@if (_report.PeakRating.HasValue)
+					{
+						<span class="rating-peak-tag">Peak: @_report.PeakRating.Value</span>
+					}
+				</div>
+
+				<RatingTrendChart Points="_report.RatingHistory" />
+			</div>
+		</section>
+
+		<!-- 4. Opening Repertoire Matrix -->
+		<section class="analytics-card card-repertoire">
+			<div class="card-title-bar">
+				<div class="card-title-group">
+					<span class="card-section-icon">📖</span>
+					<h2 class="card-heading">Opening Repertoire Matrix</h2>
+				</div>
+
+				<div class="repertoire-controls-group">
+					<!-- Filter by color -->
+					<div class="repertoire-color-pills">
+						<button class="@GetOpeningColorPillClass("all")" @onclick="@(() => SetOpeningColorFilter("all"))">All</button>
+						<button class="@GetOpeningColorPillClass("White")" @onclick="@(() => SetOpeningColorFilter("White"))">White</button>
+						<button class="@GetOpeningColorPillClass("Black")" @onclick="@(() => SetOpeningColorFilter("Black"))">Black</button>
+					</div>
+
+					<!-- Search input -->
+					<div class="repertoire-search-box">
+						<span class="search-icon">🔍</span>
+						<input class="search-input"
+							   placeholder="Filter opening or ECO..."
+							   @bind="_openingSearchTerm"
+							   @bind:event="oninput" />
+					</div>
+
+					<!-- Sort selector -->
+					<select class="control-select-compact" value="@_openingSortBy" @onchange="OnOpeningSortChanged">
+						<option value="games">Sort: Most Played</option>
+						<option value="winrate">Sort: Highest Win Rate</option>
+						<option value="score">Sort: Highest Score Rate</option>
+						<option value="eco">Sort: ECO Code</option>
+					</select>
+				</div>
+			</div>
+
+			@{
+				var filteredOpenings = GetFilteredOpenings();
+			}
+
+			@if (filteredOpenings.Count == 0)
+			{
+				<div class="table-empty-notice">
+					<span>No openings match the current filter criteria.</span>
+				</div>
+			}
+			else
+			{
+				<div class="repertoire-table-wrapper">
+					<table class="repertoire-table">
+						<thead>
+							<tr>
+								<th class="col-eco">ECO</th>
+								<th class="col-name">Opening Name</th>
+								<th class="col-color">Color</th>
+								<th class="col-games">Games</th>
+								<th class="col-bar">Outcome Distribution</th>
+								<th class="col-winrate">Win Rate</th>
+								<th class="col-score">Score</th>
+								<th class="col-record">W - D - L</th>
+							</tr>
+						</thead>
+						<tbody>
+							@foreach (var op in filteredOpenings)
+							{
+								<tr class="repertoire-row">
+									<td class="col-eco">
+										<span class="eco-badge">@op.Eco</span>
+									</td>
+									<td class="col-name">
+										<span class="opening-title">@op.OpeningName</span>
+									</td>
+									<td class="col-color">
+										<span class="color-badge badge-@op.Color.ToLowerInvariant()">@op.Color</span>
+									</td>
+									<td class="col-games">
+										<span class="games-count">@op.TotalGames</span>
+									</td>
+									<td class="col-bar">
+										<div class="winrate-bar-track" title="Win: @op.WinRate.ToString("F1")% | Draw: @op.DrawRate.ToString("F1")% | Loss: @op.LossRate.ToString("F1")%">
+											<div class="bar-segment bar-win @($"bar-w-{op.WinPct}")"></div>
+											<div class="bar-segment bar-draw @($"bar-w-{op.DrawPct}")"></div>
+											<div class="bar-segment bar-loss @($"bar-w-{op.LossPct}")"></div>
+										</div>
+									</td>
+									<td class="col-winrate">
+										<span class="winrate-text">@op.WinRate.ToString("F1")%</span>
+									</td>
+									<td class="col-score">
+										<span class="score-text">@op.ScoreRate.ToString("F1")%</span>
+									</td>
+									<td class="col-record">
+										<span class="record-text">@op.Wins - @op.Draws - @op.Losses</span>
+									</td>
+								</tr>
+							}
+						</tbody>
+					</table>
+				</div>
+			}
+		</section>
+
+		<!-- 5. Recent Matches & Form Section -->
+		<section class="analytics-card card-recent-matches">
+			<div class="card-title-bar">
+				<div class="card-title-group">
+					<span class="card-section-icon">🕒</span>
+					<h2 class="card-heading">Recent Match History & Form</h2>
+				</div>
+
+				<div class="form-strip-container">
+					<span class="form-strip-label">Recent Form:</span>
+					<div class="form-strip-pills">
+						@foreach (var g in _report.RecentGames.Take(15))
+						{
+							<span class="form-pill pill-@g.Result" title="@g.ResultDisplay vs @g.OpponentName (@g.Date)">
+								@(g.Result == "win" ? "W" : g.Result == "loss" ? "L" : "D")
+							</span>
+						}
+					</div>
+				</div>
+			</div>
+
+			<div class="recent-games-grid">
+				@foreach (var game in _report.RecentGames)
+				{
+					<div class="recent-game-card">
+						<div class="recent-card-left">
+							<span class="result-pill pill-@game.Result">@game.ResultDisplay.ToUpperInvariant()</span>
+							<div class="game-meta-block">
+								<div class="game-opponent-line">
+									<span class="game-color-tag">(@game.UserColor)</span>
+									<span class="opponent-vs">vs.</span>
+									<strong class="opponent-name">@game.OpponentName</strong>
+									@if (game.OpponentRating.HasValue && game.OpponentRating.Value > 0)
+									{
+										<span class="opponent-rating">(@game.OpponentRating.Value)</span>
+									}
+								</div>
+								<div class="game-details-line">
+									<span class="game-eco-tag">@game.Eco</span>
+									<span class="game-opening-name">@game.OpeningName</span>
+									<span class="game-date">· @game.FormattedDate</span>
+									<span class="game-platform">· @game.PlatformName</span>
+								</div>
+							</div>
+						</div>
+
+						<div class="recent-card-right">
+							<button class="btn-analyze-game" @onclick="() => OpenGameInBoard(game)">
+								<span>⚡ Analyze</span>
+							</button>
+						</div>
+					</div>
+				}
+			</div>
+		</section>
+	}
+</div>
+
+@code {
+	[Parameter] public AnalyticsTab Tab { get; set; } = default!;
+
+	private PersonalAnalyticsReport? _report;
+	private List<DatabaseInfo> _availableDatabases = new();
+	private string _selectedScope = "";
+	private string _timeFilter = "all";
+	private string _openingColorFilter = "all";
+	private string _openingSearchTerm = "";
+	private string _openingSortBy = "games";
+	private bool _hasOnlineGamesDb = false;
+	private bool _isLoading = true;
+
+	protected override async Task OnInitializedAsync()
+	{
+		AnalyticsService.OnAnalyticsRefreshed += HandleAnalyticsRefreshed;
+		DatabaseService.OnActiveDatabaseChanged += HandleDatabaseChanged;
+
+		await LoadDatabasesAsync();
+
+		_selectedScope = Tab?.DatabaseScope ?? (_hasOnlineGamesDb ? "My online games" : "ALL");
+		await LoadReportAsync();
+	}
+
+	private async Task LoadDatabasesAsync()
+	{
+		try
+		{
+			_availableDatabases = await DatabaseService.GetDatabasesAsync();
+			_hasOnlineGamesDb = _availableDatabases.Any(d => string.Equals(d.Name, "My online games", StringComparison.OrdinalIgnoreCase));
+		}
+		catch { }
+	}
+
+	private async Task LoadReportAsync()
+	{
+		_isLoading = true;
+		StateHasChanged();
+
+		try
+		{
+			var options = new AnalyticsFilterOptions
+			{
+				TimeFilter = _timeFilter
+			};
+
+			_report = await AnalyticsService.GenerateAnalyticsReportAsync(_selectedScope, filter: options);
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[PersonalAnalytics] Error generating report: {ex.Message}");
+		}
+		finally
+		{
+			_isLoading = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task OnScopeChanged(ChangeEventArgs e)
+	{
+		_selectedScope = e.Value?.ToString() ?? "";
+		if (Tab != null) Tab.DatabaseScope = _selectedScope;
+		await LoadReportAsync();
+	}
+
+	private async Task SwitchToAllDatabases()
+	{
+		_selectedScope = "ALL";
+		if (Tab != null) Tab.DatabaseScope = _selectedScope;
+		await LoadReportAsync();
+	}
+
+	private async Task SetTimeFilter(string filter)
+	{
+		if (_timeFilter != filter)
+		{
+			_timeFilter = filter;
+			await LoadReportAsync();
+		}
+	}
+
+	private string GetTimePillClass(string filter)
+	{
+		return _timeFilter == filter ? "time-pill pill-active" : "time-pill";
+	}
+
+	private void SetOpeningColorFilter(string color)
+	{
+		_openingColorFilter = color;
+	}
+
+	private string GetOpeningColorPillClass(string color)
+	{
+		return _openingColorFilter == color ? "opening-pill pill-active" : "opening-pill";
+	}
+
+	private void OnOpeningSortChanged(ChangeEventArgs e)
+	{
+		_openingSortBy = e.Value?.ToString() ?? "games";
+	}
+
+	private List<OpeningPerformanceStat> GetFilteredOpenings()
+	{
+		if (_report?.TopOpenings == null) return new();
+
+		var query = _report.TopOpenings.AsEnumerable();
+
+		if (_openingColorFilter != "all")
+		{
+			query = query.Where(o => o.Color.Equals(_openingColorFilter, StringComparison.OrdinalIgnoreCase) || o.Color == "Both");
+		}
+
+		if (!string.IsNullOrWhiteSpace(_openingSearchTerm))
+		{
+			string term = _openingSearchTerm.Trim();
+			query = query.Where(o => o.Eco.Contains(term, StringComparison.OrdinalIgnoreCase) || o.OpeningName.Contains(term, StringComparison.OrdinalIgnoreCase));
+		}
+
+		return _openingSortBy switch
+		{
+			"winrate" => query.OrderByDescending(o => o.WinRate).ThenByDescending(o => o.TotalGames).ToList(),
+			"score" => query.OrderByDescending(o => o.ScoreRate).ThenByDescending(o => o.TotalGames).ToList(),
+			"eco" => query.OrderBy(o => o.Eco).ToList(),
+			_ => query.OrderByDescending(o => o.TotalGames).ThenByDescending(o => o.WinRate).ToList()
+		};
+	}
+
+	private void OpenGameInBoard(PersonalGameSummary game)
+	{
+		string title = $"{game.Header.White} vs {game.Header.Black}";
+		Workspace.CreateAnalysisTab(
+			title: title,
+			pgn: game.Header.Pgn,
+			targetDatabase: _selectedScope,
+			databaseGameId: game.GameId);
+	}
+
+	private string GetInitials()
+	{
+		if (_report?.Profile == null) return "♟";
+		string f = _report.Profile.FirstName.Trim();
+		string l = _report.Profile.LastName.Trim();
+		if (!string.IsNullOrEmpty(f) && !string.IsNullOrEmpty(l))
+		{
+			return $"{f[0]}{l[0]}".ToUpperInvariant();
+		}
+		if (!string.IsNullOrEmpty(_report.Profile.LichessUsername))
+		{
+			return _report.Profile.LichessUsername[..Math.Min(2, _report.Profile.LichessUsername.Length)].ToUpperInvariant();
+		}
+		if (!string.IsNullOrEmpty(_report.Profile.ChessComUsername))
+		{
+			return _report.Profile.ChessComUsername[..Math.Min(2, _report.Profile.ChessComUsername.Length)].ToUpperInvariant();
+		}
+		return "♟";
+	}
+
+	private string GetStreakClass(string streak)
+	{
+		if (streak.StartsWith("+") || streak.Contains("Win")) return "streak-win";
+		if (streak.StartsWith("-") || streak.Contains("Loss")) return "streak-loss";
+		return "streak-neutral";
+	}
+
+	private void HandleAnalyticsRefreshed()
+	{
+		InvokeAsync(LoadReportAsync);
+	}
+
+	private void HandleDatabaseChanged()
+	{
+		InvokeAsync(async () =>
+		{
+			await LoadDatabasesAsync();
+			await LoadReportAsync();
+		});
+	}
+
+	public void Dispose()
+	{
+		AnalyticsService.OnAnalyticsRefreshed -= HandleAnalyticsRefreshed;
+		DatabaseService.OnActiveDatabaseChanged -= HandleDatabaseChanged;
+	}
+}
