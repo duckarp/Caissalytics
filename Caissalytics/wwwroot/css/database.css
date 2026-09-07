@@ -666,3 +666,105 @@
   font-size: 11px;
   color: var(--text-muted);
 }
+
+/* --- PGN Import Modal Enhancements --- */
+.import-mode-selector {
+  display: flex;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 3px;
+  gap: 4px;
+}
+
+.import-mode-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.import-mode-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-surface-hover);
+}
+
+.import-mode-btn.active {
+  background-color: var(--bg-surface);
+  color: var(--accent-blue);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  border-color: var(--border-subtle);
+}
+
+.import-textarea-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.import-char-counter {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.modal-textarea {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-primary);
+  padding: 10px 12px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  line-height: 1.5;
+  outline: none;
+  resize: vertical;
+  min-height: 180px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.modal-textarea:focus {
+  border-color: var(--border-focus);
+}
+
+.modal-textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.import-textarea-hint {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.btn-clear-link {
+  background: none;
+  border: none;
+  color: var(--accent-danger);
+  font-size: 11px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+.btn-clear-link:hover {
+  color: var(--accent-danger-hover);
+}
+

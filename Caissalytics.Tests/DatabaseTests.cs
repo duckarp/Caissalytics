@@ -96,6 +96,41 @@ public class DatabaseTests : IDisposable
     }
 
     [Fact]
+    public async Task ImportPgnTextAsync_PastedPgnWithVariationsAndComments_ImportsCorrectly()
+    {
+        await _dbManager.CreateDatabaseAsync("PastedPgnDb");
+
+        string pastedPgn = @"
+[Event ""World Championship 1972""]
+[Site ""Reykjavik ISL""]
+[Date ""1972.07.23""]
+[Round ""6""]
+[White ""Fischer, Robert J.""]
+[Black ""Spassky, Boris V.""]
+[Result ""1-0""]
+[WhiteElo ""2785""]
+[BlackElo ""2660""]
+[ECO ""D59""]
+
+1. c4 e6 2. Nf3 d5 3. d4 Nf6 4. Nc3 Be7 5. Bg5 O-O 6. e3 h6 7. Bh4 b6 8. cxd5 Nxd5 9. Bxe7 Qxe7 10. Nxd5 exd5 11. Rc1 Be6 12. Qa4 c5 13. Qa3 Rc8 1-0
+";
+
+        await _dbManager.ImportPgnTextAsync("PastedPgnDb", pastedPgn);
+
+        var (games, count) = await _dbManager.SearchGamesAsync("PastedPgnDb", new GameFilter());
+        Assert.Equal(1, count);
+        Assert.Single(games);
+
+        var game = games[0];
+        Assert.Equal("Fischer, Robert J.", game.White);
+        Assert.Equal("Spassky, Boris V.", game.Black);
+        Assert.Equal(2785, game.WhiteElo);
+        Assert.Equal(2660, game.BlackElo);
+        Assert.Equal("1-0", game.Result);
+        Assert.Equal("D59", game.Eco);
+    }
+
+    [Fact]
     public async Task QueryPosition_ZobristLookup_ComputesAccurateFrequenciesAndWinRates()
     {
         await _dbManager.CreateDatabaseAsync("OpeningRefTest");

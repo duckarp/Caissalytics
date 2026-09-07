@@ -5,7 +5,7 @@
 @if (IsOpen)
 {
 	<div class="modal-backdrop" @onclick="HandleBackdropClick">
-		<div class="modal-dialog" @onclick:stopPropagation="true">
+		<div class="modal-dialog modal-dialog-large" @onclick:stopPropagation="true">
 			<div class="modal-header">
 				<h3 class="modal-title">Import Games into @DatabaseName</h3>
 				<button class="modal-close-btn" @onclick="CloseDialog">✕</button>
@@ -32,29 +32,79 @@
 				else if (_isFinished)
 				{
 					<div class="reference-empty-state">
-						<span class="empty-state-icon">✅</span>
-						<h4>Import Completed!</h4>
-						<p>Successfully imported @_progress.GamesSaved games in @_progress.Elapsed.ToString(@"mm\:ss").</p>
+						@if (_progress.GamesSaved > 0)
+						{
+							<span class="empty-state-icon">✅</span>
+							<h4>Import Completed!</h4>
+							<p>Successfully imported @_progress.GamesSaved @(_progress.GamesSaved == 1 ? "game" : "games") in @_progress.Elapsed.ToString(@"mm\:ss").</p>
+						}
+						else
+						{
+							<span class="empty-state-icon">⚠️</span>
+							<h4>No Games Imported</h4>
+							<p>No valid chess games could be parsed from the provided input. Please check the PGN format and try again.</p>
+						}
 					</div>
 				}
 				else
 				{
-					<div class="modal-form-group">
-						<label class="filter-label">Select PGN File to Import</label>
-						<label class="dropzone-box">
-							<div class="dropzone-icon">📥</div>
-							<div class="dropzone-text">Click or drag PGN file here</div>
-							<div class="dropzone-subtext">Supports single games or large multi-game collections (.pgn)</div>
-							<InputFile OnChange="HandleFileSelected" class="hidden-file-input" accept=".pgn" />
-						</label>
+					<div class="import-mode-selector">
+						<button type="button"
+								class="import-mode-btn @(_importMode == ImportMode.Text ? "active" : "")"
+								@onclick="() => SetMode(ImportMode.Text)">
+							📝 Paste PGN
+						</button>
+						<button type="button"
+								class="import-mode-btn @(_importMode == ImportMode.File ? "active" : "")"
+								@onclick="() => SetMode(ImportMode.File)">
+							📁 Upload File
+						</button>
 					</div>
 
-					@if (!string.IsNullOrEmpty(_selectedFileName))
+					@if (_importMode == ImportMode.Text)
 					{
-						<div class="filter-group">
-							<span class="filter-label">Selected File:</span>
-							<span class="score-cell">@_selectedFileName (@((_fileSize / 1024.0 / 1024.0).ToString("0.2")) MB)</span>
+						<div class="modal-form-group">
+							<div class="import-textarea-header">
+								<label class="filter-label">Paste PGN Content</label>
+								@if (!string.IsNullOrWhiteSpace(_pastedPgn))
+								{
+									<span class="import-char-counter">@_pastedPgn.Length.ToString("N0") characters</span>
+								}
+							</div>
+							<textarea class="modal-textarea"
+									  placeholder="Paste one or more PGN games here...&#10;&#10;[Event &quot;World Championship 1972&quot;]&#10;[Site &quot;Reykjavik ISL&quot;]&#10;[Date &quot;1972.07.23&quot;]&#10;[Round &quot;6&quot;]&#10;[White &quot;Fischer, Robert J.&quot;]&#10;[Black &quot;Spassky, Boris V.&quot;]&#10;[Result &quot;1-0&quot;]&#10;&#10;1. c4 e6 2. Nf3 d5 3. d4 Nf6 4. Nc3 Be7 5. Bg5 O-O 6. e3 h6 7. Bh4 b6 8. cxd5 Nxd5 9. Bxe7 Qxe7 10. Nxd5 exd5 11. Rc1 Be6 12. Qa4 c5 13. Qa3 Rc8 1-0"
+									  @bind="_pastedPgn"
+									  @bind:event="oninput"
+									  spellcheck="false"
+									  rows="9"></textarea>
+							<div class="import-textarea-hint">
+								<span>Supports single or multiple games. Tags, variations, and comments are preserved.</span>
+								@if (!string.IsNullOrWhiteSpace(_pastedPgn))
+								{
+									<button type="button" class="btn-clear-link" @onclick="ClearPastedPgn">Clear text</button>
+								}
+							</div>
 						</div>
+					}
+					else
+					{
+						<div class="modal-form-group">
+							<label class="filter-label">Select PGN File to Import</label>
+							<label class="dropzone-box">
+								<div class="dropzone-icon">📥</div>
+								<div class="dropzone-text">Click or drag PGN file here</div>
+								<div class="dropzone-subtext">Supports single games or large multi-game collections (.pgn)</div>
+								<InputFile OnChange="HandleFileSelected" class="hidden-file-input" accept=".pgn" />
+							</label>
+						</div>
+
+						@if (!string.IsNullOrEmpty(_selectedFileName))
+						{
+							<div class="filter-group">
+								<span class="filter-label">Selected File:</span>
+								<span class="score-cell">@_selectedFileName (@((_fileSize / 1024.0 / 1024.0).ToString("0.2")) MB)</span>
+							</div>
+						}
 					}
 
 					@if (!string.IsNullOrEmpty(_errorMessage))
@@ -71,12 +121,16 @@
 				}
 				else if (_isFinished)
 				{
+					@if (_progress.GamesSaved == 0)
+					{
+						<button class="btn-secondary" @onclick="() => _isFinished = false">Try Again</button>
+					}
 					<button class="btn-primary" @onclick="CloseDialog">Done</button>
 				}
 				else
 				{
 					<button class="btn-secondary" @onclick="CloseDialog">Cancel</button>
-					<button class="btn-primary" disabled="@(_selectedFile == null)" @onclick="StartImportAsync">Start Import</button>
+					<button class="btn-primary" disabled="@(!CanStartImport)" @onclick="StartImportAsync">Start Import</button>
 				}
 			</div>
 		</div>
@@ -89,6 +143,14 @@
 	[Parameter] public EventCallback OnClose { get; set; }
 	[Parameter] public EventCallback OnImportCompleted { get; set; }
 
+	private enum ImportMode
+	{
+		Text,
+		File
+	}
+
+	private ImportMode _importMode = ImportMode.Text;
+	private string _pastedPgn = "";
 	private IBrowserFile? _selectedFile;
 	private string _selectedFileName = "";
 	private long _fileSize = 0;
@@ -97,6 +159,33 @@
 	private string _errorMessage = "";
 	private PgnImportProgress _progress = new();
 	private CancellationTokenSource? _importCts;
+	private bool _prevIsOpen = false;
+
+	private bool CanStartImport => _importMode == ImportMode.Text
+		? !string.IsNullOrWhiteSpace(_pastedPgn)
+		: _selectedFile != null;
+
+	protected override void OnParametersSet()
+	{
+		if (IsOpen && !_prevIsOpen)
+		{
+			_isFinished = false;
+			_isImporting = false;
+			_errorMessage = "";
+		}
+		_prevIsOpen = IsOpen;
+	}
+
+	private void SetMode(ImportMode mode)
+	{
+		_importMode = mode;
+		_errorMessage = "";
+	}
+
+	private void ClearPastedPgn()
+	{
+		_pastedPgn = string.Empty;
+	}
 
 	private void HandleFileSelected(InputFileChangeEventArgs e)
 	{
@@ -108,7 +197,7 @@
 
 	private async Task StartImportAsync()
 	{
-		if (_selectedFile == null) return;
+		if (!CanStartImport) return;
 
 		_isImporting = true;
 		_isFinished = false;
@@ -123,9 +212,17 @@
 
 		try
 		{
-			// Allow up to 1GB PGN files
-			using var stream = _selectedFile.OpenReadStream(maxAllowedSize: 1024L * 1024 * 1024);
-			await DatabaseService.ImportPgnStreamAsync(DatabaseName, stream, progressReporter, _importCts.Token);
+			if (_importMode == ImportMode.Text)
+			{
+				await DatabaseService.ImportPgnTextAsync(DatabaseName, _pastedPgn, progressReporter, _importCts.Token);
+			}
+			else
+			{
+				// Allow up to 1GB PGN files
+				using var stream = _selectedFile!.OpenReadStream(maxAllowedSize: 1024L * 1024 * 1024);
+				await DatabaseService.ImportPgnStreamAsync(DatabaseName, stream, progressReporter, _importCts.Token);
+			}
+
 			_isFinished = true;
 			if (OnImportCompleted.HasDelegate)
 			{
@@ -158,6 +255,7 @@
 		_isFinished = false;
 		_selectedFile = null;
 		_selectedFileName = "";
+		_pastedPgn = "";
 		if (OnClose.HasDelegate)
 		{
 			await OnClose.InvokeAsync();
