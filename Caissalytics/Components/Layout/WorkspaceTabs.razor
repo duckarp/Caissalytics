@@ -1,5 +1,8 @@
 @namespace Caissalytics.Components.Layout
+@using Caissalytics.Data
 @inject WorkspaceState Workspace
+@inject IDatabaseService DatabaseService
+@implements IDisposable
 
 <header class="app-header">
 	<div class="app-brand">
@@ -7,7 +10,25 @@
 		<span class="brand-badge">Alpha</span>
 	</div>
 	<div class="header-actions">
-		<button class="btn-secondary" @onclick="() => Workspace.CreateDatabaseTab()">🗄️ Database</button>
+		@if (_activeDb != null)
+		{
+			<button class="btn-secondary header-db-btn"
+					title="Active Database: @_activeDb.Name (@_activeDb.GameCount.ToString("N0") games, @_activeDb.FormattedSize) - Click to explore"
+					@onclick="() => Workspace.CreateDatabaseTab()">
+				<span class="header-db-icon">🗄️</span>
+				<span class="header-db-name">@_activeDb.Name</span>
+				<span class="header-db-details">(@_activeDb.GameCount.ToString("N0") games, @_activeDb.FormattedSize)</span>
+			</button>
+		}
+		else
+		{
+			<button class="btn-secondary header-db-btn"
+					title="Open Database"
+					@onclick="() => Workspace.CreateDatabaseTab()">
+				<span class="header-db-icon">🗄️</span>
+				<span class="header-db-name">Database</span>
+			</button>
+		}
 		<button class="btn-primary" @onclick="() => Workspace.CreateAnalysisTab()">+ New Board</button>
 	</div>
 </header>
@@ -33,13 +54,50 @@
 </nav>
 
 @code {
-	protected override void OnInitialized()
+	private DatabaseInfo? _activeDb;
+
+	protected override async Task OnInitializedAsync()
 	{
 		Workspace.OnChange += StateHasChanged;
+		DatabaseService.OnActiveDatabaseChanged += HandleDatabaseChanged;
+		DatabaseService.OnDatabaseModified += HandleDatabaseModified;
+		await LoadActiveDatabaseAsync();
+	}
+
+	private async Task LoadActiveDatabaseAsync()
+	{
+		try
+		{
+			_activeDb = await DatabaseService.GetActiveDatabaseAsync();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[WorkspaceTabs] Error loading active database: {ex.Message}");
+		}
+	}
+
+	private async void HandleDatabaseChanged()
+	{
+		await InvokeAsync(async () =>
+		{
+			await LoadActiveDatabaseAsync();
+			StateHasChanged();
+		});
+	}
+
+	private async void HandleDatabaseModified(string dbName)
+	{
+		await InvokeAsync(async () =>
+		{
+			await LoadActiveDatabaseAsync();
+			StateHasChanged();
+		});
 	}
 
 	public void Dispose()
 	{
 		Workspace.OnChange -= StateHasChanged;
+		DatabaseService.OnActiveDatabaseChanged -= HandleDatabaseChanged;
+		DatabaseService.OnDatabaseModified -= HandleDatabaseModified;
 	}
 }
