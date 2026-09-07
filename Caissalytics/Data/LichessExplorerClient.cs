@@ -1,3 +1,4 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Caissalytics.Core;
@@ -10,14 +11,10 @@ public class LichessExplorerClient
 
     public LichessExplorerClient(HttpClient? httpClient = null)
     {
-        _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
-        if (!_httpClient.DefaultRequestHeaders.UserAgent.Any())
-        {
-            _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Caissalytics-Desktop/1.0");
-        }
+        _httpClient = httpClient ?? new HttpClient();
     }
 
-    public async Task<PositionReferenceResult?> QueryAsync(string fen, bool isMasters = true, CancellationToken ct = default)
+    public async Task<PositionReferenceResult?> QueryAsync(string fen, bool isMasters = true, string? apiToken = null, CancellationToken ct = default)
     {
         try
         {
@@ -26,8 +23,40 @@ public class LichessExplorerClient
                 ? $"https://explorer.lichess.ovh/masters?fen={cleanFen}&moves=12&topGames=15"
                 : $"https://explorer.lichess.ovh/lichess?fen={cleanFen}&ratings=1600,1800,2000,2200&speeds=blitz,rapid,classical&moves=12&topGames=15";
 
-            using var resp = await _httpClient.GetAsync(url, ct);
-            if (!resp.IsSuccessStatusCode) return null;
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
+            req.Headers.UserAgent.ParseAdd("Caissalytics-Desktop/1.0");
+
+            if (!string.IsNullOrWhiteSpace(apiToken))
+            {
+                req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiToken.Trim());
+            }
+
+            using var resp = await _httpClient.SendAsync(req, ct);
+
+            if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            {
+                return new PositionReferenceResult
+                {
+                    IsUnauthorized = true,
+                    ErrorMessage = "Lichess Opening Explorer now requires a free API token due to recent bot protection policies. Add your free Personal Access Token in Settings -> Profile & Handles."
+                };
+            }
+
+            if (resp.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+            {
+                return new PositionReferenceResult
+                {
+                    ErrorMessage = "Lichess Explorer rate limit reached. Please wait a few seconds and try again."
+                };
+            }
+
+            if (!resp.IsSuccessStatusCode)
+            {
+                return new PositionReferenceResult
+                {
+                    ErrorMessage = $"Lichess Explorer returned HTTP {(int)resp.StatusCode} ({resp.ReasonPhrase})."
+                };
+            }
 
             var data = await resp.Content.ReadFromJsonAsync<LichessExplorerResponse>(cancellationToken: ct);
             if (data == null) return null;
@@ -80,9 +109,16 @@ public class LichessExplorerClient
 
             return result;
         }
-        catch
+        catch (OperationCanceledException)
         {
             return null;
+        }
+        catch (Exception ex)
+        {
+            return new PositionReferenceResult
+            {
+                ErrorMessage = $"Unable to reach Lichess Explorer: {ex.Message}"
+            };
         }
     }
 }

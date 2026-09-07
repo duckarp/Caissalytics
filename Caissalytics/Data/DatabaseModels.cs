@@ -150,6 +150,8 @@ public class PositionReferenceResult
     public int TotalPositionGames { get; set; }
     public List<PositionMoveStat> CandidateMoves { get; set; } = new();
     public List<GameHeader> TopGames { get; set; } = new();
+    public bool IsUnauthorized { get; set; }
+    public string? ErrorMessage { get; set; }
 }
 
 public class GameFilter

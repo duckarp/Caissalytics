@@ -39,12 +39,12 @@
 | **Analysis Workbench** | Master-level game review & position deep-dive | Multi-PV Stockfish 18, dynamic evaluation graph, threat arrows, live reference tree, blunder annotations, Syzygy tablebase panel |
 | **Endgame Trainer** | Theoretical endgame curriculum & tablebase sparring | 16 curated positions across 5 categories, automated tablebase defense, move quality evaluation, key square coaching |
 | **Database Explorer** | High-volume master & personal game library | SQLite indexing, advanced header/date/ECO filtering, game preview, duplicate detection, batch PGN import |
-| **Opening & Repertoire** | Personal opening tree & repertoire builder | Lichess Masters + Local DB stats, move classification (*Main Line*, *Alternative*, *Surprise*), study export |
+| **Opening & Repertoire** | Personal opening tree & repertoire builder | Lichess Masters/Community (with free API token support) + 100% offline Local DB stats, move classification (*Main Line*, *Alternative*, *Surprise*), study export |
 | **Opponent Preparation** | Comprehensive pre-game opponent scouting dossiers | Repertoire breakdown, target weakness alerts, playing style profile, game length tendencies, 1-click analysis |
 | **Tactics Workbench** | Interactive tactical puzzle trainer | Curated master tactics, personalized blunder trainer, dynamic rating system, step-by-step solutions |
 | **Career Analytics** | Long-term performance & statistical insight | Elo rating tracking over time, opening win rates, color performance, time-control breakdowns |
 | **Sync Center** | Automatic online games aggregator | Direct REST API integration with Lichess & Chess.com, incremental syncing, automatic PGN parsing |
-| **Control Center** | Settings, engines & customization hub | Engine management, Syzygy tablebase folder path, online probe toggle, board themes, sound triggers, updater |
+| **Control Center** | Settings, engines & customization hub | Engine management, Syzygy tablebase folder path, online probe toggle, Lichess API token, board themes, sound triggers, updater |
 
 ---
 

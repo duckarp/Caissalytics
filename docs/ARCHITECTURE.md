@@ -164,6 +164,11 @@ Position candidate lookups join `positions` with `games` to calculate in a singl
 - Average player Elo rating
 - Earliest and latest year the move was recorded
 
+### Online Opening Explorer Integration (`LichessExplorerClient.cs`)
+- Communicates with Lichess Explorer API endpoints (`/masters` and `/lichess`).
+- **Authentication & Bot Protection**: Lichess now strictly requires an `Authorization: Bearer <token>` header for explorer requests. Tokens are managed in `UserProfile` and configured through *Settings -> Profile & Handles*.
+- **Resilience**: Uses per-request headers rather than global `HttpClient` mutations, detects HTTP `401 Unauthorized` and `429 Too Many Requests`, and guides users to offline SQLite databases (e.g. TWIC, Extraliga) which function without network or API tokens.
+
 ---
 
 ## 5. Opponent Dossier & Repertoire Scouting Engine (`OpponentDossierService.cs`)

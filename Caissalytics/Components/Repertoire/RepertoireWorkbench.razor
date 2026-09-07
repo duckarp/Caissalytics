@@ -84,6 +84,36 @@
 						<span>Loading tree statistics...</span>
 					</div>
 				}
+				else if (_currentStats?.IsUnauthorized == true)
+				{
+					<div class="explorer-auth-notice">
+						<div class="auth-notice-header">
+							<span class="auth-notice-icon">🔒</span>
+							<span class="auth-notice-title">Lichess Token Required</span>
+						</div>
+						<p class="auth-notice-desc">
+							Lichess now requires a free Personal Access Token to query online opening statistics. You can generate one for free on Lichess in seconds.
+						</p>
+						<div class="auth-notice-actions">
+							<button class="btn-auth-action btn-auth-primary" @onclick="() => Workspace.CreateSettingsTab()">
+								⚙️ Configure in Settings
+							</button>
+							<a class="btn-auth-action" href="https://lichess.org/account/oauth/token" target="_blank" rel="noopener noreferrer">
+								🔗 Get Free Token ↗
+							</a>
+						</div>
+						<div class="auth-offline-hint">
+							<span>💡 Tip: Local databases (TWIC, Extraliga) never require a token and work 100% offline!</span>
+						</div>
+					</div>
+				}
+				else if (!string.IsNullOrEmpty(_currentStats?.ErrorMessage))
+				{
+					<div class="reference-empty-state">
+						<span class="empty-state-icon">⚠️</span>
+						<span>@_currentStats.ErrorMessage</span>
+					</div>
+				}
 				else if (_currentStats == null || _currentStats.CandidateMoves.Count == 0)
 				{
 					<div class="reference-empty-state">
@@ -303,6 +333,10 @@
 	private async Task HandleBoardMove(Move move)
 	{
 		_tree.AddMove(move);
+		if (_boardRef != null)
+		{
+			await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, move);
+		}
 		await QueryStatsForCurrentPositionAsync();
 	}
 
@@ -361,16 +395,18 @@
 		try
 		{
 			var pos = _tree.CurrentNode.Position;
+			var profile = await ProfileService.GetProfileAsync();
+			string? token = profile.LichessApiToken;
 
 			if (_selectedSourceStr == "lichess:masters")
 			{
 				string fen = FenParser.ToFen(pos);
-				_currentStats = await LichessClient.QueryAsync(fen, isMasters: true);
+				_currentStats = await LichessClient.QueryAsync(fen, isMasters: true, apiToken: token);
 			}
 			else if (_selectedSourceStr == "lichess:community")
 			{
 				string fen = FenParser.ToFen(pos);
-				_currentStats = await LichessClient.QueryAsync(fen, isMasters: false);
+				_currentStats = await LichessClient.QueryAsync(fen, isMasters: false, apiToken: token);
 			}
 			else
 			{
@@ -415,15 +451,6 @@
 				m.RepertoireStatus = null;
 				m.RepertoireNote = null;
 			}
-		}
-
-		if (_colorFilter == "white" && !isWhiteTurn)
-		{
-			_currentStats.CandidateMoves.Clear();
-		}
-		else if (_colorFilter == "black" && isWhiteTurn)
-		{
-			_currentStats.CandidateMoves.Clear();
 		}
 	}
 

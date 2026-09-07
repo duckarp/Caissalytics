@@ -76,9 +76,10 @@ From any board position, the Candidate Moves Table displays:
 
 ### Live Sources
 Switch between statistical sources seamlessly:
-1. **Local Database**: Queries your currently selected SQLite database.
-2. **Lichess Masters API**: Real-time stats from over 25 million FIDE over-the-board master games (Elo 2200+).
+1. **Local Database**: Queries your currently selected SQLite database (100% offline, zero network required, no token needed).
+2. **Lichess Masters API**: Real-time stats from over 25 million FIDE over-the-board master games (Elo 2200+). Requires a free Lichess Personal Access Token configured under *Settings -> Profile & Handles*.
 3. **Lichess Community API**: Opening statistics across millions of online rated games.
+- **Graceful Token Guidance**: When querying Lichess without a token, an in-app notice provides 1-click access to Settings and the Lichess token generation page, with reminders of offline local database options.
 
 ### Repertoire Builder & Study Notes
 - **Star Bookmark**: Click the Star icon on any candidate move to add it to your personal repertoire.

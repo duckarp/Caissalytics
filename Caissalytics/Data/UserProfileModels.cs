@@ -26,6 +26,9 @@ public class UserProfile
     public bool HasChessCom => !string.IsNullOrWhiteSpace(ChessComUsername);
     public string? ChessComProfileUrl => HasChessCom ? $"https://www.chess.com/member/{ChessComUsername.Trim()}" : null;
 
+    public string LichessApiToken { get; set; } = "";
+    public bool HasLichessToken => !string.IsNullOrWhiteSpace(LichessApiToken);
+
     public bool MatchesPlayer(string? playerName, string? fideId = null)
     {
         if (string.IsNullOrWhiteSpace(playerName) && string.IsNullOrWhiteSpace(fideId))

@@ -151,6 +151,20 @@
 								}
 							</div>
 						</div>
+
+						<div class="form-field-block form-field-full">
+							<div class="field-label-group">
+								<span class="platform-badge platform-badge-lichess">🔑 Lichess API Token</span>
+								<label class="field-label">Personal Access Token (Free)</label>
+							</div>
+							<div class="input-with-link-row">
+								<input class="field-input" type="password" placeholder="lip_..." @bind="_profile.LichessApiToken" @bind:event="oninput" />
+								<a class="external-profile-link" href="https://lichess.org/account/oauth/token" target="_blank" rel="noopener noreferrer">
+									<span>🔗 Generate Token ↗</span>
+								</a>
+							</div>
+							<span class="field-hint">Required by Lichess to query the Online Opening Explorer (Masters &amp; Community). Free to generate on Lichess without any special permissions.</span>
+						</div>
 					</div>
 
 					<div class="form-action-bar">

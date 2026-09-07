@@ -284,14 +284,29 @@
 
 	private readonly string _elementId = $"board_{Guid.NewGuid():N}";
 	private IJSObjectReference? _module;
-	private DotNetObjectReference<ChessgroundBoard>? _dotNetRef;
+	DotNetObjectReference<ChessgroundBoard>? _dotNetRef;
 	private bool _isInitialized = false;
 	private bool _isDisposed = false;
+	private ulong _lastRenderedZobrist;
+	private string _lastRenderedOrientation = "white";
 
 	private bool _showPromotionDialog = false;
 	private Square _pendingFrom = Square.None;
 	private Square _pendingTo = Square.None;
 	private PieceColor _pendingPromotionColor = PieceColor.White;
+
+	protected override async Task OnParametersSetAsync()
+	{
+		if (_isInitialized && Position != null)
+		{
+			if (Position.ZobristKey != _lastRenderedZobrist || Orientation != _lastRenderedOrientation)
+			{
+				_lastRenderedZobrist = Position.ZobristKey;
+				_lastRenderedOrientation = Orientation;
+				await UpdateBoardStateAsync(Position, LastMove);
+			}
+		}
+	}
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
@@ -313,6 +328,8 @@
 			};
 
 			await _module.InvokeVoidAsync("initBoard", _elementId, _dotNetRef, config);
+			_lastRenderedZobrist = Position.ZobristKey;
+			_lastRenderedOrientation = Orientation;
 			_isInitialized = true;
 		}
 	}
@@ -323,6 +340,8 @@
 
 		Position = pos;
 		LastMove = lastMove;
+		_lastRenderedZobrist = pos.ZobristKey;
+		_lastRenderedOrientation = Orientation;
 
 		var dests = MoveGenerator.GetLegalDestinations(pos);
 		string turnColor = pos.ActiveColor == PieceColor.White ? "white" : "black";
