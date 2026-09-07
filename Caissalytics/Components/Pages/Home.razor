@@ -5,42 +5,145 @@
 @using Caissalytics.Components.Analysis
 @using Caissalytics.Components.Database
 @inject WorkspaceState Workspace
-@implements IDisposable
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
 <PageTitle>Caissalytics - Chess Analysis & Database</PageTitle>
 
-<WorkspaceTabs />
-
-<div class="workspace-view-container">
-	<div class="@(Workspace.ActiveTab is DashboardTab ? "workspace-view" : "workspace-view view-hidden")">
-		<DashboardHub />
+@if (!_isStorageLoaded)
+{
+	<div class="workspace-loading">
+		<div class="workspace-loading-spinner"></div>
 	</div>
+}
+else
+{
+	<WorkspaceTabs />
 
-	@foreach (var tab in Workspace.Tabs.OfType<AnalysisTab>())
-	{
-		bool isActive = tab == Workspace.ActiveTab;
-		<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
-			<AnalysisWorkbench Tab="tab" />
+	<div class="workspace-view-container">
+		<div class="@(Workspace.ActiveTab is DashboardTab ? "workspace-view" : "workspace-view view-hidden")">
+			<DashboardHub />
 		</div>
-	}
 
-	@foreach (var tab in Workspace.Tabs.OfType<DatabaseBrowserTab>())
-	{
-		bool isActive = tab == Workspace.ActiveTab;
-		<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
-			<DatabaseBrowser Tab="tab" />
-		</div>
-	}
-</div>
+		@foreach (var tab in Workspace.Tabs.OfType<AnalysisTab>())
+		{
+			bool isActive = tab == Workspace.ActiveTab;
+			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+				<AnalysisWorkbench Tab="tab" />
+			</div>
+		}
+
+		@foreach (var tab in Workspace.Tabs.OfType<DatabaseBrowserTab>())
+		{
+			bool isActive = tab == Workspace.ActiveTab;
+			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+				<DatabaseBrowser Tab="tab" />
+			</div>
+		}
+	</div>
+}
 
 @code {
+	private IJSObjectReference? _storageModule;
+	private bool _isStorageLoaded = false;
+	private CancellationTokenSource? _saveDebounceCts;
+	private bool _isDirty = false;
+
 	protected override void OnInitialized()
 	{
-		Workspace.OnChange += StateHasChanged;
+		Workspace.OnChange += HandleWorkspaceChanged;
 	}
 
-	public void Dispose()
+	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
-		Workspace.OnChange -= StateHasChanged;
+		if (firstRender)
+		{
+			try
+			{
+				_storageModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/workspaceStorage.js");
+				string? json = await _storageModule.InvokeAsync<string?>("loadWorkspaceState");
+				if (!string.IsNullOrWhiteSpace(json))
+				{
+					Workspace.RestoreStateFromJson(json);
+				}
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Error restoring workspace: {ex.Message}");
+			}
+			finally
+			{
+				_isStorageLoaded = true;
+				await InvokeAsync(StateHasChanged);
+			}
+		}
+	}
+
+	private void HandleWorkspaceChanged()
+	{
+		InvokeAsync(StateHasChanged);
+
+		if (_isStorageLoaded)
+		{
+			_isDirty = true;
+			DebounceSave();
+		}
+	}
+
+	private void DebounceSave()
+	{
+		_saveDebounceCts?.Cancel();
+		_saveDebounceCts?.Dispose();
+		_saveDebounceCts = new CancellationTokenSource();
+		var token = _saveDebounceCts.Token;
+
+		_ = Task.Run(async () =>
+		{
+			try
+			{
+				await Task.Delay(250, token);
+				if (!token.IsCancellationRequested && _storageModule != null)
+				{
+					string json = Workspace.ExportStateJson();
+					await _storageModule.InvokeVoidAsync("saveWorkspaceState", json);
+					_isDirty = false;
+				}
+			}
+			catch (OperationCanceledException) { }
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Error auto-saving workspace: {ex.Message}");
+			}
+		}, token);
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		Workspace.OnChange -= HandleWorkspaceChanged;
+
+		if (_saveDebounceCts != null)
+		{
+			_saveDebounceCts.Cancel();
+			_saveDebounceCts.Dispose();
+		}
+
+		if (_isDirty && _storageModule != null)
+		{
+			try
+			{
+				string json = Workspace.ExportStateJson();
+				await _storageModule.InvokeVoidAsync("saveWorkspaceState", json);
+			}
+			catch { }
+		}
+
+		if (_storageModule != null)
+		{
+			try
+			{
+				await _storageModule.DisposeAsync();
+			}
+			catch { }
+		}
 	}
 }

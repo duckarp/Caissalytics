@@ -24,6 +24,12 @@ public class GameTree
         Headers["White"] = "White";
         Headers["Black"] = "Black";
         Headers["Result"] = "*";
+
+        if (!string.IsNullOrWhiteSpace(startFen) && startFen != BoardPosition.StartFen)
+        {
+            Headers["SetUp"] = "1";
+            Headers["FEN"] = startFen;
+        }
     }
 
     public MoveNode AddMove(Move move)
@@ -132,5 +138,37 @@ public class GameTree
             curr = curr.Parent;
         }
         return false;
+    }
+
+    public List<int> GetCurrentNodePath()
+    {
+        var path = new List<int>();
+        var curr = CurrentNode;
+        while (curr.Parent != null)
+        {
+            int idx = curr.Parent.Children.IndexOf(curr);
+            if (idx == -1) break;
+            path.Add(idx);
+            curr = curr.Parent;
+        }
+        path.Reverse();
+        return path;
+    }
+
+    public void NavigatePath(IReadOnlyList<int> path)
+    {
+        var curr = Root;
+        foreach (int idx in path)
+        {
+            if (idx >= 0 && idx < curr.Children.Count)
+            {
+                curr = curr.Children[idx];
+            }
+            else
+            {
+                break;
+            }
+        }
+        NavigateTo(curr);
     }
 }

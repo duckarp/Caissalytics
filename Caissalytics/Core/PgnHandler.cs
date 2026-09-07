@@ -75,12 +75,23 @@ public static class PgnHandler
 
     public static GameTree ImportPgn(string pgnText)
     {
-        var tree = new GameTree();
         if (string.IsNullOrWhiteSpace(pgnText))
-            return tree;
+            return new GameTree();
 
         var headerRegex = new Regex(@"\[(\w+)\s+""([^""]*)""\]");
         var matches = headerRegex.Matches(pgnText);
+
+        string? startFen = null;
+        foreach (Match m in matches)
+        {
+            if (string.Equals(m.Groups[1].Value, "FEN", StringComparison.OrdinalIgnoreCase))
+            {
+                startFen = m.Groups[2].Value;
+                break;
+            }
+        }
+
+        var tree = new GameTree(startFen);
         foreach (Match m in matches)
         {
             tree.Headers[m.Groups[1].Value] = m.Groups[2].Value;

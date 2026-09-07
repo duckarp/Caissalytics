@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Caissalytics.Core;
 using Caissalytics.Engine;
 
@@ -5,7 +6,7 @@ namespace Caissalytics.Components;
 
 public abstract class WorkspaceTab
 {
-    public Guid Id { get; } = Guid.NewGuid();
+    public Guid Id { get; set; } = Guid.NewGuid();
     public abstract string Title { get; }
     public abstract string Icon { get; }
     public bool CanClose { get; protected set; } = true;
@@ -28,19 +29,104 @@ public class AnalysisTab : WorkspaceTab
     public override string Title => _customTitle;
     public override string Icon => "♟️";
 
-    public GameTree Tree { get; set; }
-    public string Orientation { get; set; } = "white";
-    public bool IsAnalyzing { get; set; } = false;
-    public int MultiPv { get; set; } = 3;
+    public event Action? OnTabChanged;
+
+    private GameTree _tree = default!;
+    public GameTree Tree
+    {
+        get => _tree;
+        set
+        {
+            if (_tree != null)
+            {
+                _tree.PositionChanged -= HandlePositionChanged;
+            }
+            _tree = value;
+            if (_tree != null)
+            {
+                _tree.PositionChanged += HandlePositionChanged;
+            }
+            NotifyTabChanged();
+        }
+    }
+
+    private string _orientation = "white";
+    public string Orientation
+    {
+        get => _orientation;
+        set
+        {
+            if (_orientation != value)
+            {
+                _orientation = value;
+                NotifyTabChanged();
+            }
+        }
+    }
+
+    private bool _isAnalyzing = false;
+    public bool IsAnalyzing
+    {
+        get => _isAnalyzing;
+        set
+        {
+            if (_isAnalyzing != value)
+            {
+                _isAnalyzing = value;
+                NotifyTabChanged();
+            }
+        }
+    }
+
+    private int _multiPv = 3;
+    public int MultiPv
+    {
+        get => _multiPv;
+        set
+        {
+            if (_multiPv != value)
+            {
+                _multiPv = value;
+                NotifyTabChanged();
+            }
+        }
+    }
+
     public List<EngineEvaluationLine> CurrentEvalLines { get; set; } = new();
-    public string? TargetDatabase { get; set; }
-    public long? DatabaseGameId { get; set; }
+
+    private string? _targetDatabase;
+    public string? TargetDatabase
+    {
+        get => _targetDatabase;
+        set
+        {
+            if (_targetDatabase != value)
+            {
+                _targetDatabase = value;
+                NotifyTabChanged();
+            }
+        }
+    }
+
+    private long? _databaseGameId;
+    public long? DatabaseGameId
+    {
+        get => _databaseGameId;
+        set
+        {
+            if (_databaseGameId != value)
+            {
+                _databaseGameId = value;
+                NotifyTabChanged();
+            }
+        }
+    }
 
     public AnalysisTab(string? title = null, string? pgn = null, string? startFen = null, string? targetDatabase = null, long? databaseGameId = null)
     {
         _customTitle = title ?? "Analysis Board";
-        TargetDatabase = targetDatabase;
-        DatabaseGameId = databaseGameId;
+        _targetDatabase = targetDatabase;
+        _databaseGameId = databaseGameId;
         Tree = !string.IsNullOrWhiteSpace(pgn)
             ? PgnHandler.ImportPgn(pgn)
             : new GameTree(startFen);
@@ -48,8 +134,16 @@ public class AnalysisTab : WorkspaceTab
 
     public void SetTitle(string title)
     {
-        _customTitle = title;
+        if (_customTitle != title)
+        {
+            _customTitle = title;
+            NotifyTabChanged();
+        }
     }
+
+    private void HandlePositionChanged() => NotifyTabChanged();
+
+    public void NotifyTabChanged() => OnTabChanged?.Invoke();
 }
 
 public class DatabaseBrowserTab : WorkspaceTab
@@ -64,11 +158,37 @@ public class WorkspaceState
     public WorkspaceTab ActiveTab { get; private set; }
     public event Action? OnChange;
 
+    private bool _isRestoring = false;
+
     public WorkspaceState()
     {
         var dashboard = new DashboardTab();
         Tabs.Add(dashboard);
         ActiveTab = dashboard;
+    }
+
+    private void RegisterTab(WorkspaceTab tab)
+    {
+        if (tab is AnalysisTab analysis)
+        {
+            analysis.OnTabChanged += OnTabStateChanged;
+        }
+    }
+
+    private void UnregisterTab(WorkspaceTab tab)
+    {
+        if (tab is AnalysisTab analysis)
+        {
+            analysis.OnTabChanged -= OnTabStateChanged;
+        }
+    }
+
+    private void OnTabStateChanged()
+    {
+        if (!_isRestoring)
+        {
+            NotifyStateChanged();
+        }
     }
 
     public AnalysisTab CreateAnalysisTab(string? title = null, string? pgn = null, string? startFen = null, string? targetDatabase = null, long? databaseGameId = null)
@@ -77,6 +197,7 @@ public class WorkspaceState
         string finalTitle = title ?? $"Analysis {analysisCount}";
 
         var tab = new AnalysisTab(finalTitle, pgn, startFen, targetDatabase, databaseGameId);
+        RegisterTab(tab);
         Tabs.Add(tab);
         ActiveTab = tab;
         NotifyStateChanged();
@@ -115,6 +236,7 @@ public class WorkspaceState
         var target = Tabs.FirstOrDefault(t => t.Id == id);
         if (target == null || !target.CanClose) return;
 
+        UnregisterTab(target);
         int index = Tabs.IndexOf(target);
         Tabs.Remove(target);
 
@@ -127,5 +249,145 @@ public class WorkspaceState
         NotifyStateChanged();
     }
 
-    private void NotifyStateChanged() => OnChange?.Invoke();
+    public string ExportStateJson()
+    {
+        var dto = new WorkspaceStateDto
+        {
+            ActiveTabId = ActiveTab?.Id ?? Guid.Empty,
+            Tabs = new List<WorkspaceTabDto>()
+        };
+
+        foreach (var tab in Tabs)
+        {
+            switch (tab)
+            {
+                case DashboardTab dash:
+                    dto.Tabs.Add(new WorkspaceTabDto
+                    {
+                        Id = dash.Id,
+                        Type = "dashboard",
+                        Title = dash.Title
+                    });
+                    break;
+
+                case AnalysisTab analysis:
+                    dto.Tabs.Add(new WorkspaceTabDto
+                    {
+                        Id = analysis.Id,
+                        Type = "analysis",
+                        Title = analysis.Title,
+                        Pgn = PgnHandler.ExportPgn(analysis.Tree),
+                        CurrentNodePath = analysis.Tree.GetCurrentNodePath(),
+                        Orientation = analysis.Orientation,
+                        IsAnalyzing = analysis.IsAnalyzing,
+                        MultiPv = analysis.MultiPv,
+                        TargetDatabase = analysis.TargetDatabase,
+                        DatabaseGameId = analysis.DatabaseGameId
+                    });
+                    break;
+
+                case DatabaseBrowserTab db:
+                    dto.Tabs.Add(new WorkspaceTabDto
+                    {
+                        Id = db.Id,
+                        Type = "database",
+                        Title = db.Title
+                    });
+                    break;
+            }
+        }
+
+        return JsonSerializer.Serialize(dto, new JsonSerializerOptions
+        {
+            WriteIndented = false
+        });
+    }
+
+    public bool RestoreStateFromJson(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+            return false;
+
+        try
+        {
+            var dto = JsonSerializer.Deserialize<WorkspaceStateDto>(json);
+            if (dto == null || dto.Tabs == null || dto.Tabs.Count == 0)
+                return false;
+
+            _isRestoring = true;
+            try
+            {
+                foreach (var tab in Tabs)
+                {
+                    UnregisterTab(tab);
+                }
+                Tabs.Clear();
+
+                foreach (var tabDto in dto.Tabs)
+                {
+                    if (tabDto.Type == "dashboard")
+                    {
+                        var dash = new DashboardTab { Id = tabDto.Id };
+                        Tabs.Add(dash);
+                    }
+                    else if (tabDto.Type == "analysis")
+                    {
+                        var analysisTab = new AnalysisTab(
+                            title: tabDto.Title,
+                            pgn: tabDto.Pgn,
+                            targetDatabase: tabDto.TargetDatabase,
+                            databaseGameId: tabDto.DatabaseGameId)
+                        {
+                            Id = tabDto.Id,
+                            Orientation = tabDto.Orientation ?? "white",
+                            IsAnalyzing = tabDto.IsAnalyzing,
+                            MultiPv = tabDto.MultiPv > 0 ? tabDto.MultiPv : 3
+                        };
+
+                        if (tabDto.CurrentNodePath != null && tabDto.CurrentNodePath.Count > 0)
+                        {
+                            analysisTab.Tree.NavigatePath(tabDto.CurrentNodePath);
+                        }
+
+                        RegisterTab(analysisTab);
+                        Tabs.Add(analysisTab);
+                    }
+                    else if (tabDto.Type == "database")
+                    {
+                        var dbTab = new DatabaseBrowserTab { Id = tabDto.Id };
+                        Tabs.Add(dbTab);
+                    }
+                }
+
+                if (!Tabs.Any(t => t is DashboardTab))
+                {
+                    var dash = new DashboardTab();
+                    Tabs.Insert(0, dash);
+                }
+
+                var active = Tabs.FirstOrDefault(t => t.Id == dto.ActiveTabId);
+                ActiveTab = active ?? Tabs.First();
+            }
+            finally
+            {
+                _isRestoring = false;
+            }
+
+            OnChange?.Invoke();
+            return true;
+        }
+        catch
+        {
+            _isRestoring = false;
+            return false;
+        }
+    }
+
+    private void NotifyStateChanged()
+    {
+        if (!_isRestoring)
+        {
+            OnChange?.Invoke();
+        }
+    }
 }

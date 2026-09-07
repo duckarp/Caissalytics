@@ -37,8 +37,15 @@
   color: var(--text-secondary);
   border-radius: 4px;
   cursor: pointer;
+  padding: 0;
   font-size: 15px;
   transition: all var(--transition-fast);
+}
+
+.board-control-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
 }
 
 .board-control-btn:hover:not(:disabled) {
