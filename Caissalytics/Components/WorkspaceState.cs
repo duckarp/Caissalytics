@@ -166,6 +166,12 @@ public class DatabaseBrowserTab : WorkspaceTab
     public override string Icon => "🗄️";
 }
 
+public class SettingsTab : WorkspaceTab
+{
+    public override string Title => "Control Center";
+    public override string Icon => "⚙️";
+}
+
 public class WorkspaceState
 {
     public List<WorkspaceTab> Tabs { get; } = new();
@@ -229,6 +235,23 @@ public class WorkspaceState
         }
 
         var tab = new DatabaseBrowserTab();
+        Tabs.Add(tab);
+        ActiveTab = tab;
+        NotifyStateChanged();
+        return tab;
+    }
+
+    public SettingsTab CreateSettingsTab()
+    {
+        var existing = Tabs.OfType<SettingsTab>().FirstOrDefault();
+        if (existing != null)
+        {
+            ActiveTab = existing;
+            NotifyStateChanged();
+            return existing;
+        }
+
+        var tab = new SettingsTab();
         Tabs.Add(tab);
         ActiveTab = tab;
         NotifyStateChanged();
@@ -309,6 +332,15 @@ public class WorkspaceState
                         Title = db.Title
                     });
                     break;
+
+                case SettingsTab settings:
+                    dto.Tabs.Add(new WorkspaceTabDto
+                    {
+                        Id = settings.Id,
+                        Type = "settings",
+                        Title = settings.Title
+                    });
+                    break;
             }
         }
 
@@ -372,6 +404,11 @@ public class WorkspaceState
                     {
                         var dbTab = new DatabaseBrowserTab { Id = tabDto.Id };
                         Tabs.Add(dbTab);
+                    }
+                    else if (tabDto.Type == "settings")
+                    {
+                        var settingsTab = new SettingsTab { Id = tabDto.Id };
+                        Tabs.Add(settingsTab);
                     }
                 }
 

@@ -11,7 +11,7 @@ public class WorkspaceStateDto
 public class WorkspaceTabDto
 {
     public Guid Id { get; set; }
-    public string Type { get; set; } = "dashboard"; // "dashboard", "analysis", "database"
+    public string Type { get; set; } = "dashboard"; // "dashboard", "analysis", "database", "settings"
     public string? Title { get; set; }
     public string? Pgn { get; set; }
     public List<int>? CurrentNodePath { get; set; }

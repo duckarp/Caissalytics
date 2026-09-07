@@ -107,7 +107,7 @@ public class OnlineGameSyncTests : IDisposable
 
         // Second import of the EXACT same PGN with deduplicate = true
         var progressList2 = new List<PgnImportProgress>();
-        var progress2 = new Progress<PgnImportProgress>(p => progressList2.Add(p));
+        var progress2 = new DirectProgress<PgnImportProgress>(p => progressList2.Add(p));
 
         await _dbManager.ImportPgnTextAsync(dbName, pgn, progress2, deduplicate: true);
 
@@ -251,5 +251,12 @@ public class OnlineGameSyncTests : IDisposable
                 ReasonPhrase = "Not Found"
             });
         }
+    }
+
+    private class DirectProgress<T> : IProgress<T>
+    {
+        private readonly Action<T> _handler;
+        public DirectProgress(Action<T> handler) => _handler = handler;
+        public void Report(T value) => _handler(value);
     }
 }

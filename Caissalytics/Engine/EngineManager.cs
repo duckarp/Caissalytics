@@ -1,6 +1,9 @@
+using System.Diagnostics;
 using System.Formats.Tar;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using Caissalytics.Core;
 
 namespace Caissalytics.Engine;
@@ -8,11 +11,14 @@ namespace Caissalytics.Engine;
 public class EngineManager : IEngineService, IDisposable
 {
     private readonly string _engineStorageDir;
+    private readonly string _configFilePath;
     private readonly List<EngineInfo> _engines = new();
     private string _activeEngineId = "stockfish-17";
     private UciProcessClient? _activeClient;
     private readonly HttpClient _httpClient = new();
     private readonly object _lock = new();
+
+    public event Action? OnEnginesChanged;
 
     public bool IsAnalyzing => _activeClient != null && _activeClient.IsRunning;
 
@@ -21,49 +27,132 @@ public class EngineManager : IEngineService, IDisposable
         string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         _engineStorageDir = Path.Combine(localAppData, "Caissalytics", "engines");
         Directory.CreateDirectory(_engineStorageDir);
+        _configFilePath = Path.Combine(_engineStorageDir, "engines_config.json");
 
-        InitEngines();
+        LoadConfig();
         ScanForInstalledEngines();
     }
 
-    private void InitEngines()
+    public EngineManager(string customStorageDir)
     {
-        _engines.Add(new EngineInfo
+        _engineStorageDir = customStorageDir;
+        Directory.CreateDirectory(_engineStorageDir);
+        _configFilePath = Path.Combine(_engineStorageDir, "engines_config.json");
+
+        LoadConfig();
+        ScanForInstalledEngines();
+    }
+
+    private void LoadConfig()
+    {
+        lock (_lock)
         {
-            Id = "stockfish-17",
-            Name = "Stockfish 17",
-            Version = "17.0",
-            Author = "The Stockfish Developers",
-            DownloadUrl = "https://github.com/official-stockfish/Stockfish/releases/download/sf_17/stockfish-ubuntu-x86-64-avx2.tar"
-        });
+            _engines.Clear();
+
+            if (File.Exists(_configFilePath))
+            {
+                try
+                {
+                    string json = File.ReadAllText(_configFilePath);
+                    var config = JsonSerializer.Deserialize<EnginesConfigFile>(json);
+                    if (config != null)
+                    {
+                        _activeEngineId = config.ActiveEngineId;
+                        _engines.AddRange(config.Engines);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[EngineManager] Error loading config: {ex.Message}");
+                }
+            }
+
+            // Ensure official Stockfish 17 is always in the registry
+            if (!_engines.Any(e => e.Id == "stockfish-17"))
+            {
+                _engines.Insert(0, new EngineInfo
+                {
+                    Id = "stockfish-17",
+                    Name = "Stockfish 17",
+                    Version = "17.0",
+                    Author = "The Stockfish Developers",
+                    DownloadUrl = "https://github.com/official-stockfish/Stockfish/releases/download/sf_17/stockfish-ubuntu-x86-64-avx2.tar",
+                    IsCustom = false
+                });
+            }
+
+            UpdateActiveFlag();
+        }
+    }
+
+    private void SaveConfig()
+    {
+        lock (_lock)
+        {
+            try
+            {
+                var config = new EnginesConfigFile
+                {
+                    ActiveEngineId = _activeEngineId,
+                    Engines = _engines.ToList()
+                };
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                string json = JsonSerializer.Serialize(config, options);
+                File.WriteAllText(_configFilePath, json);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[EngineManager] Error saving config: {ex.Message}");
+            }
+        }
+    }
+
+    private void UpdateActiveFlag()
+    {
+        foreach (var eng in _engines)
+        {
+            eng.IsActive = (eng.Id == _activeEngineId);
+        }
     }
 
     private void ScanForInstalledEngines()
     {
-        foreach (var eng in _engines)
+        lock (_lock)
         {
-            string engineDir = Path.Combine(_engineStorageDir, eng.Id);
-            if (Directory.Exists(engineDir))
+            foreach (var eng in _engines)
             {
-                var files = Directory.GetFiles(engineDir, "*", SearchOption.AllDirectories);
-                var binary = files.FirstOrDefault(f => !f.EndsWith(".tar") && !f.EndsWith(".txt") && !f.EndsWith(".md"));
-                if (binary != null)
+                // Check if executable already exists at path
+                if (!string.IsNullOrEmpty(eng.ExecutablePath) && File.Exists(eng.ExecutablePath))
                 {
-                    eng.ExecutablePath = binary;
                     eng.IsInstalled = true;
+                    continue;
+                }
+
+                string engineDir = Path.Combine(_engineStorageDir, eng.Id);
+                if (Directory.Exists(engineDir))
+                {
+                    var files = Directory.GetFiles(engineDir, "*", SearchOption.AllDirectories);
+                    var binary = files.FirstOrDefault(f => !f.EndsWith(".tar") && !f.EndsWith(".txt") && !f.EndsWith(".md"));
+                    if (binary != null)
+                    {
+                        eng.ExecutablePath = binary;
+                        eng.IsInstalled = true;
+                    }
+                }
+
+                // Also check system PATH for built-in Stockfish
+                if (!eng.IsInstalled && eng.Id.StartsWith("stockfish"))
+                {
+                    string? systemSf = FindInPath("stockfish");
+                    if (systemSf != null)
+                    {
+                        eng.ExecutablePath = systemSf;
+                        eng.IsInstalled = true;
+                    }
                 }
             }
 
-            // Also check system PATH
-            if (!eng.IsInstalled && eng.Id.StartsWith("stockfish"))
-            {
-                string? systemSf = FindInPath("stockfish");
-                if (systemSf != null)
-                {
-                    eng.ExecutablePath = systemSf;
-                    eng.IsInstalled = true;
-                }
-            }
+            UpdateActiveFlag();
         }
     }
 
@@ -86,6 +175,7 @@ public class EngineManager : IEngineService, IDisposable
     {
         lock (_lock)
         {
+            UpdateActiveFlag();
             return Task.FromResult<IReadOnlyList<EngineInfo>>(_engines.ToList());
         }
     }
@@ -94,23 +184,40 @@ public class EngineManager : IEngineService, IDisposable
     {
         lock (_lock)
         {
-            var eng = _engines.FirstOrDefault(e => e.Id == _activeEngineId) ?? _engines.FirstOrDefault(e => e.IsInstalled);
+            var eng = _engines.FirstOrDefault(e => e.Id == _activeEngineId)
+                   ?? _engines.FirstOrDefault(e => e.IsInstalled);
             return Task.FromResult(eng);
         }
     }
 
-    public Task SetActiveEngineAsync(string engineId)
+    public async Task SetActiveEngineAsync(string engineId)
     {
         lock (_lock)
         {
+            if (_activeEngineId == engineId) return;
             _activeEngineId = engineId;
+            UpdateActiveFlag();
+            SaveConfig();
         }
-        return Task.CompletedTask;
+
+        if (_activeClient != null)
+        {
+            await _activeClient.StopAnalysisAsync();
+            _activeClient.Dispose();
+            _activeClient = null;
+        }
+
+        OnEnginesChanged?.Invoke();
     }
 
     public async Task<bool> InstallEngineAsync(string engineId, IProgress<int>? progress = null)
     {
-        var engine = _engines.FirstOrDefault(e => e.Id == engineId);
+        EngineInfo? engine;
+        lock (_lock)
+        {
+            engine = _engines.FirstOrDefault(e => e.Id == engineId);
+        }
+
         if (engine == null || string.IsNullOrEmpty(engine.DownloadUrl))
             return false;
 
@@ -131,21 +238,18 @@ public class EngineManager : IEngineService, IDisposable
 
             progress?.Report(60);
 
-            // Extract tar archive
             TarFile.ExtractToDirectory(tempTar, targetDir, overwriteFiles: true);
 
             try { File.Delete(tempTar); } catch { }
 
             progress?.Report(85);
 
-            // Find executable
             var files = Directory.GetFiles(targetDir, "*", SearchOption.AllDirectories);
             var binary = files.FirstOrDefault(f => !f.EndsWith(".tar") && !f.EndsWith(".txt") && !f.EndsWith(".md"));
 
             if (binary == null)
                 return false;
 
-            // Mark executable on Unix/Linux
             if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 File.SetUnixFileMode(binary,
@@ -154,11 +258,17 @@ public class EngineManager : IEngineService, IDisposable
                     UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
             }
 
-            engine.ExecutablePath = binary;
-            engine.IsInstalled = true;
-            _activeEngineId = engine.Id;
+            lock (_lock)
+            {
+                engine.ExecutablePath = binary;
+                engine.IsInstalled = true;
+                _activeEngineId = engine.Id;
+                UpdateActiveFlag();
+                SaveConfig();
+            }
 
             progress?.Report(100);
+            OnEnginesChanged?.Invoke();
             return true;
         }
         catch (Exception ex)
@@ -168,26 +278,254 @@ public class EngineManager : IEngineService, IDisposable
         }
     }
 
-    public Task SetCustomEnginePathAsync(string name, string path)
+    public async Task<EngineProbeResult> ProbeEngineFileAsync(string executablePath)
     {
-        if (!File.Exists(path))
-            throw new FileNotFoundException("Engine executable not found at path.", path);
+        if (string.IsNullOrWhiteSpace(executablePath))
+        {
+            return new EngineProbeResult { Success = false, ErrorMessage = "Executable path is empty." };
+        }
+
+        if (!File.Exists(executablePath))
+        {
+            return new EngineProbeResult { Success = false, ErrorMessage = $"File not found at: {executablePath}" };
+        }
+
+        try
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                try
+                {
+                    var mode = File.GetUnixFileMode(executablePath);
+                    if (!mode.HasFlag(UnixFileMode.UserExecute))
+                    {
+                        File.SetUnixFileMode(executablePath, mode | UnixFileMode.UserExecute);
+                    }
+                }
+                catch { }
+            }
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = executablePath,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            using var process = new Process { StartInfo = psi };
+            string engineName = "";
+            string author = "";
+            bool uciOk = false;
+            var tcs = new TaskCompletionSource<bool>();
+
+            process.OutputDataReceived += (_, e) =>
+            {
+                if (string.IsNullOrEmpty(e.Data)) return;
+
+                if (e.Data.StartsWith("id name "))
+                {
+                    engineName = e.Data.Substring("id name ".Length).Trim();
+                }
+                else if (e.Data.StartsWith("id author "))
+                {
+                    author = e.Data.Substring("id author ".Length).Trim();
+                }
+                else if (e.Data.Trim() == "uciok" || e.Data.Trim() == "readyok")
+                {
+                    uciOk = true;
+                    tcs.TrySetResult(true);
+                }
+            };
+
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            await process.StandardInput.WriteLineAsync("uci");
+            await process.StandardInput.FlushAsync();
+
+            var timeoutTask = Task.Delay(3000);
+            var completed = await Task.WhenAny(tcs.Task, timeoutTask);
+
+            try
+            {
+                await process.StandardInput.WriteLineAsync("quit");
+                await process.StandardInput.FlushAsync();
+                process.WaitForExit(500);
+            }
+            catch { }
+
+            if (!process.HasExited)
+            {
+                try { process.Kill(); } catch { }
+            }
+
+            if (uciOk || !string.IsNullOrEmpty(engineName))
+            {
+                return new EngineProbeResult
+                {
+                    Success = true,
+                    Name = !string.IsNullOrEmpty(engineName) ? engineName : Path.GetFileName(executablePath),
+                    Author = author
+                };
+            }
+
+            return new EngineProbeResult
+            {
+                Success = false,
+                ErrorMessage = "The executable did not respond with standard UCI handshake ('uciok')."
+            };
+        }
+        catch (Exception ex)
+        {
+            return new EngineProbeResult
+            {
+                Success = false,
+                ErrorMessage = $"Failed to execute binary: {ex.Message}"
+            };
+        }
+    }
+
+    public async Task<bool> AddCustomEngineAsync(string name, string executablePath)
+    {
+        var probe = await ProbeEngineFileAsync(executablePath);
+        if (!probe.Success)
+        {
+            return false;
+        }
+
+        string finalName = !string.IsNullOrWhiteSpace(name) ? name.Trim() : probe.Name;
+        string id = $"custom-{Guid.NewGuid():N}"[..15];
 
         lock (_lock)
         {
-            string id = $"custom-{Guid.NewGuid():N}";
             var eng = new EngineInfo
             {
                 Id = id,
-                Name = name,
-                ExecutablePath = path,
+                Name = finalName,
+                Author = probe.Author,
+                ExecutablePath = executablePath,
                 IsInstalled = true,
-                Version = "Custom"
+                IsCustom = true,
+                DateAdded = DateTime.UtcNow
             };
+
             _engines.Add(eng);
             _activeEngineId = id;
+            UpdateActiveFlag();
+            SaveConfig();
         }
-        return Task.CompletedTask;
+
+        OnEnginesChanged?.Invoke();
+        return true;
+    }
+
+    public Task SetCustomEnginePathAsync(string name, string path)
+    {
+        return AddCustomEngineAsync(name, path);
+    }
+
+    public Task<bool> RemoveEngineAsync(string engineId)
+    {
+        lock (_lock)
+        {
+            var eng = _engines.FirstOrDefault(e => e.Id == engineId);
+            if (eng == null || !eng.IsCustom)
+            {
+                return Task.FromResult(false);
+            }
+
+            _engines.Remove(eng);
+
+            if (_activeEngineId == engineId)
+            {
+                _activeEngineId = _engines.FirstOrDefault(e => e.IsInstalled)?.Id ?? "stockfish-17";
+            }
+
+            UpdateActiveFlag();
+            SaveConfig();
+        }
+
+        OnEnginesChanged?.Invoke();
+        return Task.FromResult(true);
+    }
+
+    public async Task<IReadOnlyList<EngineInfo>> ScanSystemEnginesAsync()
+    {
+        var candidateNames = new[] { "stockfish", "stockfish17", "stockfish16", "lc0", "komodo", "crafty" };
+        var candidateDirs = new[] { "/usr/games", "/usr/bin", "/usr/local/bin", "/opt/chess" };
+        var foundList = new List<string>();
+
+        // Check candidate directories
+        foreach (var dir in candidateDirs)
+        {
+            if (!Directory.Exists(dir)) continue;
+
+            foreach (var name in candidateNames)
+            {
+                string path = Path.Combine(dir, name);
+                if (File.Exists(path) && !foundList.Contains(path))
+                {
+                    foundList.Add(path);
+                }
+            }
+        }
+
+        // Also check PATH
+        foreach (var name in candidateNames)
+        {
+            string? inPath = FindInPath(name);
+            if (inPath != null && !foundList.Contains(inPath))
+            {
+                foundList.Add(inPath);
+            }
+        }
+
+        var newEngines = new List<EngineInfo>();
+
+        foreach (var path in foundList)
+        {
+            bool alreadyRegistered;
+            lock (_lock)
+            {
+                alreadyRegistered = _engines.Any(e => e.ExecutablePath == path);
+            }
+
+            if (alreadyRegistered) continue;
+
+            var probe = await ProbeEngineFileAsync(path);
+            if (probe.Success)
+            {
+                string id = $"sys-{Path.GetFileName(path)}-{Guid.NewGuid():N}"[..18];
+                var eng = new EngineInfo
+                {
+                    Id = id,
+                    Name = probe.Name,
+                    Author = probe.Author,
+                    ExecutablePath = path,
+                    IsInstalled = true,
+                    IsCustom = true,
+                    DateAdded = DateTime.UtcNow
+                };
+
+                lock (_lock)
+                {
+                    _engines.Add(eng);
+                    newEngines.Add(eng);
+                }
+            }
+        }
+
+        if (newEngines.Count > 0)
+        {
+            SaveConfig();
+            OnEnginesChanged?.Invoke();
+        }
+
+        return newEngines;
     }
 
     public async Task StartAnalysisAsync(string fen, int multiPv, Action<List<EngineEvaluationLine>> onUpdate, CancellationToken ct = default)

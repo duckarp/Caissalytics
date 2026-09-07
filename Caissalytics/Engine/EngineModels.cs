@@ -9,6 +9,24 @@ public class EngineInfo
     public string? DownloadUrl { get; set; }
     public string Version { get; set; } = "1.0";
     public string Author { get; set; } = "";
+    public bool IsCustom { get; set; }
+    public bool IsActive { get; set; }
+    public DateTime? DateAdded { get; set; }
+}
+
+public class EngineProbeResult
+{
+    public bool Success { get; set; }
+    public string Name { get; set; } = "";
+    public string Author { get; set; } = "";
+    public string Version { get; set; } = "";
+    public string? ErrorMessage { get; set; }
+}
+
+public class EnginesConfigFile
+{
+    public string ActiveEngineId { get; set; } = "stockfish-17";
+    public List<EngineInfo> Engines { get; set; } = new();
 }
 
 public class EngineEvaluationLine

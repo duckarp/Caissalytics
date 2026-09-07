@@ -2,7 +2,6 @@
 @using Caissalytics.Data
 @using Caissalytics.Components.Database
 @inject WorkspaceState Workspace
-@inject IEngineService EngineService
 @inject IDatabaseService DatabaseService
 
 <div class="dashboard-container">
@@ -36,49 +35,11 @@
 			<h2 class="card-title">My Online Games</h2>
 			<p class="card-description">Sync and analyze your games from Lichess and Chess.com into your local database.</p>
 		</div>
-	</div>
 
-	<div class="dashboard-section">
-		<div class="section-header">
-			<h3 class="section-title">Engine Hub</h3>
-		</div>
-
-		<div class="engine-status-row">
-			<div class="engine-info-block">
-				<div class="status-dot @(_activeEngine?.IsInstalled == true ? "dot-ready" : "")"></div>
-				<div>
-					<div class="engine-label">@(_activeEngine?.Name ?? "Stockfish 17")</div>
-					<div class="engine-subtext">
-						@if (_isInstalling)
-						{
-							<span>Downloading official Stockfish binary... (@_installProgress%)</span>
-						}
-						else if (_activeEngine?.IsInstalled == true)
-						{
-							<span>Ready for local UCI analysis (@_activeEngine.ExecutablePath)</span>
-						}
-						else
-						{
-							<span>Not installed yet. Click to enable 1-click local Stockfish analysis.</span>
-						}
-					</div>
-				</div>
-			</div>
-
-			<div>
-				@if (_isInstalling)
-				{
-					<button class="btn-primary" disabled>Installing...</button>
-				}
-				else if (_activeEngine?.IsInstalled == true)
-				{
-					<button class="btn-secondary" @onclick="() => Workspace.CreateAnalysisTab()">Start Analyzing</button>
-				}
-				else
-				{
-					<button class="btn-primary" @onclick="InstallStockfish">⚡ 1-Click Install Stockfish</button>
-				}
-			</div>
+		<div class="action-card" @onclick="() => Workspace.CreateSettingsTab()">
+			<div class="card-icon">⚙️</div>
+			<h2 class="card-title">Control Center</h2>
+			<p class="card-description">Configure your player profile, manage UCI engines, and customize online sync preferences.</p>
 		</div>
 	</div>
 </div>
@@ -88,38 +49,12 @@
 					   OnDatabaseSelected="HandleOnlineDbSelected" />
 
 @code {
-	private EngineInfo? _activeEngine;
-	private bool _isInstalling = false;
-	private int _installProgress = 0;
 	private bool _showOnlineSyncModal = false;
 
 	private async Task HandleOnlineDbSelected(string dbName)
 	{
 		await DatabaseService.SetActiveDatabaseAsync(dbName);
 		Workspace.CreateDatabaseTab();
-	}
-
-	protected override async Task OnInitializedAsync()
-	{
-		_activeEngine = await EngineService.GetActiveEngineAsync();
-	}
-
-	private async Task InstallStockfish()
-	{
-		_isInstalling = true;
-		var progress = new Progress<int>(p =>
-		{
-			_installProgress = p;
-			InvokeAsync(StateHasChanged);
-		});
-
-		bool success = await EngineService.InstallEngineAsync("stockfish-17", progress);
-		_isInstalling = false;
-		if (success)
-		{
-			_activeEngine = await EngineService.GetActiveEngineAsync();
-		}
-		StateHasChanged();
 	}
 
 	private async Task HandlePgnUpload(InputFileChangeEventArgs e)

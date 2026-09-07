@@ -11,10 +11,15 @@ public class FakeEngineService : IEngineService
     public Task<EngineInfo?> GetActiveEngineAsync() => Task.FromResult<EngineInfo?>(null);
     public Task SetActiveEngineAsync(string engineId) => Task.CompletedTask;
     public Task<bool> InstallEngineAsync(string engineId, IProgress<int>? progress = null) => Task.FromResult(true);
+    public Task<EngineProbeResult> ProbeEngineFileAsync(string executablePath) => Task.FromResult(new EngineProbeResult { Success = true, Name = "FakeEngine" });
+    public Task<bool> AddCustomEngineAsync(string name, string executablePath) => Task.FromResult(true);
+    public Task<bool> RemoveEngineAsync(string engineId) => Task.FromResult(true);
+    public Task<IReadOnlyList<EngineInfo>> ScanSystemEnginesAsync() => Task.FromResult<IReadOnlyList<EngineInfo>>([]);
     public Task SetCustomEnginePathAsync(string name, string path) => Task.CompletedTask;
     public Task StartAnalysisAsync(string fen, int multiPv, Action<List<EngineEvaluationLine>> onUpdate, CancellationToken ct = default) => Task.CompletedTask;
     public Task StopAnalysisAsync() => Task.CompletedTask;
     public bool IsAnalyzing => false;
+    public event Action? OnEnginesChanged { add { } remove { } }
 }
 
 public class GameAnalysisTests

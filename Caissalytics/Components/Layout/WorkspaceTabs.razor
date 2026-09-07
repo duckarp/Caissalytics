@@ -29,6 +29,12 @@
 				<span class="header-db-name">Database</span>
 			</button>
 		}
+		<button class="btn-secondary header-control-btn"
+				title="Open Settings & Control Center (User profile, engine management, sync accounts)"
+				@onclick="() => Workspace.CreateSettingsTab()">
+			<span>⚙️</span>
+			<span class="header-control-label">Control Center</span>
+		</button>
 		<button class="btn-primary" @onclick="() => Workspace.CreateAnalysisTab()">+ New Board</button>
 	</div>
 </header>

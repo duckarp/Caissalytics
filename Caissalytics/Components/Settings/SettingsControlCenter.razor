@@ -1,0 +1,638 @@
+@namespace Caissalytics.Components.Settings
+@using Caissalytics.Data
+@using Caissalytics.Engine
+@using Caissalytics.Components.Database
+@inject IUserProfileService ProfileService
+@inject IEngineService EngineService
+@inject IOnlineGameSyncService SyncService
+@inject IDatabaseService DatabaseService
+@inject WorkspaceState Workspace
+@implements IDisposable
+
+<div class="control-center-container">
+	<div class="control-center-header">
+		<div class="control-title-group">
+			<span class="control-header-icon">⚙️</span>
+			<div>
+				<h2 class="control-heading">Control Center</h2>
+				<p class="control-subtitle">Manage user profile, configure chess engines, and customize online sync preferences.</p>
+			</div>
+		</div>
+	</div>
+
+	<div class="control-center-body">
+		<aside class="control-sidebar">
+			<nav class="control-nav-menu">
+				<button class="@GetNavClass("profile")" @onclick='() => SetCategory("profile")'>
+					<span class="nav-item-icon">👤</span>
+					<div class="nav-item-content">
+						<span class="nav-item-title">Profile & Handles</span>
+						<span class="nav-item-desc">Name, FIDE ID, online accounts</span>
+					</div>
+				</button>
+
+				<button class="@GetNavClass("engines")" @onclick='() => SetCategory("engines")'>
+					<span class="nav-item-icon">⚙️</span>
+					<div class="nav-item-content">
+						<span class="nav-item-title">Chess Engines</span>
+						<span class="nav-item-desc">Installed engines, active UCI, 1-click install</span>
+					</div>
+				</button>
+
+				<button class="@GetNavClass("sync")" @onclick='() => SetCategory("sync")'>
+					<span class="nav-item-icon">🌐</span>
+					<div class="nav-item-content">
+						<span class="nav-item-title">Online Games Sync</span>
+						<span class="nav-item-desc">Batch size, database status, auto sync</span>
+					</div>
+				</button>
+			</nav>
+		</aside>
+
+		<main class="control-content-panel">
+			@if (_activeCategory == "profile")
+			{
+				<div class="control-section-card">
+					<div class="card-section-header">
+						<h3 class="card-section-title">👤 User Profile & Accounts</h3>
+						<p class="card-section-desc">Personalize your identity and connect your online chess playing accounts.</p>
+					</div>
+
+					<div class="control-form-grid">
+						<div class="form-field-block">
+							<label class="field-label">First Name</label>
+							<input class="field-input" placeholder="e.g. Garry" @bind="_profile.FirstName" @bind:event="oninput" />
+						</div>
+
+						<div class="form-field-block">
+							<label class="field-label">Last Name</label>
+							<input class="field-input" placeholder="e.g. Kasparov" @bind="_profile.LastName" @bind:event="oninput" />
+						</div>
+
+						<div class="form-field-block form-field-full">
+							<label class="field-label">FIDE ID</label>
+							<div class="input-with-link-row">
+								<input class="field-input" placeholder="e.g. 4100018" @bind="_profile.FideId" @bind:event="oninput" />
+								@if (_profile.HasFideId)
+								{
+									<a class="external-profile-link" href="@_profile.FideProfileUrl" target="_blank" rel="noopener noreferrer">
+										<span>🌐 View FIDE Card</span>
+									</a>
+								}
+							</div>
+							<span class="field-hint">Official World Chess Federation player identification number.</span>
+						</div>
+					</div>
+
+					<div class="section-divider"></div>
+
+					<div class="card-section-header">
+						<h4 class="card-section-subtitle">Connected Online Accounts</h4>
+						<p class="card-section-desc">Used to automatically synchronize your online games into "My online games".</p>
+					</div>
+
+					<div class="control-form-grid">
+						<div class="form-field-block">
+							<div class="field-label-group">
+								<span class="platform-badge platform-badge-lichess">♞ Lichess</span>
+								<label class="field-label">Username</label>
+							</div>
+							<div class="input-with-link-row">
+								<input class="field-input" placeholder="e.g. magnuscarlsen" @bind="_profile.LichessUsername" @bind:event="oninput" />
+								@if (_profile.HasLichess)
+								{
+									<a class="external-profile-link" href="@_profile.LichessProfileUrl" target="_blank" rel="noopener noreferrer">
+										<span>🌐 Open</span>
+									</a>
+								}
+							</div>
+						</div>
+
+						<div class="form-field-block">
+							<div class="field-label-group">
+								<span class="platform-badge platform-badge-chesscom">♟️ Chess.com</span>
+								<label class="field-label">Username</label>
+							</div>
+							<div class="input-with-link-row">
+								<input class="field-input" placeholder="e.g. hikaru" @bind="_profile.ChessComUsername" @bind:event="oninput" />
+								@if (_profile.HasChessCom)
+								{
+									<a class="external-profile-link" href="@_profile.ChessComProfileUrl" target="_blank" rel="noopener noreferrer">
+										<span>🌐 Open</span>
+									</a>
+								}
+							</div>
+						</div>
+					</div>
+
+					<div class="form-action-bar">
+						<button class="btn-primary" @onclick="SaveProfileAsync">💾 Save Profile Changes</button>
+						@if (_profileSaved)
+						{
+							<span class="save-status-badge">✅ Profile changes saved!</span>
+						}
+					</div>
+				</div>
+			}
+			else if (_activeCategory == "engines")
+			{
+				<div class="control-section-card">
+					<div class="card-section-header">
+						<h3 class="card-section-title">⚙️ Chess Engines (UCI)</h3>
+						<p class="card-section-desc">Manage installed engines, select the active engine for live analysis and game reports, or add custom binaries.</p>
+					</div>
+
+					<!-- Registered engines list -->
+					<div class="engines-list-wrapper">
+						@foreach (var eng in _engines)
+						{
+							bool isActive = eng.IsActive;
+							string cardClass = isActive ? "engine-entry-card engine-entry-active" : "engine-entry-card";
+
+							<div class="@cardClass">
+								<div class="engine-entry-main">
+									<div class="engine-entry-header">
+										<div class="engine-name-group">
+											<span class="status-dot @(eng.IsInstalled ? "dot-ready" : "")"></span>
+											<span class="engine-card-name">@eng.Name</span>
+											@if (isActive)
+											{
+												<span class="engine-badge-active">Active Engine</span>
+											}
+											@if (eng.IsCustom)
+											{
+												<span class="engine-badge-custom">Custom</span>
+											}
+										</div>
+										@if (!string.IsNullOrEmpty(eng.Author))
+										{
+											<span class="engine-card-author">by @eng.Author</span>
+										}
+									</div>
+
+									<div class="engine-entry-details">
+										@if (eng.IsInstalled)
+										{
+											<span class="engine-path-text" title="@eng.ExecutablePath">📁 @eng.ExecutablePath</span>
+										}
+										else
+										{
+											<span class="engine-path-missing">⚠️ Not installed yet</span>
+										}
+									</div>
+								</div>
+
+								<div class="engine-entry-actions">
+									@if (eng.IsInstalled)
+									{
+										@if (!isActive)
+										{
+											<button class="btn-secondary btn-sm" @onclick="() => SetActiveEngineAsync(eng.Id)">Set as Active</button>
+										}
+										<button class="btn-secondary btn-sm" @onclick="() => TestEngineHandshakeAsync(eng)" title="Verify UCI communication">⚡ Test</button>
+									}
+									else if (!string.IsNullOrEmpty(eng.DownloadUrl))
+									{
+										<button class="btn-primary btn-sm" disabled="@_isInstalling" @onclick="() => InstallEngineAsync(eng.Id)">
+											@(_isInstalling && _installingEngineId == eng.Id ? $"Installing ({_installProgress}%)..." : "⚡ 1-Click Install")
+										</button>
+									}
+
+									@if (eng.IsCustom)
+									{
+										<button class="btn-danger-outline btn-sm" @onclick="() => RemoveCustomEngineAsync(eng.Id)" title="Remove custom engine">🗑️</button>
+									}
+								</div>
+							</div>
+						}
+					</div>
+
+					<!-- Engine Handshake Probe Result Feedback -->
+					@if (_handshakeResult != null)
+					{
+						<div class="probe-feedback-box @(_handshakeResult.Success ? "probe-success" : "probe-error")">
+							<div class="probe-header">
+								<span>@(_handshakeResult.Success ? "✅ UCI Handshake Succeeded" : "❌ UCI Handshake Failed")</span>
+								<button class="btn-close-probe" @onclick="() => _handshakeResult = null">✕</button>
+							</div>
+							@if (_handshakeResult.Success)
+							{
+								<div class="probe-details">
+									<div><strong>Identified Name:</strong> @_handshakeResult.Name</div>
+									@if (!string.IsNullOrEmpty(_handshakeResult.Author))
+									{
+										<div><strong>Author:</strong> @_handshakeResult.Author</div>
+									}
+									<div><strong>Protocol:</strong> UCI communication confirmed (responds to uci / isready)</div>
+								</div>
+							}
+							else
+							{
+								<div class="probe-error-text">@_handshakeResult.ErrorMessage</div>
+							}
+						</div>
+					}
+
+					<div class="section-divider"></div>
+
+					<!-- Add new engine block -->
+					<div class="add-engine-container">
+						<div class="card-section-header">
+							<h4 class="card-section-subtitle">➕ Add New Engine</h4>
+							<p class="card-section-desc">Register a local UCI executable binary or auto-scan your operating system.</p>
+						</div>
+
+						<div class="add-engine-modes-row">
+							<button class="@GetAddModeClass("local")" @onclick='() => _addEngineMode = "local"'>📁 Local File</button>
+							<button class="@GetAddModeClass("scan")" @onclick='() => _addEngineMode = "scan"'>🔍 Auto-Scan System</button>
+						</div>
+
+						@if (_addEngineMode == "local")
+						{
+							<div class="local-engine-form">
+								<div class="form-field-block form-field-full">
+									<label class="field-label">Executable File Path</label>
+									<div class="input-with-action-row">
+										<input class="field-input"
+											   placeholder="e.g. /usr/games/stockfish or /usr/local/bin/lc0"
+											   @bind="_customExecutablePath"
+											   @bind:event="oninput" />
+										<button class="btn-primary"
+												disabled="@(string.IsNullOrWhiteSpace(_customExecutablePath) || _isProbing)"
+												@onclick="AddLocalEngineAsync">
+											@(_isProbing ? "Probing..." : "🔍 Probe & Register")
+										</button>
+									</div>
+									<span class="field-hint">Path to an executable file on your computer supporting the standard Universal Chess Interface (UCI).</span>
+								</div>
+
+								<div class="form-field-block">
+									<label class="field-label">Custom Display Name (Optional)</label>
+									<input class="field-input" placeholder="Leave blank to use engine's reported name" @bind="_customDisplayName" @bind:event="oninput" />
+								</div>
+
+								@if (!string.IsNullOrEmpty(_customAddError))
+								{
+									<div class="probe-feedback-box probe-error">
+										<span>⚠️ @_customAddError</span>
+									</div>
+								}
+								@if (!string.IsNullOrEmpty(_customAddSuccess))
+								{
+									<div class="probe-feedback-box probe-success">
+										<span>✅ @_customAddSuccess</span>
+									</div>
+								}
+							</div>
+						}
+						else if (_addEngineMode == "scan")
+						{
+							<div class="scan-engine-box">
+								<p class="scan-desc">
+									Caissalytics can automatically inspect standard system directories (<code>/usr/games</code>, <code>/usr/bin</code>, <code>/usr/local/bin</code>)
+									and search your system PATH for popular UCI engines (<code>stockfish</code>, <code>lc0</code>, <code>komodo</code>, <code>crafty</code>).
+								</p>
+
+								<div class="scan-action-row">
+									<button class="btn-primary" disabled="@_isScanning" @onclick="ScanSystemEnginesAsync">
+										@(_isScanning ? "Scanning System Directories..." : "🔍 Scan System for Engines")
+									</button>
+								</div>
+
+								@if (!string.IsNullOrEmpty(_scanResultText))
+								{
+									<div class="probe-feedback-box probe-success">
+										<span>@_scanResultText</span>
+									</div>
+								}
+							</div>
+						}
+					</div>
+				</div>
+			}
+			else if (_activeCategory == "sync")
+			{
+				<div class="control-section-card">
+					<div class="card-section-header">
+						<h3 class="card-section-title">🌐 Online Games Sync Settings</h3>
+						<p class="card-section-desc">Manage game download limits and inspect synchronization history.</p>
+					</div>
+
+					<div class="sync-status-grid">
+						<div class="sync-info-card">
+							<div class="sync-info-label">Target Database</div>
+							<div class="sync-info-value">@SyncService.OnlineGamesDatabaseName</div>
+							<div class="sync-info-desc">Dedicated local SQLite collection with 64-bit Zobrist indexing.</div>
+						</div>
+
+						<div class="sync-info-card">
+							<div class="sync-info-label">Games Stored</div>
+							<div class="sync-info-value">@_onlineDbGamesCount.ToString("N0")</div>
+							<div class="sync-info-desc">Total online games downloaded and indexed.</div>
+						</div>
+
+						<div class="sync-info-card">
+							<div class="sync-info-label">Last Sync</div>
+							<div class="sync-info-value">@FormattedLastSync</div>
+							<div class="sync-info-desc">Timestamp of previous sync pass.</div>
+						</div>
+					</div>
+
+					<div class="section-divider"></div>
+
+					<div class="card-section-header">
+						<h4 class="card-section-subtitle">Sync Preferences</h4>
+					</div>
+
+					<div class="control-form-grid">
+						<div class="form-field-block">
+							<label class="field-label">Batch Size / History Limit</label>
+							<select class="field-select" @bind="_syncConfig.MaxGamesPerPlatform">
+								<option value="50">Latest 50 games per platform</option>
+								<option value="100">Latest 100 games per platform (Recommended)</option>
+								<option value="250">Latest 250 games per platform</option>
+								<option value="500">Latest 500 games per platform</option>
+							</select>
+							<span class="field-hint">Limits the number of recent games queried per sync pass.</span>
+						</div>
+					</div>
+
+					<div class="sync-accounts-summary">
+						<div class="summary-label">Configured Handles:</div>
+						<div class="summary-handles-row">
+							<div class="summary-handle-item">
+								<span class="platform-badge platform-badge-lichess">♞ Lichess</span>
+								<span class="handle-name">@(!string.IsNullOrEmpty(_profile.LichessUsername) ? _profile.LichessUsername : "Not configured")</span>
+							</div>
+							<div class="summary-handle-item">
+								<span class="platform-badge platform-badge-chesscom">♟️ Chess.com</span>
+								<span class="handle-name">@(!string.IsNullOrEmpty(_profile.ChessComUsername) ? _profile.ChessComUsername : "Not configured")</span>
+							</div>
+							<button class="btn-link" @onclick='() => SetCategory("profile")'>Edit in Profile ➔</button>
+						</div>
+					</div>
+
+					<div class="form-action-bar">
+						<button class="btn-secondary" @onclick="SaveSyncPreferencesAsync">Save Sync Preferences</button>
+						<button class="btn-primary" @onclick="() => _showSyncModal = true">🔄 Sync Online Games Now</button>
+						@if (_syncConfigSaved)
+						{
+							<span class="save-status-badge">✅ Preferences saved!</span>
+						}
+					</div>
+				</div>
+			}
+		</main>
+	</div>
+</div>
+
+<OnlineGamesSyncDialog IsOpen="_showSyncModal"
+					   OnClose="HandleSyncModalClosed"
+					   OnDatabaseSelected="HandleOnlineDbSelected" />
+
+@code {
+	[Parameter] public SettingsTab Tab { get; set; } = default!;
+
+	private string _activeCategory = "profile";
+
+	// Profile State
+	private UserProfile _profile = new();
+	private bool _profileSaved = false;
+
+	// Engines State
+	private List<EngineInfo> _engines = new();
+	private bool _isInstalling = false;
+	private string _installingEngineId = "";
+	private int _installProgress = 0;
+	private EngineProbeResult? _handshakeResult;
+	private string _addEngineMode = "local";
+	private string _customExecutablePath = "";
+	private string _customDisplayName = "";
+	private bool _isProbing = false;
+	private string _customAddError = "";
+	private string _customAddSuccess = "";
+	private bool _isScanning = false;
+	private string _scanResultText = "";
+
+	// Online Sync State
+	private OnlineSyncConfig _syncConfig = new();
+	private bool _syncConfigSaved = false;
+	private int _onlineDbGamesCount = 0;
+	private bool _showSyncModal = false;
+
+	private string FormattedLastSync => _syncConfig.LastSyncUtc.HasValue
+		? _syncConfig.LastSyncUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
+		: "Never";
+
+	protected override async Task OnInitializedAsync()
+	{
+		EngineService.OnEnginesChanged += HandleEnginesChanged;
+		ProfileService.OnProfileChanged += HandleProfileChanged;
+
+		await LoadProfileAsync();
+		await LoadEnginesAsync();
+		await LoadSyncConfigAsync();
+		await LoadOnlineDatabaseInfoAsync();
+	}
+
+	private void SetCategory(string category)
+	{
+		_activeCategory = category;
+		_handshakeResult = null;
+		_customAddError = "";
+		_customAddSuccess = "";
+		_scanResultText = "";
+	}
+
+	private string GetNavClass(string category)
+	{
+		return _activeCategory == category ? "control-nav-item nav-item-active" : "control-nav-item";
+	}
+
+	private string GetAddModeClass(string mode)
+	{
+		return _addEngineMode == mode ? "mode-tab-btn mode-tab-active" : "mode-tab-btn";
+	}
+
+	private async Task LoadProfileAsync()
+	{
+		_profile = await ProfileService.GetProfileAsync();
+	}
+
+	private async Task LoadEnginesAsync()
+	{
+		var list = await EngineService.GetEnginesAsync();
+		_engines = list.ToList();
+	}
+
+	private async Task LoadSyncConfigAsync()
+	{
+		_syncConfig = await SyncService.GetConfigAsync();
+	}
+
+	private async Task LoadOnlineDatabaseInfoAsync()
+	{
+		try
+		{
+			var databases = await DatabaseService.GetDatabasesAsync();
+			var onlineDb = databases.FirstOrDefault(d => d.Name == SyncService.OnlineGamesDatabaseName);
+			_onlineDbGamesCount = onlineDb?.GameCount ?? 0;
+		}
+		catch { }
+	}
+
+	private async Task SaveProfileAsync()
+	{
+		await ProfileService.SaveProfileAsync(_profile);
+		_profileSaved = true;
+		_ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { _profileSaved = false; StateHasChanged(); }));
+	}
+
+	private async Task SetActiveEngineAsync(string engineId)
+	{
+		await EngineService.SetActiveEngineAsync(engineId);
+		await LoadEnginesAsync();
+	}
+
+	private async Task TestEngineHandshakeAsync(EngineInfo engine)
+	{
+		if (string.IsNullOrEmpty(engine.ExecutablePath)) return;
+		_handshakeResult = await EngineService.ProbeEngineFileAsync(engine.ExecutablePath);
+	}
+
+	private async Task RemoveCustomEngineAsync(string engineId)
+	{
+		await EngineService.RemoveEngineAsync(engineId);
+		await LoadEnginesAsync();
+	}
+
+	private async Task InstallEngineAsync(string engineId)
+	{
+		_isInstalling = true;
+		_installingEngineId = engineId;
+		_installProgress = 0;
+
+		var progress = new Progress<int>(p =>
+		{
+			_installProgress = p;
+			InvokeAsync(StateHasChanged);
+		});
+
+		await EngineService.InstallEngineAsync(engineId, progress);
+		_isInstalling = false;
+		_installingEngineId = "";
+		await LoadEnginesAsync();
+	}
+
+	private async Task AddLocalEngineAsync()
+	{
+		_isProbing = true;
+		_customAddError = "";
+		_customAddSuccess = "";
+
+		try
+		{
+			var probe = await EngineService.ProbeEngineFileAsync(_customExecutablePath.Trim());
+			if (!probe.Success)
+			{
+				_customAddError = probe.ErrorMessage ?? "Engine probe failed.";
+				return;
+			}
+
+			bool added = await EngineService.AddCustomEngineAsync(_customDisplayName.Trim(), _customExecutablePath.Trim());
+			if (added)
+			{
+				_customAddSuccess = $"Successfully registered engine: {probe.Name}!";
+				_customExecutablePath = "";
+				_customDisplayName = "";
+				await LoadEnginesAsync();
+			}
+			else
+			{
+				_customAddError = "Failed to add engine.";
+			}
+		}
+		catch (Exception ex)
+		{
+			_customAddError = ex.Message;
+		}
+		finally
+		{
+			_isProbing = false;
+		}
+	}
+
+	private async Task ScanSystemEnginesAsync()
+	{
+		_isScanning = true;
+		_scanResultText = "";
+
+		try
+		{
+			var newEngines = await EngineService.ScanSystemEnginesAsync();
+			if (newEngines.Count > 0)
+			{
+				_scanResultText = $"Found and registered {newEngines.Count} new chess engine(s): {string.Join(", ", newEngines.Select(e => e.Name))}!";
+				await LoadEnginesAsync();
+			}
+			else
+			{
+				_scanResultText = "Scan complete. No new chess engines found in standard system directories.";
+			}
+		}
+		catch (Exception ex)
+		{
+			_scanResultText = $"Error during scan: {ex.Message}";
+		}
+		finally
+		{
+			_isScanning = false;
+		}
+	}
+
+	private async Task SaveSyncPreferencesAsync()
+	{
+		await SyncService.SaveConfigAsync(_syncConfig);
+		_syncConfigSaved = true;
+		_ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { _syncConfigSaved = false; StateHasChanged(); }));
+	}
+
+	private async Task HandleSyncModalClosed()
+	{
+		_showSyncModal = false;
+		await LoadSyncConfigAsync();
+		await LoadOnlineDatabaseInfoAsync();
+	}
+
+	private async Task HandleOnlineDbSelected(string dbName)
+	{
+		_showSyncModal = false;
+		await DatabaseService.SetActiveDatabaseAsync(dbName);
+		Workspace.CreateDatabaseTab();
+	}
+
+	private async void HandleEnginesChanged()
+	{
+		await InvokeAsync(async () =>
+		{
+			await LoadEnginesAsync();
+			StateHasChanged();
+		});
+	}
+
+	private async void HandleProfileChanged()
+	{
+		await InvokeAsync(async () =>
+		{
+			await LoadProfileAsync();
+			await LoadSyncConfigAsync();
+			StateHasChanged();
+		});
+	}
+
+	public void Dispose()
+	{
+		EngineService.OnEnginesChanged -= HandleEnginesChanged;
+		ProfileService.OnProfileChanged -= HandleProfileChanged;
+	}
+}
