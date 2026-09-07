@@ -220,6 +220,18 @@ public class OpponentDossierTab : WorkspaceTab
     }
 }
 
+public class EndgameTrainerTab : WorkspaceTab
+{
+    public override string Title => "Endgames";
+    public override string Icon => "🏆";
+    public string? SelectedPositionId { get; set; }
+
+    public EndgameTrainerTab(string? selectedPositionId = null)
+    {
+        SelectedPositionId = selectedPositionId;
+    }
+}
+
 
 public class WorkspaceState
 {
@@ -391,6 +403,27 @@ public class WorkspaceState
         return tab;
     }
 
+    public EndgameTrainerTab CreateEndgameTrainerTab(string? positionId = null)
+    {
+        var existing = Tabs.OfType<EndgameTrainerTab>().FirstOrDefault();
+        if (existing != null)
+        {
+            if (!string.IsNullOrEmpty(positionId))
+            {
+                existing.SelectedPositionId = positionId;
+            }
+            ActiveTab = existing;
+            NotifyStateChanged();
+            return existing;
+        }
+
+        var tab = new EndgameTrainerTab(positionId);
+        Tabs.Add(tab);
+        ActiveTab = tab;
+        NotifyStateChanged();
+        return tab;
+    }
+
     public void SelectTab(Guid id)
     {
         var target = Tabs.FirstOrDefault(t => t.Id == id);
@@ -513,6 +546,16 @@ public class WorkspaceState
                         Player = dossier.TargetPlayer
                     });
                     break;
+
+                case EndgameTrainerTab endgame:
+                    dto.Tabs.Add(new WorkspaceTabDto
+                    {
+                        Id = endgame.Id,
+                        Type = "endgames",
+                        Title = endgame.Title,
+                        PositionId = endgame.SelectedPositionId
+                    });
+                    break;
             }
         }
 
@@ -601,6 +644,11 @@ public class WorkspaceState
                     {
                         var dossierTab = new OpponentDossierTab(tabDto.Player) { Id = tabDto.Id };
                         Tabs.Add(dossierTab);
+                    }
+                    else if (tabDto.Type == "endgames")
+                    {
+                        var endgamesTab = new EndgameTrainerTab(tabDto.PositionId) { Id = tabDto.Id };
+                        Tabs.Add(endgamesTab);
                     }
                 }
 

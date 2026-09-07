@@ -196,7 +196,38 @@ The heuristic vulnerability scanner flags actionable weaknesses:
 
 ---
 
-## 6. Web Audio API Synthesis (`soundService.js`)
+## 6. Syzygy Endgame Tablebases & Classical Endgame Trainer
+
+Caissalytics provides exact endgame analysis and an interactive theoretical training system through its Syzygy tablebase subsystems:
+
+```mermaid
+graph TD
+    UI[EndgameTrainerWorkbench / TablebasePanel] --> Service[ITablebaseService / TablebaseService]
+    Service --> Cache[(ConcurrentDictionary Memory Cache)]
+    Service --> LichessAPI[Lichess 7-Piece Tablebase API]
+    UI --> Engine[EngineManager / Stockfish 18]
+    Engine --> LocalFiles[Local Syzygy .rtbw / .rtbz Directory]
+    UI --> Curric[EndgameCurriculum (16 Theoretical Positions)]
+```
+
+### Tablebase Service (`ITablebaseService.cs` & `TablebaseService.cs`)
+- **Probing Eligibility**: The engine counts piece occurrences in the FEN piece placement string. If total piece count $\le 7$, tablebase probing is enabled.
+- **API Communication & Caching**: Positions are normalized and queried against the Lichess Tablebase API (`https://tablebase.lichess.ovh/standard?fen=...`). Query results are cached in a thread-safe `ConcurrentDictionary` to prevent duplicate network hits.
+- **Perspective Inversion**: The raw API returns move categories evaluated from the perspective of the *opponent* after the move is executed. `TablebaseService` automatically inverts these (`Loss` $\rightarrow$ `Win`, `Win` $\rightarrow$ `Loss`, `BlessedLoss` $\rightarrow$ `CursedWin`) so the current player sees accurate move verdicts.
+- **Sorting & Move Prioritization**: Winning moves are sorted by ascending DTZ/DTM (fastest conversion). Losing defensive moves are sorted by descending DTZ/DTM (most stubborn resistance).
+
+### UCI Local Syzygy Integration (`EngineManager.cs`)
+- Users can specify a local folder containing 3-4-5-6-7 piece `.rtbw` (WDL) and `.rtbz` (DTZ) files.
+- `EngineManager` stores this configuration in `engines_config.json` and automatically sends `setoption name SyzygyPath value <path>` to the active UCI engine client before analysis commences.
+
+### Classical Endgame Curriculum & Sparring Engine (`EndgameCurriculum.cs`)
+- **Curriculum Taxonomy**: 16 positions spanning 5 categories: King & Pawn, Rook Endgames (Lucena, Philidor, Vancura, Short-Side), Queen Endgames, Minor Piece Endgames (Bishop + Knight mate, Wrong Bishop draw, Opposite Bishops), and Practical Tournament Endgames.
+- **Defensive Sparring Opponent**: When the user plays a move, the trainer queries the tablebase and plays the optimal counter-move after a 350ms natural human-like cadence.
+- **Move Quality Heuristic**: Detects whether the user's move preserved the theoretical outcome or blundered (e.g. converting a Win into a Draw or Draw into a Loss).
+
+---
+
+## 7. Web Audio API Synthesis (`soundService.js`)
 
 Unlike traditional chess applications that package heavy `.mp3` or `.wav` sound files (which introduce file latency and disk footprint), Caissalytics synthesizes all chess sound effects in real time via the Web Audio API:
 
@@ -216,7 +247,7 @@ Unlike traditional chess applications that package heavy `.mp3` or `.wav` sound 
 
 ---
 
-## 7. Frontend Presentation & State Management
+## 8. Frontend Presentation & State Management
 
 ### Photino Desktop Window Host
 - Single native window host initialized in `Program.cs`.
@@ -226,6 +257,7 @@ Unlike traditional chess applications that package heavy `.mp3` or `.wav` sound 
 ### Workspace Tabs (`WorkspaceState.cs`)
 - Multi-document tab workspace allowing simultaneous open sessions:
   - `AnalysisWorkbenchTab`
+  - `EndgameTrainerTab`
   - `DatabaseExplorerTab`
   - `RepertoireExplorerTab`
   - `OpponentDossierTab`

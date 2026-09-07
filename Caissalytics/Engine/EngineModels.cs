@@ -26,6 +26,7 @@ public class EngineProbeResult
 public class EnginesConfigFile
 {
     public string ActiveEngineId { get; set; } = "stockfish-17";
+    public string? SyzygyPath { get; set; }
     public List<EngineInfo> Engines { get; set; } = new();
 }
 

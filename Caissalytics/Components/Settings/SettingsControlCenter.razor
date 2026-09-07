@@ -6,6 +6,7 @@
 @inject IEngineService EngineService
 @inject IOnlineGameSyncService SyncService
 @inject IDatabaseService DatabaseService
+@inject ITablebaseService TablebaseService
 @inject IUpdateService UpdateService
 @inject IAppearanceService AppearanceService
 @inject WorkspaceState Workspace
@@ -47,6 +48,14 @@
 					<div class="nav-item-content">
 						<span class="nav-item-title">Chess Engines</span>
 						<span class="nav-item-desc">Installed engines, active UCI, 1-click install</span>
+					</div>
+				</button>
+
+				<button class="@GetNavClass("tablebases")" @onclick='() => SetCategory("tablebases")'>
+					<span class="nav-item-icon">🏆</span>
+					<div class="nav-item-content">
+						<span class="nav-item-title">Syzygy Tablebases</span>
+						<span class="nav-item-desc">Endgame probe, local path, online API</span>
 					</div>
 				</button>
 
@@ -326,6 +335,84 @@
 								}
 							</div>
 						}
+					</div>
+				</div>
+			}
+			else if (_activeCategory == "tablebases")
+			{
+				<div class="control-section-card">
+					<div class="card-section-header">
+						<h3 class="card-section-title">🏆 Syzygy Endgame Tablebases</h3>
+						<p class="card-section-desc">Evaluate 3-4-5-6-7 piece endgames with mathematical precision for exact Win/Draw/Loss and DTZ/DTM conversion metrics.</p>
+					</div>
+
+					<div class="control-form-grid">
+						<div class="form-field-block form-field-full">
+							<label class="field-label">Online Tablebase Probing (Lichess 7-Piece API)</label>
+							<div class="toggle-control-row">
+								<label class="sound-checkbox-label">
+									<input type="checkbox" class="sound-check-box"
+										   checked="@_onlineTbEnabled"
+										   @onchange="ToggleOnlineTb" />
+									<span>Enable instant online lookups (covers all &le; 7 piece endgames without downloading 18 TB)</span>
+								</label>
+							</div>
+						</div>
+
+						<div class="form-field-block form-field-full">
+							<label class="field-label">Local Syzygy Directory Path (Optional)</label>
+							<div class="input-with-action-row">
+								<input class="field-input"
+									   placeholder="e.g. /home/user/chess/syzygy or C:\Chess\Syzygy"
+									   @bind="_localSyzygyPath"
+									   @bind:event="oninput" />
+								<button class="btn-primary" @onclick="SaveSyzygyPathAsync">💾 Save Path</button>
+							</div>
+							<span class="field-hint">Folder containing local <code>.rtbw</code> and <code>.rtbz</code> tablebase files. Automatically configured for Stockfish UCI via <code>setoption name SyzygyPath</code>.</span>
+							@if (_syzygyPathSaved)
+							{
+								<span class="save-status-badge">✓ Syzygy path saved and applied to engine!</span>
+							}
+						</div>
+
+						<div class="form-field-block form-field-full">
+							<h4 class="card-section-subtitle">🔍 Test Tablebase Position</h4>
+							<div class="input-with-action-row">
+								<input class="field-input"
+									   placeholder="Enter endgame FEN (&le; 7 pieces)..."
+									   @bind="_testTbFen"
+									   @bind:event="oninput" />
+								<button class="btn-secondary" disabled="@_isProbingTb" @onclick="TestProbeFenAsync">
+									@(_isProbingTb ? "Probing..." : "⚡ Probe FEN")
+								</button>
+							</div>
+
+							@if (_testTbResult != null)
+							{
+								<div class="probe-feedback-box @(_testTbResult.Success ? "probe-success" : "probe-error")">
+									@if (_testTbResult.Success)
+									{
+										<div class="probe-details">
+											<div><strong>Theoretical Outcome:</strong> @_testTbResult.FormattedVerdict</div>
+											@if (_testTbResult.Moves.Count > 0)
+											{
+												<div class="probe-meta-line">
+													Candidate moves:
+													@foreach (var m in _testTbResult.Moves.Take(5))
+													{
+														<span class="badge-tag">@m.San: @m.Category @m.FormattedDtz</span>
+													}
+												</div>
+											}
+										</div>
+									}
+									else
+									{
+										<div class="probe-error-text">@_testTbResult.ErrorMessage</div>
+									}
+								</div>
+							}
+						</div>
 					</div>
 				</div>
 			}
@@ -684,6 +771,14 @@
 	private AppearanceSettings _appearanceSettings = new();
 	private bool _appearanceSettingsSaved = false;
 
+	// Tablebase State
+	private string? _localSyzygyPath;
+	private bool _onlineTbEnabled = true;
+	private string _testTbFen = "8/8/8/4k3/8/4P3/4K3/8 w - - 0 1";
+	private bool _isProbingTb = false;
+	private TablebaseResult? _testTbResult;
+	private bool _syzygyPathSaved = false;
+
 	private string FormattedLastSync => _syncConfig.LastSyncUtc.HasValue
 		? _syncConfig.LastSyncUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
 		: "Never";
@@ -703,6 +798,46 @@
 		await LoadEnginesAsync();
 		await LoadSyncConfigAsync();
 		await LoadOnlineDatabaseInfoAsync();
+
+		_localSyzygyPath = TablebaseService.LocalSyzygyPath ?? EngineService.SyzygyPath;
+		_onlineTbEnabled = TablebaseService.IsOnlineProbeEnabled;
+	}
+
+	private async Task SaveSyzygyPathAsync()
+	{
+		TablebaseService.LocalSyzygyPath = _localSyzygyPath;
+		await EngineService.SetSyzygyPathAsync(_localSyzygyPath);
+		_syzygyPathSaved = true;
+		_ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { _syzygyPathSaved = false; StateHasChanged(); }));
+	}
+
+	private void ToggleOnlineTb(ChangeEventArgs e)
+	{
+		if (e.Value is bool b)
+		{
+			_onlineTbEnabled = b;
+			TablebaseService.IsOnlineProbeEnabled = b;
+		}
+	}
+
+	private async Task TestProbeFenAsync()
+	{
+		if (string.IsNullOrWhiteSpace(_testTbFen)) return;
+		_isProbingTb = true;
+		StateHasChanged();
+		try
+		{
+			_testTbResult = await TablebaseService.ProbePositionAsync(_testTbFen);
+		}
+		catch (Exception ex)
+		{
+			_testTbResult = new TablebaseResult { Success = false, ErrorMessage = ex.Message };
+		}
+		finally
+		{
+			_isProbingTb = false;
+			StateHasChanged();
+		}
 	}
 
 	private void SetCategory(string category)

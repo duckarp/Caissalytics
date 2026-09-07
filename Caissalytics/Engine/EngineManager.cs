@@ -14,6 +14,7 @@ public class EngineManager : IEngineService, IDisposable
     private readonly string _configFilePath;
     private readonly List<EngineInfo> _engines = new();
     private string _activeEngineId = "stockfish-17";
+    private string? _syzygyPath;
     private UciProcessClient? _activeClient;
     private readonly HttpClient _httpClient = new();
     private readonly object _lock = new();
@@ -21,6 +22,7 @@ public class EngineManager : IEngineService, IDisposable
     public event Action? OnEnginesChanged;
 
     public bool IsAnalyzing => _activeClient != null && _activeClient.IsRunning;
+    public string? SyzygyPath => _syzygyPath;
 
     public EngineManager()
     {
@@ -58,6 +60,7 @@ public class EngineManager : IEngineService, IDisposable
                     if (config != null)
                     {
                         _activeEngineId = config.ActiveEngineId;
+                        _syzygyPath = config.SyzygyPath;
                         _engines.AddRange(config.Engines);
                     }
                 }
@@ -131,6 +134,7 @@ public class EngineManager : IEngineService, IDisposable
                 var config = new EnginesConfigFile
                 {
                     ActiveEngineId = _activeEngineId,
+                    SyzygyPath = _syzygyPath,
                     Engines = _engines.ToList()
                 };
                 var options = new JsonSerializerOptions { WriteIndented = true };
@@ -142,6 +146,29 @@ public class EngineManager : IEngineService, IDisposable
                 Console.WriteLine($"[EngineManager] Error saving config: {ex.Message}");
             }
         }
+    }
+
+    public async Task SetSyzygyPathAsync(string? path)
+    {
+        lock (_lock)
+        {
+            _syzygyPath = string.IsNullOrWhiteSpace(path) ? null : path.Trim();
+            SaveConfig();
+        }
+
+        if (_activeClient != null && _activeClient.IsRunning && !string.IsNullOrWhiteSpace(_syzygyPath))
+        {
+            try
+            {
+                await _activeClient.SetOptionAsync("SyzygyPath", _syzygyPath);
+            }
+            catch
+            {
+                // Engine might not support option or exited
+            }
+        }
+
+        OnEnginesChanged?.Invoke();
     }
 
     private void UpdateActiveFlag()
@@ -613,6 +640,15 @@ public class EngineManager : IEngineService, IDisposable
             _activeClient = new UciProcessClient();
             bool started = await _activeClient.StartEngineAsync(engine.ExecutablePath);
             if (!started) return;
+
+            if (!string.IsNullOrWhiteSpace(_syzygyPath))
+            {
+                try
+                {
+                    await _activeClient.SetOptionAsync("SyzygyPath", _syzygyPath);
+                }
+                catch { }
+            }
         }
 
         await _activeClient.StartAnalysisAsync(fen, multiPv, onUpdate);

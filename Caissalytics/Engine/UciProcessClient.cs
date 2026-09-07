@@ -131,6 +131,11 @@ public class UciProcessClient : IDisposable
         }
     }
 
+    public async Task SetOptionAsync(string name, string value)
+    {
+        await SendCommandAsync($"setoption name {name} value {value}");
+    }
+
     public async Task StopAnalysisAsync()
     {
         if (_stdin != null && IsRunning)

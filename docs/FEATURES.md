@@ -137,7 +137,41 @@ The generated report provides instant insights:
 
 ---
 
-## 5. Tactics & Blunder Workbench 🎯
+---
+
+## 5. Syzygy Endgame Tablebases & Classical Endgame Trainer 🏆
+
+Caissalytics integrates full **Syzygy Endgame Tablebases** and an interactive **Classical Endgame Trainer**, empowering players to study and master theoretical endgame positions with exact mathematical certainty.
+
+### Syzygy Tablebase Capabilities
+- **$\le 7$-Piece Endgame Coverage**: Exact evaluations for all positions with up to 7 pieces.
+- **Online Tablebase Probing**: High-speed, cached queries via the Lichess 7-Piece Tablebase API. No need to store 18+ TB of tablebase files locally.
+- **Local Syzygy Path Configuration**: Configure a local folder containing `.rtbw` and `.rtbz` tablebase files under **Control Center → Syzygy Tablebases**. Caissalytics automatically passes `setoption name SyzygyPath` to Stockfish for offline UCI evaluations.
+- **Analysis Workbench Integration**: Whenever an analyzed position has 7 or fewer pieces, an interactive **🏆 Tablebase** tab appears in the right panel:
+  - Theoretical verdict banner (e.g. `🏆 Winning (DTZ 14 / Mate in 31)`, `🤝 Theoretical Draw`, `⚠️ Losing`).
+  - Table of all candidate legal moves with exact category (Win, Draw, Loss), distance to zeroing the 50-move rule (DTZ), and distance to mate (DTM).
+  - 1-click move playing directly on the board.
+
+### Classical Endgame Trainer (🏆 Endgames)
+The dedicated **Endgame Trainer** features a structured curriculum of 16 essential classical endgame positions across 5 categories:
+1. **King & Pawn Endgames**: Key squares, direct opposition, distant opposition, the Trebuchet (mutual zugzwang), triangulation and outflanking, and the rule of the square.
+2. **Rook Endgames**: The Lucena position (bridge building), the Philidor defense (3rd-rank cut-off), the Vancura defense (active flank checks against rook pawns), and the short-side defense.
+3. **Queen Endgames**: Queen vs 7th-rank center pawn (zigzag technique), Queen vs bishop/rook pawn (stalemate fortresses), and Queen vs Rook (Philidor technique).
+4. **Minor Piece Endgames**: Bishop & Knight checkmate (the W maneuver), wrong bishop & rook pawn draw, opposite-colored bishops fortress, and knight vs passed pawns.
+5. **Practical Tournament Endgames**: Capablanca's active king principle, Tarrasch's rule (rooks behind passed pawns).
+
+### Interactive Practice & Sparring
+- **Target Objectives**: Clear goals for each position (*Win as White*, *Hold Draw as Black*).
+- **Theoretical Coaching & Key Squares**: Detailed strategic explanations, coaching advice, and highlighted key squares.
+- **Tablebase Sparring Opponent**: When you play your move, the tablebase automatically selects the most stubborn, optimal theoretical defense and replies immediately.
+- **Move Quality Evaluation**:
+  - 🟢 **Optimal Move**: Preserves the theoretical win or draw.
+  - 🟡/🔴 **Blunder Alert**: Immediately warns you if a move drops a theoretical win into a draw or blunder into a loss.
+- **Curriculum Mastery Tracking**: Solved positions are marked with ✅ and progress is tracked via the mastery percentage bar.
+
+---
+
+## 6. Tactics & Blunder Workbench 🎯
 
 Improve your tactical vision and eliminate recurring game mistakes.
 
@@ -155,7 +189,7 @@ Improve your tactical vision and eliminate recurring game mistakes.
 
 ---
 
-## 6. Online Game Sync & Career Analytics 🌐
+## 7. Online Game Sync & Career Analytics 🌐
 
 Connect your online identities to track progress and study personal trends.
 
@@ -175,7 +209,7 @@ Under **Control Center → Profile & Handles**:
 
 ---
 
-## 7. Audio Engine & Visual Board Themes 🎨 🔊
+## 8. Audio Engine & Visual Board Themes 🎨 🔊
 
 ### Synthesized Web Audio Engine
 Caissalytics features an integrated zero-latency sound engine that synthesizes realistic acoustic feedback via the Web Audio API without downloading audio files:
@@ -201,7 +235,7 @@ Choose between 6 vector board styles rendered via crisp SVGs that never blur:
 
 ---
 
-## 8. Engine Management & Auto-Updater ⚙️
+## 9. Engine Management & Auto-Updater ⚙️
 
 ### Custom Chess Engines
 - **1-Click Stockfish 18**: Automatically download and configure the latest Stockfish build.

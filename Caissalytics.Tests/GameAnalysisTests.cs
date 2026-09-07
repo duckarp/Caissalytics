@@ -19,6 +19,8 @@ public class FakeEngineService : IEngineService
     public Task StartAnalysisAsync(string fen, int multiPv, Action<List<EngineEvaluationLine>> onUpdate, CancellationToken ct = default) => Task.CompletedTask;
     public Task StopAnalysisAsync() => Task.CompletedTask;
     public bool IsAnalyzing => false;
+    public string? SyzygyPath { get; set; }
+    public Task SetSyzygyPathAsync(string? path) { SyzygyPath = path; return Task.CompletedTask; }
     public event Action? OnEnginesChanged { add { } remove { } }
 }
 

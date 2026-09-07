@@ -15,6 +15,8 @@ public interface IEngineService
     Task StartAnalysisAsync(string fen, int multiPv, Action<List<EngineEvaluationLine>> onUpdate, CancellationToken ct = default);
     Task StopAnalysisAsync();
     bool IsAnalyzing { get; }
+    string? SyzygyPath { get; }
+    Task SetSyzygyPathAsync(string? path);
 
     event Action? OnEnginesChanged;
 }

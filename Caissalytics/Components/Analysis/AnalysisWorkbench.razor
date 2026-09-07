@@ -4,6 +4,7 @@
 @using Caissalytics.Data
 @using Caissalytics.Components.Board
 @inject IEngineService EngineService
+@inject ITablebaseService TablebaseService
 @inject IJSRuntime JS
 @inject WorkspaceState Workspace
 @implements IDisposable
@@ -40,6 +41,11 @@
 					@onclick="@(() => _activeRightTab = "report")">Game Report</button>
 			<button class="panel-tab-btn @(_activeRightTab == "reference" ? "tab-active" : "")" 
 					@onclick="@(() => _activeRightTab = "reference")">Opening Reference</button>
+			@if (TablebaseService.CanProbePosition(Tab.Tree.CurrentNode.Position))
+			{
+				<button class="panel-tab-btn tb-tab-btn @(_activeRightTab == "tablebase" ? "tab-active" : "")" 
+						@onclick="@(() => _activeRightTab = "tablebase")">🏆 Tablebase</button>
+			}
 			<button class="panel-tab-btn @(_activeRightTab == "tools" ? "tab-active" : "")" 
 					@onclick="@(() => _activeRightTab = "tools")">PGN & FEN</button>
 			<div class="workbench-header-actions">
@@ -70,6 +76,13 @@
 					<ReferenceTreePanel Position="@Tab.Tree.CurrentNode.Position"
 										OnPlayMove="HandleReferenceMoveSelected"
 										OnOpenGame="HandleReferenceGameOpened" />
+				</div>
+			}
+			else if (_activeRightTab == "tablebase")
+			{
+				<div class="panel-top-section">
+					<TablebasePanel Position="@Tab.Tree.CurrentNode.Position"
+									OnPlayMove="HandleTablebaseMovePlayed" />
 				</div>
 			}
 			else
@@ -196,6 +209,11 @@
 	}
 
 	private void HandleReferenceMoveSelected(string san)
+	{
+		Tab.Tree.AddMoveSan(san);
+	}
+
+	private void HandleTablebaseMovePlayed(string san)
 	{
 		Tab.Tree.AddMoveSan(san);
 	}

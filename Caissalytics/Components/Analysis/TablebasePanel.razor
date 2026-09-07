@@ -1,0 +1,211 @@
+@namespace Caissalytics.Components.Analysis
+@using Caissalytics.Core
+@using Caissalytics.Data
+@inject ITablebaseService TablebaseService
+
+<div class="tablebase-panel-container">
+	<div class="tablebase-panel-header">
+		<div class="tablebase-header-left">
+			<span class="tablebase-icon">🏆</span>
+			<div class="tablebase-title-group">
+				<h4 class="tablebase-heading">Syzygy Tablebase</h4>
+				<span class="tablebase-subheading">@_pieceCount pieces on board &bull; 7-Piece Syzygy</span>
+			</div>
+		</div>
+
+		<div class="tablebase-header-right">
+			<button class="tablebase-refresh-btn" @onclick="ProbeAsync" disabled="@_isLoading" title="Refresh tablebase probe">
+				@(_isLoading ? "Probing..." : "↻ Refresh")
+			</button>
+		</div>
+	</div>
+
+	@if (_isLoading)
+	{
+		<div class="tablebase-loading-state">
+			<div class="tablebase-spinner"></div>
+			<span>Probing Syzygy Tablebase...</span>
+		</div>
+	}
+	else if (_result != null && _result.Success)
+	{
+		<div class="tablebase-verdict-banner banner-@GetCategoryClass(_result.Category)">
+			<div class="verdict-icon">@GetCategoryIcon(_result.Category)</div>
+			<div class="verdict-content">
+				<div class="verdict-title">@_result.FormattedVerdict</div>
+				<div class="verdict-meta">
+					@if (_result.Dtm.HasValue && _result.Dtm.Value != 0)
+					{
+						<span>Exact Mate: <strong>@Math.Abs(_result.Dtm.Value) plies</strong></span>
+					}
+					@if (_result.Dtz.HasValue && _result.Dtz.Value != 0)
+					{
+						<span>Distance to Zero (DTZ): <strong>@Math.Abs(_result.Dtz.Value) plies</strong></span>
+					}
+					@if (_result.Checkmate)
+					{
+						<span>Checkmate</span>
+					}
+					else if (_result.Stalemate)
+					{
+						<span>Stalemate</span>
+					}
+				</div>
+			</div>
+		</div>
+
+		<div class="tablebase-moves-container">
+			<div class="tablebase-moves-header">
+				<span class="col-move">Move</span>
+				<span class="col-outcome">Result</span>
+				<span class="col-dtz">DTZ</span>
+				<span class="col-dtm">DTM</span>
+				<span class="col-action">Action</span>
+			</div>
+
+			@if (_result.Moves.Count == 0)
+			{
+				<div class="tablebase-empty-moves">
+					<span>No legal moves available (terminal position).</span>
+				</div>
+			}
+			else
+			{
+				<div class="tablebase-moves-list">
+					@foreach (var move in _result.Moves)
+					{
+						string categoryClass = GetCategoryClass(move.Category);
+						<div class="tablebase-move-row row-@categoryClass">
+							<div class="col-move move-notation">
+								<span class="move-san">@move.San</span>
+								<span class="move-uci">(@move.Uci)</span>
+							</div>
+
+							<div class="col-outcome">
+								<span class="outcome-badge badge-@categoryClass">
+									@move.Category
+								</span>
+							</div>
+
+							<div class="col-dtz">
+								@(move.Dtz.HasValue && move.Dtz.Value != 0 ? Math.Abs(move.Dtz.Value).ToString() : "-")
+							</div>
+
+							<div class="col-dtm">
+								@(move.Dtm.HasValue && move.Dtm.Value != 0 ? Math.Abs(move.Dtm.Value).ToString() : "-")
+							</div>
+
+							<div class="col-action">
+								<button class="btn-play-tb-move" @onclick="() => PlayMove(move.San)" title="Play this move on the board">
+									▶ Play
+								</button>
+							</div>
+						</div>
+					}
+				</div>
+			}
+		</div>
+	}
+	else if (_result != null && !_result.Success)
+	{
+		<div class="tablebase-error-state">
+			<span>⚠️ Tablebase query: @_result.ErrorMessage</span>
+			<button class="btn-retry" @onclick="ProbeAsync">Retry Probe</button>
+		</div>
+	}
+	else
+	{
+		<div class="tablebase-empty-moves">
+			<span>Position exceeds 7 pieces or tablebases are disabled.</span>
+		</div>
+	}
+</div>
+
+@code {
+	[Parameter, EditorRequired] public BoardPosition Position { get; set; } = default!;
+	[Parameter] public EventCallback<string> OnPlayMove { get; set; }
+
+	private TablebaseResult? _result;
+	private bool _isLoading = false;
+	private int _pieceCount = 0;
+	private ulong _lastZobrist = 0;
+
+	protected override async Task OnParametersSetAsync()
+	{
+		if (Position != null && Position.ZobristKey != _lastZobrist)
+		{
+			_lastZobrist = Position.ZobristKey;
+			_pieceCount = TablebaseService.CountPieces(Position);
+			if (_pieceCount <= 7)
+			{
+				await ProbeAsync();
+			}
+			else
+			{
+				_result = null;
+			}
+		}
+	}
+
+	private async Task ProbeAsync()
+	{
+		if (Position == null || !TablebaseService.CanProbePosition(Position)) return;
+
+		_isLoading = true;
+		StateHasChanged();
+
+		try
+		{
+			_result = await TablebaseService.ProbePositionAsync(Position);
+		}
+		catch (Exception ex)
+		{
+			_result = new TablebaseResult
+			{
+				Success = false,
+				ErrorMessage = ex.Message
+			};
+		}
+		finally
+		{
+			_isLoading = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task PlayMove(string san)
+	{
+		if (OnPlayMove.HasDelegate)
+		{
+			await OnPlayMove.InvokeAsync(san);
+		}
+	}
+
+	private static string GetCategoryClass(TablebaseCategory cat)
+	{
+		return cat switch
+		{
+			TablebaseCategory.Win => "win",
+			TablebaseCategory.CursedWin => "cursed-win",
+			TablebaseCategory.Draw => "draw",
+			TablebaseCategory.Stalemate => "draw",
+			TablebaseCategory.BlessedLoss => "blessed-loss",
+			TablebaseCategory.Loss => "loss",
+			_ => "unknown"
+		};
+	}
+
+	private static string GetCategoryIcon(TablebaseCategory cat)
+	{
+		return cat switch
+		{
+			TablebaseCategory.Win => "🏆",
+			TablebaseCategory.CursedWin => "⚡",
+			TablebaseCategory.Draw => "🤝",
+			TablebaseCategory.Stalemate => "🤝",
+			TablebaseCategory.BlessedLoss => "🛡️",
+			TablebaseCategory.Loss => "⚠️",
+			_ => "❓"
+		};
+	}
+}
