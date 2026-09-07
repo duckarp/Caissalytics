@@ -49,6 +49,13 @@ public class GameTree
         return newNode;
     }
 
+    public MoveNode? AddMoveSan(string san)
+    {
+        var move = SanParser.ParseSan(CurrentNode.Position, san);
+        if (move.IsEmpty) return null;
+        return AddMove(move);
+    }
+
     public bool GoBack()
     {
         if (CurrentNode.Parent != null)

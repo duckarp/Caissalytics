@@ -1,9 +1,11 @@
 @namespace Caissalytics.Components.Analysis
 @using Caissalytics.Core
 @using Caissalytics.Engine
+@using Caissalytics.Data
 @using Caissalytics.Components.Board
 @inject IEngineService EngineService
 @inject IJSRuntime JS
+@inject WorkspaceState Workspace
 @implements IDisposable
 
 <div class="workbench-layout" @onkeydown="HandleGlobalKey" tabindex="0">
@@ -31,8 +33,13 @@
 		<div class="panel-header-tabs">
 			<button class="panel-tab-btn @(_activeRightTab == "moves" ? "tab-active" : "")" 
 					@onclick="@(() => _activeRightTab = "moves")">Moves & Annotations</button>
+			<button class="panel-tab-btn @(_activeRightTab == "reference" ? "tab-active" : "")" 
+					@onclick="@(() => _activeRightTab = "reference")">Opening Reference</button>
 			<button class="panel-tab-btn @(_activeRightTab == "tools" ? "tab-active" : "")" 
 					@onclick="@(() => _activeRightTab = "tools")">PGN & FEN</button>
+			<div class="workbench-header-actions">
+				<button class="btn-primary-small" title="Save game to database" @onclick="() => _showSaveModal = true">💾 Save to DB</button>
+			</div>
 		</div>
 
 		<div class="panel-body-content">
@@ -46,9 +53,21 @@
 									   OnDeleteSubtree="HandleDeleteSubtree" />
 				</div>
 			}
+			else if (_activeRightTab == "reference")
+			{
+				<div class="panel-top-section">
+					<ReferenceTreePanel Position="@Tab.Tree.CurrentNode.Position"
+										OnPlayMove="HandleReferenceMoveSelected"
+										OnOpenGame="HandleReferenceGameOpened" />
+				</div>
+			}
 			else
 			{
 				<div class="panel-top-section tools-panel-body">
+					<div class="modal-form-group">
+						<button class="btn-primary" @onclick="() => _showSaveModal = true">💾 Save Game to Database</button>
+					</div>
+
 					<h3 class="section-title">Game Headers</h3>
 					<div class="headers-grid">
 						<span class="header-key">White:</span>
@@ -82,6 +101,13 @@
 	</div>
 </div>
 
+<SaveGameDialog IsOpen="_showSaveModal"
+				Tree="@Tab.Tree"
+				InitialDatabase="@Tab.TargetDatabase"
+				ExistingGameId="@Tab.DatabaseGameId"
+				OnGameSaved="HandleGameSaved"
+				OnClose="() => _showSaveModal = false" />
+
 @code {
 	[Parameter, EditorRequired] public AnalysisTab Tab { get; set; } = default!;
 
@@ -89,6 +115,17 @@
 	private string _activeRightTab = "moves";
 	private CancellationTokenSource? _engineCts;
 	private bool _isDisposed = false;
+	private bool _showSaveModal = false;
+
+	private void HandleGameSaved(long gameId)
+	{
+		Tab.DatabaseGameId = gameId;
+		string white = Tab.Tree.Headers.GetValueOrDefault("White", "White");
+		string black = Tab.Tree.Headers.GetValueOrDefault("Black", "Black");
+		Tab.SetTitle($"{white} vs {black}");
+		_showSaveModal = false;
+		StateHasChanged();
+	}
 
 	protected override void OnInitialized()
 	{
@@ -129,6 +166,17 @@
 	private async Task HandleUserMove(Move move)
 	{
 		Tab.Tree.AddMove(move);
+	}
+
+	private void HandleReferenceMoveSelected(string san)
+	{
+		Tab.Tree.AddMoveSan(san);
+	}
+
+	private void HandleReferenceGameOpened(GameHeader game)
+	{
+		string title = $"{game.White} vs {game.Black} ({game.Date})";
+		Workspace.CreateAnalysisTab(title: title, pgn: game.Pgn);
 	}
 
 	private async Task HandleSelectNode(MoveNode node)

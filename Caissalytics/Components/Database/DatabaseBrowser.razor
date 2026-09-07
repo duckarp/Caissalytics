@@ -1,0 +1,441 @@
+@namespace Caissalytics.Components.Database
+@using Caissalytics.Data
+@inject IDatabaseService DatabaseService
+@inject WorkspaceState Workspace
+@implements IDisposable
+
+<div class="db-browser-container">
+	<!-- Left Sidebar: Databases List -->
+	<div class="db-sidebar">
+		<div class="db-sidebar-header">
+			<div class="db-sidebar-title">
+				<span>🗄️</span>
+				<span>Databases</span>
+			</div>
+			<button class="btn-secondary" @onclick="() => _showNewDbModal = true">+ New DB</button>
+		</div>
+
+		<div class="db-list-wrapper">
+			@foreach (var db in _databases)
+			{
+				bool isSelected = string.Equals(db.Name, _currentDbName, StringComparison.OrdinalIgnoreCase);
+				<div class="db-card @(isSelected ? "db-card-active" : "")" @onclick="() => SelectDatabaseAsync(db.Name)">
+					<div class="db-card-top">
+						<span class="db-card-name">@db.Name</span>
+						@if (db.IsActive)
+						{
+							<span class="db-badge-active">Active</span>
+						}
+					</div>
+					<div class="db-card-meta">
+						<span>@db.GameCount.ToString("N0") games</span>
+						<span>•</span>
+						<span>@db.FormattedSize</span>
+					</div>
+					@if (_databases.Count > 1)
+					{
+						<div class="db-card-actions">
+							<button class="db-card-btn" @onclick:stopPropagation="true" @onclick="() => ConfirmDeleteDatabase(db.Name)">🗑️ Delete</button>
+						</div>
+					}
+				</div>
+			}
+		</div>
+
+		<div class="db-sidebar-footer">
+			<button class="btn-primary" @onclick="AddNewGame">+ Add a new game</button>
+			<button class="btn-secondary" @onclick="() => _showImportModal = true">📥 Import PGN</button>
+		</div>
+	</div>
+
+	<!-- Main Content: Games Filter & Table -->
+	<div class="db-main-content">
+		<div class="db-main-header">
+			<div class="db-title-group">
+				<h2 class="db-current-title">@_currentDbName</h2>
+				<span class="db-game-count-badge">@_totalCount.ToString("N0") games</span>
+			</div>
+
+			<div class="db-header-actions">
+				<button class="btn-primary" @onclick="AddNewGame">+ Add a new game</button>
+				<button class="btn-secondary" @onclick="() => _showImportModal = true">📥 Import PGN</button>
+			</div>
+		</div>
+
+		<!-- Filter Bar -->
+		<div class="db-filter-bar">
+			<div class="filter-group">
+				<label class="filter-label">Player</label>
+				<input class="filter-input" placeholder="e.g. Kasparov, Fischer" @bind="_filter.Player" @bind:event="oninput" @onkeydown="HandleFilterKeyDown" />
+			</div>
+
+			<div class="filter-group">
+				<label class="filter-label">ECO</label>
+				<input class="filter-input filter-input-small" placeholder="B90" @bind="_filter.Eco" @bind:event="oninput" @onkeydown="HandleFilterKeyDown" />
+			</div>
+
+			<div class="filter-group">
+				<label class="filter-label">Min Elo</label>
+				<input class="filter-input filter-input-small" type="number" placeholder="2500" @bind="_filter.MinElo" @onkeydown="HandleFilterKeyDown" />
+			</div>
+
+			<div class="filter-group">
+				<label class="filter-label">Result</label>
+				<select class="filter-select" @bind="_filter.Result">
+					<option value="all">All</option>
+					<option value="1-0">1-0 (White win)</option>
+					<option value="0-1">0-1 (Black win)</option>
+					<option value="1/2-1/2">½-½ (Draw)</option>
+				</select>
+			</div>
+
+			<div class="filter-group">
+				<label class="filter-label">Event</label>
+				<input class="filter-input" placeholder="Tournament / Event" @bind="_filter.Event" @bind:event="oninput" @onkeydown="HandleFilterKeyDown" />
+			</div>
+
+			<div class="filter-actions">
+				<button class="btn-primary" @onclick="SearchAsync">Search</button>
+				<button class="btn-secondary" @onclick="ResetFilterAsync">Reset</button>
+			</div>
+		</div>
+
+		<!-- Games Grid Table -->
+		<div class="db-grid-container">
+			@if (_isLoading)
+			{
+				<div class="reference-empty-state">
+					<span>Loading games...</span>
+				</div>
+			}
+			else if (_games.Count == 0)
+			{
+				<div class="reference-empty-state">
+					<span class="empty-state-icon">♟️</span>
+					<h4>No games match your search criteria.</h4>
+					<p>Try clearing filters or importing games from PGN files.</p>
+				</div>
+			}
+			else
+			{
+				<table class="db-games-table">
+					<thead>
+						<tr>
+							<th class="col-players">White</th>
+							<th class="col-elo">Elo</th>
+							<th class="col-players">Black</th>
+							<th class="col-elo">Elo</th>
+							<th class="col-result">Result</th>
+							<th class="col-eco">ECO</th>
+							<th class="col-date">Date</th>
+							<th class="col-event">Event</th>
+							<th class="col-moves">Moves</th>
+							<th class="col-actions"></th>
+						</tr>
+					</thead>
+					<tbody>
+						@foreach (var game in _games)
+						{
+							<tr class="db-game-row" @ondblclick="() => OpenGameInAnalysis(game)">
+								<td class="col-players">@game.White</td>
+								<td class="col-elo">@(game.WhiteElo?.ToString() ?? "-")</td>
+								<td class="col-players">@game.Black</td>
+								<td class="col-elo">@(game.BlackElo?.ToString() ?? "-")</td>
+								<td class="col-result">
+									<span class="ref-result-badge @GetResultClass(game.Result)">@game.Result</span>
+								</td>
+								<td class="col-eco">@game.Eco</td>
+								<td class="col-date">@game.Date</td>
+								<td class="col-event" title="@game.Event">@game.Event</td>
+								<td class="col-moves">@game.PlyCount</td>
+								<td class="col-actions">
+									<div class="row-actions-group">
+										<button class="btn-secondary-small" title="Open Game" @onclick="() => OpenGameInAnalysis(game)">Open</button>
+										<button class="btn-danger-small" title="Delete Game" @onclick="() => PromptDeleteGame(game)">🗑️</button>
+									</div>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+		</div>
+
+		<!-- Pagination Footer -->
+		<div class="db-pagination-footer">
+			<div class="pagination-info">
+				Showing @Math.Min((_filter.PageNumber - 1) * _filter.PageSize + 1, _totalCount) - 
+				@Math.Min(_filter.PageNumber * _filter.PageSize, _totalCount) of @_totalCount games
+			</div>
+
+			<div class="pagination-controls">
+				<button class="btn-secondary" disabled="@(_filter.PageNumber <= 1)" @onclick="PreviousPageAsync">◀ Prev</button>
+				<span class="pagination-info">Page @_filter.PageNumber of @TotalPages</span>
+				<button class="btn-secondary" disabled="@(_filter.PageNumber >= TotalPages)" @onclick="NextPageAsync">Next ▶</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+<!-- New Database Modal -->
+@if (_showNewDbModal)
+{
+	<div class="modal-backdrop" @onclick="() => _showNewDbModal = false">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<h3 class="modal-title">Create New Database</h3>
+				<button class="modal-close-btn" @onclick="() => _showNewDbModal = false">✕</button>
+			</div>
+			<div class="modal-body">
+				<div class="modal-form-group">
+					<label class="filter-label">Database Name</label>
+					<input class="modal-input" placeholder="e.g. Masters, Sicilian, LichessBlitz" @bind="_newDbName" />
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="() => _showNewDbModal = false">Cancel</button>
+				<button class="btn-primary" disabled="@string.IsNullOrWhiteSpace(_newDbName)" @onclick="CreateDatabaseAsync">Create</button>
+			</div>
+		</div>
+	</div>
+}
+
+<!-- PGN Import Modal -->
+<PgnImportDialog IsOpen="_showImportModal"
+				 DatabaseName="@_currentDbName"
+				 OnClose="() => _showImportModal = false"
+				 OnImportCompleted="HandleImportCompletedAsync" />
+
+<!-- Delete Game Confirmation Modal -->
+@if (_showDeleteModal && _gameToDelete != null)
+{
+	<div class="modal-backdrop" @onclick="() => _showDeleteModal = false">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<h3 class="modal-title">Delete Game</h3>
+				<button class="modal-close-btn" @onclick="() => _showDeleteModal = false">✕</button>
+			</div>
+			<div class="modal-body">
+				<div class="modal-warning-box">
+					<div class="modal-warning-title">⚠️ Confirmation Required</div>
+					<div>Are you sure you want to delete this game from <strong>@_currentDbName</strong>?</div>
+					<div class="modal-game-summary">
+						@_gameToDelete.White vs @_gameToDelete.Black (@_gameToDelete.Date) • @_gameToDelete.Result
+					</div>
+					<div class="modal-irreversible-warning">
+						This action cannot be undone. Do you want to continue?
+					</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="() => _showDeleteModal = false">Cancel</button>
+				<button class="btn-danger" @onclick="ConfirmDeleteGameAsync">Delete Game</button>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	[Parameter] public DatabaseBrowserTab? Tab { get; set; }
+
+	private List<DatabaseInfo> _databases = new();
+	private string _currentDbName = "ClassicalMasters";
+	private List<GameHeader> _games = new();
+	private int _totalCount = 0;
+	private bool _isLoading = false;
+	private GameFilter _filter = new() { PageSize = 50 };
+
+	private bool _showNewDbModal = false;
+	private string _newDbName = "";
+	private bool _showImportModal = false;
+	private bool _showDeleteModal = false;
+	private GameHeader? _gameToDelete;
+
+	private int TotalPages => Math.Max(1, (int)Math.Ceiling(_totalCount / (double)_filter.PageSize));
+
+	protected override async Task OnInitializedAsync()
+	{
+		DatabaseService.OnActiveDatabaseChanged += HandleActiveDatabaseChanged;
+		DatabaseService.OnDatabaseModified += HandleDatabaseModified;
+		await LoadDatabasesAsync();
+	}
+
+	private async Task LoadDatabasesAsync()
+	{
+		_databases = await DatabaseService.GetDatabasesAsync();
+		var active = _databases.FirstOrDefault(d => d.IsActive) ?? _databases.FirstOrDefault();
+		if (active != null)
+		{
+			_currentDbName = active.Name;
+		}
+		await LoadGamesAsync();
+	}
+
+	private async Task SelectDatabaseAsync(string dbName)
+	{
+		_currentDbName = dbName;
+		await DatabaseService.SetActiveDatabaseAsync(dbName);
+		_filter.PageNumber = 1;
+		await LoadGamesAsync();
+	}
+
+	private async Task LoadGamesAsync()
+	{
+		_isLoading = true;
+		StateHasChanged();
+
+		try
+		{
+			var (games, count) = await DatabaseService.SearchGamesAsync(_currentDbName, _filter);
+			_games = games;
+			_totalCount = count;
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[DatabaseBrowser] Error searching games: {ex.Message}");
+		}
+		finally
+		{
+			_isLoading = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task SearchAsync()
+	{
+		_filter.PageNumber = 1;
+		await LoadGamesAsync();
+	}
+
+	private async Task ResetFilterAsync()
+	{
+		_filter = new GameFilter { PageSize = 50 };
+		await LoadGamesAsync();
+	}
+
+	private async Task HandleFilterKeyDown(KeyboardEventArgs e)
+	{
+		if (e.Key == "Enter")
+		{
+			await SearchAsync();
+		}
+	}
+
+	private async Task PreviousPageAsync()
+	{
+		if (_filter.PageNumber > 1)
+		{
+			_filter.PageNumber--;
+			await LoadGamesAsync();
+		}
+	}
+
+	private async Task NextPageAsync()
+	{
+		if (_filter.PageNumber < TotalPages)
+		{
+			_filter.PageNumber++;
+			await LoadGamesAsync();
+		}
+	}
+
+	private async Task CreateDatabaseAsync()
+	{
+		if (string.IsNullOrWhiteSpace(_newDbName)) return;
+
+		string name = _newDbName.Trim();
+		_showNewDbModal = false;
+		_newDbName = "";
+
+		var db = await DatabaseService.CreateDatabaseAsync(name);
+		_currentDbName = db.Name;
+		await LoadDatabasesAsync();
+	}
+
+	private async Task ConfirmDeleteDatabase(string dbName)
+	{
+		bool deleted = await DatabaseService.DeleteDatabaseAsync(dbName);
+		if (deleted)
+		{
+			await LoadDatabasesAsync();
+		}
+	}
+
+	private async Task HandleImportCompletedAsync()
+	{
+		await LoadDatabasesAsync();
+	}
+
+	private async void HandleActiveDatabaseChanged()
+	{
+		await InvokeAsync(async () =>
+		{
+			_databases = await DatabaseService.GetDatabasesAsync();
+			var active = _databases.FirstOrDefault(d => d.IsActive);
+			if (active != null && active.Name != _currentDbName)
+			{
+				_currentDbName = active.Name;
+			}
+			await LoadGamesAsync();
+			StateHasChanged();
+		});
+	}
+
+	private async void HandleDatabaseModified(string dbName)
+	{
+		await InvokeAsync(async () =>
+		{
+			_databases = await DatabaseService.GetDatabasesAsync();
+			if (string.Equals(dbName, _currentDbName, StringComparison.OrdinalIgnoreCase))
+			{
+				await LoadGamesAsync();
+			}
+			StateHasChanged();
+		});
+	}
+
+	private void AddNewGame()
+	{
+		Workspace.CreateAnalysisTab(title: $"New Game ({_currentDbName})", targetDatabase: _currentDbName);
+	}
+
+	private void PromptDeleteGame(GameHeader game)
+	{
+		_gameToDelete = game;
+		_showDeleteModal = true;
+	}
+
+	private async Task ConfirmDeleteGameAsync()
+	{
+		if (_gameToDelete != null)
+		{
+			await DatabaseService.DeleteGameAsync(_currentDbName, _gameToDelete.Id);
+			_showDeleteModal = false;
+			_gameToDelete = null;
+			await LoadGamesAsync();
+		}
+	}
+
+	private void OpenGameInAnalysis(GameHeader game)
+	{
+		string title = $"{game.White} vs {game.Black} ({game.Date})";
+		Workspace.CreateAnalysisTab(title: title, pgn: game.Pgn, targetDatabase: _currentDbName, databaseGameId: game.Id);
+	}
+
+	private static string GetResultClass(string result)
+	{
+		return result switch
+		{
+			"1-0" => "ref-result-white",
+			"0-1" => "ref-result-black",
+			"1/2-1/2" => "ref-result-draw",
+			_ => ""
+		};
+	}
+
+	public void Dispose()
+	{
+		DatabaseService.OnActiveDatabaseChanged -= HandleActiveDatabaseChanged;
+		DatabaseService.OnDatabaseModified -= HandleDatabaseModified;
+	}
+}

@@ -60,6 +60,13 @@
   height: 38px;
 }
 
+.workbench-header-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .panel-tab-btn {
   padding: 0 16px;
   height: 100%;

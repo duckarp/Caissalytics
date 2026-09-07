@@ -1,0 +1,225 @@
+@namespace Caissalytics.Components.Analysis
+@using Caissalytics.Core
+@using Caissalytics.Data
+@inject IDatabaseService DatabaseService
+@implements IDisposable
+
+<div class="reference-panel">
+	<div class="reference-toolbar">
+		<div class="reference-toolbar-left">
+			<span class="reference-db-label">Database:</span>
+			<select class="reference-db-select" value="@_selectedDb" @onchange="HandleDatabaseSelected">
+				@foreach (var db in _databases)
+				{
+					<option value="@db.Name">@db.Name (@db.GameCount games)</option>
+				}
+			</select>
+		</div>
+
+		<div class="reference-games-count">
+			@(_refResult?.TotalPositionGames ?? 0) games
+		</div>
+	</div>
+
+	<div class="reference-content">
+		<div class="reference-section-header">
+			<span>Candidate Moves</span>
+			<span>Win / Draw / Loss</span>
+		</div>
+
+		<div class="reference-table-wrapper">
+			@if (_isLoading)
+			{
+				<div class="reference-empty-state">
+					<span>Loading reference statistics...</span>
+				</div>
+			}
+			else if (_refResult == null || _refResult.CandidateMoves.Count == 0)
+			{
+				<div class="reference-empty-state">
+					<span class="empty-state-icon">📖</span>
+					<span>No database games found for this position.</span>
+				</div>
+			}
+			else
+			{
+				<table class="reference-table">
+					<thead>
+						<tr>
+							<th>Move</th>
+							<th>Games</th>
+							<th>Score</th>
+							<th>Distribution</th>
+						</tr>
+					</thead>
+					<tbody>
+						@foreach (var move in _refResult.CandidateMoves)
+						{
+							<tr class="reference-row" @onclick="() => PlayCandidateMove(move.MoveSan)">
+								<td class="move-cell">@move.MoveSan</td>
+								<td class="number-cell">@move.TotalGames</td>
+								<td class="score-cell">@move.ScoreRate.ToString("0.0")%</td>
+								<td class="bar-cell">
+									<div class="winrate-bar-track" title="White: @move.WhiteWinRate.ToString("0.0")% | Draw: @move.DrawRate.ToString("0.0")% | Black: @move.BlackWinRate.ToString("0.0")%">
+										<div class="bar-segment bar-white @($"bar-w-{move.WhiteWinPct}")"></div>
+										<div class="bar-segment bar-draw @($"bar-w-{move.DrawPct}")"></div>
+										<div class="bar-segment bar-black @($"bar-w-{move.BlackWinPct}")"></div>
+									</div>
+								</td>
+							</tr>
+						}
+					</tbody>
+				</table>
+			}
+		</div>
+
+		<div class="reference-section-header">
+			<span>Top Master Games</span>
+			<span>Result</span>
+		</div>
+
+		<div class="reference-games-wrapper">
+			@if (_refResult?.TopGames != null && _refResult.TopGames.Count > 0)
+			{
+				@foreach (var game in _refResult.TopGames)
+				{
+					<div class="ref-game-item" @onclick="() => OpenGame(game)">
+						<div class="ref-game-players">
+							<div class="ref-player-line">
+								<span class="ref-player-name">@game.White</span>
+								@if (game.WhiteElo.HasValue)
+								{
+									<span class="ref-player-elo">(@game.WhiteElo)</span>
+								}
+							</div>
+							<div class="ref-player-line">
+								<span class="ref-player-name">@game.Black</span>
+								@if (game.BlackElo.HasValue)
+								{
+									<span class="ref-player-elo">(@game.BlackElo)</span>
+								}
+							</div>
+						</div>
+
+						<div class="ref-game-meta">
+							<span class="ref-result-badge @GetResultClass(game.Result)">@game.Result</span>
+							<span class="ref-game-submeta">@(string.IsNullOrEmpty(game.Date) ? "Unknown" : game.Date) @(string.IsNullOrEmpty(game.Eco) ? "" : $"• {game.Eco}")</span>
+						</div>
+					</div>
+				}
+			}
+			else
+			{
+				<div class="reference-empty-state">
+					<span>No recorded games for this position.</span>
+				</div>
+			}
+		</div>
+	</div>
+</div>
+
+@code {
+	[Parameter, EditorRequired] public BoardPosition Position { get; set; } = default!;
+	[Parameter] public EventCallback<string> OnPlayMove { get; set; }
+	[Parameter] public EventCallback<GameHeader> OnOpenGame { get; set; }
+
+	private List<DatabaseInfo> _databases = new();
+	private string _selectedDb = "";
+	private PositionReferenceResult? _refResult;
+	private ulong _lastZobristKey = 0;
+	private bool _isLoading = false;
+
+	protected override async Task OnInitializedAsync()
+	{
+		DatabaseService.OnActiveDatabaseChanged += HandleActiveDatabaseChanged;
+		await RefreshDatabasesAsync();
+	}
+
+	protected override async Task OnParametersSetAsync()
+	{
+		if (Position != null && Position.ZobristKey != _lastZobristKey)
+		{
+			_lastZobristKey = Position.ZobristKey;
+			await QueryPositionStatsAsync();
+		}
+	}
+
+	private async Task RefreshDatabasesAsync()
+	{
+		_databases = await DatabaseService.GetDatabasesAsync();
+		var active = _databases.FirstOrDefault(d => d.IsActive) ?? _databases.FirstOrDefault();
+		if (active != null)
+		{
+			_selectedDb = active.Name;
+		}
+		await QueryPositionStatsAsync();
+	}
+
+	private async Task QueryPositionStatsAsync()
+	{
+		if (Position == null) return;
+
+		_isLoading = true;
+		try
+		{
+			_refResult = await DatabaseService.QueryPositionAsync(_selectedDb, Position.ZobristKey);
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[ReferenceTreePanel] Query error: {ex.Message}");
+		}
+		finally
+		{
+			_isLoading = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task HandleDatabaseSelected(ChangeEventArgs e)
+	{
+		_selectedDb = e.Value?.ToString() ?? "";
+		await DatabaseService.SetActiveDatabaseAsync(_selectedDb);
+		await QueryPositionStatsAsync();
+	}
+
+	private async void HandleActiveDatabaseChanged()
+	{
+		await InvokeAsync(async () =>
+		{
+			await RefreshDatabasesAsync();
+			StateHasChanged();
+		});
+	}
+
+	private async Task PlayCandidateMove(string moveSan)
+	{
+		if (OnPlayMove.HasDelegate)
+		{
+			await OnPlayMove.InvokeAsync(moveSan);
+		}
+	}
+
+	private async Task OpenGame(GameHeader game)
+	{
+		if (OnOpenGame.HasDelegate)
+		{
+			await OnOpenGame.InvokeAsync(game);
+		}
+	}
+
+	private static string GetResultClass(string result)
+	{
+		return result switch
+		{
+			"1-0" => "ref-result-white",
+			"0-1" => "ref-result-black",
+			"1/2-1/2" => "ref-result-draw",
+			_ => ""
+		};
+	}
+
+	public void Dispose()
+	{
+		DatabaseService.OnActiveDatabaseChanged -= HandleActiveDatabaseChanged;
+	}
+}

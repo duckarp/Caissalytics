@@ -1,0 +1,267 @@
+@namespace Caissalytics.Components.Analysis
+@using Caissalytics.Core
+@using Caissalytics.Data
+@inject IDatabaseService DatabaseService
+
+@if (IsOpen)
+{
+	<div class="modal-backdrop" @onclick="CloseDialog">
+		<div class="modal-dialog modal-dialog-large" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<h3 class="modal-title">💾 Save Game to Database</h3>
+				<button class="modal-close-btn" @onclick="CloseDialog">✕</button>
+			</div>
+
+			<div class="modal-body">
+				<!-- Target Database -->
+				<div class="modal-form-group">
+					<label class="filter-label">Target Database</label>
+					<select class="modal-input" value="@_selectedDb" @onchange="HandleTargetDbChanged">
+						@foreach (var db in _databases)
+						{
+							<option value="@db.Name">@db.Name (@db.GameCount games)</option>
+						}
+					</select>
+				</div>
+
+				<!-- Save Mode: Overwrite vs New Game (if loaded from existing DB record) -->
+				@if (CanOverwrite)
+				{
+					<div class="save-mode-container">
+						<span class="save-mode-title">Save Mode</span>
+						<div class="save-mode-options">
+							<label class="save-mode-label">
+								<input type="radio" name="saveMode" value="update" checked="@(_saveMode == "update")" @onchange="@(() => _saveMode = "update")" />
+								<div class="save-mode-text-col">
+									<strong>Overwrite existing record (#@ExistingGameId)</strong>
+									<span class="save-mode-desc">Updates the existing game and its positions in @_selectedDb</span>
+								</div>
+							</label>
+
+							<label class="save-mode-label">
+								<input type="radio" name="saveMode" value="new" checked="@(_saveMode == "new")" @onchange="@(() => _saveMode = "new")" />
+								<div class="save-mode-text-col">
+									<strong>Save as a new game record</strong>
+									<span class="save-mode-desc">Leaves original game #@ExistingGameId untouched and creates a new entry</span>
+								</div>
+							</label>
+						</div>
+					</div>
+				}
+
+				<!-- Players Row -->
+				<div class="modal-form-row">
+					<div class="modal-form-group">
+						<label class="filter-label">White Player</label>
+						<input class="modal-input" placeholder="White Player" @bind="_white" />
+					</div>
+					<div class="modal-form-group">
+						<label class="filter-label">White Elo</label>
+						<input class="modal-input" type="number" placeholder="e.g. 2600" @bind="_whiteElo" />
+					</div>
+				</div>
+
+				<div class="modal-form-row">
+					<div class="modal-form-group">
+						<label class="filter-label">Black Player</label>
+						<input class="modal-input" placeholder="Black Player" @bind="_black" />
+					</div>
+					<div class="modal-form-group">
+						<label class="filter-label">Black Elo</label>
+						<input class="modal-input" type="number" placeholder="e.g. 2600" @bind="_blackElo" />
+					</div>
+				</div>
+
+				<!-- Result, Date & ECO Row -->
+				<div class="modal-form-row">
+					<div class="modal-form-group">
+						<label class="filter-label">Result</label>
+						<select class="modal-input" @bind="_result">
+							<option value="1-0">1-0 (White win)</option>
+							<option value="0-1">0-1 (Black win)</option>
+							<option value="1/2-1/2">½-½ (Draw)</option>
+							<option value="*">* (Ongoing / Unfinished)</option>
+						</select>
+					</div>
+					<div class="modal-form-group">
+						<label class="filter-label">Date (YYYY.MM.DD)</label>
+						<input class="modal-input" placeholder="YYYY.MM.DD" @bind="_date" />
+					</div>
+				</div>
+
+				<!-- Event & ECO Row -->
+				<div class="modal-form-row">
+					<div class="modal-form-group">
+						<label class="filter-label">Event</label>
+						<input class="modal-input" placeholder="e.g. FIDE World Championship" @bind="_event" />
+					</div>
+					<div class="modal-form-group">
+						<label class="filter-label">ECO Code</label>
+						<input class="modal-input" placeholder="e.g. B90, C33" @bind="_eco" />
+					</div>
+				</div>
+
+				@if (!string.IsNullOrEmpty(_errorMessage))
+				{
+					<div class="ref-result-black">@_errorMessage</div>
+				}
+			</div>
+
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="CloseDialog">Cancel</button>
+				<button class="btn-primary" disabled="@_isSaving" @onclick="SaveAsync">
+					@if (_isSaving)
+					{
+						<span>Saving...</span>
+					}
+					else if (CanOverwrite && _saveMode == "update")
+					{
+						<span>Overwrite Game</span>
+					}
+					else
+					{
+						<span>Save as New Game</span>
+					}
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	[Parameter] public bool IsOpen { get; set; }
+	[Parameter, EditorRequired] public GameTree Tree { get; set; } = default!;
+	[Parameter] public string? InitialDatabase { get; set; }
+	[Parameter] public long? ExistingGameId { get; set; }
+	[Parameter] public EventCallback<long> OnGameSaved { get; set; }
+	[Parameter] public EventCallback OnClose { get; set; }
+
+	private List<DatabaseInfo> _databases = new();
+	private string _selectedDb = "";
+	private string _saveMode = "update"; // "update" or "new"
+	private string _white = "White";
+	private string _black = "Black";
+	private int? _whiteElo;
+	private int? _blackElo;
+	private string _result = "*";
+	private string _date = "";
+	private string _event = "Casual Game";
+	private string _eco = "";
+	private string _errorMessage = "";
+	private bool _isSaving = false;
+
+	private bool CanOverwrite => ExistingGameId.HasValue && ExistingGameId.Value > 0 &&
+		string.Equals(_selectedDb, InitialDatabase, StringComparison.OrdinalIgnoreCase);
+
+	protected override async Task OnParametersSetAsync()
+	{
+		if (IsOpen && Tree != null)
+		{
+			_databases = await DatabaseService.GetDatabasesAsync();
+			var activeDb = _databases.FirstOrDefault(d => d.IsActive) ?? _databases.FirstOrDefault();
+
+			_selectedDb = !string.IsNullOrEmpty(InitialDatabase) && _databases.Any(d => d.Name == InitialDatabase)
+				? InitialDatabase
+				: (activeDb?.Name ?? "ClassicalMasters");
+
+			_saveMode = CanOverwrite ? "update" : "new";
+			_white = Tree.Headers.GetValueOrDefault("White", "White");
+			_black = Tree.Headers.GetValueOrDefault("Black", "Black");
+			_result = Tree.Headers.GetValueOrDefault("Result", "*");
+			_date = Tree.Headers.GetValueOrDefault("Date", DateTime.UtcNow.ToString("yyyy.MM.dd"));
+			_event = Tree.Headers.GetValueOrDefault("Event", "Casual Game");
+			_eco = Tree.Headers.GetValueOrDefault("ECO", "");
+
+			if (int.TryParse(Tree.Headers.GetValueOrDefault("WhiteElo", ""), out int we)) _whiteElo = we;
+			else _whiteElo = null;
+
+			if (int.TryParse(Tree.Headers.GetValueOrDefault("BlackElo", ""), out int be)) _blackElo = be;
+			else _blackElo = null;
+
+			_errorMessage = "";
+			_isSaving = false;
+		}
+	}
+
+	private void HandleTargetDbChanged(ChangeEventArgs e)
+	{
+		_selectedDb = e.Value?.ToString() ?? "";
+		if (!CanOverwrite)
+		{
+			_saveMode = "new";
+		}
+	}
+
+	private async Task SaveAsync()
+	{
+		if (string.IsNullOrWhiteSpace(_selectedDb))
+		{
+			_errorMessage = "Please select a target database.";
+			return;
+		}
+
+		_isSaving = true;
+		_errorMessage = "";
+
+		try
+		{
+			// Update Tree headers
+			Tree.Headers["White"] = _white;
+			Tree.Headers["Black"] = _black;
+			Tree.Headers["Result"] = _result;
+			Tree.Headers["Date"] = _date;
+			Tree.Headers["Event"] = _event;
+			if (_whiteElo.HasValue) Tree.Headers["WhiteElo"] = _whiteElo.Value.ToString();
+			if (_blackElo.HasValue) Tree.Headers["BlackElo"] = _blackElo.Value.ToString();
+			if (!string.IsNullOrEmpty(_eco)) Tree.Headers["ECO"] = _eco;
+
+			string pgn = PgnHandler.ExportPgn(Tree);
+
+			long targetId = (CanOverwrite && _saveMode == "update")
+				? ExistingGameId!.Value
+				: 0;
+
+			var gameHeader = new GameHeader
+			{
+				Id = targetId,
+				White = _white,
+				Black = _black,
+				WhiteElo = _whiteElo,
+				BlackElo = _blackElo,
+				Result = _result,
+				Date = _date,
+				Event = _event,
+				Site = Tree.Headers.GetValueOrDefault("Site", ""),
+				Round = Tree.Headers.GetValueOrDefault("Round", ""),
+				Eco = _eco,
+				Pgn = pgn
+			};
+
+			long savedGameId = await DatabaseService.SaveGameAsync(_selectedDb, gameHeader);
+
+			if (OnGameSaved.HasDelegate)
+			{
+				await OnGameSaved.InvokeAsync(savedGameId);
+			}
+
+			await CloseDialog();
+		}
+		catch (Exception ex)
+		{
+			_errorMessage = $"Error saving game: {ex.Message}";
+		}
+		finally
+		{
+			_isSaving = false;
+		}
+	}
+
+	private async Task CloseDialog()
+	{
+		IsOpen = false;
+		if (OnClose.HasDelegate)
+		{
+			await OnClose.InvokeAsync();
+		}
+	}
+}

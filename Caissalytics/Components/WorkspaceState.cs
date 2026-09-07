@@ -33,10 +33,14 @@ public class AnalysisTab : WorkspaceTab
     public bool IsAnalyzing { get; set; } = false;
     public int MultiPv { get; set; } = 3;
     public List<EngineEvaluationLine> CurrentEvalLines { get; set; } = new();
+    public string? TargetDatabase { get; set; }
+    public long? DatabaseGameId { get; set; }
 
-    public AnalysisTab(string? title = null, string? pgn = null, string? startFen = null)
+    public AnalysisTab(string? title = null, string? pgn = null, string? startFen = null, string? targetDatabase = null, long? databaseGameId = null)
     {
         _customTitle = title ?? "Analysis Board";
+        TargetDatabase = targetDatabase;
+        DatabaseGameId = databaseGameId;
         Tree = !string.IsNullOrWhiteSpace(pgn)
             ? PgnHandler.ImportPgn(pgn)
             : new GameTree(startFen);
@@ -46,6 +50,12 @@ public class AnalysisTab : WorkspaceTab
     {
         _customTitle = title;
     }
+}
+
+public class DatabaseBrowserTab : WorkspaceTab
+{
+    public override string Title => "Database";
+    public override string Icon => "🗄️";
 }
 
 public class WorkspaceState
@@ -61,12 +71,29 @@ public class WorkspaceState
         ActiveTab = dashboard;
     }
 
-    public AnalysisTab CreateAnalysisTab(string? title = null, string? pgn = null, string? startFen = null)
+    public AnalysisTab CreateAnalysisTab(string? title = null, string? pgn = null, string? startFen = null, string? targetDatabase = null, long? databaseGameId = null)
     {
         int analysisCount = Tabs.OfType<AnalysisTab>().Count() + 1;
         string finalTitle = title ?? $"Analysis {analysisCount}";
 
-        var tab = new AnalysisTab(finalTitle, pgn, startFen);
+        var tab = new AnalysisTab(finalTitle, pgn, startFen, targetDatabase, databaseGameId);
+        Tabs.Add(tab);
+        ActiveTab = tab;
+        NotifyStateChanged();
+        return tab;
+    }
+
+    public DatabaseBrowserTab CreateDatabaseTab()
+    {
+        var existing = Tabs.OfType<DatabaseBrowserTab>().FirstOrDefault();
+        if (existing != null)
+        {
+            ActiveTab = existing;
+            NotifyStateChanged();
+            return existing;
+        }
+
+        var tab = new DatabaseBrowserTab();
         Tabs.Add(tab);
         ActiveTab = tab;
         NotifyStateChanged();

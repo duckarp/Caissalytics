@@ -3,6 +3,7 @@
 @using Caissalytics.Components.Layout
 @using Caissalytics.Components.Dashboard
 @using Caissalytics.Components.Analysis
+@using Caissalytics.Components.Database
 @inject WorkspaceState Workspace
 @implements IDisposable
 
@@ -20,6 +21,14 @@
 		bool isActive = tab == Workspace.ActiveTab;
 		<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
 			<AnalysisWorkbench Tab="tab" />
+		</div>
+	}
+
+	@foreach (var tab in Workspace.Tabs.OfType<DatabaseBrowserTab>())
+	{
+		bool isActive = tab == Workspace.ActiveTab;
+		<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+			<DatabaseBrowser Tab="tab" />
 		</div>
 	}
 </div>

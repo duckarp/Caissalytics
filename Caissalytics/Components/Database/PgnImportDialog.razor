@@ -1,0 +1,174 @@
+@namespace Caissalytics.Components.Database
+@using Caissalytics.Data
+@inject IDatabaseService DatabaseService
+
+@if (IsOpen)
+{
+	<div class="modal-backdrop" @onclick="HandleBackdropClick">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<h3 class="modal-title">Import Games into @DatabaseName</h3>
+				<button class="modal-close-btn" @onclick="CloseDialog">✕</button>
+			</div>
+
+			<div class="modal-body">
+				@if (_isImporting)
+				{
+					<div class="progress-container">
+						<div class="progress-bar-track">
+							<div class="progress-bar-fill @($"bar-w-{_progress.PercentComplete}")"></div>
+						</div>
+
+						<div class="progress-stats-grid">
+							<div>Status: @_progress.CurrentStage</div>
+							<div>Progress: @_progress.PercentComplete%</div>
+							<div>Games Saved: @_progress.GamesSaved</div>
+							<div>Speed: @_progress.GamesPerSecond.ToString("0") games/s</div>
+							<div>Elapsed: @_progress.Elapsed.ToString(@"mm\:ss")</div>
+							<div>Data: @((_progress.BytesProcessed / 1024.0 / 1024.0).ToString("0.1")) MB</div>
+						</div>
+					</div>
+				}
+				else if (_isFinished)
+				{
+					<div class="reference-empty-state">
+						<span class="empty-state-icon">✅</span>
+						<h4>Import Completed!</h4>
+						<p>Successfully imported @_progress.GamesSaved games in @_progress.Elapsed.ToString(@"mm\:ss").</p>
+					</div>
+				}
+				else
+				{
+					<div class="modal-form-group">
+						<label class="filter-label">Select PGN File to Import</label>
+						<label class="dropzone-box">
+							<div class="dropzone-icon">📥</div>
+							<div class="dropzone-text">Click or drag PGN file here</div>
+							<div class="dropzone-subtext">Supports single games or large multi-game collections (.pgn)</div>
+							<InputFile OnChange="HandleFileSelected" class="hidden-file-input" accept=".pgn" />
+						</label>
+					</div>
+
+					@if (!string.IsNullOrEmpty(_selectedFileName))
+					{
+						<div class="filter-group">
+							<span class="filter-label">Selected File:</span>
+							<span class="score-cell">@_selectedFileName (@((_fileSize / 1024.0 / 1024.0).ToString("0.2")) MB)</span>
+						</div>
+					}
+
+					@if (!string.IsNullOrEmpty(_errorMessage))
+					{
+						<div class="ref-result-black">@_errorMessage</div>
+					}
+				}
+			</div>
+
+			<div class="modal-footer">
+				@if (_isImporting)
+				{
+					<button class="btn-secondary" @onclick="CancelImport">Cancel</button>
+				}
+				else if (_isFinished)
+				{
+					<button class="btn-primary" @onclick="CloseDialog">Done</button>
+				}
+				else
+				{
+					<button class="btn-secondary" @onclick="CloseDialog">Cancel</button>
+					<button class="btn-primary" disabled="@(_selectedFile == null)" @onclick="StartImportAsync">Start Import</button>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	[Parameter] public bool IsOpen { get; set; }
+	[Parameter] public string DatabaseName { get; set; } = "Default";
+	[Parameter] public EventCallback OnClose { get; set; }
+	[Parameter] public EventCallback OnImportCompleted { get; set; }
+
+	private IBrowserFile? _selectedFile;
+	private string _selectedFileName = "";
+	private long _fileSize = 0;
+	private bool _isImporting = false;
+	private bool _isFinished = false;
+	private string _errorMessage = "";
+	private PgnImportProgress _progress = new();
+	private CancellationTokenSource? _importCts;
+
+	private void HandleFileSelected(InputFileChangeEventArgs e)
+	{
+		_selectedFile = e.File;
+		_selectedFileName = e.File.Name;
+		_fileSize = e.File.Size;
+		_errorMessage = "";
+	}
+
+	private async Task StartImportAsync()
+	{
+		if (_selectedFile == null) return;
+
+		_isImporting = true;
+		_isFinished = false;
+		_errorMessage = "";
+		_importCts = new CancellationTokenSource();
+
+		var progressReporter = new Progress<PgnImportProgress>(p =>
+		{
+			_progress = p;
+			InvokeAsync(StateHasChanged);
+		});
+
+		try
+		{
+			// Allow up to 1GB PGN files
+			using var stream = _selectedFile.OpenReadStream(maxAllowedSize: 1024L * 1024 * 1024);
+			await DatabaseService.ImportPgnStreamAsync(DatabaseName, stream, progressReporter, _importCts.Token);
+			_isFinished = true;
+			if (OnImportCompleted.HasDelegate)
+			{
+				await OnImportCompleted.InvokeAsync();
+			}
+		}
+		catch (OperationCanceledException)
+		{
+			_errorMessage = "Import was cancelled.";
+		}
+		catch (Exception ex)
+		{
+			_errorMessage = $"Import error: {ex.Message}";
+		}
+		finally
+		{
+			_isImporting = false;
+			StateHasChanged();
+		}
+	}
+
+	private void CancelImport()
+	{
+		_importCts?.Cancel();
+	}
+
+	private async Task CloseDialog()
+	{
+		IsOpen = false;
+		_isFinished = false;
+		_selectedFile = null;
+		_selectedFileName = "";
+		if (OnClose.HasDelegate)
+		{
+			await OnClose.InvokeAsync();
+		}
+	}
+
+	private async Task HandleBackdropClick()
+	{
+		if (!_isImporting)
+		{
+			await CloseDialog();
+		}
+	}
+}

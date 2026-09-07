@@ -1,5 +1,6 @@
 using Caissalytics.Components;
 using Caissalytics.Engine;
+using Caissalytics.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -8,6 +9,7 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 builder.Services.AddSingleton<IEngineService, EngineManager>();
+builder.Services.AddSingleton<IDatabaseService, DatabaseManager>();
 builder.Services.AddScoped<WorkspaceState>();
 
 var app = builder.Build();

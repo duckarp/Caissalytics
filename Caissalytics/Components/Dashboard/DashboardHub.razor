@@ -1,6 +1,9 @@
 @namespace Caissalytics.Components.Dashboard
+@using Caissalytics.Data
 @inject WorkspaceState Workspace
 @inject IEngineService EngineService
+@inject IDatabaseService DatabaseService
+@implements IDisposable
 
 <div class="dashboard-container">
 	<div class="dashboard-hero">
@@ -15,6 +18,12 @@
 			<p class="card-description">Open an interactive board to explore moves, build variations, annotate with glyphs, and run Stockfish.</p>
 		</div>
 
+		<div class="action-card" @onclick="() => Workspace.CreateDatabaseTab()">
+			<div class="card-icon">🗄️</div>
+			<h2 class="card-title">Browse Databases</h2>
+			<p class="card-description">Manage collections, search games by player, ECO, or Elo, and import your PGN libraries.</p>
+		</div>
+
 		<label class="action-card">
 			<div class="card-icon">📂</div>
 			<h2 class="card-title">Open PGN File</h2>
@@ -26,6 +35,28 @@
 			<div class="card-icon">🏆</div>
 			<h2 class="card-title">Load Immortal Game</h2>
 			<p class="card-description">Quickly load Adolf Anderssen vs Lionel Kieseritzky (1851) to test the board and engine analysis.</p>
+		</div>
+	</div>
+
+	<div class="dashboard-section">
+		<div class="section-header">
+			<h3 class="section-title">Database Hub</h3>
+		</div>
+
+		<div class="engine-status-row">
+			<div class="engine-info-block">
+				<div class="status-dot dot-ready"></div>
+				<div>
+					<div class="engine-label">@(_activeDb?.Name ?? "ClassicalMasters")</div>
+					<div class="engine-subtext">
+						<span>@(_activeDb?.GameCount.ToString("N0") ?? "0") games indexed (@(_activeDb?.FormattedSize ?? "0 B"))</span>
+					</div>
+				</div>
+			</div>
+
+			<div>
+				<button class="btn-primary" @onclick="() => Workspace.CreateDatabaseTab()">Explore Database</button>
+			</div>
 		</div>
 	</div>
 
@@ -76,12 +107,29 @@
 
 @code {
 	private EngineInfo? _activeEngine;
+	private DatabaseInfo? _activeDb;
 	private bool _isInstalling = false;
 	private int _installProgress = 0;
 
 	protected override async Task OnInitializedAsync()
 	{
+		DatabaseService.OnActiveDatabaseChanged += HandleActiveDatabaseChanged;
 		_activeEngine = await EngineService.GetActiveEngineAsync();
+		_activeDb = await DatabaseService.GetActiveDatabaseAsync();
+	}
+
+	private async void HandleActiveDatabaseChanged()
+	{
+		await InvokeAsync(async () =>
+		{
+			_activeDb = await DatabaseService.GetActiveDatabaseAsync();
+			StateHasChanged();
+		});
+	}
+
+	public void Dispose()
+	{
+		DatabaseService.OnActiveDatabaseChanged -= HandleActiveDatabaseChanged;
 	}
 
 	private async Task InstallStockfish()
