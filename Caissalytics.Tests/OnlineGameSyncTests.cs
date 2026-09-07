@@ -205,6 +205,33 @@ public class OnlineGameSyncTests : IDisposable
         Assert.Null(otbGame.ExternalUrl);
     }
 
+    [Fact]
+    public async Task OnlineGamesDatabase_NameMatches_AndRecreatesAfterDeletion()
+    {
+        var mockFactory = new DummyHttpClientFactory();
+        var service = new OnlineGameSyncService(_dbManager, mockFactory, _testConfigFile);
+
+        Assert.Equal("My online games", service.OnlineGamesDatabaseName);
+
+        // Create database
+        var db = await _dbManager.CreateDatabaseAsync(service.OnlineGamesDatabaseName);
+        Assert.True(File.Exists(db.FilePath));
+
+        var dbsBefore = await _dbManager.GetDatabasesAsync();
+        Assert.Contains(dbsBefore, d => d.Name == service.OnlineGamesDatabaseName);
+
+        // Delete database
+        bool deleted = await _dbManager.DeleteDatabaseAsync(service.OnlineGamesDatabaseName);
+        Assert.True(deleted);
+
+        var dbsAfter = await _dbManager.GetDatabasesAsync();
+        Assert.DoesNotContain(dbsAfter, d => d.Name == service.OnlineGamesDatabaseName);
+
+        // Recreate cleanly
+        var recreated = await _dbManager.CreateDatabaseAsync(service.OnlineGamesDatabaseName);
+        Assert.True(File.Exists(recreated.FilePath));
+    }
+
     private class DummyHttpClientFactory : IHttpClientFactory
     {
         public HttpClient CreateClient(string name)

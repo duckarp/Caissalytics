@@ -125,6 +125,10 @@
   color: var(--accent-danger);
 }
 
+.db-card-btn.db-card-btn-sync:hover {
+  color: var(--accent-blue);
+}
+
 .db-sidebar-footer {
   padding: 12px 16px;
   border-top: 1px solid var(--border-subtle);

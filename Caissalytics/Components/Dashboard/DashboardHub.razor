@@ -55,7 +55,11 @@
 				</div>
 			</div>
 
-			<div>
+			<div class="engine-actions-group">
+				@if (string.Equals(_activeDb?.Name, "My online games", StringComparison.OrdinalIgnoreCase))
+				{
+					<button class="btn-secondary" @onclick="() => _showOnlineSyncModal = true">🔄 Sync Online Games</button>
+				}
 				<button class="btn-primary" @onclick="() => Workspace.CreateDatabaseTab()">Explore Database</button>
 			</div>
 		</div>

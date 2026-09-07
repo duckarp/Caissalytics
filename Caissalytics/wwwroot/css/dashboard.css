@@ -103,6 +103,12 @@
   gap: 12px;
 }
 
+.engine-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .status-dot {
   width: 10px;
   height: 10px;

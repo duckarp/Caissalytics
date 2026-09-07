@@ -1,6 +1,7 @@
 @namespace Caissalytics.Components.Database
 @using Caissalytics.Data
 @inject IDatabaseService DatabaseService
+@inject IOnlineGameSyncService SyncService
 @inject WorkspaceState Workspace
 @implements IDisposable
 
@@ -19,6 +20,7 @@
 			@foreach (var db in _databases)
 			{
 				bool isSelected = string.Equals(db.Name, _currentDbName, StringComparison.OrdinalIgnoreCase);
+				bool isOnlineDb = IsOnlineGamesDb(db.Name);
 				<div class="db-card @(isSelected ? "db-card-active" : "")" @onclick="() => SelectDatabaseAsync(db.Name)">
 					<div class="db-card-top">
 						<span class="db-card-name">@db.Name</span>
@@ -32,10 +34,17 @@
 						<span>•</span>
 						<span>@db.FormattedSize</span>
 					</div>
-					@if (_databases.Count > 1)
+					@if (_databases.Count > 1 || isOnlineDb)
 					{
 						<div class="db-card-actions">
-							<button class="db-card-btn" @onclick:stopPropagation="true" @onclick="() => ConfirmDeleteDatabase(db.Name)">🗑️ Delete</button>
+							@if (isOnlineDb)
+							{
+								<button class="db-card-btn db-card-btn-sync" title="Sync online games from Lichess &amp; Chess.com" @onclick:stopPropagation="true" @onclick="OpenOnlineSyncModal">🔄 Sync</button>
+							}
+							@if (_databases.Count > 1)
+							{
+								<button class="db-card-btn" title="Delete database" @onclick:stopPropagation="true" @onclick="() => PromptDeleteDatabase(db)">🗑️ Delete</button>
+							}
 						</div>
 					}
 				</div>
@@ -57,6 +66,10 @@
 			</div>
 
 			<div class="db-header-actions">
+				@if (IsOnlineGamesDb(_currentDbName))
+				{
+					<button class="btn-secondary" @onclick="OpenOnlineSyncModal">🔄 Sync games</button>
+				}
 				<button class="btn-primary" @onclick="AddNewGame">+ Add a new game</button>
 				<button class="btn-secondary" @onclick="() => _showImportModal = true">📥 Import PGN</button>
 			</div>
@@ -246,6 +259,40 @@
 	</div>
 }
 
+<!-- Delete Database Confirmation Modal -->
+@if (_showDeleteDbModal && _dbToDelete != null)
+{
+	<div class="modal-backdrop" @onclick="CancelDeleteDatabase">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<h3 class="modal-title">Delete Database</h3>
+				<button class="modal-close-btn" @onclick="CancelDeleteDatabase">✕</button>
+			</div>
+			<div class="modal-body">
+				<div class="modal-warning-box">
+					<div class="modal-warning-title">⚠️ Warning: Irreversible Action</div>
+					<div>Are you sure you want to permanently delete the database <strong>@_dbToDelete.Name</strong>?</div>
+					<div class="modal-game-summary">
+						<span>🗄️ @_dbToDelete.Name • @_dbToDelete.GameCount.ToString("N0") games • @_dbToDelete.FormattedSize</span>
+					</div>
+					<div class="modal-irreversible-warning">
+						All games and indexed data in this database will be permanently deleted from disk. This action cannot be undone.
+					</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="CancelDeleteDatabase">Cancel</button>
+				<button class="btn-danger" @onclick="ConfirmDeleteDatabaseAsync">Delete Database</button>
+			</div>
+		</div>
+	</div>
+}
+
+<!-- Online Games Sync Dialog -->
+<OnlineGamesSyncDialog IsOpen="_showOnlineSyncModal"
+					   OnClose="HandleSyncDialogClosed"
+					   OnDatabaseSelected="HandleSyncDbSelectedAsync" />
+
 @code {
 	[Parameter] public DatabaseBrowserTab? Tab { get; set; }
 
@@ -262,8 +309,15 @@
 	private bool _showDeleteModal = false;
 	private GameHeader? _gameToDelete;
 
+	private bool _showDeleteDbModal = false;
+	private DatabaseInfo? _dbToDelete;
+	private bool _showOnlineSyncModal = false;
+
+	private bool IsOnlineGamesDb(string? name) =>
+		string.Equals(name, SyncService.OnlineGamesDatabaseName, StringComparison.OrdinalIgnoreCase);
+
 	private bool ShowPlatformColumn =>
-		string.Equals(_currentDbName, "My online games", StringComparison.OrdinalIgnoreCase) ||
+		IsOnlineGamesDb(_currentDbName) ||
 		_games.Any(g => !string.IsNullOrEmpty(g.Platform));
 
 	private int TotalPages => Math.Max(1, (int)Math.Ceiling(_totalCount / (double)_filter.PageSize));
@@ -278,10 +332,13 @@
 	private async Task LoadDatabasesAsync()
 	{
 		_databases = await DatabaseService.GetDatabasesAsync();
-		var active = _databases.FirstOrDefault(d => d.IsActive) ?? _databases.FirstOrDefault();
-		if (active != null)
+		if (!_databases.Any(d => string.Equals(d.Name, _currentDbName, StringComparison.OrdinalIgnoreCase)))
 		{
-			_currentDbName = active.Name;
+			var active = _databases.FirstOrDefault(d => d.IsActive) ?? _databases.FirstOrDefault();
+			if (active != null)
+			{
+				_currentDbName = active.Name;
+			}
 		}
 		await LoadGamesAsync();
 	}
@@ -367,12 +424,57 @@
 		await LoadDatabasesAsync();
 	}
 
-	private async Task ConfirmDeleteDatabase(string dbName)
+	private void OpenOnlineSyncModal()
 	{
-		bool deleted = await DatabaseService.DeleteDatabaseAsync(dbName);
-		if (deleted)
+		_showOnlineSyncModal = true;
+	}
+
+	private async Task HandleSyncDialogClosed()
+	{
+		_showOnlineSyncModal = false;
+		await LoadDatabasesAsync();
+	}
+
+	private async Task HandleSyncDbSelectedAsync(string dbName)
+	{
+		_showOnlineSyncModal = false;
+		await LoadDatabasesAsync();
+		await SelectDatabaseAsync(dbName);
+	}
+
+	private void PromptDeleteDatabase(DatabaseInfo db)
+	{
+		_dbToDelete = db;
+		_showDeleteDbModal = true;
+	}
+
+	private void CancelDeleteDatabase()
+	{
+		_showDeleteDbModal = false;
+		_dbToDelete = null;
+	}
+
+	private async Task ConfirmDeleteDatabaseAsync()
+	{
+		if (_dbToDelete != null)
 		{
-			await LoadDatabasesAsync();
+			string dbName = _dbToDelete.Name;
+			_showDeleteDbModal = false;
+			_dbToDelete = null;
+
+			bool deleted = await DatabaseService.DeleteDatabaseAsync(dbName);
+			if (deleted)
+			{
+				if (string.Equals(dbName, _currentDbName, StringComparison.OrdinalIgnoreCase))
+				{
+					var remaining = _databases.FirstOrDefault(d => !string.Equals(d.Name, dbName, StringComparison.OrdinalIgnoreCase));
+					if (remaining != null)
+					{
+						_currentDbName = remaining.Name;
+					}
+				}
+				await LoadDatabasesAsync();
+			}
 		}
 	}
 
