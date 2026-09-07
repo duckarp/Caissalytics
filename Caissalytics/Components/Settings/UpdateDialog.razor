@@ -1,0 +1,197 @@
+@namespace Caissalytics.Components.Settings
+@using Caissalytics.Data
+@inject IUpdateService UpdateService
+
+@if (IsOpen && Update != null)
+{
+	<div class="modal-backdrop" @onclick="CloseDialog">
+		<div class="modal-dialog update-dialog-modal" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<div class="update-header-info">
+					<span class="update-header-icon">🚀</span>
+					<div>
+						<h3 class="modal-title">Caissalytics Update Available</h3>
+						<p class="modal-subtitle">A newer version of Caissalytics is ready for download.</p>
+					</div>
+				</div>
+				<button class="modal-close-btn" @onclick="CloseDialog" disabled="@_isDownloading">✕</button>
+			</div>
+
+			<div class="modal-body update-dialog-body">
+				<!-- Version Banner -->
+				<div class="update-version-banner">
+					<div class="version-badge-group">
+						<span class="version-label-tag">Current:</span>
+						<span class="version-badge version-badge-current">v@Update.CurrentVersion</span>
+					</div>
+					<span class="version-arrow">➔</span>
+					<div class="version-badge-group">
+						<span class="version-label-tag">Latest:</span>
+						<span class="version-badge version-badge-latest">v@Update.LatestVersion</span>
+					</div>
+					@if (Update.PublishedAt.HasValue)
+					{
+						<span class="update-release-date">Released @Update.PublishedAt.Value.ToString("MMM d, yyyy")</span>
+					}
+				</div>
+
+				<!-- Release Notes -->
+				<div class="update-notes-container">
+					<h4 class="update-notes-title">What's New in @Update.ReleaseTitle</h4>
+					<div class="update-notes-scroll">
+						@if (!string.IsNullOrWhiteSpace(Update.ReleaseNotes))
+						{
+							<pre class="update-notes-pre">@Update.ReleaseNotes</pre>
+						}
+						else
+						{
+							<p class="update-notes-empty">Performance improvements and bug fixes.</p>
+						}
+					</div>
+				</div>
+
+				@if (!string.IsNullOrEmpty(Update.AssetFileName))
+				{
+					<div class="update-asset-info">
+						<span>Package: <strong>@Update.AssetFileName</strong></span>
+						@if (Update.AssetSizeBytes > 0)
+						{
+							<span>(@Update.FormattedAssetSize)</span>
+						}
+					</div>
+				}
+
+				<!-- Download Progress -->
+				@if (_isDownloading)
+				{
+					<div class="update-progress-card">
+						<div class="update-progress-header">
+							<span class="update-status-text">@_statusText</span>
+							<span class="update-pct-text">@_downloadPct%</span>
+						</div>
+						<div class="install-progress-track">
+							<div class="install-progress-bar @($"prog-w-{(int)Math.Round(_downloadPct / 10.0) * 10}")"></div>
+						</div>
+					</div>
+				}
+
+				@if (_isDownloaded)
+				{
+					<div class="update-ready-banner">
+						<span class="ready-icon">✅</span>
+						<div class="ready-content">
+							<span class="ready-title">Update Ready to Apply!</span>
+							<span class="ready-desc">Clicking "Restart &amp; Update" will close Caissalytics, apply the new version, and relaunch automatically.</span>
+						</div>
+					</div>
+				}
+
+				@if (!string.IsNullOrEmpty(_errorMessage))
+				{
+					<div class="update-error-banner">
+						<span>⚠️ @_errorMessage</span>
+					</div>
+				}
+			</div>
+
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="CloseDialog" disabled="@_isDownloading">
+					@(_isDownloaded ? "Later" : "Remind Me Later")
+				</button>
+
+				@if (_isDownloaded)
+				{
+					<button class="btn-primary" @onclick="ApplyAndRestart">Restart &amp; Update Now</button>
+				}
+				else if (_isDownloading)
+				{
+					<button class="btn-secondary" @onclick="CancelDownload">Cancel</button>
+				}
+				else
+				{
+					<button class="btn-primary" @onclick="StartDownloadAsync">Download &amp; Install</button>
+				}
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	[Parameter] public bool IsOpen { get; set; }
+	[Parameter] public UpdateInfo? Update { get; set; }
+	[Parameter] public EventCallback OnClose { get; set; }
+
+	private bool _isDownloading = false;
+	private bool _isDownloaded = false;
+	private int _downloadPct = 0;
+	private string _statusText = "";
+	private string _errorMessage = "";
+	private CancellationTokenSource? _downloadCts;
+
+	private async Task StartDownloadAsync()
+	{
+		if (Update == null) return;
+
+		_isDownloading = true;
+		_isDownloaded = false;
+		_errorMessage = "";
+		_downloadPct = 0;
+		_statusText = "Starting download...";
+		_downloadCts = new CancellationTokenSource();
+
+		var progress = new Progress<(int current, int total, string status)>(p =>
+		{
+			_downloadPct = p.total > 0 ? (int)((double)p.current / p.total * 100) : p.current;
+			_statusText = p.status;
+			StateHasChanged();
+		});
+
+		try
+		{
+			await UpdateService.DownloadUpdateAsync(Update, progress, _downloadCts.Token);
+			_isDownloaded = true;
+			_statusText = "Download complete!";
+		}
+		catch (OperationCanceledException)
+		{
+			_errorMessage = "Download cancelled.";
+		}
+		catch (Exception ex)
+		{
+			_errorMessage = $"Download error: {ex.Message}";
+		}
+		finally
+		{
+			_isDownloading = false;
+			StateHasChanged();
+		}
+	}
+
+	private void CancelDownload()
+	{
+		_downloadCts?.Cancel();
+	}
+
+	private async Task ApplyAndRestart()
+	{
+		try
+		{
+			await UpdateService.ApplyUpdateAndRestartAsync();
+		}
+		catch (Exception ex)
+		{
+			_errorMessage = $"Failed to apply update: {ex.Message}";
+		}
+	}
+
+	private async Task CloseDialog()
+	{
+		if (_isDownloading) return;
+		IsOpen = false;
+		_errorMessage = "";
+		if (OnClose.HasDelegate)
+		{
+			await OnClose.InvokeAsync();
+		}
+	}
+}

@@ -6,7 +6,9 @@
 @inject IEngineService EngineService
 @inject IOnlineGameSyncService SyncService
 @inject IDatabaseService DatabaseService
+@inject IUpdateService UpdateService
 @inject WorkspaceState Workspace
+@using System.Runtime.InteropServices
 @implements IDisposable
 
 <div class="control-center-container">
@@ -44,6 +46,14 @@
 					<div class="nav-item-content">
 						<span class="nav-item-title">Online Games Sync</span>
 						<span class="nav-item-desc">Batch size, database status, auto sync</span>
+					</div>
+				</button>
+
+				<button class="@GetNavClass("updates")" @onclick='() => SetCategory("updates")'>
+					<span class="nav-item-icon">🚀</span>
+					<div class="nav-item-content">
+						<span class="nav-item-title">App &amp; Updates</span>
+						<span class="nav-item-desc">Version, releases, auto-updater</span>
 					</div>
 				</button>
 			</nav>
@@ -382,6 +392,88 @@
 					</div>
 				</div>
 			}
+
+			@if (_activeCategory == "updates")
+			{
+				<div class="control-section-card">
+					<div class="card-section-header">
+						<h3 class="card-section-title">🚀 Application Updates &amp; About</h3>
+						<p class="card-section-desc">Manage desktop software updates, check GitHub releases, and view release notes.</p>
+					</div>
+
+					<div class="update-settings-grid">
+						<div class="update-info-card">
+							<div class="update-info-label">Installed Version</div>
+							<div class="update-info-value">
+								<span class="version-badge version-badge-current">v@_currentVersion</span>
+								<span class="version-os-badge">@RuntimeInformation.OSDescription</span>
+							</div>
+						</div>
+
+						<div class="update-info-card">
+							<div class="update-info-label">Update Status</div>
+							<div class="update-info-value">
+								@if (_isCheckingUpdates)
+								{
+									<span class="update-status-checking">Checking for updates...</span>
+								}
+								else if (_latestUpdate != null && _latestUpdate.IsUpdateAvailable)
+								{
+									<span class="update-status-available">New version v@_latestUpdate.LatestVersion available!</span>
+								}
+								else
+								{
+									<span class="update-status-uptodate">You have the latest version.</span>
+								}
+							</div>
+						</div>
+					</div>
+
+					<div class="modal-form-group">
+						<label class="filter-label">GitHub Repository Source</label>
+						<div class="repo-input-group">
+							<input class="modal-input" placeholder="owner/repo (e.g. tomask/Caissalytics)" @bind="_updateSettings.Repository" />
+							<button class="btn-secondary" @onclick="SaveUpdateSettingsAsync">Save Repository</button>
+						</div>
+						<div class="form-hint-text">Release packages and changelogs will be checked against this GitHub repository.</div>
+					</div>
+
+					<div class="settings-checkbox-row">
+						<label class="checkbox-label">
+							<input type="checkbox" @bind="_updateSettings.AutoCheckOnStartup" @bind:after="SaveUpdateSettingsAsync" />
+							<span>Automatically check for updates on startup</span>
+						</label>
+					</div>
+
+					<div class="form-action-bar">
+						<button class="btn-primary" disabled="@_isCheckingUpdates" @onclick="CheckForUpdatesNowAsync">
+							@(_isCheckingUpdates ? "Checking..." : "🔍 Check for Updates Now")
+						</button>
+
+						@if (_latestUpdate != null && _latestUpdate.IsUpdateAvailable)
+						{
+							<button class="btn-primary" @onclick="() => _showUpdateDialogFromSettings = true">
+								🚀 View Release &amp; Install Update
+							</button>
+						}
+
+						@if (_updateSettingsSaved)
+						{
+							<span class="save-status-badge">✅ Settings saved!</span>
+						}
+					</div>
+
+					@if (_latestUpdate != null && !string.IsNullOrWhiteSpace(_latestUpdate.ReleaseNotes))
+					{
+						<div class="update-notes-container">
+							<h4 class="update-notes-title">Latest Release: @_latestUpdate.ReleaseTitle</h4>
+							<div class="update-notes-scroll">
+								<pre class="update-notes-pre">@_latestUpdate.ReleaseNotes</pre>
+							</div>
+						</div>
+					}
+				</div>
+			}
 		</main>
 	</div>
 </div>
@@ -389,6 +481,10 @@
 <OnlineGamesSyncDialog IsOpen="_showSyncModal"
 					   OnClose="HandleSyncModalClosed"
 					   OnDatabaseSelected="HandleOnlineDbSelected" />
+
+<UpdateDialog IsOpen="_showUpdateDialogFromSettings"
+			  Update="_latestUpdate"
+			  OnClose="() => _showUpdateDialogFromSettings = false" />
 
 @code {
 	[Parameter] public SettingsTab Tab { get; set; } = default!;
@@ -420,6 +516,14 @@
 	private int _onlineDbGamesCount = 0;
 	private bool _showSyncModal = false;
 
+	// Updates State
+	private UpdateSettings _updateSettings = new();
+	private UpdateInfo? _latestUpdate;
+	private string _currentVersion = "";
+	private bool _isCheckingUpdates = false;
+	private bool _updateSettingsSaved = false;
+	private bool _showUpdateDialogFromSettings = false;
+
 	private string FormattedLastSync => _syncConfig.LastSyncUtc.HasValue
 		? _syncConfig.LastSyncUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
 		: "Never";
@@ -428,6 +532,11 @@
 	{
 		EngineService.OnEnginesChanged += HandleEnginesChanged;
 		ProfileService.OnProfileChanged += HandleProfileChanged;
+		UpdateService.OnUpdateStateChanged += HandleUpdateChanged;
+
+		_currentVersion = UpdateService.GetCurrentVersion();
+		_latestUpdate = UpdateService.CachedUpdate;
+		_updateSettings = await UpdateService.GetSettingsAsync();
 
 		await LoadProfileAsync();
 		await LoadEnginesAsync();
@@ -634,5 +743,37 @@
 	{
 		EngineService.OnEnginesChanged -= HandleEnginesChanged;
 		ProfileService.OnProfileChanged -= HandleProfileChanged;
+		UpdateService.OnUpdateStateChanged -= HandleUpdateChanged;
+	}
+
+	private async Task CheckForUpdatesNowAsync()
+	{
+		_isCheckingUpdates = true;
+		StateHasChanged();
+		try
+		{
+			_latestUpdate = await UpdateService.CheckForUpdatesAsync(force: true);
+		}
+		finally
+		{
+			_isCheckingUpdates = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task SaveUpdateSettingsAsync()
+	{
+		await UpdateService.SaveSettingsAsync(_updateSettings);
+		_updateSettingsSaved = true;
+		_ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { _updateSettingsSaved = false; StateHasChanged(); }));
+	}
+
+	private async void HandleUpdateChanged(UpdateInfo update)
+	{
+		await InvokeAsync(() =>
+		{
+			_latestUpdate = update;
+			StateHasChanged();
+		});
 	}
 }

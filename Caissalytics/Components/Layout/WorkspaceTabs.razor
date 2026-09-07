@@ -1,7 +1,9 @@
 @namespace Caissalytics.Components.Layout
 @using Caissalytics.Data
+@using Caissalytics.Components.Settings
 @inject WorkspaceState Workspace
 @inject IDatabaseService DatabaseService
+@inject IUpdateService UpdateService
 @implements IDisposable
 
 <header class="app-header">
@@ -10,6 +12,15 @@
 		<span class="brand-badge">Alpha</span>
 	</div>
 	<div class="header-actions">
+		@if (_availableUpdate != null && _availableUpdate.IsUpdateAvailable)
+		{
+			<button class="header-update-pill"
+					title="New version v@_availableUpdate.LatestVersion is available! Click to update."
+					@onclick="() => _showUpdateDialog = true">
+				<span class="update-pill-icon">🚀</span>
+				<span class="update-pill-text">Update v@_availableUpdate.LatestVersion</span>
+			</button>
+		}
 		@if (_activeDb != null)
 		{
 			<button class="btn-secondary header-db-btn"
@@ -65,14 +76,23 @@
 	</div>
 </nav>
 
+<UpdateDialog IsOpen="_showUpdateDialog"
+			  Update="_availableUpdate"
+			  OnClose="() => _showUpdateDialog = false" />
+
 @code {
 	private DatabaseInfo? _activeDb;
+	private UpdateInfo? _availableUpdate;
+	private bool _showUpdateDialog = false;
 
 	protected override async Task OnInitializedAsync()
 	{
 		Workspace.OnChange += StateHasChanged;
 		DatabaseService.OnActiveDatabaseChanged += HandleDatabaseChanged;
 		DatabaseService.OnDatabaseModified += HandleDatabaseModified;
+		UpdateService.OnUpdateStateChanged += HandleUpdateStateChanged;
+
+		_availableUpdate = UpdateService.CachedUpdate;
 		await LoadActiveDatabaseAsync();
 	}
 
@@ -106,10 +126,20 @@
 		});
 	}
 
+	private async void HandleUpdateStateChanged(UpdateInfo update)
+	{
+		await InvokeAsync(() =>
+		{
+			_availableUpdate = update;
+			StateHasChanged();
+		});
+	}
+
 	public void Dispose()
 	{
 		Workspace.OnChange -= StateHasChanged;
 		DatabaseService.OnActiveDatabaseChanged -= HandleDatabaseChanged;
 		DatabaseService.OnDatabaseModified -= HandleDatabaseModified;
+		UpdateService.OnUpdateStateChanged -= HandleUpdateStateChanged;
 	}
 }

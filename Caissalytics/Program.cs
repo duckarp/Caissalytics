@@ -15,12 +15,29 @@ appBuilder.Services.AddSingleton<IGameAnalysisService, GameAnalysisService>();
 appBuilder.Services.AddSingleton<IOnlineGameSyncService, OnlineGameSyncService>();
 appBuilder.Services.AddSingleton<IUserProfileService, UserProfileService>();
 appBuilder.Services.AddSingleton<IUserAnalyticsService, UserAnalyticsService>();
+appBuilder.Services.AddSingleton<IUpdateService, UpdateService>();
 appBuilder.Services.AddScoped<WorkspaceState>();
 
 // Register root desktop component
 appBuilder.RootComponents.Add<App>("div#app");
 
 var app = appBuilder.Build();
+
+// Trigger non-blocking update check on launch
+var updateService = app.Services.GetRequiredService<IUpdateService>();
+_ = Task.Run(async () =>
+{
+	try
+	{
+		var settings = await updateService.GetSettingsAsync();
+		if (settings.AutoCheckOnStartup)
+		{
+			await Task.Delay(2500);
+			await updateService.CheckForUpdatesAsync();
+		}
+	}
+	catch { }
+});
 
 // Configure the native desktop window
 app.MainWindow
