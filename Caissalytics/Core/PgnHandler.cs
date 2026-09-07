@@ -217,10 +217,9 @@ public static class PgnHandler
         }
     }
 
-    private static readonly Regex ClkRegex = new(@"\[%clk\s+([0-9:]+)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex ClkRegex = new(@"\[%clk\s+([0-9:.]+)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex EvalRegex = new(@"\[%eval\s+([#+-]?[0-9.]+)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex EmtRegex = new(@"\[%emt\s+([0-9:]+)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    private static readonly Regex CslCalRegex = new(@"\[%(?:csl|cal)\s+[^\]]+\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex MachineTagRegex = new(@"\[%[a-zA-Z0-9_]+(?:\s+[^\]]*)?\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static void ParseAndAttachComment(MoveNode node, string rawComment)
     {
@@ -247,9 +246,8 @@ public static class PgnHandler
             rawComment = EvalRegex.Replace(rawComment, "");
         }
 
-        // Strip other machine annotations
-        rawComment = EmtRegex.Replace(rawComment, "");
-        rawComment = CslCalRegex.Replace(rawComment, "");
+        // Strip any remaining machine annotations (e.g. [%emt ...], [%csl ...], [%cal ...])
+        rawComment = MachineTagRegex.Replace(rawComment, "");
 
         // Keep real human commentary
         string cleaned = Regex.Replace(rawComment, @"\s+", " ").Trim();

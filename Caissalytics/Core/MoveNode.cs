@@ -20,6 +20,32 @@ public class MoveNode
         {
             if (string.IsNullOrWhiteSpace(Clock)) return null;
             string c = Clock.Trim();
+
+            // Handle fractional seconds (e.g. 0:08:12.9 from Chess.com)
+            int dotIdx = c.IndexOf('.');
+            if (dotIdx >= 0)
+            {
+                string beforeDot = c[..dotIdx];
+                string frac = c[(dotIdx + 1)..];
+
+                var parts = beforeDot.Split(':');
+                bool hasMinutes = false;
+                if (parts.Length == 3)
+                {
+                    if (int.TryParse(parts[0], out int h) && h > 0) hasMinutes = true;
+                    if (int.TryParse(parts[1], out int m) && m > 0) hasMinutes = true;
+                }
+                else if (parts.Length == 2)
+                {
+                    if (int.TryParse(parts[0], out int m) && m > 0) hasMinutes = true;
+                }
+
+                if (hasMinutes || frac == "0" || frac == "00")
+                {
+                    c = beforeDot;
+                }
+            }
+
             if (c.StartsWith("0:") && c.Length > 2)
             {
                 c = c[2..];

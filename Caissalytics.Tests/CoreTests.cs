@@ -144,4 +144,29 @@ public class CoreTests
         Assert.Equal("+0.25", nf3.Eval);
         Assert.Null(nf3.Comment);
     }
+
+    [Fact]
+    public void PgnHandler_ChessComClockWithDecimalSeconds_ExtractsClocksAndStripsMachineTags()
+    {
+        string chessComPgn = "1. e4 {[%clk 0:08:12.9]} e5 {[%clk 0:00:05.4][%emt 0:00:01.2] Time scramble!} 2. Nf3 {[%clk 0:08:10.0][%csl Gc4][%cal Ge2e4]} *";
+        var tree = PgnHandler.ImportPgn(chessComPgn);
+
+        var e4 = tree.Root.Children[0];
+        Assert.Equal("e4", e4.San);
+        Assert.Equal("0:08:12.9", e4.Clock);
+        Assert.Equal("8:12", e4.FormattedClock);
+        Assert.Null(e4.Comment);
+
+        var e5 = e4.Children[0];
+        Assert.Equal("e5", e5.San);
+        Assert.Equal("0:00:05.4", e5.Clock);
+        Assert.Equal("0:05.4", e5.FormattedClock);
+        Assert.Equal("Time scramble!", e5.Comment);
+
+        var nf3 = e5.Children[0];
+        Assert.Equal("Nf3", nf3.San);
+        Assert.Equal("0:08:10.0", nf3.Clock);
+        Assert.Equal("8:10", nf3.FormattedClock);
+        Assert.Null(nf3.Comment);
+    }
 }

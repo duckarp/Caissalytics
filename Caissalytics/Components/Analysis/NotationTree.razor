@@ -92,7 +92,7 @@
 
 		@if (!string.IsNullOrWhiteSpace(node.FormattedClock) && _showClocks)
 		{
-			<span class="move-clock-badge" title="Time remaining: @node.FormattedClock">@node.FormattedClock</span>
+			<span class="move-clock-badge" title="Time remaining: @node.Clock">@node.FormattedClock</span>
 		}
 
 		@if (!string.IsNullOrWhiteSpace(node.Comment))
