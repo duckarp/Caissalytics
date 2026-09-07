@@ -3,6 +3,7 @@
 @using Caissalytics.Data
 @inject IJSRuntime JS
 @inject IUserProfileService ProfileService
+@inject IAppearanceService AppearanceService
 @implements IAsyncDisposable
 
 <div class="board-column @(SideGauge != null ? "has-side-gauge" : "")">
@@ -40,7 +41,7 @@
 		{
 			@SideGauge
 		}
-		<div class="board-wrapper">
+		<div class="board-wrapper @($"board-theme-{_appearanceSettings.BoardTheme}")">
 			<div id="@_elementId" class="chessground-target"></div>
 
 			@if (_showPromotionDialog)
@@ -140,6 +141,7 @@
 	[Parameter] public EventCallback OnPrev { get; set; }
 	[Parameter] public EventCallback OnNext { get; set; }
 	[Parameter] public EventCallback OnLast { get; set; }
+	[Parameter] public bool EnableSound { get; set; } = true;
 
 	[Parameter] public GameTree? Tree { get; set; }
 	[Parameter] public RenderFragment? SideGauge { get; set; }
@@ -180,6 +182,8 @@
 	private bool BottomIsLowTime => BottomPlayerIsWhite ? ClockState.WhiteLowTime : ClockState.BlackLowTime;
 
 	private UserProfile _userProfile = new();
+	private AppearanceSettings _appearanceSettings = new();
+	private Move? _lastSoundMove;
 
 	private string? WhiteFideId => Tree != null && Tree.Headers.TryGetValue("WhiteFideId", out var id) ? id : null;
 	private string? BlackFideId => Tree != null && Tree.Headers.TryGetValue("BlackFideId", out var id) ? id : null;
@@ -193,7 +197,10 @@
 	protected override async Task OnInitializedAsync()
 	{
 		ProfileService.OnProfileChanged += HandleProfileChanged;
+		AppearanceService.OnAppearanceChanged += HandleAppearanceChanged;
 		await LoadProfileAsync();
+		_appearanceSettings = await AppearanceService.GetSettingsAsync();
+		_lastSoundMove = LastMove;
 	}
 
 	private async Task LoadProfileAsync()
@@ -206,6 +213,15 @@
 		await InvokeAsync(async () =>
 		{
 			await LoadProfileAsync();
+			StateHasChanged();
+		});
+	}
+
+	private async void HandleAppearanceChanged(AppearanceSettings settings)
+	{
+		await InvokeAsync(() =>
+		{
+			_appearanceSettings = settings;
 			StateHasChanged();
 		});
 	}
@@ -325,6 +341,23 @@
 			{
 				await _module.InvokeVoidAsync("drawShapes", _elementId, shapes);
 			}
+
+			if (EnableSound && lastMove.HasValue && !lastMove.Value.IsEmpty && (_lastSoundMove == null || !_lastSoundMove.Value.Equals(lastMove.Value)))
+			{
+				_lastSoundMove = lastMove;
+				if (inCheck)
+				{
+					_ = AppearanceService.PlaySoundAsync(ChessSoundType.Check);
+				}
+				else if (lastMove.Value.IsCapture || lastMove.Value.IsEnPassant)
+				{
+					_ = AppearanceService.PlaySoundAsync(ChessSoundType.Capture);
+				}
+				else
+				{
+					_ = AppearanceService.PlaySoundAsync(ChessSoundType.Move);
+				}
+			}
 		}
 		catch (ObjectDisposedException) { }
 		catch (JSDisconnectedException) { }
@@ -406,6 +439,7 @@
 	{
 		_isDisposed = true;
 		ProfileService.OnProfileChanged -= HandleProfileChanged;
+		AppearanceService.OnAppearanceChanged -= HandleAppearanceChanged;
 		try
 		{
 			if (_module != null)

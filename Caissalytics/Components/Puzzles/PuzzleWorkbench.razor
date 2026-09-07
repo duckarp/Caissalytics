@@ -5,6 +5,7 @@
 @using Caissalytics.Components.Board
 @inject IPuzzleService PuzzleService
 @inject IDatabaseService DatabaseService
+@inject IAppearanceService AppearanceService
 @inject WorkspaceState Workspace
 @implements IDisposable
 
@@ -359,6 +360,7 @@
 					_stopwatch.Stop();
 					int timeSpent = (int)_stopwatch.Elapsed.TotalSeconds;
 					await PuzzleService.RecordAttemptAsync(_currentPuzzle.Id, isSuccess: true, timeSpent);
+					await AppearanceService.PlaySoundAsync(ChessSoundType.Victory);
 					StateHasChanged();
 				}
 				else

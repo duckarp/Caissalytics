@@ -1,0 +1,74 @@
+/* Caissalytics Vector Board Themes */
+
+/* 1. Classic Brown / Walnut */
+.board-theme-brown cg-board {
+  background-color: #f0d9b5;
+  background-image: url('data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4IDgiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyI+CiAgPGRlZnM+CiAgICA8cGF0dGVybiBpZD0icCIgd2lkdGg9IjIiIGhlaWdodD0iMiIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxyZWN0IHdpZHRoPSIyIiBoZWlnaHQ9IjIiIGZpbGw9IiNmMGQ5YjUiLz4KICAgICAgPHJlY3QgeD0iMSIgeT0iMCIgd2lkdGg9IjEiIGhlaWdodD0iMSIgZmlsbD0iI2I1ODg2MyIvPgogICAgICA8cmVjdCB4PSIwIiB5PSIxIiB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjYjU4ODYzIi8+CiAgICA8L3BhdHRlcm4+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSI4IiBoZWlnaHQ9IjgiIGZpbGw9InVybCgjcCkiLz4KPC9zdmc+');
+}
+
+/* 2. Tournament Green */
+.board-theme-green cg-board {
+  background-color: #eeeed2;
+  background-image: url('data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4IDgiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyI+CiAgPGRlZnM+CiAgICA8cGF0dGVybiBpZD0icCIgd2lkdGg9IjIiIGhlaWdodD0iMiIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxyZWN0IHdpZHRoPSIyIiBoZWlnaHQ9IjIiIGZpbGw9IiNlZWVlZDIiLz4KICAgICAgPHJlY3QgeD0iMSIgeT0iMCIgd2lkdGg9IjEiIGhlaWdodD0iMSIgZmlsbD0iIzc2OTY1NiIvPgogICAgICA8cmVjdCB4PSIwIiB5PSIxIiB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjNzY5NjU2Ii8+CiAgICA8L3BhdHRlcm4+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSI4IiBoZWlnaHQ9IjgiIGZpbGw9InVybCgjcCkiLz4KPC9zdmc+');
+}
+
+/* 3. Ocean Blue */
+.board-theme-blue cg-board {
+  background-color: #dee3e6;
+  background-image: url('data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4IDgiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyI+CiAgPGRlZnM+CiAgICA8cGF0dGVybiBpZD0icCIgd2lkdGg9IjIiIGhlaWdodD0iMiIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxyZWN0IHdpZHRoPSIyIiBoZWlnaHQ9IjIiIGZpbGw9IiNkZWUzZTYiLz4KICAgICAgPHJlY3QgeD0iMSIgeT0iMCIgd2lkdGg9IjEiIGhlaWdodD0iMSIgZmlsbD0iIzRiNzM5OSIvPgogICAgICA8cmVjdCB4PSIwIiB5PSIxIiB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjNGI3Mzk5Ii8+CiAgICA8L3BhdHRlcm4+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSI4IiBoZWlnaHQ9IjgiIGZpbGw9InVybCgjcCkiLz4KPC9zdmc+');
+}
+
+/* 4. Dark Slate / Charcoal */
+.board-theme-slate cg-board {
+  background-color: #8b9dc3;
+  background-image: url('data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4IDgiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyI+CiAgPGRlZnM+CiAgICA8cGF0dGVybiBpZD0icCIgd2lkdGg9IjIiIGhlaWdodD0iMiIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxyZWN0IHdpZHRoPSIyIiBoZWlnaHQ9IjIiIGZpbGw9IiM4YjlkYzMiLz4KICAgICAgPHJlY3QgeD0iMSIgeT0iMCIgd2lkdGg9IjEiIGhlaWdodD0iMSIgZmlsbD0iIzNiNDI1MiIvPgogICAgICA8cmVjdCB4PSIwIiB5PSIxIiB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjM2I0MjUyIi8+CiAgICA8L3BhdHRlcm4+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSI4IiBoZWlnaHQ9IjgiIGZpbGw9InVybCgjcCkiLz4KPC9zdmc+');
+}
+
+/* 5. Cool Marble / Frost */
+.board-theme-marble cg-board {
+  background-color: #e8edf0;
+  background-image: url('data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4IDgiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyI+CiAgPGRlZnM+CiAgICA8cGF0dGVybiBpZD0icCIgd2lkdGg9IjIiIGhlaWdodD0iMiIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxyZWN0IHdpZHRoPSIyIiBoZWlnaHQ9IjIiIGZpbGw9IiNlOGVkZjAiLz4KICAgICAgPHJlY3QgeD0iMSIgeT0iMCIgd2lkdGg9IjEiIGhlaWdodD0iMSIgZmlsbD0iIzgyOWFiMSIvPgogICAgICA8cmVjdCB4PSIwIiB5PSIxIiB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjODI5YWIxIi8+CiAgICA8L3BhdHRlcm4+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSI4IiBoZWlnaHQ9IjgiIGZpbGw9InVybCgjcCkiLz4KPC9zdmc+');
+}
+
+/* 6. Classic Monochrome / Newspaper */
+.board-theme-monochrome cg-board {
+  background-color: #f7f7f7;
+  background-image: url('data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA4IDgiIHNoYXBlLXJlbmRlcmluZz0iY3Jpc3BFZGdlcyI+CiAgPGRlZnM+CiAgICA8cGF0dGVybiBpZD0icCIgd2lkdGg9IjIiIGhlaWdodD0iMiIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+CiAgICAgIDxyZWN0IHdpZHRoPSIyIiBoZWlnaHQ9IjIiIGZpbGw9IiNmN2Y3ZjciLz4KICAgICAgPHJlY3QgeD0iMSIgeT0iMCIgd2lkdGg9IjEiIGhlaWdodD0iMSIgZmlsbD0iIzZjNzU3ZCIvPgogICAgICA8cmVjdCB4PSIwIiB5PSIxIiB3aWR0aD0iMSIgaGVpZ2h0PSIxIiBmaWxsPSIjNmM3NTdkIi8+CiAgICA8L3BhdHRlcm4+CiAgPC9kZWZzPgogIDxyZWN0IHdpZHRoPSI4IiBoZWlnaHQ9IjgiIGZpbGw9InVybCgjcCkiLz4KPC9zdmc+');
+}
+
+/* Theme Swatches for Settings UI */
+.board-theme-swatch {
+  width: 44px;
+  height: 44px;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.board-theme-swatch .swatch-sq {
+  width: 100%;
+  height: 100%;
+}
+
+.board-theme-swatch.swatch-brown .swatch-light { background-color: #f0d9b5; }
+.board-theme-swatch.swatch-brown .swatch-dark { background-color: #b58863; }
+
+.board-theme-swatch.swatch-green .swatch-light { background-color: #eeeed2; }
+.board-theme-swatch.swatch-green .swatch-dark { background-color: #769656; }
+
+.board-theme-swatch.swatch-blue .swatch-light { background-color: #dee3e6; }
+.board-theme-swatch.swatch-blue .swatch-dark { background-color: #4b7399; }
+
+.board-theme-swatch.swatch-slate .swatch-light { background-color: #8b9dc3; }
+.board-theme-swatch.swatch-slate .swatch-dark { background-color: #3b4252; }
+
+.board-theme-swatch.swatch-marble .swatch-light { background-color: #e8edf0; }
+.board-theme-swatch.swatch-marble .swatch-dark { background-color: #829ab1; }
+
+.board-theme-swatch.swatch-monochrome .swatch-light { background-color: #f7f7f7; }
+.board-theme-swatch.swatch-monochrome .swatch-dark { background-color: #6c757d; }

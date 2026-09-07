@@ -7,6 +7,7 @@
 @inject IOnlineGameSyncService SyncService
 @inject IDatabaseService DatabaseService
 @inject IUpdateService UpdateService
+@inject IAppearanceService AppearanceService
 @inject WorkspaceState Workspace
 @using System.Runtime.InteropServices
 @implements IDisposable
@@ -28,8 +29,16 @@
 				<button class="@GetNavClass("profile")" @onclick='() => SetCategory("profile")'>
 					<span class="nav-item-icon">👤</span>
 					<div class="nav-item-content">
-						<span class="nav-item-title">Profile & Handles</span>
+						<span class="nav-item-title">Profile &amp; Handles</span>
 						<span class="nav-item-desc">Name, FIDE ID, online accounts</span>
+					</div>
+				</button>
+
+				<button class="@GetNavClass("appearance")" @onclick='() => SetCategory("appearance")'>
+					<span class="nav-item-icon">🎨</span>
+					<div class="nav-item-content">
+						<span class="nav-item-title">Board &amp; Audio</span>
+						<span class="nav-item-desc">Themes, sound effects, volume</span>
 					</div>
 				</button>
 
@@ -474,6 +483,153 @@
 					}
 				</div>
 			}
+
+			@if (_activeCategory == "appearance")
+			{
+				<div class="control-section-card">
+					<div class="card-section-header">
+						<h3 class="card-section-title">🎨 Visual Board Themes</h3>
+						<p class="card-section-desc">Select your preferred vector chessboard styling. Crisp rendering at all display resolutions.</p>
+					</div>
+
+					<div class="board-themes-grid">
+						@foreach (var theme in AppearanceSettings.AvailableBoardThemes)
+						{
+							bool isSelected = _appearanceSettings.BoardTheme == theme;
+							<div class="theme-card @(isSelected ? "theme-card-selected" : "")" @onclick="() => SelectBoardTheme(theme)">
+								<div class="board-theme-swatch swatch-@theme">
+									<div class="swatch-sq swatch-light"></div>
+									<div class="swatch-sq swatch-dark"></div>
+									<div class="swatch-sq swatch-dark"></div>
+									<div class="swatch-sq swatch-light"></div>
+								</div>
+								<div class="theme-card-info">
+									<div class="theme-card-name">@GetThemeDisplayName(theme)</div>
+									<div class="theme-card-desc">@GetThemeDescription(theme)</div>
+								</div>
+								@if (isSelected)
+								{
+									<span class="theme-active-pill">Active</span>
+								}
+							</div>
+						}
+					</div>
+
+					<div class="section-divider"></div>
+
+					<div class="card-section-header">
+						<h3 class="card-section-title">🔊 Chess Sound Engine</h3>
+						<p class="card-section-desc">Zero-latency synthesized audio effects powered by Web Audio API.</p>
+					</div>
+
+					<div class="audio-settings-card">
+						<div class="audio-master-row">
+							<div class="toggle-switch-wrapper">
+								<input type="checkbox" id="masterSoundToggle" class="switch-input"
+									   checked="@_appearanceSettings.SoundEnabled"
+									   @onchange="ToggleMasterSound" />
+								<label for="masterSoundToggle" class="switch-slider"></label>
+							</div>
+							<div class="audio-master-label">
+								<span class="audio-master-title">Enable Sound Effects</span>
+								<span class="audio-master-desc">Play acoustic cues for moves, captures, checks, and achievements.</span>
+							</div>
+						</div>
+
+						@if (_appearanceSettings.SoundEnabled)
+						{
+							<div class="audio-volume-panel">
+								<div class="volume-slider-header">
+									<span class="volume-label">Master Volume</span>
+									<span class="volume-value-badge">@_appearanceSettings.Volume%</span>
+								</div>
+								<div class="volume-slider-row">
+									<span class="volume-icon">🔈</span>
+									<input type="range" class="volume-slider-input" min="0" max="100" step="5"
+										   value="@_appearanceSettings.Volume"
+										   @oninput="HandleVolumeChanged" />
+									<span class="volume-icon">🔊</span>
+								</div>
+							</div>
+
+							<div class="sound-events-section">
+								<h4 class="card-section-subtitle">Sound Triggers &amp; Sound Test</h4>
+								<div class="sound-events-grid">
+									<div class="sound-event-row">
+										<label class="sound-checkbox-label">
+											<input type="checkbox" class="sound-check-box"
+												   checked="@_appearanceSettings.PlayMoveSound"
+												   @onchange='e => ToggleSoundEvent("move", e)' />
+											<span>Move (tactile wood click)</span>
+										</label>
+										<button class="sound-test-btn" @onclick='() => TestSound(ChessSoundType.Move)' title="Test Move Sound">
+											<span>▶ Test</span>
+										</button>
+									</div>
+
+									<div class="sound-event-row">
+										<label class="sound-checkbox-label">
+											<input type="checkbox" class="sound-check-box"
+												   checked="@_appearanceSettings.PlayCaptureSound"
+												   @onchange='e => ToggleSoundEvent("capture", e)' />
+											<span>Capture (crisp mechanical snap)</span>
+										</label>
+										<button class="sound-test-btn" @onclick='() => TestSound(ChessSoundType.Capture)' title="Test Capture Sound">
+											<span>▶ Test</span>
+										</button>
+									</div>
+
+									<div class="sound-event-row">
+										<label class="sound-checkbox-label">
+											<input type="checkbox" class="sound-check-box"
+												   checked="@_appearanceSettings.PlayCheckSound"
+												   @onchange='e => ToggleSoundEvent("check", e)' />
+											<span>Check (dual-tone alert chime)</span>
+										</label>
+										<button class="sound-test-btn" @onclick='() => TestSound(ChessSoundType.Check)' title="Test Check Sound">
+											<span>▶ Test</span>
+										</button>
+									</div>
+
+									<div class="sound-event-row">
+										<label class="sound-checkbox-label">
+											<input type="checkbox" class="sound-check-box"
+												   checked="@_appearanceSettings.PlayVictorySound"
+												   @onchange='e => ToggleSoundEvent("victory", e)' />
+											<span>Victory / Puzzle Solved (major triad chime)</span>
+										</label>
+										<button class="sound-test-btn" @onclick='() => TestSound(ChessSoundType.Victory)' title="Test Victory Sound">
+											<span>▶ Test</span>
+										</button>
+									</div>
+
+									<div class="sound-event-row">
+										<label class="sound-checkbox-label">
+											<input type="checkbox" class="sound-check-box"
+												   checked="@_appearanceSettings.PlayLowTimeSound"
+												   @onchange='e => ToggleSoundEvent("lowtime", e)' />
+											<span>Low Time (clock tick alert)</span>
+										</label>
+										<button class="sound-test-btn" @onclick='() => TestSound(ChessSoundType.LowTime)' title="Test Low Time Sound">
+											<span>▶ Test</span>
+										</button>
+									</div>
+								</div>
+							</div>
+						}
+
+						<div class="form-action-row">
+							<button class="btn btn-primary" @onclick="SaveAppearanceSettingsAsync">
+								💾 Save Preferences
+							</button>
+							@if (_appearanceSettingsSaved)
+							{
+								<span class="save-status-badge">✓ Preferences saved!</span>
+							}
+						</div>
+					</div>
+				</div>
+			}
 		</main>
 	</div>
 </div>
@@ -524,6 +680,10 @@
 	private bool _updateSettingsSaved = false;
 	private bool _showUpdateDialogFromSettings = false;
 
+	// Appearance & Audio State
+	private AppearanceSettings _appearanceSettings = new();
+	private bool _appearanceSettingsSaved = false;
+
 	private string FormattedLastSync => _syncConfig.LastSyncUtc.HasValue
 		? _syncConfig.LastSyncUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
 		: "Never";
@@ -537,6 +697,7 @@
 		_currentVersion = UpdateService.GetCurrentVersion();
 		_latestUpdate = UpdateService.CachedUpdate;
 		_updateSettings = await UpdateService.GetSettingsAsync();
+		_appearanceSettings = await AppearanceService.GetSettingsAsync();
 
 		await LoadProfileAsync();
 		await LoadEnginesAsync();
@@ -775,5 +936,77 @@
 			_latestUpdate = update;
 			StateHasChanged();
 		});
+	}
+
+	private static string GetThemeDisplayName(string theme) => theme switch
+	{
+		"brown" => "Classic Walnut",
+		"green" => "Tournament Green",
+		"blue" => "Ocean Blue",
+		"slate" => "Dark Slate",
+		"marble" => "Cool Marble",
+		"monochrome" => "Monochrome",
+		_ => theme
+	};
+
+	private static string GetThemeDescription(string theme) => theme switch
+	{
+		"brown" => "Warm traditional wooden board styling.",
+		"green" => "Standard FIDE tournament & club green.",
+		"blue" => "Calming ocean azure with cool contrast.",
+		"slate" => "Contemporary dark charcoal slate.",
+		"marble" => "Clean frost-textured marble aesthetic.",
+		"monochrome" => "High-contrast vintage newspaper print.",
+		_ => ""
+	};
+
+	private async Task SelectBoardTheme(string theme)
+	{
+		_appearanceSettings.BoardTheme = theme;
+		await AppearanceService.SaveSettingsAsync(_appearanceSettings);
+	}
+
+	private async Task ToggleMasterSound(ChangeEventArgs e)
+	{
+		if (e.Value is bool b)
+		{
+			_appearanceSettings.SoundEnabled = b;
+			await AppearanceService.SaveSettingsAsync(_appearanceSettings);
+		}
+	}
+
+	private async Task HandleVolumeChanged(ChangeEventArgs e)
+	{
+		if (int.TryParse(e.Value?.ToString(), out int vol))
+		{
+			_appearanceSettings.Volume = vol;
+			await AppearanceService.SaveSettingsAsync(_appearanceSettings);
+		}
+	}
+
+	private async Task ToggleSoundEvent(string ev, ChangeEventArgs e)
+	{
+		bool val = e.Value is bool b && b;
+		switch (ev)
+		{
+			case "move": _appearanceSettings.PlayMoveSound = val; break;
+			case "capture": _appearanceSettings.PlayCaptureSound = val; break;
+			case "check": _appearanceSettings.PlayCheckSound = val; break;
+			case "victory": _appearanceSettings.PlayVictorySound = val; break;
+			case "lowtime": _appearanceSettings.PlayLowTimeSound = val; break;
+		}
+		await AppearanceService.SaveSettingsAsync(_appearanceSettings);
+	}
+
+	private async Task TestSound(ChessSoundType soundType)
+	{
+		await AppearanceService.PlaySoundAsync(soundType);
+	}
+
+	private async Task SaveAppearanceSettingsAsync()
+	{
+		await AppearanceService.SaveSettingsAsync(_appearanceSettings);
+		_appearanceSettingsSaved = true;
+		_ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { _appearanceSettingsSaved = false; StateHasChanged(); }));
 	}
 }
