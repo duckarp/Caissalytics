@@ -1,49 +1,37 @@
 using Caissalytics.Components;
-using Caissalytics.Engine;
 using Caissalytics.Data;
+using Caissalytics.Engine;
+using Microsoft.Extensions.DependencyInjection;
+using Photino.Blazor;
 
-var builder = WebApplication.CreateBuilder(args);
+var appBuilder = PhotinoBlazorAppBuilder.CreateDefault(args);
 
-// Add services to the container.
-builder.Services.AddRazorComponents()
-    .AddInteractiveServerComponents(options =>
-    {
-        options.DetailedErrors = builder.Environment.IsDevelopment();
-    })
-    .AddHubOptions(options =>
-    {
-        options.MaximumReceiveMessageSize = 10 * 1024 * 1024; // 10 MB
-    });
+// Register application services
+appBuilder.Services.AddLogging();
+appBuilder.Services.AddHttpClient();
+appBuilder.Services.AddSingleton<IEngineService, EngineManager>();
+appBuilder.Services.AddSingleton<IDatabaseService, DatabaseManager>();
+appBuilder.Services.AddSingleton<IGameAnalysisService, GameAnalysisService>();
+appBuilder.Services.AddSingleton<IOnlineGameSyncService, OnlineGameSyncService>();
+appBuilder.Services.AddSingleton<IUserProfileService, UserProfileService>();
+appBuilder.Services.AddSingleton<IUserAnalyticsService, UserAnalyticsService>();
+appBuilder.Services.AddScoped<WorkspaceState>();
 
-builder.Services.Configure<Microsoft.AspNetCore.SignalR.HubOptions>(options =>
+// Register root desktop component
+appBuilder.RootComponents.Add<App>("div#app");
+
+var app = appBuilder.Build();
+
+// Configure the native desktop window
+app.MainWindow
+	.SetTitle("Caissalytics")
+	.SetSize(1400, 900)
+	.SetMinSize(1000, 650)
+	.SetUseOsDefaultLocation(false);
+
+AppDomain.CurrentDomain.UnhandledException += (sender, error) =>
 {
-    options.MaximumReceiveMessageSize = 10 * 1024 * 1024; // 10 MB
-});
-
-builder.Services.AddHttpClient();
-builder.Services.AddSingleton<IEngineService, EngineManager>();
-builder.Services.AddSingleton<IDatabaseService, DatabaseManager>();
-builder.Services.AddSingleton<IGameAnalysisService, GameAnalysisService>();
-builder.Services.AddSingleton<IOnlineGameSyncService, OnlineGameSyncService>();
-builder.Services.AddSingleton<IUserProfileService, UserProfileService>();
-builder.Services.AddSingleton<IUserAnalyticsService, UserAnalyticsService>();
-builder.Services.AddScoped<WorkspaceState>();
-
-var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (!app.Environment.IsDevelopment())
-{
-    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
-    app.UseHsts();
-}
-
-app.UseHttpsRedirection();
-
-app.UseAntiforgery();
-
-app.MapStaticAssets();
-app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+	Console.Error.WriteLine($"[Caissalytics] Unhandled exception: {error.ExceptionObject}");
+};
 
 app.Run();

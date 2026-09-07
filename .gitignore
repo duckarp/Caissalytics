@@ -8,3 +8,5 @@ riderModule.iml
 *.userosscache
 *.suo
 TestResults/
+dist/
+publish/
