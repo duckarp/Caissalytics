@@ -254,6 +254,33 @@
 			</div>
 		</section>
 
+		@if (_report.RecentGames.Count > 0)
+		{
+			<!-- Recent Form Strip -->
+			<div class="analytics-recent-form-bar">
+				<div class="form-bar-left">
+					<span class="form-bar-icon">🕒</span>
+					<span class="form-bar-title">Recent Form:</span>
+				</div>
+				<div class="form-strip-pills">
+					@foreach (var g in _report.RecentGames.Take(15))
+					{
+						<button class="form-pill pill-@g.Result"
+								title="@g.ResultDisplay vs @g.OpponentName (@g.FormattedDate) · Click to analyze"
+								@onclick="() => OpenGameInBoard(g)">
+							@(g.Result == "win" ? "W" : g.Result == "loss" ? "L" : "D")
+						</button>
+					}
+				</div>
+				<div class="form-bar-right">
+					<span class="form-summary-label">Last 15:</span>
+					<span class="form-summary-pill pill-win">@(_report.RecentGames.Take(15).Count(g => g.Result == "win"))W</span>
+					<span class="form-summary-pill pill-draw">@(_report.RecentGames.Take(15).Count(g => g.Result == "draw"))D</span>
+					<span class="form-summary-pill pill-loss">@(_report.RecentGames.Take(15).Count(g => g.Result == "loss"))L</span>
+				</div>
+			</div>
+		}
+
 		<!-- 3. Split Row: Color Performance & Rating Progression -->
 		<section class="analytics-split-row">
 			<!-- White vs Black Card -->
@@ -477,62 +504,6 @@
 					</table>
 				</div>
 			}
-		</section>
-
-		<!-- 5. Recent Matches & Form Section -->
-		<section class="analytics-card card-recent-matches">
-			<div class="card-title-bar">
-				<div class="card-title-group">
-					<span class="card-section-icon">🕒</span>
-					<h2 class="card-heading">Recent Match History & Form</h2>
-				</div>
-
-				<div class="form-strip-container">
-					<span class="form-strip-label">Recent Form:</span>
-					<div class="form-strip-pills">
-						@foreach (var g in _report.RecentGames.Take(15))
-						{
-							<span class="form-pill pill-@g.Result" title="@g.ResultDisplay vs @g.OpponentName (@g.Date)">
-								@(g.Result == "win" ? "W" : g.Result == "loss" ? "L" : "D")
-							</span>
-						}
-					</div>
-				</div>
-			</div>
-
-			<div class="recent-games-grid">
-				@foreach (var game in _report.RecentGames)
-				{
-					<div class="recent-game-card">
-						<div class="recent-card-left">
-							<span class="result-pill pill-@game.Result">@game.ResultDisplay.ToUpperInvariant()</span>
-							<div class="game-meta-block">
-								<div class="game-opponent-line">
-									<span class="game-color-tag tag-@game.UserColor.ToLowerInvariant()">@game.UserColor</span>
-									<span class="opponent-vs">vs.</span>
-									<strong class="opponent-name">@game.OpponentName</strong>
-									@if (game.OpponentRating.HasValue && game.OpponentRating.Value > 0)
-									{
-										<span class="opponent-rating">(@game.OpponentRating.Value)</span>
-									}
-								</div>
-								<div class="game-details-line">
-									<span class="game-eco-tag">@game.Eco</span>
-									<span class="game-opening-name">@game.OpeningName</span>
-									<span class="game-date">· @game.FormattedDate</span>
-									<span class="game-platform">· @game.PlatformName</span>
-								</div>
-							</div>
-						</div>
-
-						<div class="recent-card-right">
-							<button class="btn-analyze-game" @onclick="() => OpenGameInBoard(game)">
-								<span>⚡ Analyze</span>
-							</button>
-						</div>
-					</div>
-				}
-			</div>
 		</section>
 	}
 	</div>

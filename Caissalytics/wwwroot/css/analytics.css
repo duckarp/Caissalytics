@@ -1131,195 +1131,116 @@
 }
 
 /* --------------------------------------------------------------------------
-   6. Recent Matches & Form Section
+   6. Recent Form Strip
    -------------------------------------------------------------------------- */
-.form-strip-container {
+.analytics-recent-form-bar {
 	display: flex;
 	align-items: center;
-	gap: 12px;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: 14px;
+	padding: 12px 20px;
+	background: var(--color-surface, #1e293b);
+	border: 1px solid var(--color-border, #334155);
+	border-radius: 12px;
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.form-strip-label {
-	font-size: 12px;
-	font-weight: 600;
-	color: #94a3b8;
+.form-bar-left {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.form-bar-icon {
+	font-size: 15px;
+}
+
+.form-bar-title {
+	font-size: 13px;
+	font-weight: 700;
+	color: #ffffff;
+	letter-spacing: -0.01em;
 }
 
 .form-strip-pills {
 	display: flex;
+	align-items: center;
 	gap: 6px;
+	flex-wrap: wrap;
 }
 
 .form-pill {
-	width: 24px;
-	height: 24px;
+	width: 26px;
+	height: 26px;
 	border-radius: 50%;
-	display: flex;
+	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	font-size: 11px;
 	font-weight: 800;
-	cursor: default;
+	border: none;
+	cursor: pointer;
+	transition: transform 0.15s ease, filter 0.15s ease;
+	outline: none;
+}
+
+.form-pill:hover {
+	transform: scale(1.18);
+	filter: brightness(1.15);
 }
 
 .form-pill.pill-win {
 	background: #22c55e;
 	color: #0f172a;
+	box-shadow: 0 1px 3px rgba(34, 197, 94, 0.3);
 }
 
 .form-pill.pill-draw {
 	background: #64748b;
 	color: #ffffff;
+	box-shadow: 0 1px 3px rgba(100, 116, 139, 0.3);
 }
 
 .form-pill.pill-loss {
 	background: #ef4444;
 	color: #ffffff;
+	box-shadow: 0 1px 3px rgba(239, 68, 68, 0.3);
 }
 
-.recent-games-grid {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-}
-
-.recent-game-card {
+.form-bar-right {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	background: var(--color-bg, #0f172a);
-	border: 1px solid var(--color-border, #334155);
-	border-radius: 10px;
-	padding: 12px 18px;
-	transition: background 0.15s ease, border-color 0.15s ease;
+	gap: 6px;
+	font-size: 12px;
 }
 
-.recent-game-card:hover {
-	background: rgba(51, 65, 85, 0.2);
-	border-color: #475569;
+.form-summary-label {
+	color: var(--color-text-secondary, #94a3b8);
+	font-weight: 600;
+	margin-right: 2px;
 }
 
-.recent-card-left {
-	display: flex;
-	align-items: center;
-	gap: 14px;
-	flex-wrap: wrap;
-}
-
-.result-pill {
+.form-summary-pill {
 	font-size: 11px;
 	font-weight: 800;
-	padding: 4px 10px;
-	border-radius: 6px;
-	letter-spacing: 0.04em;
-	min-width: 50px;
-	text-align: center;
-}
-
-.result-pill.pill-win {
-	background: rgba(34, 197, 94, 0.15);
-	color: #4ade80;
-	border: 1px solid rgba(34, 197, 94, 0.3);
-}
-
-.result-pill.pill-draw {
-	background: rgba(148, 163, 184, 0.15);
-	color: #cbd5e1;
-	border: 1px solid rgba(148, 163, 184, 0.3);
-}
-
-.result-pill.pill-loss {
-	background: rgba(239, 68, 68, 0.15);
-	color: #f87171;
-	border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.game-meta-block {
-	display: flex;
-	flex-direction: column;
-	gap: 3px;
-}
-
-.game-opponent-line {
-	display: flex;
-	align-items: baseline;
-	gap: 8px;
-	font-size: 14px;
-	color: #f8fafc;
-}
-
-.game-color-tag {
-	font-size: 11px;
-	font-weight: 700;
 	padding: 2px 7px;
 	border-radius: 4px;
-	text-transform: capitalize;
 }
 
-.game-color-tag.tag-white {
-	background: #ffffff;
-	color: #0f172a;
-	border: 1px solid #cbd5e1;
-	box-shadow: 0 1px 2px rgba(255, 255, 255, 0.15);
+.form-summary-pill.pill-win {
+	background: rgba(34, 197, 94, 0.18);
+	color: #4ade80;
 }
 
-.game-color-tag.tag-black {
-	background: #090d16;
-	color: #e2e8f0;
-	border: 1px solid #475569;
-	box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+.form-summary-pill.pill-draw {
+	background: rgba(148, 163, 184, 0.18);
+	color: #cbd5e1;
 }
 
-.opponent-vs {
-	color: #64748b;
-	font-size: 12px;
-}
-
-.opponent-name {
-	font-weight: 700;
-}
-
-.opponent-rating {
-	color: #94a3b8;
-	font-size: 12px;
-}
-
-.game-details-line {
-	display: flex;
-	align-items: center;
-	gap: 6px;
-	font-size: 12px;
-	color: #64748b;
-}
-
-.game-eco-tag {
-	font-family: monospace;
-	font-weight: 700;
-	color: #38bdf8;
-}
-
-.game-opening-name {
-	color: #94a3b8;
-}
-
-.btn-analyze-game {
-	display: inline-flex;
-	align-items: center;
-	gap: 6px;
-	background: #3b82f6;
-	color: #ffffff;
-	border: none;
-	border-radius: 6px;
-	padding: 6px 14px;
-	font-size: 12px;
-	font-weight: 700;
-	cursor: pointer;
-	transition: background 0.15s ease, transform 0.1s ease;
-}
-
-.btn-analyze-game:hover {
-	background: #2563eb;
-	transform: translateY(-1px);
+.form-summary-pill.pill-loss {
+	background: rgba(239, 68, 68, 0.18);
+	color: #f87171;
 }
 
 /* --------------------------------------------------------------------------
