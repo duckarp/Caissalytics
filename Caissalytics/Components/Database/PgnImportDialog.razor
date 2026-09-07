@@ -89,12 +89,20 @@
 					else
 					{
 						<div class="modal-form-group">
-							<label class="filter-label">Select PGN File to Import</label>
-							<label class="dropzone-box">
+							<label class="filter-label">Select or Drop Chess File to Import</label>
+							<label class="dropzone-box @(_isDragOver ? "drag-active" : "")"
+								   @ondragenter="HandleDragEnter"
+								   @ondragleave="HandleDragLeave"
+								   @ondrop="HandleDrop">
 								<div class="dropzone-icon">📥</div>
-								<div class="dropzone-text">Click or drag PGN file here</div>
-								<div class="dropzone-subtext">Supports single games or large multi-game collections (.pgn)</div>
-								<InputFile OnChange="HandleFileSelected" class="hidden-file-input" accept=".pgn" />
+								<div class="dropzone-text">Click or drag &amp; drop chess file here</div>
+								<div class="dropzone-subtext">Supports PGN files (.pgn), Zip archives (.zip), and 7-Zip archives (.7z)</div>
+								<div class="import-format-badges">
+									<span class="format-badge">.pgn</span>
+									<span class="format-badge">.zip (TWIC, Chess.cz)</span>
+									<span class="format-badge">.7z (Lumbra's GigaBase)</span>
+								</div>
+								<InputFile OnChange="HandleFileSelected" class="hidden-file-input" accept=".pgn,.zip,.7z" />
 							</label>
 						</div>
 
@@ -187,8 +195,15 @@
 		_pastedPgn = string.Empty;
 	}
 
+	private bool _isDragOver = false;
+
+	private void HandleDragEnter() => _isDragOver = true;
+	private void HandleDragLeave() => _isDragOver = false;
+	private void HandleDrop() => _isDragOver = false;
+
 	private void HandleFileSelected(InputFileChangeEventArgs e)
 	{
+		_isDragOver = false;
 		_selectedFile = e.File;
 		_selectedFileName = e.File.Name;
 		_fileSize = e.File.Size;
@@ -218,9 +233,9 @@
 			}
 			else
 			{
-				// Allow up to 1GB PGN files
-				using var stream = _selectedFile!.OpenReadStream(maxAllowedSize: 1024L * 1024 * 1024);
-				await DatabaseService.ImportPgnStreamAsync(DatabaseName, stream, progressReporter, _importCts.Token);
+				// Allow up to 2GB files (.pgn, .zip, .7z)
+				using var stream = _selectedFile!.OpenReadStream(maxAllowedSize: 2048L * 1024 * 1024);
+				await DatabaseService.ImportPgnStreamAsync(DatabaseName, stream, _selectedFileName, progressReporter, _importCts.Token);
 			}
 
 			_isFinished = true;

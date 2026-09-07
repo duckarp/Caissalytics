@@ -4,6 +4,8 @@ using System.Text;
 using System.Text.Json;
 using Caissalytics.Core;
 using Microsoft.Data.Sqlite;
+using SharpCompress.Archives;
+using SharpCompress.Archives.SevenZip;
 
 namespace Caissalytics.Data;
 
@@ -297,6 +299,41 @@ public class DatabaseManager : IDatabaseService
                 {
                     "https://www.pgnmentor.com/players/Carlsen.zip",
                     "https://www.pgnmentor.com/players/Anand.zip"
+                }
+            },
+            new MasterCatalogItem
+            {
+                Id = "czech-slovak-leagues",
+                Title = "Czech & Slovak Team Competitions (2003 – 2026)",
+                Description = "Massive official collection of over 140,000 team games from Czech and Slovak Extraliga, 1. liga, and regional leagues featuring all top Czech & Slovak GMs and masters.",
+                Tag = "Leagues",
+                DatabaseName = "CzechSlovakLeagues",
+                EstimatedGameCount = 140000,
+                Era = "2003 – 2026",
+                IsInstalled = existingDbs.Contains("CzechSlovakLeagues"),
+                DownloadUrls = new List<string>
+                {
+                    "https://www.chess.cz/wp-content/uploads/2026/06/SSCR_2003_2026_pgn.zip"
+                }
+            },
+            new MasterCatalogItem
+            {
+                Id = "czechoslovak-masters",
+                Title = "Czechoslovak & Slovak Masters",
+                Description = "Over 5,200 tournament games from legends Richard Réti, Sergei Movsesian, David Navara, Vlastimil Hort, Salo Flohr, and Luděk Pachman.",
+                Tag = "Regional",
+                DatabaseName = "CzechoslovakMasters",
+                EstimatedGameCount = 5200,
+                Era = "1907 – 2024",
+                IsInstalled = existingDbs.Contains("CzechoslovakMasters"),
+                DownloadUrls = new List<string>
+                {
+                    "https://www.pgnmentor.com/players/Reti.zip",
+                    "https://www.pgnmentor.com/players/Movsesian.zip",
+                    "https://www.pgnmentor.com/players/Navara.zip",
+                    "https://www.pgnmentor.com/players/Hort.zip",
+                    "https://www.pgnmentor.com/players/Flohr.zip",
+                    "https://www.pgnmentor.com/players/Pachman.zip"
                 }
             },
             new MasterCatalogItem
@@ -917,9 +954,20 @@ public class DatabaseManager : IDatabaseService
         return rows > 0;
     }
 
+    public Task ImportPgnStreamAsync(
+        string databaseName,
+        Stream stream,
+        IProgress<PgnImportProgress>? progress = null,
+        CancellationToken cancellationToken = default,
+        bool deduplicate = false)
+    {
+        return ImportPgnStreamAsync(databaseName, stream, null, progress, cancellationToken, deduplicate);
+    }
+
     public async Task ImportPgnStreamAsync(
         string databaseName,
         Stream stream,
+        string? fileName,
         IProgress<PgnImportProgress>? progress = null,
         CancellationToken cancellationToken = default,
         bool deduplicate = false)
@@ -927,9 +975,72 @@ public class DatabaseManager : IDatabaseService
         string path = GetDbPath(databaseName);
         await InitializeSchemaAsync(path);
 
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-        long totalBytes = stream.CanSeek ? stream.Length : 0;
-        await _importer.ImportAsync($"Data Source={path}", reader, totalBytes, progress, cancellationToken, deduplicate);
+        bool isZip = !string.IsNullOrEmpty(fileName) && fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+        bool is7z = !string.IsNullOrEmpty(fileName) && fileName.EndsWith(".7z", StringComparison.OrdinalIgnoreCase);
+
+        // If filename not provided or ambiguous, check magic bytes if stream can seek
+        if (!isZip && !is7z && stream.CanSeek && stream.Length >= 6)
+        {
+            byte[] magic = new byte[6];
+            long pos = stream.Position;
+            int read = await stream.ReadAsync(magic, 0, 6, cancellationToken);
+            stream.Position = pos;
+            if (read >= 2 && magic[0] == 0x50 && magic[1] == 0x4B) isZip = true;
+            else if (read >= 6 && magic[0] == 0x37 && magic[1] == 0x7A && magic[2] == 0xBC && magic[3] == 0xAF && magic[4] == 0x27 && magic[5] == 0x1C) is7z = true;
+        }
+
+        if (isZip || is7z)
+        {
+            // For archive streams, copy to temporary file to allow random seeking without memory spikes
+            string tempFile = Path.Combine(Path.GetTempPath(), $"caissa_import_{Guid.NewGuid():N}.tmp");
+            try
+            {
+                using (var fs = File.Create(tempFile))
+                {
+                    await stream.CopyToAsync(fs, cancellationToken);
+                }
+
+                if (isZip)
+                {
+                    using var fsRead = File.OpenRead(tempFile);
+                    using var archive = new ZipArchive(fsRead, ZipArchiveMode.Read);
+                    foreach (var entry in archive.Entries)
+                    {
+                        if (entry.FullName.EndsWith(".pgn", StringComparison.OrdinalIgnoreCase))
+                        {
+                            using var entryStream = entry.Open();
+                            using var reader = new StreamReader(entryStream, Encoding.UTF8);
+                            await _importer.ImportAsync($"Data Source={path}", reader, entry.Length, progress, cancellationToken, deduplicate);
+                        }
+                    }
+                }
+                else if (is7z)
+                {
+                    using var fsRead = File.OpenRead(tempFile);
+                    using var archive = SevenZipArchive.OpenArchive(fsRead);
+                    foreach (var entry in archive.Entries)
+                    {
+                        if (!entry.IsDirectory && (entry.Key?.EndsWith(".pgn", StringComparison.OrdinalIgnoreCase) ?? false))
+                        {
+                            using var entryStream = entry.OpenEntryStream();
+                            using var reader = new StreamReader(entryStream, Encoding.UTF8);
+                            await _importer.ImportAsync($"Data Source={path}", reader, entry.Size, progress, cancellationToken, deduplicate);
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                try { if (File.Exists(tempFile)) File.Delete(tempFile); } catch { }
+            }
+        }
+        else
+        {
+            using var reader = new StreamReader(stream, Encoding.UTF8);
+            long totalBytes = stream.CanSeek ? stream.Length : 0;
+            await _importer.ImportAsync($"Data Source={path}", reader, totalBytes, progress, cancellationToken, deduplicate);
+        }
+
         OnDatabaseModified?.Invoke(databaseName);
         OnActiveDatabaseChanged?.Invoke();
     }

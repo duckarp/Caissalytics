@@ -1,3 +1,4 @@
+using System.Text;
 using Caissalytics.Core;
 using Caissalytics.Data;
 using Xunit;
@@ -520,6 +521,8 @@ public class DatabaseTests : IDisposable
         Assert.NotEmpty(catalog);
         Assert.Contains(catalog, c => c.Id == "world-champions");
         Assert.Contains(catalog, c => c.Id == "modern-titans");
+        Assert.Contains(catalog, c => c.Id == "czech-slovak-leagues");
+        Assert.Contains(catalog, c => c.Id == "czechoslovak-masters");
         Assert.Contains(catalog, c => c.Id == "bobby-fischer");
         Assert.Contains(catalog, c => c.Id == "garry-kasparov");
         Assert.Contains(catalog, c => c.Id == "mikhail-tal");
@@ -549,5 +552,51 @@ public class DatabaseTests : IDisposable
         Assert.NotNull(result);
         Assert.True(result.TotalPositionGames >= 10);
         Assert.Contains(result.CandidateMoves, m => m.MoveSan == "e4" || m.MoveSan == "d4");
+    }
+
+    [Fact]
+    public async Task ImportPgnStream_WithZipArchive_ExtractsAndImportsGames()
+    {
+        string pgn = @"[Event ""Zip Test""]
+[Site ""Bratislava""]
+[Date ""2024.01.01""]
+[Round ""1""]
+[White ""Player, A""]
+[Black ""Player, B""]
+[Result ""1-0""]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 1-0";
+
+        using var ms = new MemoryStream();
+        using (var archive = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        {
+            var entry = archive.CreateEntry("game.pgn");
+            using var es = entry.Open();
+            using var sw = new StreamWriter(es, Encoding.UTF8);
+            sw.Write(pgn);
+        }
+        ms.Position = 0;
+
+        await _dbManager.ImportPgnStreamAsync("ZipDb", ms, "archive.zip");
+
+        var games = await _dbManager.GetAllGameHeadersAsync("ZipDb");
+        Assert.Single(games);
+        Assert.Equal("Player, A", games[0].White);
+        Assert.Equal("Player, B", games[0].Black);
+    }
+
+    [Fact]
+    public async Task ImportPgnStream_With7zArchive_ExtractsAndImportsGames()
+    {
+        string b64 = "N3q8ryccAAT+DylLlAAAAAAAAABiAAAAAAAAAHZbA+rgALIAjF0ALZFLPNStI0UoSkSOUUi2Nd+yfYGX1Jez+cNH+26DQeO3RCjq/38mwP0mqcjzOSpsm0ZJZFVhG9ftVSDwhaCTilHoUPm/eZMPrcYIuNTyp7iDDz4xYNBiSvJQClYorU1FiNB6bsMjbayKwdArIJwErSuYzhDaPtlJzh5Q8R2sUQggx+BxnpPEzneYAAAAAQQGAAEJgJQABwsBAAEhIQEADICzAAgKASUzugwAAAUBGQoAAAAAAAAAAAAAER0AdABlAHMAdABfAGcAYQBtAGUALgBwAGcAbgAAABQKAQDfYFk6/j7dARUGAQAggKSBAAA=";
+        byte[] bytes = Convert.FromBase64String(b64);
+        using var ms = new MemoryStream(bytes);
+
+        await _dbManager.ImportPgnStreamAsync("SevenZipDb", ms, "archive.7z");
+
+        var games = await _dbManager.GetAllGameHeadersAsync("SevenZipDb");
+        Assert.Single(games);
+        Assert.Equal("Player, A", games[0].White);
+        Assert.Equal("Player, B", games[0].Black);
     }
 }

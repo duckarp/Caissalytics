@@ -559,17 +559,32 @@
 }
 
 .dropzone-box {
+  position: relative;
   border: 2px dashed var(--border-subtle);
-  border-radius: 6px;
-  padding: 24px;
+  border-radius: 8px;
+  padding: 24px 20px;
   text-align: center;
   cursor: pointer;
   background-color: var(--bg-surface-elevated);
-  transition: border-color var(--transition-fast);
+  transition: all var(--transition-fast);
+  display: block;
 }
 
-.dropzone-box:hover {
+.dropzone-box:hover,
+.dropzone-box.drag-active {
   border-color: var(--accent-blue);
+  background-color: var(--bg-hover);
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.15);
+}
+
+.hidden-file-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 10;
 }
 
 .dropzone-icon {
@@ -587,6 +602,24 @@
   font-size: 11px;
   color: var(--text-muted);
   margin-top: 4px;
+}
+
+.import-format-badges {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.format-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
 }
 
 .progress-container {
@@ -1328,5 +1361,46 @@
 .prog-w-80  { width: 80%; }
 .prog-w-90  { width: 90%; }
 .prog-w-100 { width: 100%; }
+
+.master-external-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent-blue);
+  border-radius: 6px;
+  padding: 12px 16px;
+  margin-top: 16px;
+}
+
+.master-external-tip .tip-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.master-external-tip .tip-content {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.master-external-tip .tip-title {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.master-external-tip code {
+  font-family: var(--font-mono);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 11px;
+}
 
 
