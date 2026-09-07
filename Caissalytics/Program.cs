@@ -9,7 +9,16 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents(options =>
     {
         options.DetailedErrors = builder.Environment.IsDevelopment();
+    })
+    .AddHubOptions(options =>
+    {
+        options.MaximumReceiveMessageSize = 10 * 1024 * 1024; // 10 MB
     });
+
+builder.Services.Configure<Microsoft.AspNetCore.SignalR.HubOptions>(options =>
+{
+    options.MaximumReceiveMessageSize = 10 * 1024 * 1024; // 10 MB
+});
 
 builder.Services.AddSingleton<IEngineService, EngineManager>();
 builder.Services.AddSingleton<IDatabaseService, DatabaseManager>();

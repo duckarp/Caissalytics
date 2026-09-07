@@ -61,7 +61,8 @@ else
 			try
 			{
 				_storageModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/workspaceStorage.js");
-				string? json = await _storageModule.InvokeAsync<string?>("loadWorkspaceState");
+				using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+				string? json = await _storageModule.InvokeAsync<string?>("loadWorkspaceState", cts.Token);
 				if (!string.IsNullOrWhiteSpace(json))
 				{
 					Workspace.RestoreStateFromJson(json);

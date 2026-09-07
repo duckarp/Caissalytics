@@ -163,4 +163,47 @@ public class GameAnalysisTests
         Assert.Equal("e5", r.Plies[1].MoveSan);
         Assert.Equal(MoveClassification.Mistake, r.Plies[1].Classification);
     }
+
+    [Fact]
+    public void WorkspacePersistence_HandlesLargeGameReportExceeding32Kb()
+    {
+        var ws = new WorkspaceState();
+        var tab = ws.CreateAnalysisTab("Deep Analyzed Game");
+
+        var report = new GameAnalysisReport
+        {
+            WhiteAccuracy = 88.0,
+            BlackAccuracy = 76.5,
+            WhiteAcpl = 25.0,
+            BlackAcpl = 45.0
+        };
+
+        for (int i = 0; i < 100; i++)
+        {
+            report.Plies.Add(new PlyAnalysis
+            {
+                Ply = i,
+                MoveSan = i % 2 == 0 ? "Nf3" : "Nf6",
+                Classification = i % 5 == 0 ? MoveClassification.Mistake : MoveClassification.Best,
+                FormattedScoreAfter = "+0.45",
+                FenBefore = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+                FenAfter = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+                BestLineMoves = new List<string> { "d4", "d5", "c4", "c6", "Nc3" }
+            });
+        }
+
+        tab.AnalysisReport = report;
+        string json = ws.ExportStateJson();
+
+        // Ensure the JSON payload comfortably exceeds 32KB (default SignalR limit)
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(json) > 32768);
+
+        var ws2 = new WorkspaceState();
+        bool restored = ws2.RestoreStateFromJson(json);
+
+        Assert.True(restored);
+        var restoredTab = ws2.Tabs.OfType<AnalysisTab>().FirstOrDefault();
+        Assert.NotNull(restoredTab?.AnalysisReport);
+        Assert.Equal(100, restoredTab.AnalysisReport.Plies.Count);
+    }
 }
