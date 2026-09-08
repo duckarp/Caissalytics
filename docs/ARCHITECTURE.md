@@ -100,7 +100,7 @@ The core chess library contains zero UI dependencies, zero native bindings, and 
 
 ### Automatic Engine Downloader & System Probing
 - Detects host OS architecture (Linux x64/ARM64, Windows x64).
-- 1-click automatic download and verification of official Stockfish 18 binaries.
+- 1-click automatic download and verification of official Stockfish binaries.
 - Engine file probing (`ProbeEngineFileAsync`) validates UCI handshakes before registering custom user engines.
 - System directory scanning (`ScanSystemEnginesAsync`) discovers pre-installed system engines (e.g., `/usr/bin/stockfish`).
 
@@ -210,7 +210,7 @@ graph TD
     UI[EndgameTrainerWorkbench / TablebasePanel] --> Service[ITablebaseService / TablebaseService]
     Service --> Cache[(ConcurrentDictionary Memory Cache)]
     Service --> LichessAPI[Lichess 7-Piece Tablebase API]
-    UI --> Engine[EngineManager / Stockfish 18]
+    UI --> Engine[EngineManager / Stockfish]
     Engine --> LocalFiles[Local Syzygy .rtbw / .rtbz Directory]
     UI --> Curric[EndgameCurriculum (16 Theoretical Positions)]
 ```

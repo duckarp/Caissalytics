@@ -18,7 +18,7 @@ The Analysis Workbench is your central station for exploring positions, preparin
   - `▶` (Next): Step forward one ply along the mainline.
   - `▶|` (Last): Jump to the end of the mainline.
 
-### Stockfish 18 Engine & Evaluation
+### Stockfish Engine & Evaluation
 - **Toggle Engine**: Click **Toggle Engine** in the engine control panel to start or halt evaluation.
 - **Multi-PV Analysis**: View up to 5 principal variation lines simultaneously. Switch between candidate moves to explore secondary defenses.
 - **Threat Detection**: Visual threat arrows on the chessboard illustrate impending tactical shots or tactical sequences.
@@ -133,7 +133,7 @@ The generated report provides instant insights:
 
 ### Games Archive & 1-Click Deep Analysis
 - Browse all recorded games for the opponent with result indicators, ECO codes, and move counts.
-- Click **Analyze** on any game to immediately launch it into the **Stockfish 18 Analysis Workbench**.
+- Click **Analyze** on any game to immediately launch it into the **Stockfish Analysis Workbench**.
 - Click **Export Games** to create a study PGN collection for offline preparation.
 
 ---
@@ -239,7 +239,7 @@ Choose between 6 vector board styles rendered via crisp SVGs that never blur:
 ## 9. Engine Management & Auto-Updater ⚙️
 
 ### Custom Chess Engines
-- **1-Click Stockfish 18**: Automatically download and configure the latest Stockfish build.
+- **1-Click Stockfish**: Automatically download and configure the latest Stockfish build.
 - **Add Custom UCI Engine**: Add any third-party UCI engine (e.g., Leela Chess Zero, Berserk, Komodo) by selecting its executable. Caissalytics automatically runs a probe handshake to verify compatibility.
 - **Scan System Engines**: Scans standard OS binary directories (`/usr/bin`, `/usr/local/bin`, `C:\Program Files`) to auto-detect installed engines.
 
