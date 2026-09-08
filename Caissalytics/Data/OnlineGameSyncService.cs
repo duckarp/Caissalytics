@@ -123,7 +123,7 @@ public class OnlineGameSyncService : IOnlineGameSyncService
 
         var client = _httpClientFactory.CreateClient();
         client.DefaultRequestHeaders.UserAgent.Clear();
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("Caissalytics/1.0 (chess analysis app; https://github.com/tomask/Caissalytics)");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("Caissalytics/1.0 (chess analysis app; https://github.com/duckarp/Caissalytics)");
         client.Timeout = TimeSpan.FromSeconds(60);
 
         bool syncBoth = !string.IsNullOrEmpty(lichessUser) && !string.IsNullOrEmpty(chessComUser);

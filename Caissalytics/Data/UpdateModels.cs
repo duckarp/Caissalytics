@@ -28,7 +28,7 @@ public class UpdateInfo
 
 public class UpdateSettings
 {
-    public string Repository { get; set; } = "tomask/Caissalytics";
+    public string Repository { get; set; } = "duckarp/Caissalytics";
     public bool AutoCheckOnStartup { get; set; } = true;
     public bool CheckPrereleases { get; set; } = false;
     public DateTime? LastCheckedAt { get; set; }

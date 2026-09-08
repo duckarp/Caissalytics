@@ -97,7 +97,7 @@ public class UpdateService : IUpdateService
     public async Task<UpdateInfo> CheckForUpdatesAsync(bool force = false, CancellationToken ct = default)
     {
         string currentVer = GetCurrentVersion();
-        string repo = string.IsNullOrWhiteSpace(_settings.Repository) ? "tomask/Caissalytics" : _settings.Repository.Trim();
+        string repo = string.IsNullOrWhiteSpace(_settings.Repository) ? "duckarp/Caissalytics" : _settings.Repository.Trim();
 
         var updateInfo = new UpdateInfo
         {
