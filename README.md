@@ -7,7 +7,7 @@
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-512bd4.svg?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![Photino.Blazor](https://img.shields.io/badge/Photino-Blazor-0078d4.svg?style=flat-square)](https://www.tryphotino.io/)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows-brightgreen.svg?style=flat-square)](https://github.com/)
-[![Tests](https://img.shields.io/badge/Tests-218%20Passing-success.svg?style=flat-square)](file:///home/tomask/projects/Caissalytics/Caissalytics.Tests)
+[![Tests](https://img.shields.io/badge/Tests-219%20Passing-success.svg?style=flat-square)](file:///home/tomask/projects/Caissalytics/Caissalytics.Tests)
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg?style=flat-square)](LICENSE)
 
 *Caissalytics is a lightweight, blazing-fast, open-source alternative to commercial chess software. Built with modern .NET 10, Photino.Blazor native desktop shell, Chessground, Stockfish, and SQLite.*

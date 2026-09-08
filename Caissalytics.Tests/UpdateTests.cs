@@ -115,15 +115,65 @@ public class UpdateTests
     [Fact]
     public async Task CheckForUpdatesAsync_RetrievesLatestReleaseMetadata()
     {
-        var service = new UpdateService();
+        string fakeJson = """
+        {
+            "tag_name": "v1.2.0",
+            "name": "Caissalytics 1.2.0",
+            "body": "New features release",
+            "html_url": "https://github.com/duckarp/Caissalytics/releases/tag/v1.2.0",
+            "published_at": "2026-09-08T18:00:00Z",
+            "assets": [
+                {
+                    "name": "Caissalytics-linux-x64.tar.gz",
+                    "browser_download_url": "https://github.com/duckarp/Caissalytics/releases/download/v1.2.0/Caissalytics-linux-x64.tar.gz",
+                    "size": 50000000
+                },
+                {
+                    "name": "Caissalytics-win-x64.zip",
+                    "browser_download_url": "https://github.com/duckarp/Caissalytics/releases/download/v1.2.0/Caissalytics-win-x64.zip",
+                    "size": 52000000
+                }
+            ]
+        }
+        """;
+
+        var mockHandler = new TestHttpMessageHandler(_ => new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+        {
+            Content = new StringContent(fakeJson, System.Text.Encoding.UTF8, "application/json")
+        });
+
+        using var httpClient = new HttpClient(mockHandler);
+        var service = new UpdateService(httpClient);
         var update = await service.CheckForUpdatesAsync(force: true);
 
         Assert.NotNull(update);
         Assert.Equal("1.1.0", service.GetCurrentVersion());
-        Assert.False(string.IsNullOrWhiteSpace(update.LatestVersion));
+        Assert.Equal("1.2.0", update.LatestVersion);
+        Assert.True(update.IsUpdateAvailable);
         Assert.NotNull(update.AssetDownloadUrl);
         Assert.NotEmpty(update.AssetDownloadUrl!);
         Assert.NotNull(update.AssetFileName);
         Assert.NotEmpty(update.AssetFileName!);
+    }
+
+    [Fact]
+    public async Task CheckForUpdatesAsync_HandlesRateLimitOrNetworkFailure_Gracefully()
+    {
+        var mockHandler = new TestHttpMessageHandler(_ => new HttpResponseMessage(System.Net.HttpStatusCode.Forbidden));
+        using var httpClient = new HttpClient(mockHandler);
+        var service = new UpdateService(httpClient);
+        var update = await service.CheckForUpdatesAsync(force: true);
+
+        Assert.NotNull(update);
+        Assert.False(update.IsUpdateAvailable);
+        Assert.Contains("Forbidden", update.StatusMessage);
+    }
+
+    private class TestHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _sender;
+        public TestHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> sender) => _sender = sender;
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(_sender(request));
     }
 }
