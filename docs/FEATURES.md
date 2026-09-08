@@ -22,7 +22,7 @@ The Analysis Workbench is your central station for exploring positions, preparin
 - **Toggle Engine**: Click **Toggle Engine** in the engine control panel to start or halt evaluation.
 - **Multi-PV Analysis**: View up to 5 principal variation lines simultaneously. Switch between candidate moves to explore secondary defenses.
 - **Threat Detection**: Visual threat arrows on the chessboard illustrate impending tactical shots or tactical sequences.
-- **Evaluation Gauge**: The vertical side bar provides continuous visual feedback on position advantage ($+3.50$, $-1.20$, or $\#4$ for forced mate).
+- **Evaluation Gauge**: The vertical side bar provides continuous visual feedback on position advantage (+3.50, -1.20, or #4 for forced mate).
 
 ### Full Game Review & Blunder Classification
 - Click **Analyze Game** to run a comprehensive batch analysis of every move in the game.

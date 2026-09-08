@@ -11,37 +11,37 @@ Caissalytics is built as a modular desktop workstation leveraging .NET 10 (C# 14
 ```mermaid
 graph TD
     subgraph "Desktop Presentation (Photino.Blazor)"
-        Host[Photino Native Shell] --> WebView[OS WebView Component]
-        WebView --> Blazor[Blazor Frontend App]
-        Blazor --> CG[Chessground Interop]
-        Blazor --> Audio[Web Audio Synthesizer]
+        Host["Photino Native Shell"] --> WebView["OS WebView Component"]
+        WebView --> Blazor["Blazor Frontend App"]
+        Blazor --> CG["Chessground Interop"]
+        Blazor --> Audio["Web Audio Synthesizer"]
     end
 
     subgraph "Application & State Layer"
-        Blazor --> WS[WorkspaceState]
-        Blazor --> Profile[IUserProfileService]
-        Blazor --> Appearance[IAppearanceService]
+        Blazor --> WS["WorkspaceState"]
+        Blazor --> Profile["IUserProfileService"]
+        Blazor --> Appearance["IAppearanceService"]
     end
 
     subgraph "Core Domain Layer (Pure C#)"
-        Pos[BoardPosition & Squares]
-        MoveGen[MoveGenerator]
-        Tree[GameTree & MoveNodes]
-        Parsers[FenParser / SanParser / PgnReader]
+        Pos["BoardPosition & Squares"]
+        MoveGen["MoveGenerator"]
+        Tree["GameTree & MoveNodes"]
+        Parsers["FenParser / SanParser / PgnReader"]
     end
 
     subgraph "Engines & Analytics"
-        EngineMgr[EngineManager (UCI)]
-        Analysis[GameAnalysisService]
-        Sync[OnlineGameSyncService]
-        Explorer[LichessExplorerClient]
+        EngineMgr["EngineManager (UCI)"]
+        Analysis["GameAnalysisService"]
+        Sync["OnlineGameSyncService"]
+        Explorer["LichessExplorerClient"]
     end
 
     subgraph "Persistence & Local Data"
-        DBMgr[DatabaseManager (SQLite)]
-        RepStore[RepertoireService]
-        PuzzleStore[PuzzleService]
-        UpdateMgr[UpdateService]
+        DBMgr["DatabaseManager (SQLite)"]
+        RepStore["RepertoireService"]
+        PuzzleStore["PuzzleService"]
+        UpdateMgr["UpdateService"]
     end
 
     Blazor --> EngineMgr
@@ -207,12 +207,12 @@ Caissalytics provides exact endgame analysis and an interactive theoretical trai
 
 ```mermaid
 graph TD
-    UI[EndgameTrainerWorkbench / TablebasePanel] --> Service[ITablebaseService / TablebaseService]
-    Service --> Cache[(ConcurrentDictionary Memory Cache)]
-    Service --> LichessAPI[Lichess 7-Piece Tablebase API]
-    UI --> Engine[EngineManager / Stockfish]
-    Engine --> LocalFiles[Local Syzygy .rtbw / .rtbz Directory]
-    UI --> Curric[EndgameCurriculum (16 Theoretical Positions)]
+    UI["EndgameTrainerWorkbench / TablebasePanel"] --> Service["ITablebaseService / TablebaseService"]
+    Service --> Cache[("ConcurrentDictionary Memory Cache")]
+    Service --> LichessAPI["Lichess 7-Piece Tablebase API"]
+    UI --> Engine["EngineManager / Stockfish"]
+    Engine --> LocalFiles["Local Syzygy .rtbw / .rtbz Directory"]
+    UI --> Curric["EndgameCurriculum (16 Theoretical Positions)"]
 ```
 
 ### Tablebase Service (`ITablebaseService.cs` & `TablebaseService.cs`)
