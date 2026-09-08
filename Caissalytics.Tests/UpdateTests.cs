@@ -57,12 +57,12 @@ public class UpdateTests
             "tag_name": "v1.2.0",
             "name": "Caissalytics 1.2.0 - Grandmaster Edition",
             "body": "### Features\n* Added auto-updater\n* Added Stockfish 18 support",
-            "html_url": "https://github.com/tomask/Caissalytics/releases/tag/v1.2.0",
+            "html_url": "https://github.com/duckarp/Caissalytics/releases/tag/v1.2.0",
             "published_at": "2026-09-08T12:00:00Z",
             "assets": [
                 {
                     "name": "Caissalytics-v1.2.0-win-x64.zip",
-                    "browser_download_url": "https://github.com/tomask/Caissalytics/releases/download/v1.2.0/Caissalytics-v1.2.0-win-x64.zip",
+                    "browser_download_url": "https://github.com/duckarp/Caissalytics/releases/download/v1.2.0/Caissalytics-v1.2.0-win-x64.zip",
                     "size": 52428800
                 },
                 {
@@ -84,7 +84,7 @@ public class UpdateTests
         Assert.Equal("v1.2.0", updateInfo.TagName);
         Assert.Equal("Caissalytics 1.2.0 - Grandmaster Edition", updateInfo.ReleaseTitle);
         Assert.Contains("Added auto-updater", updateInfo.ReleaseNotes);
-        Assert.Equal("https://github.com/tomask/Caissalytics/releases/tag/v1.2.0", updateInfo.ReleaseUrl);
+        Assert.Equal("https://github.com/duckarp/Caissalytics/releases/tag/v1.2.0", updateInfo.ReleaseUrl);
         Assert.NotNull(updateInfo.AssetDownloadUrl);
         Assert.NotNull(updateInfo.AssetFileName);
         Assert.True(updateInfo.AssetSizeBytes > 0);
