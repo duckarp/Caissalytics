@@ -16,16 +16,24 @@ public class EngineManager : IEngineService, IDisposable
     private string _activeEngineId = "stockfish-17";
     private string? _syzygyPath;
     private UciProcessClient? _activeClient;
-    private readonly HttpClient _httpClient = new();
+    private readonly HttpClient _httpClient;
     private readonly object _lock = new();
 
     public event Action? OnEnginesChanged;
+    public event Action<StockfishUpdateInfo>? OnStockfishUpdateChanged;
+    public StockfishUpdateInfo? CachedStockfishUpdate { get; private set; }
 
     public bool IsAnalyzing => _activeClient != null && _activeClient.IsRunning;
     public string? SyzygyPath => _syzygyPath;
 
-    public EngineManager()
+    public EngineManager(HttpClient? httpClient = null)
     {
+        _httpClient = httpClient ?? new HttpClient();
+        if (!_httpClient.DefaultRequestHeaders.UserAgent.Any())
+        {
+            _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Caissalytics/1.0 (Desktop; Open Source)");
+        }
+
         string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         _engineStorageDir = Path.Combine(localAppData, "Caissalytics", "engines");
         Directory.CreateDirectory(_engineStorageDir);
@@ -35,8 +43,14 @@ public class EngineManager : IEngineService, IDisposable
         ScanForInstalledEngines();
     }
 
-    public EngineManager(string customStorageDir)
+    public EngineManager(string customStorageDir, HttpClient? httpClient = null)
     {
+        _httpClient = httpClient ?? new HttpClient();
+        if (!_httpClient.DefaultRequestHeaders.UserAgent.Any())
+        {
+            _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Caissalytics/1.0 (Desktop; Open Source)");
+        }
+
         _engineStorageDir = customStorageDir;
         Directory.CreateDirectory(_engineStorageDir);
         _configFilePath = Path.Combine(_engineStorageDir, "engines_config.json");
@@ -114,15 +128,41 @@ public class EngineManager : IEngineService, IDisposable
         var files = Directory.GetFiles(dir, "*", SearchOption.AllDirectories);
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            return files.FirstOrDefault(f => f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase));
+            var exeCandidates = files.Where(f => f.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)).ToList();
+            return exeCandidates.FirstOrDefault(f => Path.GetFileName(f).StartsWith("stockfish", StringComparison.OrdinalIgnoreCase))
+                ?? exeCandidates.FirstOrDefault();
         }
 
-        return files.FirstOrDefault(f =>
+        var candidates = files.Where(f =>
             !f.EndsWith(".tar", StringComparison.OrdinalIgnoreCase) &&
             !f.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) &&
             !f.EndsWith(".gz", StringComparison.OrdinalIgnoreCase) &&
             !f.EndsWith(".txt", StringComparison.OrdinalIgnoreCase) &&
-            !f.EndsWith(".md", StringComparison.OrdinalIgnoreCase));
+            !f.EndsWith(".md", StringComparison.OrdinalIgnoreCase) &&
+            !f.EndsWith(".nnue", StringComparison.OrdinalIgnoreCase) &&
+            !f.EndsWith(".json", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        return candidates.FirstOrDefault(f => Path.GetFileName(f).StartsWith("stockfish", StringComparison.OrdinalIgnoreCase))
+            ?? candidates.FirstOrDefault();
+    }
+
+    private static void ExtractArchive(string archivePath, string targetDir)
+    {
+        if (archivePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+        {
+            ZipFile.ExtractToDirectory(archivePath, targetDir, overwriteFiles: true);
+        }
+        else if (archivePath.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase) ||
+                 archivePath.EndsWith(".tgz", StringComparison.OrdinalIgnoreCase))
+        {
+            using var fileStream = File.OpenRead(archivePath);
+            using var gzipStream = new GZipStream(fileStream, CompressionMode.Decompress);
+            TarFile.ExtractToDirectory(gzipStream, targetDir, overwriteFiles: true);
+        }
+        else
+        {
+            TarFile.ExtractToDirectory(archivePath, targetDir, overwriteFiles: true);
+        }
     }
 
     private void SaveConfig()
@@ -302,8 +342,11 @@ public class EngineManager : IEngineService, IDisposable
 
         string targetDir = Path.Combine(_engineStorageDir, engine.Id);
         Directory.CreateDirectory(targetDir);
-        bool isZip = downloadUrl.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
-        string tempArchive = Path.Combine(targetDir, isZip ? "engine_download.zip" : "engine_download.tar");
+        string ext = ".zip";
+        if (downloadUrl.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase)) ext = ".tar.gz";
+        else if (downloadUrl.EndsWith(".tgz", StringComparison.OrdinalIgnoreCase)) ext = ".tgz";
+        else if (downloadUrl.EndsWith(".tar", StringComparison.OrdinalIgnoreCase)) ext = ".tar";
+        string tempArchive = Path.Combine(targetDir, $"engine_download{ext}");
 
         try
         {
@@ -318,14 +361,7 @@ public class EngineManager : IEngineService, IDisposable
 
             progress?.Report(60);
 
-            if (isZip)
-            {
-                ZipFile.ExtractToDirectory(tempArchive, targetDir, overwriteFiles: true);
-            }
-            else
-            {
-                TarFile.ExtractToDirectory(tempArchive, targetDir, overwriteFiles: true);
-            }
+            ExtractArchive(tempArchive, targetDir);
 
             try { File.Delete(tempArchive); } catch { }
 
@@ -659,6 +695,255 @@ public class EngineManager : IEngineService, IDisposable
         if (_activeClient != null)
         {
             await _activeClient.StopAnalysisAsync();
+        }
+    }
+
+    public async Task<StockfishUpdateInfo> CheckStockfishUpdateAsync(bool force = false, CancellationToken ct = default)
+    {
+        if (!force && CachedStockfishUpdate != null && CachedStockfishUpdate.CheckedAt.HasValue &&
+            DateTime.UtcNow - CachedStockfishUpdate.CheckedAt.Value < TimeSpan.FromHours(1))
+        {
+            return CachedStockfishUpdate;
+        }
+
+        // Identify currently installed Stockfish
+        EngineInfo? currentSf;
+        lock (_lock)
+        {
+            currentSf = _engines
+                .Where(e => e.IsInstalled && e.Id.StartsWith("stockfish", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(e => StockfishVersionHelper.ParseStockfishVersion(e.Version ?? e.Name))
+                .FirstOrDefault();
+        }
+
+        double currentVerNum = currentSf != null ? StockfishVersionHelper.ParseStockfishVersion(currentSf.Version ?? currentSf.Name) : 0;
+        string currentVerStr = currentSf != null ? (!string.IsNullOrEmpty(currentSf.Name) ? currentSf.Name : $"v{currentSf.Version}") : "Not installed";
+
+        var updateInfo = new StockfishUpdateInfo
+        {
+            CurrentVersion = currentVerStr,
+            IsChecking = true,
+            StatusMessage = "Checking official Stockfish repository..."
+        };
+
+        CachedStockfishUpdate = updateInfo;
+        OnStockfishUpdateChanged?.Invoke(updateInfo);
+
+        try
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Get, "https://api.github.com/repos/official-stockfish/Stockfish/releases/latest");
+            request.Headers.Accept.ParseAdd("application/vnd.github.v3+json");
+
+            using var response = await _httpClient.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                updateInfo.IsChecking = false;
+                updateInfo.StatusMessage = $"Unable to check Stockfish updates (HTTP {(int)response.StatusCode}).";
+                updateInfo.CheckedAt = DateTime.UtcNow;
+                OnStockfishUpdateChanged?.Invoke(updateInfo);
+                return updateInfo;
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync(ct);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            var root = doc.RootElement;
+
+            string tagName = root.TryGetProperty("tag_name", out var tProp) ? tProp.GetString() ?? "" : "";
+            string releaseTitle = root.TryGetProperty("name", out var nProp) ? nProp.GetString() ?? "" : "";
+            string releaseNotes = root.TryGetProperty("body", out var bProp) ? bProp.GetString() ?? "" : "";
+
+            var assetTuples = new List<StockfishReleaseAsset>();
+            if (root.TryGetProperty("assets", out var assetsElem) && assetsElem.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var a in assetsElem.EnumerateArray())
+                {
+                    string aName = a.TryGetProperty("name", out var nameP) ? nameP.GetString() ?? "" : "";
+                    string aUrl = a.TryGetProperty("browser_download_url", out var urlP) ? urlP.GetString() ?? "" : "";
+                    long aSize = a.TryGetProperty("size", out var sizeP) ? sizeP.GetInt64() : 0;
+                    if (!string.IsNullOrEmpty(aName) && !string.IsNullOrEmpty(aUrl))
+                    {
+                        assetTuples.Add(new StockfishReleaseAsset(aName, aUrl, aSize));
+                    }
+                }
+            }
+
+            var bestAsset = StockfishVersionHelper.SelectBestAsset(assetTuples);
+            double latestVerNum = StockfishVersionHelper.ParseStockfishVersion(!string.IsNullOrEmpty(releaseTitle) ? releaseTitle : tagName);
+
+            bool isUpdateAvailable = (currentSf != null && currentSf.IsInstalled) && (latestVerNum > currentVerNum);
+
+            updateInfo.LatestVersion = !string.IsNullOrEmpty(releaseTitle) ? releaseTitle : tagName;
+            updateInfo.ReleaseTag = tagName;
+            updateInfo.ReleaseTitle = releaseTitle;
+            updateInfo.ReleaseNotes = releaseNotes;
+            updateInfo.IsUpdateAvailable = isUpdateAvailable;
+            updateInfo.IsChecking = false;
+            updateInfo.CheckedAt = DateTime.UtcNow;
+
+            if (bestAsset != null)
+            {
+                updateInfo.AssetName = bestAsset.Name;
+                updateInfo.DownloadUrl = bestAsset.Url;
+                updateInfo.AssetSizeBytes = bestAsset.Size;
+            }
+
+            if (isUpdateAvailable)
+            {
+                updateInfo.StatusMessage = $"New release {updateInfo.LatestVersion} available!";
+            }
+            else if (currentSf != null && currentSf.IsInstalled)
+            {
+                updateInfo.StatusMessage = "Stockfish is up to date.";
+            }
+            else
+            {
+                updateInfo.StatusMessage = $"{updateInfo.LatestVersion} ready to install.";
+            }
+
+            CachedStockfishUpdate = updateInfo;
+            OnStockfishUpdateChanged?.Invoke(updateInfo);
+            return updateInfo;
+        }
+        catch (Exception ex)
+        {
+            updateInfo.IsChecking = false;
+            updateInfo.StatusMessage = $"Could not check Stockfish updates: {ex.Message}";
+            updateInfo.CheckedAt = DateTime.UtcNow;
+            CachedStockfishUpdate = updateInfo;
+            OnStockfishUpdateChanged?.Invoke(updateInfo);
+            return updateInfo;
+        }
+    }
+
+    public async Task<bool> UpdateStockfishAsync(IProgress<int>? progress = null, CancellationToken ct = default)
+    {
+        var update = CachedStockfishUpdate;
+        if (update == null || string.IsNullOrEmpty(update.DownloadUrl))
+        {
+            update = await CheckStockfishUpdateAsync(force: true, ct);
+        }
+
+        if (string.IsNullOrEmpty(update.DownloadUrl))
+        {
+            return false;
+        }
+
+        progress?.Report(5);
+
+        double versionNum = StockfishVersionHelper.ParseStockfishVersion(update.LatestVersion);
+        int major = versionNum > 0 ? (int)Math.Floor(versionNum) : 19;
+        string engineId = $"stockfish-{major}";
+        string targetDir = Path.Combine(_engineStorageDir, engineId);
+        Directory.CreateDirectory(targetDir);
+
+        string ext = ".zip";
+        if (update.DownloadUrl.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase)) ext = ".tar.gz";
+        else if (update.DownloadUrl.EndsWith(".tgz", StringComparison.OrdinalIgnoreCase)) ext = ".tgz";
+        else if (update.DownloadUrl.EndsWith(".tar", StringComparison.OrdinalIgnoreCase)) ext = ".tar";
+
+        string tempArchive = Path.Combine(targetDir, $"stockfish_download{ext}");
+
+        try
+        {
+            progress?.Report(10);
+
+            using (var response = await _httpClient.GetAsync(update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct))
+            {
+                response.EnsureSuccessStatusCode();
+                using var fs = new FileStream(tempArchive, FileMode.Create, FileAccess.Write, FileShare.None);
+                await response.Content.CopyToAsync(fs, ct);
+            }
+
+            progress?.Report(60);
+
+            ExtractArchive(tempArchive, targetDir);
+
+            try { File.Delete(tempArchive); } catch { }
+
+            progress?.Report(80);
+
+            var binary = FindExecutableInDirectory(targetDir);
+            if (binary == null)
+            {
+                Console.WriteLine($"[EngineManager] Executable not found in {targetDir}");
+                return false;
+            }
+
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                try
+                {
+                    File.SetUnixFileMode(binary,
+                        UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
+                        UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
+                        UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
+                }
+                catch { }
+            }
+
+            progress?.Report(90);
+
+            var probe = await ProbeEngineFileAsync(binary);
+            string finalName = probe.Success && !string.IsNullOrEmpty(probe.Name)
+                ? probe.Name
+                : (!string.IsNullOrEmpty(update.ReleaseTitle) ? update.ReleaseTitle : $"Stockfish {major}");
+
+            lock (_lock)
+            {
+                var existing = _engines.FirstOrDefault(e => e.Id == engineId);
+                if (existing != null)
+                {
+                    existing.Name = finalName;
+                    existing.ExecutablePath = binary;
+                    existing.IsInstalled = true;
+                    existing.Version = $"{major}.0";
+                    existing.Author = !string.IsNullOrEmpty(probe.Author) ? probe.Author : "The Stockfish Developers";
+                    existing.DownloadUrl = update.DownloadUrl;
+                }
+                else
+                {
+                    var newEng = new EngineInfo
+                    {
+                        Id = engineId,
+                        Name = finalName,
+                        Version = $"{major}.0",
+                        Author = !string.IsNullOrEmpty(probe.Author) ? probe.Author : "The Stockfish Developers",
+                        ExecutablePath = binary,
+                        DownloadUrl = update.DownloadUrl,
+                        IsInstalled = true,
+                        IsCustom = false,
+                        DateAdded = DateTime.UtcNow
+                    };
+                    _engines.Insert(0, newEng);
+                }
+
+                _activeEngineId = engineId;
+                UpdateActiveFlag();
+                SaveConfig();
+            }
+
+            if (_activeClient != null)
+            {
+                await _activeClient.StopAnalysisAsync();
+                _activeClient.Dispose();
+                _activeClient = null;
+            }
+
+            update.IsUpdateAvailable = false;
+            update.CurrentVersion = finalName;
+            update.StatusMessage = $"Stockfish successfully updated to {finalName}!";
+            CachedStockfishUpdate = update;
+
+            progress?.Report(100);
+
+            OnEnginesChanged?.Invoke();
+            OnStockfishUpdateChanged?.Invoke(update);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[EngineManager] Failed to update Stockfish: {ex.Message}");
+            return false;
         }
     }
 

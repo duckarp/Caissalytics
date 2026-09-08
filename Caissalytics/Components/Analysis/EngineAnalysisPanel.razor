@@ -20,6 +20,16 @@
 				}
 			</select>
 
+			@if (_stockfishUpdate != null && _stockfishUpdate.IsUpdateAvailable)
+			{
+				<button class="btn-engine-update-pill"
+						@onclick="UpdateStockfishDirectly"
+						disabled="@_isUpdatingStockfish"
+						title="Update Stockfish to @_stockfishUpdate.LatestVersion">
+					@(_isUpdatingStockfish ? $"Updating ({_updateProgress}%)..." : $"⚡ Update to {_stockfishUpdate.ReleaseTag.Replace("sf_", "SF ")}")
+				</button>
+			}
+
 			<select class="multipv-select-dropdown" value="@MultiPv" @onchange="HandleMultiPvChange" disabled="@(!IsAnalyzing)">
 				<option value="1">1 Line</option>
 				<option value="2">2 Lines</option>
@@ -111,10 +121,19 @@
 	private int _installProgress = 0;
 	private List<EngineInfo> _installedEngines = new();
 	private string _activeEngineId = "";
+	private StockfishUpdateInfo? _stockfishUpdate;
+	private bool _isUpdatingStockfish = false;
+	private int _updateProgress = 0;
 
 	protected override async Task OnInitializedAsync()
 	{
 		EngineService.OnEnginesChanged += HandleEnginesChanged;
+		EngineService.OnStockfishUpdateChanged += HandleStockfishUpdateChanged;
+		_stockfishUpdate = EngineService.CachedStockfishUpdate;
+		if (_stockfishUpdate == null)
+		{
+			_ = EngineService.CheckStockfishUpdateAsync();
+		}
 		await LoadEnginesAsync();
 	}
 
@@ -184,9 +203,37 @@
 		StateHasChanged();
 	}
 
+	private async Task UpdateStockfishDirectly()
+	{
+		_isUpdatingStockfish = true;
+		_updateProgress = 0;
+		StateHasChanged();
+
+		var progress = new Progress<int>(p =>
+		{
+			_updateProgress = p;
+			InvokeAsync(StateHasChanged);
+		});
+
+		await EngineService.UpdateStockfishAsync(progress);
+		_isUpdatingStockfish = false;
+		await LoadEnginesAsync();
+		StateHasChanged();
+	}
+
+	private async void HandleStockfishUpdateChanged(StockfishUpdateInfo info)
+	{
+		await InvokeAsync(() =>
+		{
+			_stockfishUpdate = info;
+			StateHasChanged();
+		});
+	}
+
 	public void Dispose()
 	{
 		EngineService.OnEnginesChanged -= HandleEnginesChanged;
+		EngineService.OnStockfishUpdateChanged -= HandleStockfishUpdateChanged;
 	}
 
 	private async Task AddPvAsVariation(List<string> uciMoves)

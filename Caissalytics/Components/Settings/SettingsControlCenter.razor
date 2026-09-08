@@ -184,11 +184,91 @@
 						<p class="card-section-desc">Manage installed engines, select the active engine for live analysis and game reports, or add custom binaries.</p>
 					</div>
 
+					<!-- Stockfish Spotlight & 1-Click Update Card -->
+					<div class="stockfish-spotlight-card">
+						<div class="stockfish-spotlight-header">
+							<div class="stockfish-spotlight-title-group">
+								<span class="stockfish-logo-icon">🐟</span>
+								<div>
+									<h4 class="stockfish-spotlight-title">Official Stockfish Engine</h4>
+									<p class="stockfish-spotlight-subtitle">The world's strongest open-source chess evaluation engine.</p>
+								</div>
+							</div>
+							<div class="stockfish-spotlight-actions">
+								<button class="btn-secondary btn-sm" disabled="@_isCheckingSfUpdate" @onclick="CheckStockfishUpdateNowAsync">
+									@(_isCheckingSfUpdate ? "Checking..." : "🔍 Check for Stockfish Update")
+								</button>
+							</div>
+						</div>
+
+						@if (_sfUpdate != null && _sfUpdate.IsUpdateAvailable)
+						{
+							<div class="stockfish-update-banner update-ready">
+								<div class="stockfish-update-content">
+									<div class="stockfish-update-info">
+										<span class="stockfish-update-title">🌟 New Version Available: @_sfUpdate.LatestVersion</span>
+										<span class="stockfish-update-desc">
+											Current: @_sfUpdate.CurrentVersion. Upgrade to official universal binary with upgraded neural network architecture and strength gains.
+											@if (!string.IsNullOrEmpty(_sfUpdate.FormattedAssetSize))
+											{
+												<span> (@_sfUpdate.FormattedAssetSize)</span>
+											}
+										</span>
+									</div>
+									<div class="stockfish-update-actions">
+										<button class="btn-primary" disabled="@_isUpdatingSf" @onclick="UpdateStockfishNowAsync">
+											@(_isUpdatingSf ? $"Updating ({_sfUpdateProgress}%)..." : $"🚀 1-Click Update to {_sfUpdate.LatestVersion}")
+										</button>
+									</div>
+								</div>
+
+								@if (_isUpdatingSf)
+								{
+									<div class="update-progress-container">
+										<div class="update-progress-bar">
+											<div class="update-progress-fill" style="width: @(_sfUpdateProgress)%"></div>
+										</div>
+										<span class="update-progress-text">@_sfUpdatePhase</span>
+									</div>
+								}
+							</div>
+						}
+						else if (_isUpdatingSf)
+						{
+							<div class="stockfish-update-banner">
+								<div class="update-progress-container">
+									<div class="update-progress-bar">
+										<div class="update-progress-fill" style="width: @(_sfUpdateProgress)%"></div>
+									</div>
+									<span class="update-progress-text">@_sfUpdatePhase</span>
+								</div>
+							</div>
+						}
+						else if (_sfUpdateSuccess)
+						{
+							<div class="probe-feedback-box probe-success">
+								<span>✅ Stockfish updated successfully! Activated for live analysis and game evaluations.</span>
+							</div>
+						}
+						else if (_sfUpdate != null && !_sfUpdate.IsChecking && !string.IsNullOrEmpty(_sfUpdate.StatusMessage))
+						{
+							<div class="stockfish-update-desc">
+								<span>@_sfUpdate.StatusMessage</span>
+								@if (_sfUpdate.CheckedAt.HasValue)
+								{
+									<span> (Checked: @_sfUpdate.CheckedAt.Value.ToLocalTime().ToString("HH:mm"))</span>
+								}
+							</div>
+						}
+					</div>
+
 					<!-- Registered engines list -->
 					<div class="engines-list-wrapper">
 						@foreach (var eng in _engines)
 						{
 							bool isActive = eng.IsActive;
+							bool isSf = eng.Id.StartsWith("stockfish", StringComparison.OrdinalIgnoreCase);
+							bool hasSfUpdate = isSf && _sfUpdate != null && _sfUpdate.IsUpdateAvailable;
 							string cardClass = isActive ? "engine-entry-card engine-entry-active" : "engine-entry-card";
 
 							<div class="@cardClass">
@@ -200,6 +280,10 @@
 											@if (isActive)
 											{
 												<span class="engine-badge-active">Active Engine</span>
+											}
+											@if (hasSfUpdate)
+											{
+												<span class="engine-badge-update">Update to @_sfUpdate!.LatestVersion available</span>
 											}
 											@if (eng.IsCustom)
 											{
@@ -225,6 +309,13 @@
 								</div>
 
 								<div class="engine-entry-actions">
+									@if (hasSfUpdate)
+									{
+										<button class="btn-primary btn-sm" disabled="@_isUpdatingSf" @onclick="UpdateStockfishNowAsync">
+											@(_isUpdatingSf ? "Updating..." : "⚡ Update")
+										</button>
+									}
+
 									@if (eng.IsInstalled)
 									{
 										@if (!isActive)
@@ -785,6 +876,14 @@
 	private bool _isScanning = false;
 	private string _scanResultText = "";
 
+	// Stockfish 1-Click Update State
+	private StockfishUpdateInfo? _sfUpdate;
+	private bool _isCheckingSfUpdate = false;
+	private bool _isUpdatingSf = false;
+	private int _sfUpdateProgress = 0;
+	private string _sfUpdatePhase = "";
+	private bool _sfUpdateSuccess = false;
+
 	// Online Sync State
 	private OnlineSyncConfig _syncConfig = new();
 	private bool _syncConfigSaved = false;
@@ -824,6 +923,7 @@
 		}
 
 		EngineService.OnEnginesChanged += HandleEnginesChanged;
+		EngineService.OnStockfishUpdateChanged += HandleStockfishUpdateChanged;
 		ProfileService.OnProfileChanged += HandleProfileChanged;
 		UpdateService.OnUpdateStateChanged += HandleUpdateChanged;
 
@@ -836,6 +936,12 @@
 		await LoadEnginesAsync();
 		await LoadSyncConfigAsync();
 		await LoadOnlineDatabaseInfoAsync();
+
+		_sfUpdate = EngineService.CachedStockfishUpdate;
+		if (_sfUpdate == null)
+		{
+			_ = CheckStockfishUpdateNowAsync();
+		}
 
 		_localSyzygyPath = TablebaseService.LocalSyzygyPath ?? EngineService.SyzygyPath;
 		_onlineTbEnabled = TablebaseService.IsOnlineProbeEnabled;
@@ -1085,8 +1191,63 @@
 	public void Dispose()
 	{
 		EngineService.OnEnginesChanged -= HandleEnginesChanged;
+		EngineService.OnStockfishUpdateChanged -= HandleStockfishUpdateChanged;
 		ProfileService.OnProfileChanged -= HandleProfileChanged;
 		UpdateService.OnUpdateStateChanged -= HandleUpdateChanged;
+	}
+
+	private async Task CheckStockfishUpdateNowAsync()
+	{
+		_isCheckingSfUpdate = true;
+		_sfUpdateSuccess = false;
+		StateHasChanged();
+		try
+		{
+			_sfUpdate = await EngineService.CheckStockfishUpdateAsync(force: true);
+		}
+		finally
+		{
+			_isCheckingSfUpdate = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task UpdateStockfishNowAsync()
+	{
+		_isUpdatingSf = true;
+		_sfUpdateProgress = 0;
+		_sfUpdatePhase = "Downloading official binary archive...";
+		_sfUpdateSuccess = false;
+		StateHasChanged();
+
+		var progress = new Progress<int>(p =>
+		{
+			_sfUpdateProgress = p;
+			if (p < 60) _sfUpdatePhase = $"Downloading official binary ({p}%)...";
+			else if (p < 85) _sfUpdatePhase = "Extracting archive and preparing executable...";
+			else if (p < 100) _sfUpdatePhase = "Verifying UCI handshake...";
+			else _sfUpdatePhase = "Update complete!";
+			InvokeAsync(StateHasChanged);
+		});
+
+		bool success = await EngineService.UpdateStockfishAsync(progress);
+		_isUpdatingSf = false;
+		if (success)
+		{
+			_sfUpdateSuccess = true;
+			await LoadEnginesAsync();
+			_ = Task.Delay(5000).ContinueWith(_ => InvokeAsync(() => { _sfUpdateSuccess = false; StateHasChanged(); }));
+		}
+		StateHasChanged();
+	}
+
+	private async void HandleStockfishUpdateChanged(StockfishUpdateInfo info)
+	{
+		await InvokeAsync(() =>
+		{
+			_sfUpdate = info;
+			StateHasChanged();
+		});
 	}
 
 	private async Task CheckForUpdatesNowAsync()

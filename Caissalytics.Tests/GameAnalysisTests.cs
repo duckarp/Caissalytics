@@ -21,6 +21,10 @@ public class FakeEngineService : IEngineService
     public bool IsAnalyzing => false;
     public string? SyzygyPath { get; set; }
     public Task SetSyzygyPathAsync(string? path) { SyzygyPath = path; return Task.CompletedTask; }
+    public Task<StockfishUpdateInfo> CheckStockfishUpdateAsync(bool force = false, CancellationToken ct = default) => Task.FromResult(new StockfishUpdateInfo());
+    public Task<bool> UpdateStockfishAsync(IProgress<int>? progress = null, CancellationToken ct = default) => Task.FromResult(true);
+    public StockfishUpdateInfo? CachedStockfishUpdate => null;
+    public event Action<StockfishUpdateInfo>? OnStockfishUpdateChanged { add { } remove { } }
     public event Action? OnEnginesChanged { add { } remove { } }
 }
 

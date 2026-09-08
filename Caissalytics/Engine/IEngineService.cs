@@ -18,5 +18,10 @@ public interface IEngineService
     string? SyzygyPath { get; }
     Task SetSyzygyPathAsync(string? path);
 
+    Task<StockfishUpdateInfo> CheckStockfishUpdateAsync(bool force = false, CancellationToken ct = default);
+    Task<bool> UpdateStockfishAsync(IProgress<int>? progress = null, CancellationToken ct = default);
+    StockfishUpdateInfo? CachedStockfishUpdate { get; }
+    event Action<StockfishUpdateInfo>? OnStockfishUpdateChanged;
+
     event Action? OnEnginesChanged;
 }
