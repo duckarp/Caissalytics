@@ -157,11 +157,16 @@
 	{
 		if (IsOpen && Tree != null)
 		{
-			_databases = await DatabaseService.GetDatabasesAsync();
+			var allDbs = await DatabaseService.GetDatabasesAsync();
+			_databases = allDbs.Where(d => !string.Equals(d.Name, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase)).ToList();
 			var activeDb = _databases.FirstOrDefault(d => d.IsActive) ?? _databases.FirstOrDefault();
 
-			_selectedDb = !string.IsNullOrEmpty(InitialDatabase) && _databases.Any(d => d.Name == InitialDatabase)
-				? InitialDatabase
+			bool isInitialValid = !string.IsNullOrEmpty(InitialDatabase) &&
+				!string.Equals(InitialDatabase, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase) &&
+				_databases.Any(d => d.Name == InitialDatabase);
+
+			_selectedDb = isInitialValid
+				? InitialDatabase!
 				: (activeDb?.Name ?? "ClassicalMasters");
 
 			_saveMode = CanOverwrite ? "update" : "new";

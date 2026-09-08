@@ -9,4 +9,5 @@ public interface IOnlineGameSyncService
         OnlineSyncConfig config,
         IProgress<OnlineSyncProgress>? progress = null,
         CancellationToken cancellationToken = default);
+    Task<int> PurgeNonSyncedGamesAsync(UserProfile profile, CancellationToken cancellationToken = default);
 }

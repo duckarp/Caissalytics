@@ -35,6 +35,9 @@ graph TD
         Analysis["GameAnalysisService"]
         Sync["OnlineGameSyncService"]
         Explorer["LichessExplorerClient"]
+        Dossier["OpponentDossierService"]
+        Fide["FideScoutingService"]
+        CR["ChessResultsScoutingService"]
     end
 
     subgraph "Persistence & Local Data"
@@ -49,8 +52,12 @@ graph TD
     Blazor --> Analysis
     Blazor --> Sync
     Blazor --> Explorer
+    Blazor --> Dossier
     Blazor --> RepStore
     Blazor --> PuzzleStore
+    Dossier --> Fide
+    Dossier --> CR
+    Dossier --> DBMgr
 
     EngineMgr --> Pos
     Analysis --> MoveGen
@@ -197,7 +204,17 @@ The heuristic vulnerability scanner flags actionable weaknesses:
 - **Low Scoring Repertoire Lines**: Flags lines where the opponent's score is $\le 35\%$ across $\ge 2$ games, generating targeted preparation recommendations.
 - **Defensive Chinks**: Pinpoints specific openings as Black with high loss rates.
 - **Phase Fatigue**: Identifies tactical fragility in the early phase or technical decline in deep endgames.
-- **Color Asymmetry**: Detects significant disparity between White and Black performance.
+### Internet Scouting Pipeline (FIDE & Chess-Results)
+The dossier engine integrates live external scouting services:
+- **`IFideScoutingService` / `FideScoutingService`**:
+  - Live player card retrieval via `https://ratings.fide.com/profile/{fideId}`.
+  - Parses Classical/Standard, Rapid, and Blitz Elo ratings, FIDE titles (GM, IM, FM, CM, WGM, etc.), federation code, flag SVG, and World/National active ranks.
+  - Live name search autocomplete via FIDE database query (`incl_search_l.php`).
+- **`IChessResultsScoutingService` / `ChessResultsScoutingService`**:
+  - Direct tournament participation search on `chess-results.com` (`SpielerSuche.aspx`), extracting recent event names, dates, round counts, and player crosstable links.
+  - Automatic PGN download from `PartieSuche.aspx` to import broadcast and tournament games into the active SQLite database with zero duplication.
+- **Unified Scouting Report Synthesis**:
+  - Merges local database games with online FIDE rating cards, Chess-Results tournament cards, and online accounts into a single cohesive dossier.
 
 ---
 

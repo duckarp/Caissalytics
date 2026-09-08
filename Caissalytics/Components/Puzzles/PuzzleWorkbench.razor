@@ -12,7 +12,34 @@
 <div class="puzzles-workbench-container">
 	<!-- Left: Board & Turn Header -->
 	<div class="puzzles-board-area">
-		@if (_currentPuzzle != null)
+		@if (_isLoading)
+		{
+			<div class="puzzles-turn-indicator">
+				<div class="turn-pill">
+					<span class="puzzles-loading-indicator-dot"></span>
+					<span>Loading @GetFilterModeTitle()...</span>
+				</div>
+			</div>
+			<div class="puzzles-loading-container">
+				<div class="puzzles-loading-spinner"></div>
+				<h3 class="puzzles-loading-title">Loading @GetFilterModeTitle()</h3>
+				<p class="puzzles-loading-subtitle">
+					@if (_filterMode == "blunders")
+					{
+						<span>Scanning your games and compiling personal blunder drills...</span>
+					}
+					else if (_filterMode == "review")
+					{
+						<span>Preparing your spaced-repetition review queue...</span>
+					}
+					else
+					{
+						<span>Fetching tactical challenges...</span>
+					}
+				</p>
+			</div>
+		}
+		else if (_currentPuzzle != null)
 		{
 			<div class="puzzles-turn-indicator">
 				<div class="turn-pill">
@@ -36,16 +63,29 @@
 							  Tree="@_puzzleTree"
 							  OnMoveMade="HandleMoveMade" />
 		}
-		else if (_isLoading)
-		{
-			<div class="puzzles-turn-indicator">
-				<span>Loading puzzles...</span>
-			</div>
-		}
 		else
 		{
 			<div class="puzzles-turn-indicator">
-				<span>No puzzles found for this filter.</span>
+				<span>@(_filterMode == "blunders" ? "My Blunders: 0 Found" : "No Puzzles Found")</span>
+			</div>
+			<div class="puzzles-empty-state">
+				<span class="empty-state-icon">♟️</span>
+				@if (_filterMode == "blunders")
+				{
+					<h4>No personal blunder drills yet</h4>
+					<p>Caissalytics generates personal drills from games where you made a mistake or blunder.</p>
+					<p>Sync your online games or analyze games with Stockfish, then click <strong>Scan Games for Blunders</strong> below.</p>
+				}
+				else if (_filterMode == "review")
+				{
+					<h4>Review queue is clear!</h4>
+					<p>Puzzles you fail during practice will automatically appear here for spaced repetition.</p>
+				}
+				else
+				{
+					<h4>No puzzles found</h4>
+					<p>Try selecting another category above or scan your database.</p>
+				}
 			</div>
 		}
 	</div>
@@ -183,25 +223,29 @@
 					@if (_solveState == SolveState.Success || _solveState == SolveState.SolutionRevealed)
 					{
 						<button class="btn-puzzle btn-next" @onclick="NextPuzzle">
-							<span>Next Puzzle</span>
-							<span>➔</span>
+							<span class="btn-puzzle-icon">➔</span>
+							<span class="btn-puzzle-text">Next Puzzle</span>
 						</button>
 					}
 					else
 					{
-						<button class="btn-puzzle btn-secondary-action" @onclick="ShowSolution">
-							<span>💡 Solution</span>
+						<button class="btn-puzzle btn-secondary-action" @onclick="ShowSolution" title="Reveal the tactical solution">
+							<span class="btn-puzzle-icon">💡</span>
+							<span class="btn-puzzle-text">Solution</span>
 						</button>
-						<button class="btn-puzzle btn-secondary-action" @onclick="ResetPuzzle">
-							<span>↺ Reset</span>
+						<button class="btn-puzzle btn-secondary-action" @onclick="ResetPuzzle" title="Restart this puzzle from the initial position">
+							<span class="btn-puzzle-icon">↺</span>
+							<span class="btn-puzzle-text">Reset</span>
 						</button>
-						<button class="btn-puzzle btn-secondary-action" @onclick="NextPuzzle">
-							<span>Skip</span>
+						<button class="btn-puzzle btn-secondary-action" @onclick="NextPuzzle" title="Skip to the next puzzle">
+							<span class="btn-puzzle-icon">⏭</span>
+							<span class="btn-puzzle-text">Skip</span>
 						</button>
 					}
 
 					<button class="btn-puzzle btn-secondary-action" @onclick="OpenInAnalysisBoard" title="Explore position in Stockfish Analysis Board">
-						<span>♟️ Analyze</span>
+						<span class="btn-puzzle-icon">♟️</span>
+						<span class="btn-puzzle-text">Analyze</span>
 					</button>
 				</div>
 			</div>
@@ -284,17 +328,23 @@
 		if (_filterMode == mode) return;
 		_filterMode = mode;
 		_currentIndex = 0;
+		_currentPuzzle = null;
+		_isLoading = true;
+		StateHasChanged();
+		await Task.Yield();
 		await LoadPuzzlesAsync();
 	}
 
 	private async Task LoadPuzzlesAsync()
 	{
 		_isLoading = true;
+		_currentPuzzle = null;
 		_extractStatus = null;
 		StateHasChanged();
+		await Task.Yield();
 
 		var filter = new PuzzleFilterOptions { Mode = _filterMode };
-		_puzzles = await PuzzleService.GetPuzzlesAsync(filter);
+		_puzzles = await Task.Run(() => PuzzleService.GetPuzzlesAsync(filter));
 		_isLoading = false;
 
 		if (_puzzles.Count > 0)
@@ -309,6 +359,14 @@
 
 		StateHasChanged();
 	}
+
+	private string GetFilterModeTitle() => _filterMode switch
+	{
+		"blunders" => "My Blunders",
+		"curated" => "Master Tactics",
+		"review" => "Review Queue",
+		_ => "Puzzles"
+	};
 
 	private void SetupPuzzle(int index)
 	{
@@ -476,7 +534,7 @@
 				targetDb = active.Name;
 			}
 
-			int found = await PuzzleService.ExtractPuzzlesFromDatabaseAsync(targetDb);
+			int found = await Task.Run(() => PuzzleService.ExtractPuzzlesFromDatabaseAsync(targetDb));
 			_extractStatus = found > 0
 				? $"Extracted {found} tactical blunders from '{targetDb}'!"
 				: $"No blunder annotations found in '{targetDb}'. Try analyzing your games with Stockfish first!";

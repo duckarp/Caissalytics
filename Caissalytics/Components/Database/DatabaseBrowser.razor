@@ -60,9 +60,12 @@
 		</div>
 
 		<div class="db-sidebar-footer">
-			<button class="btn-primary" @onclick="AddNewGame">+ Add a new game</button>
 			<button class="btn-secondary btn-master-lib" @onclick="OpenMasterLibraryModal">📚 Master Library</button>
-			<button class="btn-secondary" @onclick="() => _showImportModal = true">📥 Import PGN</button>
+			@if (!IsOnlineGamesDb(_currentDbName))
+			{
+				<button class="btn-primary" @onclick="AddNewGame">+ Add a new game</button>
+				<button class="btn-secondary" @onclick="() => _showImportModal = true">📥 Import PGN</button>
+			}
 		</div>
 	</div>
 
@@ -87,9 +90,13 @@
 				@if (IsOnlineGamesDb(_currentDbName))
 				{
 					<button class="btn-secondary" @onclick="OpenOnlineSyncModal">🔄 Sync games</button>
+					<button class="btn-secondary btn-clean-foreign" title="Scan and purge scouted/foreign games not belonging to your online handles" @onclick="PromptCleanForeignGames">🧹 Clean foreign games</button>
 				}
-				<button class="btn-primary" @onclick="AddNewGame">+ Add a new game</button>
-				<button class="btn-secondary" @onclick="() => _showImportModal = true">📥 Import PGN</button>
+				else
+				{
+					<button class="btn-primary" @onclick="AddNewGame">+ Add a new game</button>
+					<button class="btn-secondary" @onclick="() => _showImportModal = true">📥 Import PGN</button>
+				}
 			</div>
 		</div>
 
@@ -258,6 +265,67 @@
 				 OnClose="() => _showImportModal = false"
 				 OnImportCompleted="HandleImportCompletedAsync" />
 
+<!-- Clean Foreign Games Confirmation Modal -->
+@if (_showCleanForeignModal)
+{
+	<div class="modal-backdrop" @onclick="() => _showCleanForeignModal = false">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<h3 class="modal-title">🧹 Clean Foreign Games from @SyncService.OnlineGamesDatabaseName</h3>
+				<button class="modal-close-btn" @onclick="() => _showCleanForeignModal = false">✕</button>
+			</div>
+			<div class="modal-body">
+				<p class="modal-desc">
+					"My online games" is reserved for games synced from your online accounts (Lichess &amp; Chess.com).
+				</p>
+				@if (_isScanningForeign)
+				{
+					<div class="reference-empty-state">
+						<span>Scanning for foreign games...</span>
+					</div>
+				}
+				else if (_foreignGamesCount == 0)
+				{
+					<div class="clean-foreign-empty-state">
+						<span class="empty-state-icon">✅</span>
+						<h4>All Clean!</h4>
+						<p>All games in "@SyncService.OnlineGamesDatabaseName" match your profile handles. No foreign or scouted games found.</p>
+					</div>
+				}
+				else
+				{
+					<div class="modal-warning-box">
+						<div class="modal-warning-title">⚠️ Non-Profile Games Detected</div>
+						<div>Found <strong>@_foreignGamesCount</strong> @(_foreignGamesCount == 1 ? "game" : "games") that do not belong to your online accounts:</div>
+						<div class="clean-foreign-handles-list">
+							Active Profile Handles: <strong>@(GetActiveProfileHandlesString())</strong>
+						</div>
+						<div class="modal-irreversible-warning">
+							Purging will remove these foreign/scouted games and keep only your personal online matches.
+						</div>
+					</div>
+				}
+
+				@if (!string.IsNullOrEmpty(_cleanStatus))
+				{
+					<div class="stat-pill-sub clean-status-msg">@_cleanStatus</div>
+				}
+			</div>
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="() => _showCleanForeignModal = false">
+					@(_cleanFinished ? "Close" : "Cancel")
+				</button>
+				@if (!_isScanningForeign && _foreignGamesCount > 0 && !_cleanFinished)
+				{
+					<button class="btn-danger" @onclick="ExecuteCleanForeignGamesAsync" disabled="@_isCleaningForeign">
+						@(_isCleaningForeign ? "Cleaning..." : $"Purge {_foreignGamesCount} Foreign Games")
+					</button>
+				}
+			</div>
+		</div>
+	</div>
+}
+
 <!-- Delete Game Confirmation Modal -->
 @if (_showDeleteModal && _gameToDelete != null)
 {
@@ -418,6 +486,12 @@
 	private bool _showDeleteDbModal = false;
 	private DatabaseInfo? _dbToDelete;
 	private bool _showOnlineSyncModal = false;
+	private bool _showCleanForeignModal = false;
+	private bool _isScanningForeign = false;
+	private bool _isCleaningForeign = false;
+	private bool _cleanFinished = false;
+	private int _foreignGamesCount = 0;
+	private string _cleanStatus = "";
 	private UserProfile _userProfile = new();
 
 	private bool _showMasterLibModal = false;
@@ -448,7 +522,24 @@
 		DatabaseService.OnDatabaseModified += HandleDatabaseModified;
 		ProfileService.OnProfileChanged += HandleProfileChanged;
 		await LoadProfileAsync();
+
+		if (Tab != null && !string.IsNullOrWhiteSpace(Tab.TargetDatabase))
+		{
+			_currentDbName = Tab.TargetDatabase;
+			Tab.TargetDatabase = null;
+		}
+
 		await LoadDatabasesAsync();
+	}
+
+	protected override async Task OnParametersSetAsync()
+	{
+		if (Tab != null && !string.IsNullOrWhiteSpace(Tab.TargetDatabase))
+		{
+			string target = Tab.TargetDatabase;
+			Tab.TargetDatabase = null;
+			await SelectDatabaseAsync(target);
+		}
 	}
 
 	private async Task LoadProfileAsync()
@@ -750,6 +841,74 @@
 			"1/2-1/2" => "ref-result-draw",
 			_ => ""
 		};
+	}
+
+	private string GetActiveProfileHandlesString()
+	{
+		var handles = new List<string>();
+		if (!string.IsNullOrWhiteSpace(_userProfile.LichessUsername)) handles.Add($"Lichess: {_userProfile.LichessUsername}");
+		if (!string.IsNullOrWhiteSpace(_userProfile.ChessComUsername)) handles.Add($"Chess.com: {_userProfile.ChessComUsername}");
+		if (!string.IsNullOrWhiteSpace(_userProfile.FullName)) handles.Add(_userProfile.FullName);
+		if (!string.IsNullOrWhiteSpace(_userProfile.FideId)) handles.Add($"FIDE: {_userProfile.FideId}");
+		return handles.Count > 0 ? string.Join(", ", handles) : "No online handles configured";
+	}
+
+	private async Task PromptCleanForeignGames()
+	{
+		_showCleanForeignModal = true;
+		_isScanningForeign = true;
+		_isCleaningForeign = false;
+		_cleanFinished = false;
+		_cleanStatus = "";
+		_foreignGamesCount = 0;
+		StateHasChanged();
+
+		try
+		{
+			var allHeaders = await DatabaseService.GetAllGameHeadersAsync(SyncService.OnlineGamesDatabaseName);
+			_foreignGamesCount = allHeaders.Count(g =>
+			{
+				bool isUserGame = _userProfile.MatchesPlayer(g.White) || _userProfile.MatchesPlayer(g.Black);
+				bool isOnlinePlatform = g.Platform == "lichess" || g.Platform == "chesscom";
+				return !isUserGame || !isOnlinePlatform;
+			});
+		}
+		catch (Exception ex)
+		{
+			_cleanStatus = $"Scan error: {ex.Message}";
+			_foreignGamesCount = 0;
+		}
+		finally
+		{
+			_isScanningForeign = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task ExecuteCleanForeignGamesAsync()
+	{
+		_isCleaningForeign = true;
+		_cleanStatus = "Purging foreign and scouted games...";
+		StateHasChanged();
+
+		try
+		{
+			int purged = await SyncService.PurgeNonSyncedGamesAsync(_userProfile);
+			_cleanFinished = true;
+			_cleanStatus = $"Successfully purged {purged} foreign games from '{SyncService.OnlineGamesDatabaseName}'!";
+			_foreignGamesCount = 0;
+			await LoadDatabasesAsync();
+			await LoadGamesAsync();
+		}
+		catch (Exception ex)
+		{
+			_cleanStatus = $"Purge error: {ex.Message}";
+		}
+		finally
+		{
+			_isCleaningForeign = false;
+			StateHasChanged();
+		}
 	}
 
 	public void Dispose()

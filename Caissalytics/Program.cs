@@ -20,6 +20,8 @@ appBuilder.Services.AddSingleton<IPuzzleService, PuzzleService>();
 appBuilder.Services.AddSingleton<IRepertoireService, RepertoireService>();
 appBuilder.Services.AddSingleton<IAppearanceService, AppearanceService>();
 appBuilder.Services.AddSingleton<IOpponentDossierService, OpponentDossierService>();
+appBuilder.Services.AddSingleton<IFideScoutingService, FideScoutingService>();
+appBuilder.Services.AddSingleton<IChessResultsScoutingService, ChessResultsScoutingService>();
 appBuilder.Services.AddSingleton<ITablebaseService, TablebaseService>();
 appBuilder.Services.AddSingleton<LichessExplorerClient>();
 appBuilder.Services.AddScoped<WorkspaceState>();

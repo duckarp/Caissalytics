@@ -254,7 +254,8 @@ public class OnlineGameSyncService : IOnlineGameSyncService
             stream,
             importProgress,
             cancellationToken,
-            deduplicate: true);
+            deduplicate: true,
+            allowProtectedDatabase: true);
 
         // Fetch difference to account for games
         var (games, totalCount) = await _databaseService.SearchGamesAsync(OnlineGamesDatabaseName, new GameFilter { PageSize = 1 });
@@ -389,12 +390,40 @@ public class OnlineGameSyncService : IOnlineGameSyncService
                 stream,
                 importProgress,
                 cancellationToken,
-                deduplicate: true);
+                deduplicate: true,
+                allowProtectedDatabase: true);
 
             var (games, currentCount) = await _databaseService.SearchGamesAsync(OnlineGamesDatabaseName, new GameFilter { PageSize = 1 });
             result.TotalImported = currentCount;
         }
 
         result.TotalChessComGames = Math.Max(0, result.TotalImported - chessComGamesBefore);
+    }
+
+    public async Task<int> PurgeNonSyncedGamesAsync(UserProfile profile, CancellationToken cancellationToken = default)
+    {
+        var existingDbs = await _databaseService.GetDatabasesAsync();
+        bool exists = existingDbs.Any(d => string.Equals(d.Name, OnlineGamesDatabaseName, StringComparison.OrdinalIgnoreCase));
+        if (!exists) return 0;
+
+        var allHeaders = await _databaseService.GetAllGameHeadersAsync(OnlineGamesDatabaseName);
+        if (allHeaders.Count == 0) return 0;
+
+        var foreignGames = allHeaders.Where(g =>
+        {
+            bool isUserGame = profile.MatchesPlayer(g.White) || profile.MatchesPlayer(g.Black);
+            bool isOnlinePlatform = g.Platform == "lichess" || g.Platform == "chesscom";
+            return !isUserGame || !isOnlinePlatform;
+        }).ToList();
+
+        int purgedCount = 0;
+        foreach (var fg in foreignGames)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            bool deleted = await _databaseService.DeleteGameAsync(OnlineGamesDatabaseName, fg.Id);
+            if (deleted) purgedCount++;
+        }
+
+        return purgedCount;
     }
 }

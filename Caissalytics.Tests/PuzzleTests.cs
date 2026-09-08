@@ -29,8 +29,8 @@ public class PuzzleTests
         public Task<GameHeader?> GetGameByIdAsync(string? databaseName, long gameId) => Task.FromResult(Headers.FirstOrDefault(h => h.Id == gameId));
         public Task<long> SaveGameAsync(string databaseName, GameHeader game) => Task.FromResult(game.Id);
         public Task<bool> DeleteGameAsync(string databaseName, long gameId) => Task.FromResult(true);
-        public Task ImportPgnStreamAsync(string databaseName, Stream stream, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false) => Task.CompletedTask;
-        public Task ImportPgnTextAsync(string databaseName, string pgnText, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false) => Task.CompletedTask;
+        public Task ImportPgnStreamAsync(string databaseName, Stream stream, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false, bool allowProtectedDatabase = false) => Task.CompletedTask;
+        public Task ImportPgnTextAsync(string databaseName, string pgnText, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false, bool allowProtectedDatabase = false) => Task.CompletedTask;
     }
 
     private class FakeUserProfileService : IUserProfileService
@@ -50,32 +50,40 @@ public class PuzzleTests
     [Fact]
     public void CuratedPuzzles_AllHaveValidFensAndLegalSolutionMoves()
     {
-        var db = new FakeDatabaseService();
-        var profile = new FakeUserProfileService();
-        var service = new PuzzleService(db, profile);
-
-        var curated = service.GetCuratedPuzzles();
-        Assert.NotEmpty(curated);
-
-        foreach (var puzzle in curated)
+        string tempDir = Path.Combine(Path.GetTempPath(), "puzzles_test_" + Guid.NewGuid().ToString("N"));
+        try
         {
-            // Verify starting position FEN parses correctly
-            var pos = FenParser.Parse(puzzle.Fen);
-            Assert.False(string.IsNullOrEmpty(puzzle.Fen));
-            Assert.NotEmpty(puzzle.SolutionMovesSan);
+            var db = new FakeDatabaseService();
+            var profile = new FakeUserProfileService();
+            var service = new PuzzleService(db, profile, tempDir);
 
-            // Verify each solution move can be played legally in sequence
-            var currentPos = pos;
-            foreach (var san in puzzle.SolutionMovesSan)
+            var curated = service.GetCuratedPuzzles();
+            Assert.NotEmpty(curated);
+
+            foreach (var puzzle in curated)
             {
-                var move = SanParser.ParseSan(currentPos, san);
-                Assert.False(move.IsEmpty, $"Move '{san}' should be legal in puzzle '{puzzle.Title}' from position {FenParser.ToFen(currentPos)}");
+                // Verify starting position FEN parses correctly
+                var pos = FenParser.Parse(puzzle.Fen);
+                Assert.False(string.IsNullOrEmpty(puzzle.Fen));
+                Assert.NotEmpty(puzzle.SolutionMovesSan);
 
-                var legalMoves = MoveGenerator.GenerateLegalMoves(currentPos);
-                Assert.Contains(legalMoves, m => m.From == move.From && m.To == move.To && m.Promotion == move.Promotion);
+                // Verify each solution move can be played legally in sequence
+                var currentPos = pos;
+                foreach (var san in puzzle.SolutionMovesSan)
+                {
+                    var move = SanParser.ParseSan(currentPos, san);
+                    Assert.False(move.IsEmpty, $"Move '{san}' should be legal in puzzle '{puzzle.Title}' from position {FenParser.ToFen(currentPos)}");
 
-                currentPos = MoveGenerator.ApplyMove(currentPos, move);
+                    var legalMoves = MoveGenerator.GenerateLegalMoves(currentPos);
+                    Assert.Contains(legalMoves, m => m.From == move.From && m.To == move.To && m.Promotion == move.Promotion);
+
+                    currentPos = MoveGenerator.ApplyMove(currentPos, move);
+                }
             }
+        }
+        finally
+        {
+            try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
         }
     }
 
@@ -87,27 +95,34 @@ public class PuzzleTests
         var profile = new FakeUserProfileService();
         var service = new PuzzleService(db, profile, tempDir);
 
-        var initialStats = await service.GetStatsAsync();
-        int startRating = initialStats.CurrentRating;
+        try
+        {
+            var initialStats = await service.GetStatsAsync();
+            int startRating = initialStats.CurrentRating;
 
-        // Record 1st success
-        var stats1 = await service.RecordAttemptAsync("p1", isSuccess: true, timeSpentSeconds: 5);
-        Assert.Equal(1, stats1.SolvedCount);
-        Assert.Equal(0, stats1.FailedCount);
-        Assert.Equal(1, stats1.CurrentStreak);
-        Assert.True(stats1.CurrentRating > startRating);
-        Assert.Contains("p1", stats1.SolvedPuzzleIds);
+            // Record 1st success
+            var stats1 = await service.RecordAttemptAsync("p1", isSuccess: true, timeSpentSeconds: 5);
+            Assert.Equal(1, stats1.SolvedCount);
+            Assert.Equal(0, stats1.FailedCount);
+            Assert.Equal(1, stats1.CurrentStreak);
+            Assert.True(stats1.CurrentRating > startRating);
+            Assert.Contains("p1", stats1.SolvedPuzzleIds);
 
-        // Record 2nd success
-        var stats2 = await service.RecordAttemptAsync("p2", isSuccess: true, timeSpentSeconds: 7);
-        Assert.Equal(2, stats2.SolvedCount);
-        Assert.Equal(2, stats2.CurrentStreak);
-        Assert.True(stats2.CurrentRating > stats1.CurrentRating);
+            // Record 2nd success
+            var stats2 = await service.RecordAttemptAsync("p2", isSuccess: true, timeSpentSeconds: 7);
+            Assert.Equal(2, stats2.SolvedCount);
+            Assert.Equal(2, stats2.CurrentStreak);
+            Assert.True(stats2.CurrentRating > stats1.CurrentRating);
 
-        // Record 3rd success (streak bonus)
-        var stats3 = await service.RecordAttemptAsync("p3", isSuccess: true, timeSpentSeconds: 12);
-        Assert.Equal(3, stats3.CurrentStreak);
-        Assert.Equal(3, stats3.BestStreak);
+            // Record 3rd success (streak bonus)
+            var stats3 = await service.RecordAttemptAsync("p3", isSuccess: true, timeSpentSeconds: 12);
+            Assert.Equal(3, stats3.CurrentStreak);
+            Assert.Equal(3, stats3.BestStreak);
+        }
+        finally
+        {
+            try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+        }
     }
 
     [Fact]
@@ -118,19 +133,26 @@ public class PuzzleTests
         var profile = new FakeUserProfileService();
         var service = new PuzzleService(db, profile, tempDir);
 
-        // Build a streak first
-        await service.RecordAttemptAsync("p1", isSuccess: true, timeSpentSeconds: 5);
-        await service.RecordAttemptAsync("p2", isSuccess: true, timeSpentSeconds: 5);
+        try
+        {
+            // Build a streak first
+            await service.RecordAttemptAsync("p1", isSuccess: true, timeSpentSeconds: 5);
+            await service.RecordAttemptAsync("p2", isSuccess: true, timeSpentSeconds: 5);
 
-        var preFailStats = await service.GetStatsAsync();
-        Assert.Equal(2, preFailStats.CurrentStreak);
+            var preFailStats = await service.GetStatsAsync();
+            Assert.Equal(2, preFailStats.CurrentStreak);
 
-        // Fail attempt
-        var failedStats = await service.RecordAttemptAsync("p3", isSuccess: false, timeSpentSeconds: 20);
-        Assert.Equal(0, failedStats.CurrentStreak);
-        Assert.Equal(1, failedStats.FailedCount);
-        Assert.True(failedStats.CurrentRating < preFailStats.CurrentRating);
-        Assert.Contains("p3", failedStats.FailedPuzzleIds);
+            // Fail attempt
+            var failedStats = await service.RecordAttemptAsync("p3", isSuccess: false, timeSpentSeconds: 20);
+            Assert.Equal(0, failedStats.CurrentStreak);
+            Assert.Equal(1, failedStats.FailedCount);
+            Assert.True(failedStats.CurrentRating < preFailStats.CurrentRating);
+            Assert.Contains("p3", failedStats.FailedPuzzleIds);
+        }
+        finally
+        {
+            try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+        }
     }
 
     [Fact]
@@ -164,17 +186,101 @@ public class PuzzleTests
             Pgn = annotatedPgn
         });
 
-        int extractedCount = await service.ExtractPuzzlesFromDatabaseAsync("My online games");
-        Assert.True(extractedCount >= 1);
+        try
+        {
+            int extractedCount = await service.ExtractPuzzlesFromDatabaseAsync("My online games");
+            Assert.True(extractedCount >= 1);
 
-        var puzzles = await service.GetPuzzlesAsync(new PuzzleFilterOptions { Mode = "blunders" });
-        Assert.NotEmpty(puzzles);
+            var puzzles = await service.GetPuzzlesAsync(new PuzzleFilterOptions { Mode = "blunders" });
+            Assert.NotEmpty(puzzles);
 
-        var userPuzzle = puzzles.FirstOrDefault(p => p.GameId == 101);
-        Assert.NotNull(userPuzzle);
-        Assert.True(userPuzzle.IsUserBlunder);
-        Assert.Equal("Qg4", userPuzzle.PlayedBlunderSan);
-        Assert.Contains("Qd3", userPuzzle.SolutionMovesSan);
-        Assert.False(string.IsNullOrEmpty(userPuzzle.Fen));
+            var userPuzzle = puzzles.FirstOrDefault(p => p.GameId == 101);
+            Assert.NotNull(userPuzzle);
+            Assert.True(userPuzzle.IsUserBlunder);
+            Assert.Equal("Qg4", userPuzzle.PlayedBlunderSan);
+            Assert.Contains("Qd3", userPuzzle.SolutionMovesSan);
+            Assert.False(string.IsNullOrEmpty(userPuzzle.Fen));
+        }
+        finally
+        {
+            try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task GetPuzzlesAsync_BlundersMode_OnlyReturnsPuzzlesMatchingUserProfile()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), "puzzles_test_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var db = new FakeDatabaseService();
+            // Profile is "Jan Testovaci" (Lichess: jantest)
+            var profile = new FakeUserProfileService();
+            var service = new PuzzleService(db, profile, tempDir);
+
+            // Game where NEITHER player is Jan Testovaci
+            string annotatedPgn = @"[Event ""Casual""]
+[White ""Alice""]
+[Black ""Bob""]
+[Result ""1-0""]
+
+1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Bc4 Nf6 5. e5 d5 6. Bb5 Ne4 7. Nxd4 Bd7 8. Bxc6 bxc6 9. O-O Bc5 10. Be3 O-O 11. Nd2 $4 (11. f3 $1) 11... Nxd2 1-0";
+
+            db.Headers.Add(new GameHeader
+            {
+                Id = 999,
+                White = "Alice",
+                Black = "Bob",
+                Pgn = annotatedPgn
+            });
+
+            // Extract should skip games where user did not play
+            int extracted = await service.ExtractPuzzlesFromDatabaseAsync("My online games");
+            Assert.Equal(0, extracted);
+
+            // And even if blunders mode is queried, it returns no blunders
+            var blunders = await service.GetPuzzlesAsync(new PuzzleFilterOptions { Mode = "blunders" });
+            Assert.Empty(blunders);
+        }
+        finally
+        {
+            try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task ExtractPuzzlesFromDatabaseAsync_SkipsUnannotatedGamesInstantly()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), "puzzles_test_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var db = new FakeDatabaseService();
+            var profile = new FakeUserProfileService();
+            var service = new PuzzleService(db, profile, tempDir);
+
+            // Add 100 clean, unannotated games by the user
+            for (int i = 0; i < 100; i++)
+            {
+                db.Headers.Add(new GameHeader
+                {
+                    Id = i + 1,
+                    White = "jantest",
+                    Black = "Opponent",
+                    Pgn = "1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. O-O Nf6 5. d3 d6 1-0"
+                });
+            }
+
+            // Extraction should finish in milliseconds and find 0 blunder puzzles without expensive tree parsing
+            int extracted = await service.ExtractPuzzlesFromDatabaseAsync("My online games");
+            Assert.Equal(0, extracted);
+
+            // Calling GetPuzzlesAsync for blunders should return empty list instantly
+            var puzzles = await service.GetPuzzlesAsync(new PuzzleFilterOptions { Mode = "blunders" });
+            Assert.Empty(puzzles);
+        }
+        finally
+        {
+            try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+        }
     }
 }

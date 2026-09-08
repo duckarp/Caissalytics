@@ -366,10 +366,6 @@ public class StreamingPgnImporter
             }
             string token = text.Substring(start, i - start);
 
-            // Skip move numbers: "1.", "1...", "23."
-            if (token.EndsWith('.') || Regex.IsMatch(token, @"^\d+\.*$"))
-                continue;
-
             // Skip NAGs: "$1", "$14"
             if (token.StartsWith('$'))
                 continue;
@@ -378,7 +374,18 @@ public class StreamingPgnImporter
             if (token == "1-0" || token == "0-1" || token == "1/2-1/2" || token == "*")
                 continue;
 
-            // Clean any trailing punctuation quirks
+            // Strip leading move number if glued: "1.e4" -> "e4", "1...d5" -> "d5", "23.Nf3" -> "Nf3"
+            token = Regex.Replace(token, @"^\d+\.+", "");
+
+            // Skip bare move numbers: "1.", "1...", "23"
+            if (string.IsNullOrWhiteSpace(token) || token.EndsWith('.') || Regex.IsMatch(token, @"^\d+\.*$"))
+                continue;
+
+            // Clean trailing move evaluations
+            token = token.TrimEnd(';', '!', '?');
+            if (string.IsNullOrWhiteSpace(token))
+                continue;
+
             tokens.Add(token);
         }
 

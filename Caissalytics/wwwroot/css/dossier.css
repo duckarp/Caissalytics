@@ -98,17 +98,21 @@
 }
 
 .dossier-db-select {
-  padding: 8px 12px;
+  height: 36px;
+  padding: 0 12px;
   font-size: 13px;
+  line-height: 34px;
   border-radius: 6px;
   border: 1px solid var(--border-subtle);
   background-color: var(--bg-surface-elevated);
   color: var(--text-primary);
   outline: none;
+  box-sizing: border-box;
 }
 
 .dossier-action-btn {
-  padding: 8px 14px;
+  height: 36px;
+  padding: 0 14px;
   font-size: 13px;
   font-weight: 600;
   border-radius: 6px;
@@ -118,7 +122,9 @@
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  box-sizing: border-box;
   transition: background-color 0.15s, border-color 0.15s;
 }
 
@@ -624,12 +630,16 @@
 }
 
 .modal-input {
-  padding: 8px 12px;
+  height: 36px;
+  padding: 0 12px;
   border-radius: 6px;
   border: 1px solid var(--border-subtle);
   background-color: var(--bg-surface-elevated);
   color: var(--text-primary);
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 34px;
+  outline: none;
+  box-sizing: border-box;
 }
 
 .modal-actions {
@@ -638,3 +648,313 @@
   gap: 10px;
   margin-top: 8px;
 }
+
+/* Search Mode Selector */
+.dossier-search-modes {
+  display: flex;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
+}
+
+.search-mode-pill {
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.15s ease;
+}
+
+.search-mode-pill:hover {
+  color: var(--text-primary);
+}
+
+.search-mode-pill.active {
+  background-color: var(--accent-blue);
+  color: #ffffff;
+}
+
+/* FIDE Title Badges */
+.fide-title-badge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: var(--font-mono);
+  display: inline-flex;
+  align-items: center;
+}
+
+.fide-title-badge.badge-gm {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #ffffff;
+  border: 1px solid #b45309;
+  box-shadow: 0 1px 3px rgba(217, 119, 6, 0.3);
+}
+
+.fide-title-badge.badge-im {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #ffffff;
+  border: 1px solid #1d4ed8;
+}
+
+.fide-title-badge.badge-fm,
+.fide-title-badge.badge-cm {
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #ffffff;
+  border: 1px solid #047857;
+}
+
+.fide-title-badge.badge-wgm,
+.fide-title-badge.badge-wim,
+.fide-title-badge.badge-wfm,
+.fide-title-badge.badge-wcm {
+  background: linear-gradient(135deg, #ec4899, #db2777);
+  color: #ffffff;
+  border: 1px solid #be185d;
+}
+
+/* FIDE Rating Cards Grid */
+.fide-ratings-panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.fide-rating-pill {
+  padding: 10px 14px;
+  border-radius: 8px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  position: relative;
+  overflow: hidden;
+}
+
+.fide-rating-pill.standard {
+  border-left: 3px solid #3b82f6;
+}
+
+.fide-rating-pill.rapid {
+  border-left: 3px solid #10b981;
+}
+
+.fide-rating-pill.blitz {
+  border-left: 3px solid #f59e0b;
+}
+
+.fide-rating-category {
+  font-size: 10px;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.fide-rating-num {
+  font-size: 19px;
+  font-weight: 800;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+.fide-flag-img {
+  height: 14px;
+  border-radius: 2px;
+  vertical-align: middle;
+}
+
+/* Autocomplete item with FIDE details */
+.autocomplete-fide-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.autocomplete-fide-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.autocomplete-fide-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+/* Tournament table styling */
+.tournaments-table-wrapper {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.tournaments-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tournaments-header-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tournaments-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tournament-link {
+  color: var(--accent-blue);
+  text-decoration: none;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tournament-link:hover {
+  text-decoration: underline;
+}
+
+.fide-profile-link {
+  color: var(--accent-blue);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.fide-profile-link:hover {
+  text-decoration: underline;
+}
+
+.game-result {
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  display: inline-block;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.result-win {
+  color: #58a6ff;
+}
+
+.result-loss {
+  color: #f85149;
+}
+
+.result-draw {
+  color: #8b949e;
+}
+
+/* --- Export Games to Database & Archive Enhancements --- */
+.export-games-modal-content {
+  max-width: 520px;
+}
+
+.export-nested-input {
+  margin-left: 24px;
+  margin-top: 4px;
+}
+
+.export-status-success {
+  color: #3fb950;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.export-status-error {
+  color: #f85149;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.games-archive-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.games-archive-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.games-selected-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-blue);
+  background-color: rgba(56, 139, 253, 0.12);
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(56, 139, 253, 0.25);
+}
+
+.games-archive-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.col-checkbox {
+  width: 36px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.col-checkbox input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--accent-blue);
+  width: 15px;
+  height: 15px;
+}
+
+tr.row-selected {
+  background-color: rgba(56, 139, 253, 0.08);
+}
+
+

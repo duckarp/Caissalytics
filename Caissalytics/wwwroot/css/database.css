@@ -209,14 +209,17 @@
 }
 
 .filter-input {
+  height: 32px;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
   color: var(--text-primary);
-  padding: 6px 10px;
+  padding: 0 10px;
   font-size: 12px;
+  line-height: 30px;
   outline: none;
   min-width: 140px;
+  box-sizing: border-box;
 }
 
 .filter-input:focus {
@@ -229,20 +232,35 @@
 }
 
 .filter-select {
+  height: 32px;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
   color: var(--text-primary);
-  padding: 6px 10px;
+  padding: 0 10px;
   font-size: 12px;
+  line-height: 30px;
   outline: none;
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 .filter-actions {
   display: flex;
   gap: 6px;
   margin-left: auto;
+}
+
+.filter-actions .btn-primary,
+.filter-actions .btn-secondary {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 12px;
+  line-height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
 }
 
 /* --- Games Grid Table --- */
@@ -410,7 +428,9 @@
 .col-result {
   font-family: var(--font-mono);
   font-weight: 700;
-  width: 70px;
+  width: 75px;
+  min-width: 65px;
+  white-space: nowrap;
 }
 
 .col-eco {
@@ -545,13 +565,16 @@
 }
 
 .modal-input {
+  height: 36px;
   background-color: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
   border-radius: 4px;
   color: var(--text-primary);
-  padding: 8px 12px;
+  padding: 0 12px;
   font-size: 13px;
+  line-height: 34px;
   outline: none;
+  box-sizing: border-box;
 }
 
 .modal-input:focus {
@@ -1402,5 +1425,60 @@
   padding: 1px 4px;
   font-size: 11px;
 }
+
+/* --- Clean Foreign Games Controls --- */
+.btn-clean-foreign {
+  color: #e3b341;
+  border-color: rgba(227, 179, 65, 0.4);
+}
+
+.btn-clean-foreign:hover {
+  background-color: rgba(227, 179, 65, 0.12);
+  border-color: #e3b341;
+}
+
+.clean-foreign-handles-list {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin: 6px 0;
+}
+
+.clean-foreign-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 24px 16px;
+  gap: 8px;
+}
+
+.clean-foreign-empty-state .empty-state-icon {
+  font-size: 28px;
+}
+
+.clean-foreign-empty-state h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.clean-foreign-empty-state p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.clean-status-msg {
+  color: #3fb950;
+  font-size: 13px;
+  font-weight: 600;
+  margin-top: 8px;
+}
+
 
 

@@ -38,6 +38,11 @@ public class OpponentScoutingReport
     public GameLengthTendencies LengthTendencies { get; set; } = new();
     public List<OpponentVulnerability> Vulnerabilities { get; set; } = new();
     public List<GameHeader> RecentGames { get; set; } = new();
+
+    // Internet Scouting (FIDE & Chess-Results)
+    public FidePlayerCard? FideCard { get; set; }
+    public List<ChessResultsTournamentEntry> RecentTournaments { get; set; } = new();
+    public string? ChessResultsUrl { get; set; }
 }
 
 public class OpponentRepertoireBranch
@@ -90,4 +95,60 @@ public class GameLengthTendencies
     public int LongGamesWins { get; set; }
     public int LongGamesDraws { get; set; }
     public double LongGamesScore => LongGamesCount > 0 ? Math.Round((LongGamesWins + 0.5 * LongGamesDraws) * 100.0 / LongGamesCount, 1) : 0;
+}
+
+public class FidePlayerCard
+{
+    public string FideId { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string? Title { get; set; }
+    public string TitleAbbreviation => Title switch
+    {
+        "Grandmaster" => "GM",
+        "International Master" => "IM",
+        "FIDE Master" => "FM",
+        "Candidate Master" => "CM",
+        "Woman Grandmaster" => "WGM",
+        "Woman International Master" => "WIM",
+        "Woman FIDE Master" => "WFM",
+        "Woman Candidate Master" => "WCM",
+        _ => Title ?? string.Empty
+    };
+    public string? Federation { get; set; }
+    public string? FederationCode { get; set; }
+    public string? FlagUrl { get; set; }
+    public int? BirthYear { get; set; }
+    public string? Gender { get; set; }
+    public int? StandardElo { get; set; }
+    public int? RapidElo { get; set; }
+    public int? BlitzElo { get; set; }
+    public int? WorldRankActive { get; set; }
+    public int? WorldRankAll { get; set; }
+    public int? NationalRank { get; set; }
+    public string ProfileUrl => $"https://ratings.fide.com/profile/{FideId}";
+}
+
+public class FideSearchResult
+{
+    public string FideId { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Federation { get; set; } = string.Empty;
+    public int? StandardElo { get; set; }
+    public int? RapidElo { get; set; }
+    public int? BlitzElo { get; set; }
+    public int? BirthYear { get; set; }
+}
+
+public class ChessResultsTournamentEntry
+{
+    public string TournamentName { get; set; } = string.Empty;
+    public string EndDate { get; set; } = string.Empty;
+    public string ScoreOrRank { get; set; } = string.Empty;
+    public string Rounds { get; set; } = string.Empty;
+    public string TotalPlayers { get; set; } = string.Empty;
+    public string Club { get; set; } = string.Empty;
+    public string Federation { get; set; } = string.Empty;
+    public string TournamentUrl { get; set; } = string.Empty;
+    public string PlayerCardUrl { get; set; } = string.Empty;
 }

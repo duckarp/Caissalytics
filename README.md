@@ -7,10 +7,10 @@
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-512bd4.svg?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![Photino.Blazor](https://img.shields.io/badge/Photino-Blazor-0078d4.svg?style=flat-square)](https://www.tryphotino.io/)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows-brightgreen.svg?style=flat-square)](https://github.com/)
-[![Tests](https://img.shields.io/badge/Tests-156%20Passing-success.svg?style=flat-square)](file:///home/tomask/projects/Caissalytics/Caissalytics.Tests)
+[![Tests](https://img.shields.io/badge/Tests-169%20Passing-success.svg?style=flat-square)](file:///home/tomask/projects/Caissalytics/Caissalytics.Tests)
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg?style=flat-square)](LICENSE)
 
-*Caissalytics is a lightweight, blazing-fast, open-source alternative to ChessBase and commercial chess software. Built with modern .NET 10, Photino.Blazor native desktop shell, Chessground, Stockfish, and SQLite.*
+*Caissalytics is a lightweight, blazing-fast, open-source alternative to commercial chess software. Built with modern .NET 10, Photino.Blazor native desktop shell, Chessground, Stockfish, and SQLite.*
 
 </div>
 
@@ -37,13 +37,13 @@
 | Module | Description | Key Capabilities |
 |---|---|---|
 | **Analysis Workbench** | Master-level game review & position deep-dive | Multi-PV Stockfish, dynamic evaluation graph, threat arrows, live reference tree, blunder annotations, Syzygy tablebase panel |
-| **Endgame Trainer** | Theoretical endgame curriculum & tablebase sparring | 16 curated positions across 5 categories, automated tablebase defense, move quality evaluation, key square coaching |
+| **Endgame Trainer** | Theoretical endgame curriculum & tablebase sparring | 18 curated positions across 5 categories (100% Syzygy-verified), automated tablebase defense, move quality evaluation, key square coaching |
 | **Database Explorer** | High-volume master & personal game library | SQLite indexing, advanced header/date/ECO filtering, game preview, duplicate detection, batch PGN import |
 | **Opening & Repertoire** | Personal opening tree & repertoire builder | Lichess Masters/Community (with free API token support) + 100% offline Local DB stats, move classification (*Main Line*, *Alternative*, *Surprise*), study export |
-| **Opponent Preparation** | Comprehensive pre-game opponent scouting dossiers | Repertoire breakdown, target weakness alerts, playing style profile, game length tendencies, 1-click analysis |
+| **Opponent Preparation** | Comprehensive pre-game opponent scouting dossiers | Search by FIDE ID or name, live official FIDE rating cards (Classical/Rapid/Blitz), Chess-Results tournament history & pairings, selective game export to dedicated databases, repertoire breakdown, vulnerability alerts |
 | **Tactics Workbench** | Interactive tactical puzzle trainer | Curated master tactics, personalized blunder trainer, dynamic rating system, step-by-step solutions |
 | **Career Analytics** | Long-term performance & statistical insight | Elo rating tracking over time, opening win rates, color performance, time-control breakdowns |
-| **Sync Center** | Automatic online games aggregator | Direct REST API integration with Lichess & Chess.com, incremental syncing, automatic PGN parsing |
+| **Sync Center** | Automatic online games aggregator | Direct REST API integration with Lichess & Chess.com, incremental syncing, automatic PGN parsing, protected storage with 1-click foreign game cleanup |
 | **Control Center** | Settings, engines & customization hub | Engine management, Syzygy tablebase folder path, online probe toggle, Lichess API token, board themes, sound triggers, updater |
 
 ---

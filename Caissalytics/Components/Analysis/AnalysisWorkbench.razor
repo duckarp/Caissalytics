@@ -74,6 +74,7 @@
 			{
 				<div class="panel-top-section">
 					<ReferenceTreePanel Position="@Tab.Tree.CurrentNode.Position"
+										InitialDatabase="@Tab.TargetDatabase"
 										OnPlayMove="HandleReferenceMoveSelected"
 										OnOpenGame="HandleReferenceGameOpened" />
 				</div>
@@ -104,10 +105,20 @@
 						<span class="header-value">@(Tab.Tree.Headers.GetValueOrDefault("Result", "*"))</span>
 					</div>
 
-					<h3 class="tools-subheading">FEN</h3>
+					<div class="tools-header-row">
+						<h3 class="tools-subheading">FEN</h3>
+						<button class="btn-copy-action" @onclick="CopyFenAsync" title="Copy FEN to clipboard">
+							@(_fenCopied ? "✅ Copied!" : "📋 Copy FEN")
+						</button>
+					</div>
 					<input class="comment-input-field" readonly value="@FenParser.ToFen(Tab.Tree.CurrentNode.Position)" />
 
-					<h3 class="tools-subheading">PGN Export</h3>
+					<div class="tools-header-row">
+						<h3 class="tools-subheading">PGN Export</h3>
+						<button class="btn-copy-action" @onclick="CopyPgnAsync" title="Copy PGN to clipboard">
+							@(_pgnCopied ? "✅ Copied!" : "📋 Copy PGN")
+						</button>
+					</div>
 					<textarea class="comment-input-field pgn-export-area" rows="6" readonly>@PgnHandler.ExportPgn(Tab.Tree)</textarea>
 				</div>
 			}
@@ -143,6 +154,40 @@
 	private CancellationTokenSource? _engineCts;
 	private bool _isDisposed = false;
 	private bool _showSaveModal = false;
+	private bool _fenCopied = false;
+	private bool _pgnCopied = false;
+
+	private async Task CopyFenAsync()
+	{
+		string fen = FenParser.ToFen(Tab.Tree.CurrentNode.Position);
+		try
+		{
+			await JS.InvokeVoidAsync("navigator.clipboard.writeText", fen);
+			_fenCopied = true;
+			StateHasChanged();
+			_ = Task.Delay(2000).ContinueWith(_ => InvokeAsync(() => { _fenCopied = false; StateHasChanged(); }));
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[AnalysisWorkbench] Failed to copy FEN: {ex.Message}");
+		}
+	}
+
+	private async Task CopyPgnAsync()
+	{
+		string pgn = PgnHandler.ExportPgn(Tab.Tree);
+		try
+		{
+			await JS.InvokeVoidAsync("navigator.clipboard.writeText", pgn);
+			_pgnCopied = true;
+			StateHasChanged();
+			_ = Task.Delay(2000).ContinueWith(_ => InvokeAsync(() => { _pgnCopied = false; StateHasChanged(); }));
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[AnalysisWorkbench] Failed to copy PGN: {ex.Message}");
+		}
+	}
 
 	private void HandleGameSaved(long gameId)
 	{

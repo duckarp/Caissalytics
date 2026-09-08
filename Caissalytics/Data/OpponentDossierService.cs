@@ -8,15 +8,24 @@ public class OpponentDossierService : IOpponentDossierService
 {
     private readonly IDatabaseService _databaseService;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IFideScoutingService _fideScouting;
+    private readonly IChessResultsScoutingService _chessResultsScouting;
 
+    private static readonly Regex PgnHeaderRegex = new(@"\[[^\]]*\]", RegexOptions.Compiled);
     private static readonly Regex FirstMovesRegex = new(
-        @"1\.\s*([a-hA-KNRQB1-8\+#\-O]+)(?:\s+([a-hA-KNRQB1-8\+#\-O]+))?(?:\s+2\.\s*([a-hA-KNRQB1-8\+#\-O]+)(?:\s+([a-hA-KNRQB1-8\+#\-O]+))?)?",
+        @"(?:^|\s)1\.\s*([a-zA-Z0-9\+#\=\-]+)(?:\s+([a-zA-Z0-9\+#\=\-]+))?(?:\s+2\.\s*([a-zA-Z0-9\+#\=\-]+)(?:\s+([a-zA-Z0-9\+#\=\-]+))?)?",
         RegexOptions.Compiled);
 
-    public OpponentDossierService(IDatabaseService databaseService, IHttpClientFactory httpClientFactory)
+    public OpponentDossierService(
+        IDatabaseService databaseService, 
+        IHttpClientFactory httpClientFactory,
+        IFideScoutingService? fideScouting = null,
+        IChessResultsScoutingService? chessResultsScouting = null)
     {
         _databaseService = databaseService;
         _httpClientFactory = httpClientFactory;
+        _fideScouting = fideScouting ?? new FideScoutingService(httpClientFactory);
+        _chessResultsScouting = chessResultsScouting ?? new ChessResultsScoutingService(httpClientFactory);
     }
 
     public async Task<OpponentScoutingReport?> GenerateDossierAsync(
@@ -33,10 +42,27 @@ public class OpponentDossierService : IOpponentDossierService
             targetDb = activeDb.Name;
         }
 
+        string cleanTarget = playerName.Trim();
+        bool isFideId = cleanTarget.All(char.IsDigit);
+        FidePlayerCard? fideCard = null;
+
+        if (isFideId)
+        {
+            try
+            {
+                fideCard = await _fideScouting.GetPlayerCardAsync(cleanTarget, cancellationToken);
+                if (fideCard != null && !string.IsNullOrEmpty(fideCard.FullName))
+                {
+                    cleanTarget = fideCard.FullName;
+                }
+            }
+            catch { }
+        }
+
         // Search games involving this player
         var filter = new GameFilter
         {
-            Player = playerName.Trim(),
+            Player = cleanTarget,
             PageNumber = 1,
             PageSize = 2000
         };
@@ -58,9 +84,65 @@ public class OpponentDossierService : IOpponentDossierService
             }
         }
 
-        if (games.Count == 0) return null;
+        // If still no games and we have a comma-separated name, try matching by last name
+        if (games.Count == 0 && cleanTarget.Contains(','))
+        {
+            string lastName = ExtractLastName(cleanTarget);
+            if (!string.IsNullOrEmpty(lastName) && lastName.Length >= 3)
+            {
+                var lnFilter = new GameFilter { Player = lastName, PageNumber = 1, PageSize = 2000 };
+                var (lnGames, _) = await _databaseService.SearchGamesAsync(targetDb, lnFilter);
+                if (lnGames.Count > 0)
+                {
+                    games = lnGames;
+                }
+            }
+        }
 
-        string cleanTarget = playerName.Trim();
+        if (games.Count == 0)
+        {
+            // If we don't have a FIDE card yet, check if one can be found by name
+            if (fideCard == null)
+            {
+                try
+                {
+                    var results = await _fideScouting.SearchPlayersByNameAsync(cleanTarget, limit: 1, cancellationToken);
+                    if (results.Count > 0)
+                    {
+                        fideCard = await _fideScouting.GetPlayerCardAsync(results[0].FideId, cancellationToken);
+                    }
+                }
+                catch { }
+            }
+
+            if (fideCard != null)
+            {
+                var tournaments = new List<ChessResultsTournamentEntry>();
+                try
+                {
+                    tournaments = await _chessResultsScouting.SearchPlayerTournamentsAsync(
+                        fideCard.FideId,
+                        ExtractLastName(fideCard.FullName),
+                        limit: 25,
+                        cancellationToken);
+                }
+                catch { }
+
+                return new OpponentScoutingReport
+                {
+                    PlayerName = fideCard.FullName,
+                    DatabaseSource = targetDb ?? "Default Database",
+                    TotalGames = 0,
+                    FideCard = fideCard,
+                    RecentTournaments = tournaments,
+                    ChessResultsUrl = "https://chess-results.com/SpielerSuche.aspx?lan=1",
+                    PlayingStyle = "Online Profile",
+                    StyleDescription = $"Official FIDE record for {fideCard.FullName} ({fideCard.TitleAbbreviation}). Classical Elo: {fideCard.StandardElo?.ToString() ?? "Unrated"}. No games in current local database yet — use 'Import from Chess-Results' or 'Fetch Online Games' below to download game records."
+                };
+            }
+
+            return null;
+        }
 
         var report = new OpponentScoutingReport
         {
@@ -189,6 +271,34 @@ public class OpponentDossierService : IOpponentDossierService
 
         // Recent 30 games
         report.RecentGames = games.Take(30).ToList();
+
+        if (fideCard == null)
+        {
+            try
+            {
+                var searchResults = await _fideScouting.SearchPlayersByNameAsync(cleanTarget, limit: 1, cancellationToken);
+                if (searchResults.Count > 0)
+                {
+                    fideCard = await _fideScouting.GetPlayerCardAsync(searchResults[0].FideId, cancellationToken);
+                }
+            }
+            catch { }
+        }
+
+        if (fideCard != null)
+        {
+            report.FideCard = fideCard;
+            try
+            {
+                report.RecentTournaments = await _chessResultsScouting.SearchPlayerTournamentsAsync(
+                    fideCard.FideId,
+                    ExtractLastName(fideCard.FullName),
+                    limit: 25,
+                    cancellationToken);
+                report.ChessResultsUrl = "https://chess-results.com/SpielerSuche.aspx?lan=1";
+            }
+            catch { }
+        }
 
         return report;
     }
@@ -450,11 +560,28 @@ public class OpponentDossierService : IOpponentDossierService
         return list;
     }
 
+    private static string CleanMoveText(string pgn)
+    {
+        if (string.IsNullOrWhiteSpace(pgn)) return string.Empty;
+        return PgnHeaderRegex.Replace(pgn, " ").Trim();
+    }
+
+    private static bool IsValidMove(string move)
+    {
+        if (string.IsNullOrWhiteSpace(move)) return false;
+        if (int.TryParse(move, out _)) return false;
+        char first = move[0];
+        return (first >= 'a' && first <= 'h') ||
+               first == 'N' || first == 'B' || first == 'R' || first == 'Q' || first == 'K' ||
+               first == 'O' || first == '0';
+    }
+
     private static string ExtractFirstMoveWhite(string pgn)
     {
-        if (string.IsNullOrWhiteSpace(pgn)) return "1. e4";
-        var m = FirstMovesRegex.Match(pgn);
-        if (m.Success && m.Groups[1].Success)
+        string text = CleanMoveText(pgn);
+        if (string.IsNullOrEmpty(text)) return "1. e4";
+        var m = FirstMovesRegex.Match(text);
+        if (m.Success && m.Groups[1].Success && IsValidMove(m.Groups[1].Value))
         {
             return $"1. {m.Groups[1].Value}";
         }
@@ -463,12 +590,13 @@ public class OpponentDossierService : IOpponentDossierService
 
     private static string ExtractFirstExchange(string pgn)
     {
-        if (string.IsNullOrWhiteSpace(pgn)) return "vs 1. e4: 1... e5";
-        var m = FirstMovesRegex.Match(pgn);
-        if (m.Success)
+        string text = CleanMoveText(pgn);
+        if (string.IsNullOrEmpty(text)) return "vs 1. e4: 1... e5";
+        var m = FirstMovesRegex.Match(text);
+        if (m.Success && m.Groups[1].Success && IsValidMove(m.Groups[1].Value))
         {
             string w1 = m.Groups[1].Value;
-            string b1 = m.Groups[2].Success ? m.Groups[2].Value : "";
+            string b1 = m.Groups[2].Success && IsValidMove(m.Groups[2].Value) ? m.Groups[2].Value : "";
             if (!string.IsNullOrEmpty(b1))
             {
                 return $"vs 1. {w1}: 1... {b1}";
@@ -480,15 +608,24 @@ public class OpponentDossierService : IOpponentDossierService
 
     private static string ExtractFirstTwoMoves(string pgn)
     {
-        if (string.IsNullOrWhiteSpace(pgn)) return "";
-        var m = FirstMovesRegex.Match(pgn);
-        if (m.Success)
+        string text = CleanMoveText(pgn);
+        if (string.IsNullOrEmpty(text)) return "";
+        var m = FirstMovesRegex.Match(text);
+        if (m.Success && m.Groups[1].Success && IsValidMove(m.Groups[1].Value))
         {
-            var parts = new List<string>();
-            if (m.Groups[1].Success) parts.Add($"1. {m.Groups[1].Value}");
-            if (m.Groups[2].Success) parts.Add(m.Groups[2].Value);
-            if (m.Groups[3].Success) parts.Add($"2. {m.Groups[3].Value}");
-            if (m.Groups[4].Success) parts.Add(m.Groups[4].Value);
+            var parts = new List<string> { $"1. {m.Groups[1].Value}" };
+            if (m.Groups[2].Success && IsValidMove(m.Groups[2].Value))
+            {
+                parts.Add(m.Groups[2].Value);
+                if (m.Groups[3].Success && IsValidMove(m.Groups[3].Value))
+                {
+                    parts.Add($"2. {m.Groups[3].Value}");
+                    if (m.Groups[4].Success && IsValidMove(m.Groups[4].Value))
+                    {
+                        parts.Add(m.Groups[4].Value);
+                    }
+                }
+            }
             return string.Join(" ", parts);
         }
         return "";
@@ -530,6 +667,7 @@ public class OpponentDossierService : IOpponentDossierService
         string platform,
         string username,
         int maxGames = 50,
+        string? targetDatabase = null,
         CancellationToken cancellationToken = default)
     {
         var result = new OnlineSyncResult();
@@ -567,8 +705,8 @@ public class OpponentDossierService : IOpponentDossierService
         else
         {
             // Chess.com
-            string archivesUrl = $"https://api.chess.com/pub/player/{Uri.EscapeDataString(username.Trim().ToLowerInvariant())}/games/archives";
-            using var req = new HttpRequestMessage(HttpMethod.Get, archivesUrl);
+            string url = $"https://api.chess.com/pub/player/{Uri.EscapeDataString(username.Trim().ToLowerInvariant())}/games/archives";
+            using var req = new HttpRequestMessage(HttpMethod.Get, url);
             req.Headers.UserAgent.ParseAdd("Caissalytics-Desktop/1.0");
             var resp = await client.SendAsync(req, cancellationToken);
 
@@ -596,16 +734,121 @@ public class OpponentDossierService : IOpponentDossierService
 
         if (!string.IsNullOrWhiteSpace(pgnText))
         {
-            var activeDb = await _databaseService.GetActiveDatabaseAsync();
-            var progress = new Progress<PgnImportProgress>(p =>
+            string destinationDb = await ResolveScoutingTargetDatabaseAsync(targetDatabase);
+            var progress = new DirectProgress<PgnImportProgress>(p =>
             {
                 result.TotalImported = p.GamesSaved;
                 result.TotalSkipped = p.GamesSkipped;
             });
 
-            await _databaseService.ImportPgnTextAsync(activeDb.Name, pgnText, progress, cancellationToken, deduplicate: true);
+            await _databaseService.ImportPgnTextAsync(destinationDb, pgnText, progress, cancellationToken, deduplicate: true);
         }
 
         return result;
+    }
+
+    public async Task<FidePlayerCard?> LookupFidePlayerAsync(string fideIdOrName, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(fideIdOrName)) return null;
+        string clean = fideIdOrName.Trim();
+        if (clean.All(char.IsDigit))
+        {
+            return await _fideScouting.GetPlayerCardAsync(clean, cancellationToken);
+        }
+
+        var search = await _fideScouting.SearchPlayersByNameAsync(clean, limit: 1, cancellationToken);
+        if (search.Count > 0)
+        {
+            return await _fideScouting.GetPlayerCardAsync(search[0].FideId, cancellationToken);
+        }
+
+        return null;
+    }
+
+    public async Task<List<FideSearchResult>> SearchFidePlayersAsync(string query, CancellationToken cancellationToken = default)
+    {
+        return await _fideScouting.SearchPlayersByNameAsync(query, limit: 15, cancellationToken);
+    }
+
+    public async Task<List<ChessResultsTournamentEntry>> FetchTournamentsAsync(string? fideId, string? lastName, CancellationToken cancellationToken = default)
+    {
+        return await _chessResultsScouting.SearchPlayerTournamentsAsync(fideId, lastName, limit: 25, cancellationToken);
+    }
+
+    public async Task<OnlineSyncResult> FetchChessResultsGamesAsync(string? fideId, string? lastName, string? targetDatabase = null, CancellationToken cancellationToken = default)
+    {
+        var result = new OnlineSyncResult();
+        if (string.IsNullOrWhiteSpace(fideId) && string.IsNullOrWhiteSpace(lastName))
+        {
+            result.Errors.Add("FIDE ID or player name is required.");
+            return result;
+        }
+
+        try
+        {
+            string? pgnText = await _chessResultsScouting.DownloadPlayerPgnsAsync(fideId, lastName, cancellationToken);
+            if (string.IsNullOrWhiteSpace(pgnText))
+            {
+                result.Errors.Add($"No PGN game records found on Chess-Results for {(string.IsNullOrEmpty(fideId) ? lastName : fideId)}.");
+                return result;
+            }
+
+            string destinationDb = await ResolveScoutingTargetDatabaseAsync(targetDatabase);
+            var progress = new DirectProgress<PgnImportProgress>(p =>
+            {
+                result.TotalImported = p.GamesSaved;
+                result.TotalSkipped = p.GamesSkipped;
+            });
+
+            await _databaseService.ImportPgnTextAsync(destinationDb, pgnText, progress, cancellationToken, deduplicate: true);
+        }
+        catch (Exception ex)
+        {
+            result.Errors.Add($"Error downloading from Chess-Results: {ex.Message}");
+        }
+
+        return result;
+    }
+
+    private async Task<string> ResolveScoutingTargetDatabaseAsync(string? targetDatabase)
+    {
+        if (!string.IsNullOrWhiteSpace(targetDatabase) && !string.Equals(targetDatabase, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase))
+        {
+            return targetDatabase;
+        }
+
+        var activeDb = await _databaseService.GetActiveDatabaseAsync();
+        if (!string.Equals(activeDb.Name, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase))
+        {
+            return activeDb.Name;
+        }
+
+        var allDbs = await _databaseService.GetDatabasesAsync();
+        var safeDb = allDbs.FirstOrDefault(d => !string.Equals(d.Name, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase));
+        if (safeDb != null)
+        {
+            return safeDb.Name;
+        }
+
+        var created = await _databaseService.CreateDatabaseAsync("Scouted Games");
+        return created.Name;
+    }
+
+    private class DirectProgress<T> : IProgress<T>
+    {
+        private readonly Action<T> _handler;
+        public DirectProgress(Action<T> handler) => _handler = handler;
+        public void Report(T value) => _handler(value);
+    }
+
+    public static string ExtractLastName(string fullName)
+    {
+        if (string.IsNullOrWhiteSpace(fullName)) return string.Empty;
+        if (fullName.Contains(','))
+        {
+            return fullName.Split(',')[0].Trim();
+        }
+        var parts = fullName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length > 0 ? parts.Last() : fullName;
     }
 }

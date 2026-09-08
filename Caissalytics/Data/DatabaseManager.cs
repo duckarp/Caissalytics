@@ -644,7 +644,7 @@ public class DatabaseManager : IDatabaseService
         using (var gameCmd = conn.CreateCommand())
         {
             gameCmd.CommandText = @"
-                SELECT g.id, g.white, g.black, g.white_elo, g.black_elo, g.result, g.date, g.event, g.site, g.round, g.eco, g.ply_count, g.pgn
+                SELECT DISTINCT g.id, g.white, g.black, g.white_elo, g.black_elo, g.result, g.date, g.event, g.site, g.round, g.eco, g.ply_count, g.pgn
                 FROM positions p
                 JOIN games g ON g.id = p.game_id
                 WHERE p.zobrist_key = $zobrist
@@ -844,6 +844,10 @@ public class DatabaseManager : IDatabaseService
     public async Task<long> SaveGameAsync(string databaseName, GameHeader game)
     {
         string dbName = string.IsNullOrWhiteSpace(databaseName) ? _activeDatabaseName : databaseName;
+        if (string.Equals(dbName, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Manual game creation is not allowed in '{IDatabaseService.ProtectedOnlineDatabaseName}'. This database is reserved exclusively for games synced via Lichess and Chess.com APIs.");
+        }
         string path = GetDbPath(dbName);
         await InitializeSchemaAsync(path);
 
@@ -980,9 +984,10 @@ public class DatabaseManager : IDatabaseService
         Stream stream,
         IProgress<PgnImportProgress>? progress = null,
         CancellationToken cancellationToken = default,
-        bool deduplicate = false)
+        bool deduplicate = false,
+        bool allowProtectedDatabase = false)
     {
-        return ImportPgnStreamAsync(databaseName, stream, null, progress, cancellationToken, deduplicate);
+        return ImportPgnStreamAsync(databaseName, stream, null, progress, cancellationToken, deduplicate, allowProtectedDatabase);
     }
 
     public async Task ImportPgnStreamAsync(
@@ -991,8 +996,14 @@ public class DatabaseManager : IDatabaseService
         string? fileName,
         IProgress<PgnImportProgress>? progress = null,
         CancellationToken cancellationToken = default,
-        bool deduplicate = false)
+        bool deduplicate = false,
+        bool allowProtectedDatabase = false)
     {
+        if (!allowProtectedDatabase && string.Equals(databaseName, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Manual PGN import into '{IDatabaseService.ProtectedOnlineDatabaseName}' is restricted. Games can only be added through online API sync.");
+        }
+
         string path = GetDbPath(databaseName);
         await InitializeSchemaAsync(path);
 
@@ -1071,8 +1082,14 @@ public class DatabaseManager : IDatabaseService
         string pgnText,
         IProgress<PgnImportProgress>? progress = null,
         CancellationToken cancellationToken = default,
-        bool deduplicate = false)
+        bool deduplicate = false,
+        bool allowProtectedDatabase = false)
     {
+        if (!allowProtectedDatabase && string.Equals(databaseName, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException($"Manual PGN import into '{IDatabaseService.ProtectedOnlineDatabaseName}' is restricted. Games can only be added through online API sync.");
+        }
+
         string path = GetDbPath(databaseName);
         await InitializeSchemaAsync(path);
 
@@ -1129,6 +1146,79 @@ public class DatabaseManager : IDatabaseService
             CREATE INDEX IF NOT EXISTS idx_positions_zobrist ON positions(zobrist_key, next_move_san);
         ";
         await cmd.ExecuteNonQueryAsync();
+
+        await EnsurePositionsIndexedAsync(conn);
+    }
+
+    private static async Task EnsurePositionsIndexedAsync(SqliteConnection conn)
+    {
+        var gamesToIndex = new List<(long Id, string Pgn, string Result)>();
+        using (var checkCmd = conn.CreateCommand())
+        {
+            checkCmd.CommandText = @"
+                SELECT g.id, g.pgn, g.result
+                FROM games g
+                WHERE g.id NOT IN (SELECT DISTINCT game_id FROM positions WHERE ply > 0)
+                LIMIT 500;";
+
+            using var reader = await checkCmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                gamesToIndex.Add((reader.GetInt64(0), reader.GetString(1), reader.GetString(2)));
+            }
+        }
+
+        if (gamesToIndex.Count == 0) return;
+
+        using var tx = conn.BeginTransaction();
+        using var delCmd = conn.CreateCommand();
+        delCmd.Transaction = tx;
+        delCmd.CommandText = "DELETE FROM positions WHERE game_id = $id;";
+        var pDelId = delCmd.Parameters.Add("$id", SqliteType.Integer);
+
+        using var insCmd = conn.CreateCommand();
+        insCmd.Transaction = tx;
+        insCmd.CommandText = @"
+            INSERT OR IGNORE INTO positions (game_id, ply, zobrist_key, next_move_san, next_move_uci, result)
+            VALUES ($game_id, $ply, $zobrist_key, $next_move_san, $next_move_uci, $result);";
+        var pGameId = insCmd.Parameters.Add("$game_id", SqliteType.Integer);
+        var pPly = insCmd.Parameters.Add("$ply", SqliteType.Integer);
+        var pZobrist = insCmd.Parameters.Add("$zobrist_key", SqliteType.Integer);
+        var pSan = insCmd.Parameters.Add("$next_move_san", SqliteType.Text);
+        var pUci = insCmd.Parameters.Add("$next_move_uci", SqliteType.Text);
+        var pRes = insCmd.Parameters.Add("$result", SqliteType.Text);
+
+        foreach (var (gameId, pgn, result) in gamesToIndex)
+        {
+            var moveTokens = StreamingPgnImporter.ExtractMainlineMoveTokens(pgn);
+            if (moveTokens.Count == 0) continue;
+
+            pDelId.Value = gameId;
+            await delCmd.ExecuteNonQueryAsync();
+
+            pGameId.Value = gameId;
+            pRes.Value = result;
+
+            var pos = FenParser.Parse(BoardPosition.StartFen);
+            int ply = 0;
+
+            foreach (var tok in moveTokens)
+            {
+                var move = SanParser.ParseSan(pos, tok);
+                if (move.IsEmpty) break;
+
+                pPly.Value = ply;
+                pZobrist.Value = unchecked((long)pos.ZobristKey);
+                pSan.Value = tok;
+                pUci.Value = move.ToUci();
+                await insCmd.ExecuteNonQueryAsync();
+
+                pos = MoveGenerator.ApplyMove(pos, move);
+                ply++;
+            }
+        }
+
+        await tx.CommitAsync();
     }
 
     private async Task SeedSampleGamesAsync(string dbPath)

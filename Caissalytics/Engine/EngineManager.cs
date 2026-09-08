@@ -544,7 +544,7 @@ public class EngineManager : IEngineService, IDisposable
         var candidateDirs = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
             ? new[]
             {
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "ChessBase", "Engines"),
+                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Chess", "Engines"),
                 @"C:\Chess",
                 @"C:\Engines"
             }

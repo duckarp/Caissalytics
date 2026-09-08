@@ -2,6 +2,8 @@ namespace Caissalytics.Data;
 
 public interface IDatabaseService
 {
+    public const string ProtectedOnlineDatabaseName = "My online games";
+
     event Action? OnActiveDatabaseChanged;
     event Action? OnReferenceDatabaseChanged;
     event Action<string>? OnDatabaseModified;
@@ -24,8 +26,8 @@ public interface IDatabaseService
     Task<long> SaveGameAsync(string databaseName, GameHeader game);
     Task<bool> DeleteGameAsync(string databaseName, long gameId);
 
-    Task ImportPgnStreamAsync(string databaseName, Stream stream, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false);
-    Task ImportPgnStreamAsync(string databaseName, Stream stream, string? fileName, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false)
-        => ImportPgnStreamAsync(databaseName, stream, progress, cancellationToken, deduplicate);
-    Task ImportPgnTextAsync(string databaseName, string pgnText, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false);
+    Task ImportPgnStreamAsync(string databaseName, Stream stream, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false, bool allowProtectedDatabase = false);
+    Task ImportPgnStreamAsync(string databaseName, Stream stream, string? fileName, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false, bool allowProtectedDatabase = false)
+        => ImportPgnStreamAsync(databaseName, stream, progress, cancellationToken, deduplicate, allowProtectedDatabase);
+    Task ImportPgnTextAsync(string databaseName, string pgnText, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false, bool allowProtectedDatabase = false);
 }

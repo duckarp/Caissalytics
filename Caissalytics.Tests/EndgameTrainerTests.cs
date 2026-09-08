@@ -38,6 +38,22 @@ public class EndgameTrainerTests
             // Verify active side has legal moves
             var legalMoves = MoveGenerator.GenerateLegalMoves(board);
             Assert.NotEmpty(legalMoves);
+
+            // Verify inactive side is not in check
+            var inactiveColor = board.ActiveColor == PieceColor.White ? PieceColor.Black : PieceColor.White;
+            Assert.False(MoveGenerator.IsInCheck(board, inactiveColor), $"{pos.Id}: Inactive side {inactiveColor} must not be in check");
+
+            // Verify no pawns on back ranks (rank 1 or 8)
+            for (int f = 0; f < 8; f++)
+            {
+                var sqRank1 = board[f, 0];
+                var sqRank8 = board[f, 7];
+                Assert.NotEqual(PieceType.Pawn, sqRank1.Type);
+                Assert.NotEqual(PieceType.Pawn, sqRank8.Type);
+            }
+
+            // Verify valid TargetOutcome
+            Assert.True(pos.TargetOutcome == "Win" || pos.TargetOutcome == "Draw");
         }
     }
 
@@ -67,6 +83,12 @@ public class EndgameTrainerTests
 
         var trebuchet = EndgameCurriculum.GetById("kp_trebuchet");
         Assert.NotNull(trebuchet);
+        Assert.Equal("Draw", trebuchet.TargetOutcome);
+
+        var keySquares = EndgameCurriculum.GetById("kp_key_squares_direct");
+        Assert.NotNull(keySquares);
+        Assert.Equal("Win", keySquares.TargetOutcome);
+        Assert.Equal(PieceColor.White, keySquares.PlayerColor);
     }
 
     [Fact]

@@ -164,4 +164,36 @@ public class WorkspacePersistenceTests
         tab.SetTitle("Updated Title");
         Assert.True(changeCount > countBeforeTitle);
     }
+
+    [Fact]
+    public void CreateDatabaseTab_WithTargetDatabase_SetsTargetDatabase()
+    {
+        var ws = new WorkspaceState();
+        var tab = ws.CreateDatabaseTab("My online games");
+
+        Assert.Equal("My online games", tab.TargetDatabase);
+        Assert.Equal(tab, ws.ActiveTab);
+
+        // Re-invoking with another database updates existing tab's target database and activates it
+        var tab2 = ws.CreateDatabaseTab("ClassicalMasters");
+        Assert.Same(tab, tab2);
+        Assert.Equal("ClassicalMasters", tab2.TargetDatabase);
+        Assert.Equal(tab2, ws.ActiveTab);
+    }
+
+    [Fact]
+    public void CreateSettingsTab_WithInitialCategory_SetsInitialCategory()
+    {
+        var ws = new WorkspaceState();
+        var tab = ws.CreateSettingsTab("sync");
+
+        Assert.Equal("sync", tab.InitialCategory);
+        Assert.Equal(tab, ws.ActiveTab);
+
+        // Re-invoking with another category updates existing tab's initial category
+        var tab2 = ws.CreateSettingsTab("engines");
+        Assert.Same(tab, tab2);
+        Assert.Equal("engines", tab2.InitialCategory);
+        Assert.Equal(tab2, ws.ActiveTab);
+    }
 }

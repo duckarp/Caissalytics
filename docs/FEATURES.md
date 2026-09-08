@@ -88,7 +88,7 @@ Switch between statistical sources seamlessly:
   - **Alternative**: Secondary branch for variety or specific opponents.
   - **Surprise Weapon**: Sharp, tactical sideline designed to test opponent preparation.
 - **Preparation Notes**: Add personal study explanations, warning traps, and memory cues.
-- **PGN Export**: Click **Export Repertoire to PGN** to generate a study file compatible with ChessBase, Lichess Studies, or PGN viewers.
+- **PGN Export**: Click **Export Repertoire to PGN** to generate a study file compatible with all standard chess software, Lichess Studies, and PGN viewers.
 
 ---
 
@@ -96,15 +96,31 @@ Switch between statistical sources seamlessly:
 
 Prepare for tournament, league, and online matches by generating comprehensive scouting reports on any opponent.
 
-### Player Search & Instant Autocomplete
-- Type any opponent's name in the top search bar (e.g. *Kasparov*, *Carlsen*, *Movsesian*).
-- As you type, the auto-suggest dropdown pulls matching players directly from your selected SQLite database.
-- Choose between searching your **Active Database**, the master **Reference Database**, or **All Databases**.
+### Dual Search Mode: Local Database vs. FIDE & Internet Scouting
+- **Local DB Mode**:
+  - Auto-suggest dropdown pulls matching players directly from your active or reference SQLite database.
+- **FIDE & Web Mode**:
+  - Live query directly against official FIDE records (`ratings.fide.com`) and Chess-Results (`chess-results.com`).
+  - **FIDE ID Auto-Detection**: Typing digits (e.g. `1503014` or `309788`) automatically engages official FIDE card resolution.
+  - **Live FIDE Autocomplete**: Displays matching player names, official title badges (`[GM]`, `[IM]`, `[FM]`, etc.), federation codes, and official classical ratings.
 
-### On-The-Fly Online Fetching (Lichess & Chess.com)
+### Official FIDE Profile Cards & Rating Triplet
+- Displays live official FIDE details directly in the scouting hero header:
+  - **Title Badges**: Color-coded badges for Grandmaster (GM), International Master (IM), FIDE Master (FM), Candidate Master (CM), and Women's titles.
+  - **Rating Triplet**: Live Classical / Standard Elo, Rapid Elo, and Blitz Elo.
+  - **Federation & Ranks**: Federation flag and country code, World Rank (Active & Overall), National Rank, and Birth Year.
+  - **Direct Profile Link**: 1-click navigation to `ratings.fide.com/profile/{fideId}`.
+
+### Chess-Results.com Tournament History & Round Pairings
+- Integrated OTB tournament scouting for league and open tournaments:
+  - **Tournament Appearances Table**: Lists recent events, end dates, round counts, clubs/teams, scores, and ranks.
+  - **Direct Swiss-Manager Links**: 1-click links to view the full tournament crosstable or the opponent's round-by-round pairing card on Chess-Results.
+  - **1-Click Tournament PGN Download**: Download available broadcast PGN games from `PartieSuche.aspx` directly into your local database.
+
+### Multi-Platform Online Fetching (Lichess, Chess.com & Chess-Results)
 - Don't have games of your upcoming opponent in your local database?
-- Click **🌐 Fetch Online Games** in the toolbar.
-- Enter your opponent's handle on Lichess or Chess.com to automatically download their latest game history and immediately generate their dossier!
+- Click **🌐 Fetch Online Games** in the toolbar or hero card.
+- Choose between **Lichess**, **Chess.com**, or **Chess-Results (OTB Tournaments)** to download game histories and automatically synthesize the opponent dossier!
 
 ### Scouting Dossier Overview
 The generated report provides instant insights:
@@ -134,7 +150,7 @@ The generated report provides instant insights:
 ### Games Archive & 1-Click Deep Analysis
 - Browse all recorded games for the opponent with result indicators, ECO codes, and move counts.
 - Click **Analyze** on any game to immediately launch it into the **Stockfish Analysis Workbench**.
-- Click **Export Games** to create a study PGN collection for offline preparation.
+- Select specific games or all games and click **Export Games** to save them into an existing database or create a new dedicated database for offline preparation.
 
 ---
 
@@ -154,7 +170,7 @@ Caissalytics integrates full **Syzygy Endgame Tablebases** and an interactive **
   - 1-click move playing directly on the board.
 
 ### Classical Endgame Trainer (🏆 Endgames)
-The dedicated **Endgame Trainer** features a structured curriculum of 16 essential classical endgame positions across 5 categories:
+The dedicated **Endgame Trainer** features a structured curriculum of 18 essential classical endgame positions across 5 categories (100% verified with Syzygy 7-piece tablebases):
 1. **King & Pawn Endgames**: Key squares, direct opposition, distant opposition, the Trebuchet (mutual zugzwang), triangulation and outflanking, and the rule of the square.
 2. **Rook Endgames**: The Lucena position (bridge building), the Philidor defense (3rd-rank cut-off), the Vancura defense (active flank checks against rook pawns), and the short-side defense.
 3. **Queen Endgames**: Queen vs 7th-rank center pawn (zigzag technique), Queen vs bishop/rook pawn (stalemate fortresses), and Queen vs Rook (Philidor technique).

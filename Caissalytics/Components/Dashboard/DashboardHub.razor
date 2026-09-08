@@ -3,6 +3,8 @@
 @using Caissalytics.Components.Database
 @inject WorkspaceState Workspace
 @inject IDatabaseService DatabaseService
+@inject IUserProfileService ProfileService
+@inject IOnlineGameSyncService SyncService
 
 <div class="dashboard-container">
 	<div class="dashboard-hero">
@@ -30,7 +32,7 @@
 			<InputFile OnChange="HandlePgnUpload" class="hidden-file-input" accept=".pgn" />
 		</label>
 
-		<div class="action-card" @onclick="() => _showOnlineSyncModal = true">
+		<div class="action-card" @onclick="HandleMyOnlineGamesClicked">
 			<div class="card-icon">🌐</div>
 			<h2 class="card-title">My Online Games</h2>
 			<p class="card-description">Sync and analyze your games from Lichess and Chess.com into your local database.</p>
@@ -74,17 +76,28 @@
 	</div>
 </div>
 
-<OnlineGamesSyncDialog IsOpen="_showOnlineSyncModal"
-					   OnClose="() => _showOnlineSyncModal = false"
-					   OnDatabaseSelected="HandleOnlineDbSelected" />
-
 @code {
-	private bool _showOnlineSyncModal = false;
-
-	private async Task HandleOnlineDbSelected(string dbName)
+	private async Task HandleMyOnlineGamesClicked()
 	{
-		await DatabaseService.SetActiveDatabaseAsync(dbName);
-		Workspace.CreateDatabaseTab();
+		var profile = await ProfileService.GetProfileAsync();
+		bool hasHandle = profile.HasLichess || profile.HasChessCom;
+
+		if (hasHandle)
+		{
+			string onlineDbName = SyncService.OnlineGamesDatabaseName;
+			var existingDbs = await DatabaseService.GetDatabasesAsync();
+			if (!existingDbs.Any(d => string.Equals(d.Name, onlineDbName, StringComparison.OrdinalIgnoreCase)))
+			{
+				await DatabaseService.CreateDatabaseAsync(onlineDbName);
+			}
+
+			await DatabaseService.SetActiveDatabaseAsync(onlineDbName);
+			Workspace.CreateDatabaseTab(onlineDbName);
+		}
+		else
+		{
+			Workspace.CreateSettingsTab("sync");
+		}
 	}
 
 	private async Task HandlePgnUpload(InputFileChangeEventArgs e)

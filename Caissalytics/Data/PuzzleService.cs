@@ -12,6 +12,7 @@ public class PuzzleService : IPuzzleService
     private PuzzleStats _stats = new();
     private readonly List<ChessPuzzle> _cachedExtractedPuzzles = new();
     private readonly object _lock = new();
+    private bool _hasAutoExtracted = false;
 
     public event Action? OnPuzzleStatsChanged;
 
@@ -129,30 +130,43 @@ public class PuzzleService : IPuzzleService
         // 2. Extracted user blunders
         if (filter.Mode == "all" || filter.Mode == "blunders")
         {
+            var profile = await _profileService.GetProfileAsync();
             lock (_lock)
             {
-                result.AddRange(_cachedExtractedPuzzles);
+                var userBlunders = _cachedExtractedPuzzles.Where(p =>
+                    p.IsUserBlunder && (profile.MatchesPlayer(p.WhitePlayer) || profile.MatchesPlayer(p.BlackPlayer))
+                );
+                result.AddRange(userBlunders);
             }
         }
 
         // 3. Needs review (failed previously)
         if (filter.Mode == "review")
         {
+            var profile = await _profileService.GetProfileAsync();
             lock (_lock)
             {
                 var failedIds = _stats.FailedPuzzleIds;
-                var all = GetCuratedPuzzles().Concat(_cachedExtractedPuzzles);
+                var validBlunders = _cachedExtractedPuzzles.Where(p =>
+                    !p.IsUserBlunder || profile.MatchesPlayer(p.WhitePlayer) || profile.MatchesPlayer(p.BlackPlayer)
+                );
+                var all = GetCuratedPuzzles().Concat(validBlunders);
                 result.AddRange(all.Where(p => failedIds.Contains(p.Id)));
             }
         }
 
-        // Auto-extract if no blunders exist yet and blunders were requested
-        if (result.Count == 0 && (filter.Mode == "all" || filter.Mode == "blunders"))
+        // Auto-extract once if no blunders exist yet and blunders were requested
+        if (result.Count == 0 && !_hasAutoExtracted && (filter.Mode == "all" || filter.Mode == "blunders"))
         {
+            _hasAutoExtracted = true;
             await TryAutoExtractFromOnlineGamesAsync(ct);
+            var profile = await _profileService.GetProfileAsync();
             lock (_lock)
             {
-                result.AddRange(_cachedExtractedPuzzles);
+                var userBlunders = _cachedExtractedPuzzles.Where(p =>
+                    p.IsUserBlunder && (profile.MatchesPlayer(p.WhitePlayer) || profile.MatchesPlayer(p.BlackPlayer))
+                );
+                result.AddRange(userBlunders);
             }
             if (result.Count == 0 && filter.Mode == "all")
             {
@@ -198,13 +212,21 @@ public class PuzzleService : IPuzzleService
         {
             ct.ThrowIfCancellationRequested();
 
+            bool isUserWhite = profile.MatchesPlayer(h.White);
+            bool isUserBlack = !isUserWhite && profile.MatchesPlayer(h.Black);
+
+            // For personal blunders, only analyze games where the user played
+            if (!isUserWhite && !isUserBlack) continue;
+
             if (string.IsNullOrWhiteSpace(h.Pgn)) continue;
+
+            // Fast string pre-filter: Skip games without any variations or blunder annotations
+            // Parsing a full PGN tree with PgnHandler is expensive; games with no annotations take 0ms
+            if (!h.Pgn.Contains('(') && !h.Pgn.Contains('$') && !h.Pgn.Contains('?')) continue;
 
             try
             {
                 var tree = PgnHandler.ImportPgn(h.Pgn);
-                bool isUserWhite = profile.MatchesPlayer(h.White);
-                bool isUserBlack = !isUserWhite && profile.MatchesPlayer(h.Black);
 
                 // Traverse mainline to find moves with NAG 2 (mistake) or 4 (blunder) or comments with best variation
                 var curr = tree.Root;
@@ -214,6 +236,14 @@ public class PuzzleService : IPuzzleService
                     var child = curr.Children[0];
                     ply++;
                     bool isWhite = (ply % 2 == 1);
+                    bool isUserTurn = isWhite ? isUserWhite : isUserBlack;
+
+                    // Only moves played by the user are candidates for personal blunder drills
+                    if (!isUserTurn)
+                    {
+                        curr = child;
+                        continue;
+                    }
 
                     // Check if this move is a blunder or mistake
                     bool isBlunder = child.Nags.Contains(4);
@@ -240,11 +270,10 @@ public class PuzzleService : IPuzzleService
                                 steps++;
                             }
 
-                            string playerName = isWhite ? h.White : h.Black;
                             string oppName = isWhite ? h.Black : h.White;
 
                             string blunderNotice = isBlunder ? "blundered with" : "played";
-                            string explanation = $"In the game, {playerName} {blunderNotice} {child.San}. The winning tactical idea was {altChild.San}!";
+                            string explanation = $"In your game against {oppName}, you {blunderNotice} {child.San}. The winning tactical idea was {altChild.San}!";
 
                             var puzzle = new ChessPuzzle
                             {
@@ -334,7 +363,17 @@ public class PuzzleService : IPuzzleService
                     if (p != null)
                     {
                         _cachedExtractedPuzzles.Clear();
-                        _cachedExtractedPuzzles.AddRange(p);
+                        // Filter out test dummy artifacts
+                        _cachedExtractedPuzzles.AddRange(p.Where(puzzle =>
+                            !string.Equals(puzzle.WhitePlayer, "jantest", StringComparison.OrdinalIgnoreCase) &&
+                            !string.Equals(puzzle.BlackPlayer, "OpponentGM", StringComparison.OrdinalIgnoreCase) &&
+                            !puzzle.Id.StartsWith("test_")
+                        ));
+
+                        if (_cachedExtractedPuzzles.Count != p.Count)
+                        {
+                            SaveExtractedPuzzles();
+                        }
                     }
                 }
                 catch { }

@@ -28,8 +28,8 @@ public class UserAnalyticsTests
         public Task<GameHeader?> GetGameByIdAsync(string? databaseName, long gameId) => Task.FromResult(Headers.FirstOrDefault(h => h.Id == gameId));
         public Task<long> SaveGameAsync(string databaseName, GameHeader game) => Task.FromResult(game.Id);
         public Task<bool> DeleteGameAsync(string databaseName, long gameId) => Task.FromResult(true);
-        public Task ImportPgnStreamAsync(string databaseName, Stream stream, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false) => Task.CompletedTask;
-        public Task ImportPgnTextAsync(string databaseName, string pgnText, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false) => Task.CompletedTask;
+        public Task ImportPgnStreamAsync(string databaseName, Stream stream, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false, bool allowProtectedDatabase = false) => Task.CompletedTask;
+        public Task ImportPgnTextAsync(string databaseName, string pgnText, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false, bool allowProtectedDatabase = false) => Task.CompletedTask;
     }
 
     private class FakeUserProfileService : IUserProfileService

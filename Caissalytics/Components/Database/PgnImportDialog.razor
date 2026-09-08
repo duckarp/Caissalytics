@@ -12,7 +12,15 @@
 			</div>
 
 			<div class="modal-body">
-				@if (_isImporting)
+				@if (string.Equals(DatabaseName, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase))
+				{
+					<div class="reference-empty-state">
+						<span class="empty-state-icon">🔒</span>
+						<h4>Protected Database</h4>
+						<p>"@DatabaseName" is reserved exclusively for games synchronized via Lichess and Chess.com APIs. Manual PGN imports are disabled.</p>
+					</div>
+				}
+				else if (_isImporting)
 				{
 					<div class="progress-container">
 						<div class="progress-bar-track">
@@ -169,9 +177,10 @@
 	private CancellationTokenSource? _importCts;
 	private bool _prevIsOpen = false;
 
-	private bool CanStartImport => _importMode == ImportMode.Text
-		? !string.IsNullOrWhiteSpace(_pastedPgn)
-		: _selectedFile != null;
+	private bool CanStartImport => !string.Equals(DatabaseName, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase) &&
+		(_importMode == ImportMode.Text
+			? !string.IsNullOrWhiteSpace(_pastedPgn)
+			: _selectedFile != null);
 
 	protected override void OnParametersSet()
 	{
@@ -212,7 +221,7 @@
 
 	private async Task StartImportAsync()
 	{
-		if (!CanStartImport) return;
+		if (!CanStartImport || string.Equals(DatabaseName, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase)) return;
 
 		_isImporting = true;
 		_isFinished = false;

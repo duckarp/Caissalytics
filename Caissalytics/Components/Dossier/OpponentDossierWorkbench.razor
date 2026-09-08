@@ -10,31 +10,70 @@
 	<!-- Top Bar: Player Search & Source Selector -->
 	<header class="dossier-search-bar">
 		<div class="dossier-search-left">
-			<span class="dossier-search-icon">🕵️‍♂️</span>
+			<div class="dossier-search-modes">
+				<button type="button" class="search-mode-pill @(_searchMode == "local" ? "active" : "")" @onclick='() => SetSearchMode("local")'>
+					<span>💾 Local DB</span>
+				</button>
+				<button type="button" class="search-mode-pill @(_searchMode == "fide" ? "active" : "")" @onclick='() => SetSearchMode("fide")'>
+					<span>🌐 FIDE &amp; Web</span>
+				</button>
+			</div>
+
 			<div class="dossier-input-wrapper">
 				<input type="text"
 					   class="dossier-search-input"
-					   placeholder="Search opponent name (e.g. Kasparov, Carlsen, Movsesian)..."
+					   placeholder="@(_searchMode == "fide" ? "Enter FIDE ID (e.g. 1503014) or Name..." : "Search opponent name (e.g. Kasparov, Carlsen)...")"
 					   @bind="_searchQuery"
 					   @bind:event="oninput"
 					   @onkeyup="HandleKeyUp" />
 
-				@if (_showSuggestions && _suggestions.Count > 0)
+				@if (_showSuggestions)
 				{
-					<div class="dossier-autocomplete-list">
-						@foreach (var p in _suggestions)
-						{
-							<div class="autocomplete-item" @onclick="() => SelectPlayer(p)">
-								<span>@p</span>
-								<span>🔍</span>
-							</div>
-						}
-					</div>
+					@if (_searchMode == "fide" && _fideSuggestions.Count > 0)
+					{
+						<div class="dossier-autocomplete-list">
+							@foreach (var p in _fideSuggestions)
+							{
+								<div class="autocomplete-item" @onclick="() => SelectFidePlayer(p)">
+									<div class="autocomplete-fide-row">
+										@if (!string.IsNullOrEmpty(p.Title))
+										{
+											<span class="fide-title-badge @GetTitleBadgeClass(p.Title)">@p.Title</span>
+										}
+										<span class="autocomplete-fide-name">@p.FullName</span>
+										<div class="autocomplete-fide-info">
+											@if (!string.IsNullOrEmpty(p.Federation))
+											{
+												<span>@p.Federation</span>
+											}
+											@if (p.StandardElo.HasValue && p.StandardElo.Value > 0)
+											{
+												<span>⚡ @p.StandardElo</span>
+											}
+											<span>ID: @p.FideId</span>
+										</div>
+									</div>
+								</div>
+							}
+						</div>
+					}
+					else if (_searchMode == "local" && _suggestions.Count > 0)
+					{
+						<div class="dossier-autocomplete-list">
+							@foreach (var p in _suggestions)
+							{
+								<div class="autocomplete-item" @onclick="() => SelectPlayer(p)">
+									<span>@p</span>
+									<span>🔍</span>
+								</div>
+							}
+						</div>
+					}
 				}
 			</div>
 
 			<button class="dossier-action-btn btn-primary" @onclick="() => SearchPlayerAsync(_searchQuery)">
-				Scout Opponent
+				@(_searchMode == "fide" ? "Scout FIDE & Web" : "Scout Opponent")
 			</button>
 		</div>
 
@@ -46,7 +85,7 @@
 				}
 			</select>
 
-			<button class="dossier-action-btn" @onclick="() => _showOnlineFetchModal = true" title="Download games for any online player on Lichess or Chess.com">
+			<button class="dossier-action-btn" @onclick="OpenOnlineFetchModal" title="Download games for any online player on Lichess, Chess.com or Chess-Results">
 				<span>🌐</span>
 				<span>Fetch Online Games</span>
 			</button>
@@ -81,8 +120,42 @@
 					<div class="hero-identity">
 						<div class="hero-avatar-icon">👤</div>
 						<div>
-							<h2 class="hero-name">@_currentReport.PlayerName</h2>
+							<h2 class="hero-name">
+								@if (_currentReport.FideCard != null && !string.IsNullOrEmpty(_currentReport.FideCard.TitleAbbreviation))
+								{
+									<span class="fide-title-badge @GetTitleBadgeClass(_currentReport.FideCard.TitleAbbreviation)">@_currentReport.FideCard.TitleAbbreviation</span>
+								}
+								@_currentReport.PlayerName
+							</h2>
 							<div class="hero-badges-row">
+								@if (_currentReport.FideCard != null)
+								{
+									@if (!string.IsNullOrEmpty(_currentReport.FideCard.Federation))
+									{
+										<span class="hero-badge">
+											@if (!string.IsNullOrEmpty(_currentReport.FideCard.FlagUrl))
+											{
+												<img class="fide-flag-img" src="@_currentReport.FideCard.FlagUrl" alt="Flag" />
+											}
+											@_currentReport.FideCard.Federation
+										</span>
+									}
+									<a href="@_currentReport.FideCard.ProfileUrl" target="_blank" class="hero-badge hero-badge-elo fide-profile-link" title="Open FIDE Profile">
+										FIDE ID: @_currentReport.FideCard.FideId ↗
+									</a>
+									@if (_currentReport.FideCard.WorldRankActive.HasValue)
+									{
+										<span class="hero-badge hero-badge-elo">World: #@_currentReport.FideCard.WorldRankActive</span>
+									}
+									@if (_currentReport.FideCard.NationalRank.HasValue)
+									{
+										<span class="hero-badge hero-badge-elo">National: #@_currentReport.FideCard.NationalRank</span>
+									}
+									@if (_currentReport.FideCard.BirthYear.HasValue)
+									{
+										<span class="hero-badge">B-Year: @_currentReport.FideCard.BirthYear</span>
+									}
+								}
 								<span class="hero-badge">Database: @_currentReport.DatabaseSource</span>
 								@if (_currentReport.PeakElo.HasValue)
 								{
@@ -98,13 +171,45 @@
 									<span class="hero-badge">@_currentReport.EarliestDate — @_currentReport.LatestDate</span>
 								}
 							</div>
+
+							@if (_currentReport.FideCard != null)
+							{
+								<div class="fide-ratings-panel">
+									<div class="fide-rating-pill standard">
+										<span class="fide-rating-category">Classical (Std)</span>
+										<span class="fide-rating-num">@(_currentReport.FideCard.StandardElo?.ToString() ?? "Unrated")</span>
+									</div>
+									<div class="fide-rating-pill rapid">
+										<span class="fide-rating-category">Rapid</span>
+										<span class="fide-rating-num">@(_currentReport.FideCard.RapidElo?.ToString() ?? "Unrated")</span>
+									</div>
+									<div class="fide-rating-pill blitz">
+										<span class="fide-rating-category">Blitz</span>
+										<span class="fide-rating-num">@(_currentReport.FideCard.BlitzElo?.ToString() ?? "Unrated")</span>
+									</div>
+								</div>
+							}
 						</div>
 					</div>
 
 					<div class="dossier-hero-actions">
-						<button class="dossier-action-btn" @onclick="ExportPgnStudyAsync">
-							<span>💾</span>
-							<span>Export Games (@_currentReport.TotalGames)</span>
+						@if (_currentReport.TotalGames > 0)
+						{
+							<button class="dossier-action-btn" @onclick="OpenExportModal">
+								<span>💾</span>
+								<span>Export Games (@SelectedGamesCount)</span>
+							</button>
+						}
+						@if (_currentReport.FideCard != null || _currentReport.RecentTournaments.Count > 0)
+						{
+							<button class="dossier-action-btn btn-primary" @onclick="FetchChessResultsGamesAsync" disabled="@_isFetchingChessResults">
+								<span>⬇️</span>
+								<span>@(_isFetchingChessResults ? "Importing..." : "Import from Chess-Results")</span>
+							</button>
+						}
+						<button class="dossier-action-btn" @onclick="OpenOnlineFetchModal">
+							<span>🌐</span>
+							<span>Fetch Online Games</span>
 						</button>
 					</div>
 				</div>
@@ -176,6 +281,9 @@
 				</button>
 				<button class="dossier-tab-btn @(_activeSection == "games" ? "active" : "")" @onclick='() => _activeSection = "games"'>
 					<span>🗄️ Games Archive (@_currentReport.RecentGames.Count)</span>
+				</button>
+				<button class="dossier-tab-btn @(_activeSection == "tournaments" ? "active" : "")" @onclick='() => _activeSection = "tournaments"'>
+					<span>🏆 OTB Tournaments (@(_currentReport.RecentTournaments?.Count ?? 0))</span>
 				</button>
 			</nav>
 
@@ -338,9 +446,29 @@
 			@if (_activeSection == "games")
 			{
 				<div class="dossier-games-table-wrapper">
+					<div class="games-archive-header">
+						<div class="games-archive-title">
+							<span>🗄️</span>
+							<span>Games Archive (@_currentReport.RecentGames.Count)</span>
+							@if (_selectedGameIds.Count > 0)
+							{
+								<span class="games-selected-badge">(@_selectedGameIds.Count selected)</span>
+							}
+						</div>
+						<div class="games-archive-actions">
+							<button class="dossier-action-btn" @onclick="OpenExportModal">
+								<span>💾</span>
+								<span>Export Games (@SelectedGamesCount)</span>
+							</button>
+						</div>
+					</div>
+
 					<table class="dossier-games-table">
 						<thead>
 							<tr>
+								<th class="col-checkbox">
+									<input type="checkbox" checked="@AllGamesSelected" @onchange="ToggleSelectAllGames" title="Select / deselect all games" />
+								</th>
 								<th>Date</th>
 								<th>White</th>
 								<th>Black</th>
@@ -353,7 +481,11 @@
 						<tbody>
 							@foreach (var g in _currentReport.RecentGames)
 							{
-								<tr>
+								bool isRowSelected = _selectedGameIds.Contains(g.Id);
+								<tr class="@(isRowSelected ? "row-selected" : "")">
+									<td class="col-checkbox">
+										<input type="checkbox" checked="@isRowSelected" @onchange="() => ToggleGameSelection(g.Id)" />
+									</td>
 									<td>@g.FormattedDate</td>
 									<td>@g.White @(g.WhiteElo.HasValue ? $"({g.WhiteElo})" : "")</td>
 									<td>@g.Black @(g.BlackElo.HasValue ? $"({g.BlackElo})" : "")</td>
@@ -373,6 +505,88 @@
 					</table>
 				</div>
 			}
+
+			<!-- Section 5: OTB Tournaments (Chess-Results) -->
+			@if (_activeSection == "tournaments")
+			{
+				<div class="tournaments-table-wrapper">
+					<div class="tournaments-header-row">
+						<div class="tournaments-header-title">
+							<span>🏆</span>
+							<span>Recent Tournament Appearances &amp; Pairings (Chess-Results.com)</span>
+						</div>
+						<div class="tournaments-header-actions">
+							<button class="dossier-action-btn btn-primary" @onclick="FetchChessResultsGamesAsync" disabled="@_isFetchingChessResults">
+								<span>⬇️</span>
+								<span>@(_isFetchingChessResults ? "Importing Games..." : "Download Games from Chess-Results")</span>
+							</button>
+							@if (_currentReport.FideCard != null && !string.IsNullOrEmpty(_currentReport.FideCard.ProfileUrl))
+							{
+								<a href="@_currentReport.FideCard.ProfileUrl" target="_blank" class="fide-profile-link" title="Open Official FIDE Profile">
+									<span>🔗 FIDE Profile ↗</span>
+								</a>
+							}
+						</div>
+					</div>
+
+					@if (_currentReport.RecentTournaments == null || _currentReport.RecentTournaments.Count == 0)
+					{
+						<div class="dossier-empty-state">
+							<div class="empty-state-title">No Tournament Records Found</div>
+							<div class="empty-state-desc">
+								No recent tournament entries were found on Chess-Results for this player.
+							</div>
+						</div>
+					}
+					else
+					{
+						<table class="branch-lines-table">
+							<thead>
+								<tr>
+									<th>End Date</th>
+									<th>Tournament</th>
+									<th>Club / Team</th>
+									<th>Rounds</th>
+									<th>Score / Rank</th>
+									<th>Players</th>
+									<th>Action</th>
+								</tr>
+							</thead>
+							<tbody>
+								@foreach (var tour in _currentReport.RecentTournaments)
+								{
+									<tr>
+										<td>@tour.EndDate</td>
+										<td><strong>@tour.TournamentName</strong></td>
+										<td>@(string.IsNullOrEmpty(tour.Club) ? "-" : tour.Club)</td>
+										<td>@tour.Rounds</td>
+										<td><span class="result-tag-win">@tour.ScoreOrRank</span></td>
+										<td>@tour.TotalPlayers</td>
+										<td>
+											@if (!string.IsNullOrEmpty(tour.PlayerCardUrl))
+											{
+												<a href="@tour.PlayerCardUrl" target="_blank" class="tournament-link" title="View player pairing card on Chess-Results">
+													<span>Pairing Card ↗</span>
+												</a>
+											}
+											else if (!string.IsNullOrEmpty(tour.TournamentUrl))
+											{
+												<a href="@tour.TournamentUrl" target="_blank" class="tournament-link" title="View tournament on Chess-Results">
+													<span>Tournament ↗</span>
+												</a>
+											}
+											else
+											{
+												<span>-</span>
+											}
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					}
+				</div>
+			}
 		</div>
 	}
 </div>
@@ -382,20 +596,31 @@
 {
 	<div class="fetch-modal-overlay" @onclick="() => _showOnlineFetchModal = false">
 		<div class="fetch-modal-content" @onclick:stopPropagation>
-			<h3 class="modal-title">Fetch Opponent Games from Online</h3>
-			<p class="modal-desc">Download games directly from Lichess or Chess.com for instant scouting.</p>
+			<h3 class="modal-title">Fetch Opponent Games Online</h3>
+			<p class="modal-desc">Download games from Lichess, Chess.com, or Chess-Results.com for instant scouting.</p>
 
 			<div class="modal-form-row">
-				<label class="field-label">Platform</label>
+				<label class="field-label">Platform / Source</label>
 				<select class="modal-input" @bind="_fetchPlatform">
 					<option value="Lichess">Lichess</option>
 					<option value="Chess.com">Chess.com</option>
+					<option value="Chess-Results">Chess-Results (OTB Tournaments)</option>
 				</select>
 			</div>
 
 			<div class="modal-form-row">
 				<label class="field-label">Player Username</label>
 				<input class="modal-input" placeholder="e.g. DrNykterstein, MagnusCarlsen" @bind="_fetchUsername" />
+			</div>
+
+			<div class="modal-form-row">
+				<label class="field-label">Target Database</label>
+				<select class="modal-input" @bind="_fetchTargetDb">
+					@foreach (var db in _databases.Where(d => !string.Equals(d.Name, "My online games", StringComparison.OrdinalIgnoreCase)))
+					{
+						<option value="@db.Name">@db.Name (@db.GameCount games)</option>
+					}
+				</select>
 			</div>
 
 			@if (!string.IsNullOrEmpty(_fetchStatus))
@@ -413,11 +638,89 @@
 	</div>
 }
 
+<!-- Export Games to Database Modal -->
+@if (_showExportModal && _currentReport != null)
+{
+	<div class="fetch-modal-overlay" @onclick="() => _showExportModal = false">
+		<div class="fetch-modal-content export-games-modal-content" @onclick:stopPropagation>
+			<h3 class="modal-title">💾 Export Games to Database</h3>
+			<p class="modal-desc">
+				Export @SelectedGamesCount @(SelectedGamesCount == 1 ? "game" : "games") of <strong>@_currentReport.PlayerName</strong> into a database.
+			</p>
+
+			<div class="save-mode-container">
+				<span class="save-mode-title">Destination</span>
+				<div class="save-mode-options">
+					<label class="save-mode-label">
+						<input type="radio" name="exportMode" value="new" checked="@(_exportMode == "new")" @onchange='() => _exportMode = "new"' />
+						<div class="save-mode-text-col">
+							<strong>Create a new database</strong>
+							<span class="save-mode-desc">Create a new standalone database for this opponent</span>
+						</div>
+					</label>
+
+					@if (_exportMode == "new")
+					{
+						<div class="export-nested-input">
+							<input class="modal-input" placeholder="e.g. Opponent: @_currentReport.PlayerName" @bind="_exportNewDbName" />
+						</div>
+					}
+
+					<label class="save-mode-label">
+						<input type="radio" name="exportMode" value="existing" checked="@(_exportMode == "existing")" @onchange='() => _exportMode = "existing"' />
+						<div class="save-mode-text-col">
+							<strong>Save into existing database</strong>
+							<span class="save-mode-desc">Append games to an existing database collection</span>
+						</div>
+					</label>
+
+					@if (_exportMode == "existing")
+					{
+						<div class="export-nested-input">
+							<select class="modal-input" @bind="_exportTargetDb">
+								@foreach (var db in _databases.Where(d => !string.Equals(d.Name, "My online games", StringComparison.OrdinalIgnoreCase)))
+								{
+									<option value="@db.Name">@db.Name (@db.GameCount games)</option>
+								}
+							</select>
+						</div>
+					}
+				</div>
+			</div>
+
+			@if (!string.IsNullOrEmpty(_exportStatus))
+			{
+				<div class="stat-pill-sub @(_exportSuccess ? "export-status-success" : "export-status-error")">@_exportStatus</div>
+			}
+
+			<div class="modal-actions">
+				<button class="dossier-action-btn" @onclick="() => _showExportModal = false">
+					@(_exportSuccess ? "Close" : "Cancel")
+				</button>
+				@if (_exportSuccess && !string.IsNullOrEmpty(_lastExportedDb))
+				{
+					<button class="dossier-action-btn btn-primary" @onclick="OpenExportedDatabase">
+						<span>🗄️ Open '@_lastExportedDb'</span>
+					</button>
+				}
+				else
+				{
+					<button class="dossier-action-btn btn-primary" @onclick="ExecuteExportGamesAsync" disabled="@_isExporting">
+						@(_isExporting ? "Exporting..." : "Export Games")
+					</button>
+				}
+			</div>
+		</div>
+	</div>
+}
+
 @code {
 	[Parameter] public OpponentDossierTab Tab { get; set; } = default!;
 
+	private string _searchMode = "local"; // "local" or "fide"
 	private string _searchQuery = "";
 	private List<string> _suggestions = new();
+	private List<FideSearchResult> _fideSuggestions = new();
 	private bool _showSuggestions = false;
 
 	private List<DatabaseInfo> _databases = new();
@@ -427,12 +730,51 @@
 	private OpponentScoutingReport? _currentReport;
 	private string _activeSection = "white";
 
+	// Game selection state
+	private HashSet<long> _selectedGameIds = new();
+
+	// Export Modal state
+	private bool _showExportModal = false;
+	private string _exportMode = "new";
+	private string _exportTargetDb = "";
+	private string _exportNewDbName = "";
+	private string _exportStatus = "";
+	private bool _exportSuccess = false;
+	private string _lastExportedDb = "";
+	private bool _isExporting = false;
+
 	// Online Fetch state
 	private bool _showOnlineFetchModal = false;
 	private string _fetchPlatform = "Lichess";
 	private string _fetchUsername = "";
+	private string _fetchTargetDb = "";
 	private bool _isFetchingOnline = false;
+	private bool _isFetchingChessResults = false;
 	private string _fetchStatus = "";
+
+	private bool AllGamesSelected => _currentReport?.RecentGames.Count > 0 && _selectedGameIds.Count == _currentReport.RecentGames.Count;
+	private int SelectedGamesCount => _selectedGameIds.Count > 0 ? _selectedGameIds.Count : (_currentReport?.RecentGames.Count ?? 0);
+
+	private void ToggleSelectAllGames()
+	{
+		if (_currentReport == null) return;
+		if (AllGamesSelected)
+		{
+			_selectedGameIds.Clear();
+		}
+		else
+		{
+			_selectedGameIds = _currentReport.RecentGames.Select(g => g.Id).ToHashSet();
+		}
+	}
+
+	private void ToggleGameSelection(long gameId)
+	{
+		if (!_selectedGameIds.Remove(gameId))
+		{
+			_selectedGameIds.Add(gameId);
+		}
+	}
 
 	protected override async Task OnInitializedAsync()
 	{
@@ -441,15 +783,38 @@
 		if (!string.IsNullOrEmpty(Tab.TargetPlayer))
 		{
 			_searchQuery = Tab.TargetPlayer;
+			if (_searchQuery.All(char.IsDigit))
+			{
+				_searchMode = "fide";
+			}
 			await SearchPlayerAsync(_searchQuery);
 		}
+	}
+
+	private void SetSearchMode(string mode)
+	{
+		_searchMode = mode;
+		_showSuggestions = false;
 	}
 
 	private async Task LoadDatabasesAsync()
 	{
 		_databases = await DatabaseService.GetDatabasesAsync();
 		var active = await DatabaseService.GetActiveDatabaseAsync();
-		_selectedDb = active.Name;
+		if (string.IsNullOrEmpty(_selectedDb))
+		{
+			_selectedDb = active.Name;
+		}
+
+		var safeDb = _databases.FirstOrDefault(d => !string.Equals(d.Name, "My online games", StringComparison.OrdinalIgnoreCase));
+		if (string.IsNullOrEmpty(_exportTargetDb) && safeDb != null)
+		{
+			_exportTargetDb = safeDb.Name;
+		}
+		if (string.IsNullOrEmpty(_fetchTargetDb) && safeDb != null)
+		{
+			_fetchTargetDb = safeDb.Name;
+		}
 	}
 
 	private async Task HandleDbChanged(ChangeEventArgs e)
@@ -470,10 +835,26 @@
 			return;
 		}
 
-		if (_searchQuery.Trim().Length >= 2)
+		string query = _searchQuery.Trim();
+		if (query.Length >= 2)
 		{
-			_suggestions = await DossierService.SearchKnownPlayersAsync(_searchQuery, _selectedDb);
-			_showSuggestions = _suggestions.Count > 0;
+			if (_searchMode == "fide" || query.All(char.IsDigit))
+			{
+				if (query.All(char.IsDigit))
+				{
+					_showSuggestions = false;
+				}
+				else
+				{
+					_fideSuggestions = await DossierService.SearchFidePlayersAsync(query);
+					_showSuggestions = _fideSuggestions.Count > 0;
+				}
+			}
+			else
+			{
+				_suggestions = await DossierService.SearchKnownPlayersAsync(query, _selectedDb);
+				_showSuggestions = _suggestions.Count > 0;
+			}
 		}
 		else
 		{
@@ -486,6 +867,13 @@
 		_searchQuery = player;
 		_showSuggestions = false;
 		await SearchPlayerAsync(player);
+	}
+
+	private async Task SelectFidePlayer(FideSearchResult player)
+	{
+		_searchQuery = player.FideId;
+		_showSuggestions = false;
+		await SearchPlayerAsync(player.FideId);
 	}
 
 	private async Task SearchPlayerAsync(string playerName)
@@ -527,6 +915,50 @@
 		Workspace.CreateAnalysisTab(title: title, pgn: game.Pgn, targetDatabase: _selectedDb, databaseGameId: game.Id);
 	}
 
+	private void OpenOnlineFetchModal()
+	{
+		if (_currentReport != null)
+		{
+			_fetchUsername = _currentReport.FideCard?.FideId ?? _currentReport.PlayerName;
+		}
+		_fetchStatus = "";
+		_showOnlineFetchModal = true;
+	}
+
+	private async Task FetchChessResultsGamesAsync()
+	{
+		if (_currentReport == null) return;
+		string? fideId = _currentReport.FideCard?.FideId;
+		string lastName = OpponentDossierService.ExtractLastName(_currentReport.PlayerName);
+
+		_isFetchingChessResults = true;
+		_fetchStatus = "Connecting to Chess-Results...";
+		StateHasChanged();
+		try
+		{
+			string? safeTarget = !string.Equals(_selectedDb, "My online games", StringComparison.OrdinalIgnoreCase) ? _selectedDb : null;
+			var result = await DossierService.FetchChessResultsGamesAsync(fideId, lastName, targetDatabase: safeTarget);
+			if (result.Errors.Count > 0)
+			{
+				_fetchStatus = string.Join(" ", result.Errors);
+			}
+			else
+			{
+				_fetchStatus = $"Imported {result.TotalImported} games from Chess-Results!";
+				await SearchPlayerAsync(_searchQuery);
+			}
+		}
+		catch (Exception ex)
+		{
+			_fetchStatus = $"Error: {ex.Message}";
+		}
+		finally
+		{
+			_isFetchingChessResults = false;
+			StateHasChanged();
+		}
+	}
+
 	private async Task FetchOnlineAsync()
 	{
 		if (string.IsNullOrWhiteSpace(_fetchUsername)) return;
@@ -537,17 +969,39 @@
 
 		try
 		{
-			var result = await DossierService.FetchOnlineOpponentGamesAsync(_fetchPlatform, _fetchUsername, maxGames: 60);
-			if (result.Errors.Count > 0)
+			string? safeTarget = !string.Equals(_fetchTargetDb, "My online games", StringComparison.OrdinalIgnoreCase) ? _fetchTargetDb : null;
+
+			if (_fetchPlatform == "Chess-Results")
 			{
-				_fetchStatus = string.Join(" ", result.Errors);
+				string? fideId = _fetchUsername.Trim().All(char.IsDigit) ? _fetchUsername.Trim() : null;
+				string lastName = fideId == null ? OpponentDossierService.ExtractLastName(_fetchUsername) : "";
+				var result = await DossierService.FetchChessResultsGamesAsync(fideId, lastName, targetDatabase: safeTarget);
+				if (result.Errors.Count > 0)
+				{
+					_fetchStatus = string.Join(" ", result.Errors);
+				}
+				else
+				{
+					_fetchStatus = $"Imported {result.TotalImported} games from Chess-Results!";
+					_showOnlineFetchModal = false;
+					_searchQuery = _fetchUsername;
+					await SearchPlayerAsync(_fetchUsername);
+				}
 			}
 			else
 			{
-				_fetchStatus = $"Imported {result.TotalImported} games!";
-				_showOnlineFetchModal = false;
-				_searchQuery = _fetchUsername;
-				await SearchPlayerAsync(_fetchUsername);
+				var result = await DossierService.FetchOnlineOpponentGamesAsync(_fetchPlatform, _fetchUsername, maxGames: 60, targetDatabase: safeTarget);
+				if (result.Errors.Count > 0)
+				{
+					_fetchStatus = string.Join(" ", result.Errors);
+				}
+				else
+				{
+					_fetchStatus = $"Imported {result.TotalImported} games!";
+					_showOnlineFetchModal = false;
+					_searchQuery = _fetchUsername;
+					await SearchPlayerAsync(_fetchUsername);
+				}
 			}
 		}
 		catch (Exception ex)
@@ -561,17 +1015,126 @@
 		}
 	}
 
-	private void ExportPgnStudyAsync()
+	private static string GetTitleBadgeClass(string? title)
+	{
+		if (string.IsNullOrEmpty(title)) return "";
+		string upper = title.ToUpperInvariant();
+		if (upper.Contains("WGM")) return "badge-wgm";
+		if (upper.Contains("WIM")) return "badge-wim";
+		if (upper.Contains("WFM")) return "badge-wfm";
+		if (upper.Contains("WCM")) return "badge-wcm";
+		if (upper.Contains("GM") || upper.Contains("GRANDMASTER")) return "badge-gm";
+		if (upper.Contains("IM") || upper.Contains("INTERNATIONAL MASTER")) return "badge-im";
+		if (upper.Contains("FM") || upper.Contains("FIDE MASTER")) return "badge-fm";
+		if (upper.Contains("CM") || upper.Contains("CANDIDATE MASTER")) return "badge-cm";
+		return "badge-fm";
+	}
+
+	private void OpenExportModal()
 	{
 		if (_currentReport == null || _currentReport.RecentGames.Count == 0) return;
-		var sb = new System.Text.StringBuilder();
-		foreach (var g in _currentReport.RecentGames)
+		_exportMode = "new";
+		_exportNewDbName = $"Opponent - {_currentReport.PlayerName}";
+		var safeDb = _databases.FirstOrDefault(d => !string.Equals(d.Name, "My online games", StringComparison.OrdinalIgnoreCase));
+		_exportTargetDb = safeDb?.Name ?? "";
+		_exportStatus = "";
+		_exportSuccess = false;
+		_lastExportedDb = "";
+		_showExportModal = true;
+	}
+
+	private async Task ExecuteExportGamesAsync()
+	{
+		if (_currentReport == null || _currentReport.RecentGames.Count == 0) return;
+
+		List<GameHeader> gamesToExport;
+		if (_selectedGameIds.Count > 0)
 		{
-			sb.AppendLine(g.Pgn);
-			sb.AppendLine();
+			gamesToExport = _currentReport.RecentGames.Where(g => _selectedGameIds.Contains(g.Id)).ToList();
 		}
-		string pgnText = sb.ToString();
-		Workspace.CreateAnalysisTab(title: $"Dossier: {_currentReport.PlayerName}", pgn: pgnText);
+		else
+		{
+			gamesToExport = _currentReport.RecentGames;
+		}
+
+		if (gamesToExport.Count == 0)
+		{
+			_exportStatus = "No games selected to export.";
+			_exportSuccess = false;
+			return;
+		}
+
+		_isExporting = true;
+		_exportStatus = "Exporting games...";
+		_exportSuccess = false;
+		StateHasChanged();
+
+		try
+		{
+			string targetDb = "";
+			if (_exportMode == "new")
+			{
+				string newDbName = _exportNewDbName.Trim();
+				if (string.IsNullOrWhiteSpace(newDbName))
+				{
+					newDbName = $"Opponent - {_currentReport.PlayerName}";
+				}
+
+				if (string.Equals(newDbName, "My online games", StringComparison.OrdinalIgnoreCase))
+				{
+					_exportStatus = "Cannot use protected database name 'My online games'.";
+					_exportSuccess = false;
+					return;
+				}
+
+				var created = await DatabaseService.CreateDatabaseAsync(newDbName);
+				targetDb = created.Name;
+				await LoadDatabasesAsync();
+			}
+			else
+			{
+				targetDb = _exportTargetDb;
+				if (string.IsNullOrWhiteSpace(targetDb) || string.Equals(targetDb, "My online games", StringComparison.OrdinalIgnoreCase))
+				{
+					var safeDbs = _databases.Where(d => !string.Equals(d.Name, "My online games", StringComparison.OrdinalIgnoreCase)).ToList();
+					targetDb = safeDbs.FirstOrDefault()?.Name ?? "Scouted Games";
+				}
+			}
+
+			var sb = new System.Text.StringBuilder();
+			foreach (var g in gamesToExport)
+			{
+				sb.AppendLine(g.Pgn);
+				sb.AppendLine();
+			}
+
+			string pgnText = sb.ToString();
+			await DatabaseService.ImportPgnTextAsync(targetDb, pgnText, deduplicate: true);
+
+			_lastExportedDb = targetDb;
+			_exportSuccess = true;
+			_exportStatus = $"Successfully exported {gamesToExport.Count} games to '{targetDb}'!";
+			await LoadDatabasesAsync();
+		}
+		catch (Exception ex)
+		{
+			_exportStatus = $"Export error: {ex.Message}";
+			_exportSuccess = false;
+		}
+		finally
+		{
+			_isExporting = false;
+			StateHasChanged();
+		}
+	}
+
+	private void OpenExportedDatabase()
+	{
+		_showExportModal = false;
+		if (!string.IsNullOrEmpty(_lastExportedDb))
+		{
+			Workspace.CreateDatabaseTab(_lastExportedDb);
+		}
 	}
 
 	private static string GetResultClass(string result) => result switch

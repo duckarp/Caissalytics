@@ -599,4 +599,124 @@ public class DatabaseTests : IDisposable
         Assert.Equal("Player, A", games[0].White);
         Assert.Equal("Player, B", games[0].Black);
     }
+
+    [Fact]
+    public void ExtractMainlineMoveTokens_GluedMoveNumbers_ParsesCorrectly()
+    {
+        string pgn = "1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Ba4 Nf6 5.O-O";
+        var tokens = StreamingPgnImporter.ExtractMainlineMoveTokens(pgn);
+
+        Assert.Equal(9, tokens.Count);
+        Assert.Equal(new[] { "e4", "e5", "Nf3", "Nc6", "Bb5", "a6", "Ba4", "Nf6", "O-O" }, tokens);
+    }
+
+    [Fact]
+    public async Task QueryPositionAsync_FiltersGamesDynamicallyAsPositionProgresses()
+    {
+        await _dbManager.CreateDatabaseAsync("FilteringTest");
+
+        string game1 = @"[Event ""Game 1""]
+[Site ""Test""]
+[Date ""2024.01.01""]
+[White ""White A""]
+[Black ""Black A""]
+[Result ""1-0""]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 1-0";
+
+        string game2 = @"[Event ""Game 2""]
+[Site ""Test""]
+[Date ""2024.01.02""]
+[White ""White B""]
+[Black ""Black B""]
+[Result ""0-1""]
+
+1. d4 d5 2. c4 e6 0-1";
+
+        await _dbManager.ImportPgnTextAsync("FilteringTest", game1 + "\n\n" + game2);
+
+        // 1. Initial position: both games reach it
+        var rootPos = FenParser.Parse(BoardPosition.StartFen);
+        var rootResult = await _dbManager.QueryPositionAsync("FilteringTest", rootPos.ZobristKey);
+        Assert.Equal(2, rootResult.TotalPositionGames);
+        Assert.Equal(2, rootResult.TopGames.Count);
+
+        // 2. Position after 1. e4: only Game 1
+        var e4Pos = MoveGenerator.ApplyMove(rootPos, SanParser.ParseSan(rootPos, "e4"));
+        var e4Result = await _dbManager.QueryPositionAsync("FilteringTest", e4Pos.ZobristKey);
+        Assert.Equal(1, e4Result.TotalPositionGames);
+        Assert.Single(e4Result.TopGames);
+        Assert.Equal("White A", e4Result.TopGames[0].White);
+
+        // 3. Position after 1. d4: only Game 2
+        var d4Pos = MoveGenerator.ApplyMove(rootPos, SanParser.ParseSan(rootPos, "d4"));
+        var d4Result = await _dbManager.QueryPositionAsync("FilteringTest", d4Pos.ZobristKey);
+        Assert.Equal(1, d4Result.TotalPositionGames);
+        Assert.Single(d4Result.TopGames);
+        Assert.Equal("White B", d4Result.TopGames[0].White);
+
+        // 4. Position after 1. c4: no games
+        var c4Pos = MoveGenerator.ApplyMove(rootPos, SanParser.ParseSan(rootPos, "c4"));
+        var c4Result = await _dbManager.QueryPositionAsync("FilteringTest", c4Pos.ZobristKey);
+        Assert.Equal(0, c4Result.TotalPositionGames);
+        Assert.Empty(c4Result.TopGames);
+    }
+
+    [Fact]
+    public async Task ProtectedOnlineDatabase_ManualGameCreation_ThrowsInvalidOperationException()
+    {
+        var game = new GameHeader
+        {
+            White = "Player1",
+            Black = "Player2",
+            Result = "1-0",
+            Pgn = "1. e4 e5 1-0"
+        };
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _dbManager.SaveGameAsync(IDatabaseService.ProtectedOnlineDatabaseName, game));
+
+        Assert.Contains("Manual game creation is not allowed", ex.Message);
+    }
+
+    [Fact]
+    public async Task ProtectedOnlineDatabase_ManualPgnImport_ThrowsInvalidOperationException()
+    {
+        string pgn = @"[Event ""Casual""]
+[White ""PlayerA""]
+[Black ""PlayerB""]
+[Result ""1-0""]
+
+1. e4 e5 1-0";
+
+        var exText = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _dbManager.ImportPgnTextAsync(IDatabaseService.ProtectedOnlineDatabaseName, pgn));
+        Assert.Contains("restricted", exText.Message);
+
+        using var ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(pgn));
+        var exStream = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _dbManager.ImportPgnStreamAsync(IDatabaseService.ProtectedOnlineDatabaseName, ms));
+        Assert.Contains("restricted", exStream.Message);
+    }
+
+    [Fact]
+    public async Task ProtectedOnlineDatabase_SyncPgnImport_WithAllowProtected_Succeeds()
+    {
+        string pgn = @"[Event ""Lichess Blitz""]
+[Site ""https://lichess.org/12345""]
+[White ""TestUser""]
+[Black ""Opponent""]
+[Result ""1-0""]
+
+1. e4 e5 1-0";
+
+        await _dbManager.ImportPgnTextAsync(
+            IDatabaseService.ProtectedOnlineDatabaseName,
+            pgn,
+            allowProtectedDatabase: true);
+
+        var (games, count) = await _dbManager.SearchGamesAsync(IDatabaseService.ProtectedOnlineDatabaseName, new GameFilter());
+        Assert.Equal(1, count);
+        Assert.Equal("TestUser", games[0].White);
+    }
 }

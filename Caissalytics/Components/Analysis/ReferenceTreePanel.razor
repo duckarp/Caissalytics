@@ -90,7 +90,7 @@
 		</div>
 
 		<div class="reference-section-header">
-			<span>Top Master Games</span>
+			<span>Games in Position (@(_refResult?.TopGames?.Count ?? 0))</span>
 			<span>Result</span>
 		</div>
 
@@ -151,6 +151,7 @@
 
 @code {
 	[Parameter, EditorRequired] public BoardPosition Position { get; set; } = default!;
+	[Parameter] public string? InitialDatabase { get; set; }
 	[Parameter] public EventCallback<string> OnPlayMove { get; set; }
 	[Parameter] public EventCallback<GameHeader> OnOpenGame { get; set; }
 
@@ -167,6 +168,12 @@
 		DatabaseService.OnReferenceDatabaseChanged += HandleReferenceDatabaseChanged;
 		ProfileService.OnProfileChanged += HandleProfileChanged;
 		await LoadProfileAsync();
+
+		if (!string.IsNullOrWhiteSpace(InitialDatabase))
+		{
+			_selectedDb = InitialDatabase;
+		}
+
 		await RefreshDatabasesAsync();
 	}
 
@@ -186,7 +193,7 @@
 
 	protected override async Task OnParametersSetAsync()
 	{
-		if (Position != null && Position.ZobristKey != _lastZobristKey)
+		if (Position != null && (Position.ZobristKey != _lastZobristKey || _refResult == null))
 		{
 			_lastZobristKey = Position.ZobristKey;
 			await QueryPositionStatsAsync();
@@ -198,7 +205,12 @@
 		_databases = await DatabaseService.GetDatabasesAsync();
 		if (string.IsNullOrEmpty(_selectedDb) || !_databases.Any(d => string.Equals(d.Name, _selectedDb, StringComparison.OrdinalIgnoreCase)))
 		{
-			var refDb = _databases.FirstOrDefault(d => d.IsReference) 
+			var matchInit = !string.IsNullOrWhiteSpace(InitialDatabase) 
+				? _databases.FirstOrDefault(d => string.Equals(d.Name, InitialDatabase, StringComparison.OrdinalIgnoreCase))
+				: null;
+
+			var refDb = matchInit
+			            ?? _databases.FirstOrDefault(d => d.IsReference) 
 			            ?? _databases.FirstOrDefault(d => d.IsActive) 
 			            ?? _databases.FirstOrDefault();
 			if (refDb != null)

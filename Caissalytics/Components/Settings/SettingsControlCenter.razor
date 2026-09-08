@@ -492,6 +492,14 @@
 						</div>
 					</div>
 
+					@if (!_profile.HasLichess && !_profile.HasChessCom)
+					{
+						<div class="probe-feedback-box probe-error">
+							<span>⚠️ No online player handles configured yet. Please configure your Lichess or Chess.com username to enable game synchronization.</span>
+							<button class="btn-secondary" @onclick='() => SetCategory("profile")'>Configure Handles ➔</button>
+						</div>
+					}
+
 					<div class="form-action-bar">
 						<button class="btn-secondary" @onclick="SaveSyncPreferencesAsync">Save Sync Preferences</button>
 						<button class="btn-primary" @onclick="() => _showSyncModal = true">🔄 Sync Online Games Now</button>
@@ -809,6 +817,12 @@
 
 	protected override async Task OnInitializedAsync()
 	{
+		if (!string.IsNullOrEmpty(Tab?.InitialCategory))
+		{
+			_activeCategory = Tab.InitialCategory;
+			Tab.InitialCategory = null;
+		}
+
 		EngineService.OnEnginesChanged += HandleEnginesChanged;
 		ProfileService.OnProfileChanged += HandleProfileChanged;
 		UpdateService.OnUpdateStateChanged += HandleUpdateChanged;
@@ -825,6 +839,15 @@
 
 		_localSyzygyPath = TablebaseService.LocalSyzygyPath ?? EngineService.SyzygyPath;
 		_onlineTbEnabled = TablebaseService.IsOnlineProbeEnabled;
+	}
+
+	protected override void OnParametersSet()
+	{
+		if (!string.IsNullOrEmpty(Tab?.InitialCategory))
+		{
+			_activeCategory = Tab.InitialCategory;
+			Tab.InitialCategory = null;
+		}
 	}
 
 	private async Task SaveSyzygyPathAsync()

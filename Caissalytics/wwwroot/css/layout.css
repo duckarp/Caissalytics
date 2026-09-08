@@ -134,6 +134,35 @@
   color: var(--text-primary);
 }
 
+.tools-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  margin-bottom: 4px;
+}
+
+.tools-header-row .tools-subheading {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.btn-copy-action {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-copy-action:hover {
+  background-color: var(--border-subtle);
+}
+
 .tools-subheading {
   font-size: 14px;
   font-weight: 600;

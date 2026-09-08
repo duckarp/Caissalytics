@@ -232,6 +232,76 @@ public class OnlineGameSyncTests : IDisposable
         Assert.True(File.Exists(recreated.FilePath));
     }
 
+    [Fact]
+    public async Task PurgeNonSyncedGamesAsync_RemovesForeignGames_AndKeepsUserGames()
+    {
+        var mockFactory = new DummyHttpClientFactory();
+        var service = new OnlineGameSyncService(_dbManager, mockFactory, _testConfigFile);
+
+        var profile = new UserProfile
+        {
+            FirstName = "Tomas",
+            LastName = "K",
+            LichessUsername = "tomask_lic",
+            ChessComUsername = "tomask_cc"
+        };
+
+        // 1. Legitimate user Lichess game
+        string userGameLichess = @"[Event ""Rated Blitz game""]
+[Site ""https://lichess.org/abc12345""]
+[White ""tomask_lic""]
+[Black ""RandomOpponent""]
+[Result ""1-0""]
+
+1. e4 e5 1-0";
+
+        // 2. Legitimate user Chess.com game
+        string userGameChessCom = @"[Event ""Live Chess""]
+[Site ""Chess.com""]
+[White ""GrandmasterX""]
+[Black ""tomask_cc""]
+[Result ""0-1""]
+
+1. d4 Nf6 0-1";
+
+        // 3. Foreign / scouted game accidentally imported (neither player is user, site is OTB)
+        string foreignGame1 = @"[Event ""Chess-Results scouting""]
+[Site ""chess-results.com""]
+[White ""OpponentGrandmaster""]
+[Black ""OtherPlayer""]
+[Result ""1-0""]
+
+1. c4 c5 1-0";
+
+        // 4. Foreign game with no online platform
+        string foreignGame2 = @"[Event ""Casual Club""]
+[Site ""Local Club""]
+[White ""PlayerA""]
+[Black ""PlayerB""]
+[Result ""1/2-1/2""]
+
+1. e4 e5 1/2-1/2";
+
+        await _dbManager.ImportPgnTextAsync(service.OnlineGamesDatabaseName, userGameLichess, allowProtectedDatabase: true);
+        await _dbManager.ImportPgnTextAsync(service.OnlineGamesDatabaseName, userGameChessCom, allowProtectedDatabase: true);
+        await _dbManager.ImportPgnTextAsync(service.OnlineGamesDatabaseName, foreignGame1, allowProtectedDatabase: true);
+        await _dbManager.ImportPgnTextAsync(service.OnlineGamesDatabaseName, foreignGame2, allowProtectedDatabase: true);
+
+        var (allBefore, countBefore) = await _dbManager.SearchGamesAsync(service.OnlineGamesDatabaseName, new GameFilter());
+        Assert.Equal(4, countBefore);
+
+        // Run purge
+        int purged = await service.PurgeNonSyncedGamesAsync(profile);
+        Assert.Equal(2, purged);
+
+        var (allAfter, countAfter) = await _dbManager.SearchGamesAsync(service.OnlineGamesDatabaseName, new GameFilter());
+        Assert.Equal(2, countAfter);
+        Assert.Contains(allAfter, g => g.White == "tomask_lic");
+        Assert.Contains(allAfter, g => g.Black == "tomask_cc");
+        Assert.DoesNotContain(allAfter, g => g.White == "OpponentGrandmaster");
+        Assert.DoesNotContain(allAfter, g => g.White == "PlayerA");
+    }
+
     private class DummyHttpClientFactory : IHttpClientFactory
     {
         public HttpClient CreateClient(string name)

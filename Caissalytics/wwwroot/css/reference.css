@@ -37,14 +37,17 @@
 }
 
 .reference-db-select {
+  height: 28px;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   color: var(--text-primary);
-  padding: 4px 8px;
+  padding: 0 8px;
   border-radius: 4px;
   font-size: 12px;
+  line-height: 26px;
   outline: none;
   cursor: pointer;
+  box-sizing: border-box;
 }
 
 .reference-db-select:focus {
@@ -259,10 +262,14 @@
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 700;
-  padding: 1px 6px;
+  padding: 2px 6px;
   border-radius: 3px;
   background-color: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
+  white-space: nowrap;
+  display: inline-block;
+  text-align: center;
+  flex-shrink: 0;
 }
 
 .ref-result-white {

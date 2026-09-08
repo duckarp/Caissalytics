@@ -154,6 +154,11 @@
   vertical-align: middle;
 }
 
+/* High-contrast contour and brightness lift for black captured pieces on dark theme */
+.captured-piece.black {
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.85)) brightness(1.25);
+}
+
 /* Consecutive pawns overlap slightly, identical to Lichess */
 .captured-piece.pawn + .captured-piece.pawn {
   margin-left: -6px;

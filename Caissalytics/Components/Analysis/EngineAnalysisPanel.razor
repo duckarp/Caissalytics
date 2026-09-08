@@ -2,14 +2,23 @@
 @using Caissalytics.Core
 @using Caissalytics.Engine
 @inject IEngineService EngineService
+@implements IDisposable
 
 <div class="engine-panel-container">
 	<div class="engine-toolbar-header">
 		<div class="engine-controls-left">
-			<label class="engine-toggle-switch">
-				<input type="checkbox" checked="@IsAnalyzing" @onchange="ToggleAnalysis" disabled="@(!_isEngineInstalled || _isInstalling)" />
-				<span>Stockfish</span>
-			</label>
+			<button class="btn-engine-toggle @(IsAnalyzing ? "btn-engine-stop" : "btn-engine-start")"
+					@onclick="ToggleEngineAnalysis"
+					disabled="@(!_isEngineInstalled || _isInstalling)">
+				@(IsAnalyzing ? "⏹ Stop" : "▶ Start")
+			</button>
+
+			<select class="engine-select-dropdown" value="@_activeEngineId" @onchange="HandleEngineSelected" disabled="@(!_isEngineInstalled || _isInstalling)">
+				@foreach (var eng in _installedEngines)
+				{
+					<option value="@eng.Id">@eng.Name</option>
+				}
+			</select>
 
 			<select class="multipv-select-dropdown" value="@MultiPv" @onchange="HandleMultiPvChange" disabled="@(!IsAnalyzing)">
 				<option value="1">1 Line</option>
@@ -38,7 +47,7 @@
 	{
 		<div class="engine-install-banner">
 			<div class="banner-text-block">
-				<span class="banner-title">Stockfish 17 is not installed yet</span>
+				<span class="banner-title">Chess Engine is not installed yet</span>
 				<span class="banner-subtext">
 					@if (_isInstalling)
 					{
@@ -61,7 +70,7 @@
 			@if (!IsAnalyzing)
 			{
 				<div class="empty-notation-prompt">
-					<span>Toggle Stockfish analysis ON to evaluate candidate moves</span>
+					<span>Click ▶ Start to evaluate candidate moves with Stockfish</span>
 				</div>
 			}
 			else if (EvalLines.Count == 0)
@@ -100,17 +109,52 @@
 	private bool _isEngineInstalled = false;
 	private bool _isInstalling = false;
 	private int _installProgress = 0;
+	private List<EngineInfo> _installedEngines = new();
+	private string _activeEngineId = "";
 
 	protected override async Task OnInitializedAsync()
 	{
-		var active = await EngineService.GetActiveEngineAsync();
-		_isEngineInstalled = active?.IsInstalled == true;
+		EngineService.OnEnginesChanged += HandleEnginesChanged;
+		await LoadEnginesAsync();
 	}
 
-	private async Task ToggleAnalysis(ChangeEventArgs e)
+	private async Task LoadEnginesAsync()
 	{
-		bool enabled = (bool)(e.Value ?? false);
-		await IsAnalyzingChanged.InvokeAsync(enabled);
+		var all = await EngineService.GetEnginesAsync();
+		_installedEngines = all.Where(e => e.IsInstalled).ToList();
+		var active = await EngineService.GetActiveEngineAsync();
+		_activeEngineId = active?.Id ?? _installedEngines.FirstOrDefault()?.Id ?? "";
+		_isEngineInstalled = _installedEngines.Count > 0;
+	}
+
+	private async void HandleEnginesChanged()
+	{
+		await InvokeAsync(async () =>
+		{
+			await LoadEnginesAsync();
+			StateHasChanged();
+		});
+	}
+
+	private async Task ToggleEngineAnalysis()
+	{
+		await IsAnalyzingChanged.InvokeAsync(!IsAnalyzing);
+	}
+
+	private async Task HandleEngineSelected(ChangeEventArgs e)
+	{
+		string newId = e.Value?.ToString() ?? "";
+		if (!string.IsNullOrEmpty(newId) && newId != _activeEngineId)
+		{
+			_activeEngineId = newId;
+			await EngineService.SetActiveEngineAsync(newId);
+			if (IsAnalyzing)
+			{
+				await IsAnalyzingChanged.InvokeAsync(false);
+				await Task.Delay(100);
+				await IsAnalyzingChanged.InvokeAsync(true);
+			}
+		}
 	}
 
 	private async Task HandleMultiPvChange(ChangeEventArgs e)
@@ -134,10 +178,15 @@
 		_isInstalling = false;
 		if (success)
 		{
-			_isEngineInstalled = true;
+			await LoadEnginesAsync();
 			await IsAnalyzingChanged.InvokeAsync(true);
 		}
 		StateHasChanged();
+	}
+
+	public void Dispose()
+	{
+		EngineService.OnEnginesChanged -= HandleEnginesChanged;
 	}
 
 	private async Task AddPvAsVariation(List<string> uciMoves)

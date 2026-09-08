@@ -211,4 +211,28 @@ public class OpponentDossierTests : IDisposable
         var report = await _dossierService.GenerateDossierAsync("NonExistentPlayerXYZ", db);
         Assert.Null(report);
     }
+
+    [Fact]
+    public async Task FetchOnlineOpponentGamesAsync_WhenActiveDatabaseIsProtected_RoutesToSafeDatabase()
+    {
+        // 1. Create protected database and set it as active
+        await _dbManager.CreateDatabaseAsync(IDatabaseService.ProtectedOnlineDatabaseName);
+        await _dbManager.SetActiveDatabaseAsync(IDatabaseService.ProtectedOnlineDatabaseName);
+
+        // 2. Fetch online games for opponent
+        var result = await _dossierService.FetchOnlineOpponentGamesAsync("Lichess", "TestUser");
+
+        Assert.Empty(result.Errors);
+        Assert.True(result.TotalImported > 0);
+
+        // 3. Verify games were NOT imported into "My online games"
+        var (onlineGames, onlineCount) = await _dbManager.SearchGamesAsync(IDatabaseService.ProtectedOnlineDatabaseName, new GameFilter());
+        Assert.Equal(0, onlineCount);
+
+        // 4. Verify games were routed to a safe fallback database (e.g., Scouted Games or default)
+        var allDbs = await _dbManager.GetDatabasesAsync();
+        var destinationDb = allDbs.FirstOrDefault(d => d.Name != IDatabaseService.ProtectedOnlineDatabaseName && d.GameCount > 0);
+        Assert.NotNull(destinationDb);
+        Assert.NotEqual(IDatabaseService.ProtectedOnlineDatabaseName, destinationDb.Name);
+    }
 }

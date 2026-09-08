@@ -112,14 +112,17 @@
 
 .source-select {
 	flex: 1;
+	height: 32px;
 	background: var(--surface-subtle, #181b22);
 	border: 1px solid var(--border, #2e3442);
 	color: var(--text-primary, #ffffff);
-	padding: 0.45rem 0.65rem;
+	padding: 0 0.65rem;
 	border-radius: 6px;
 	font-size: 0.85rem;
+	line-height: 30px;
 	outline: none;
 	cursor: pointer;
+	box-sizing: border-box;
 }
 
 .repertoire-mode-pills {
@@ -348,6 +351,10 @@
 	font-weight: 700;
 	padding: 0.2rem 0.45rem;
 	border-radius: 4px;
+	white-space: nowrap;
+	display: inline-block;
+	text-align: center;
+	flex-shrink: 0;
 }
 
 .rep-game-result-badge.white-win {
@@ -409,7 +416,20 @@
 	color: var(--text-secondary, #9ba3b4);
 }
 
-.rep-form-input, .rep-form-select, .rep-form-textarea {
+.rep-form-input, .rep-form-select {
+	height: 36px;
+	background: var(--surface-subtle, #181b22);
+	border: 1px solid var(--border, #2e3442);
+	color: var(--text-primary, #ffffff);
+	padding: 0 0.75rem;
+	border-radius: 6px;
+	font-size: 0.875rem;
+	line-height: 34px;
+	outline: none;
+	box-sizing: border-box;
+}
+
+.rep-form-textarea {
 	background: var(--surface-subtle, #181b22);
 	border: 1px solid var(--border, #2e3442);
 	color: var(--text-primary, #ffffff);
@@ -417,11 +437,9 @@
 	border-radius: 6px;
 	font-size: 0.875rem;
 	outline: none;
-}
-
-.rep-form-textarea {
 	resize: vertical;
 	min-height: 80px;
+	box-sizing: border-box;
 }
 
 .rep-modal-actions {

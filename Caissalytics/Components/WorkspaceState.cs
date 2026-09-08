@@ -164,12 +164,24 @@ public class DatabaseBrowserTab : WorkspaceTab
 {
     public override string Title => "Database";
     public override string Icon => "🗄️";
+    public string? TargetDatabase { get; set; }
+
+    public DatabaseBrowserTab(string? targetDatabase = null)
+    {
+        TargetDatabase = targetDatabase;
+    }
 }
 
 public class SettingsTab : WorkspaceTab
 {
     public override string Title => "Control Center";
     public override string Icon => "⚙️";
+    public string? InitialCategory { get; set; }
+
+    public SettingsTab(string? initialCategory = null)
+    {
+        InitialCategory = initialCategory;
+    }
 }
 
 public class AnalyticsTab : WorkspaceTab
@@ -285,34 +297,42 @@ public class WorkspaceState
         return tab;
     }
 
-    public DatabaseBrowserTab CreateDatabaseTab()
+    public DatabaseBrowserTab CreateDatabaseTab(string? databaseName = null)
     {
         var existing = Tabs.OfType<DatabaseBrowserTab>().FirstOrDefault();
         if (existing != null)
         {
+            if (!string.IsNullOrEmpty(databaseName))
+            {
+                existing.TargetDatabase = databaseName;
+            }
             ActiveTab = existing;
             NotifyStateChanged();
             return existing;
         }
 
-        var tab = new DatabaseBrowserTab();
+        var tab = new DatabaseBrowserTab(databaseName);
         Tabs.Add(tab);
         ActiveTab = tab;
         NotifyStateChanged();
         return tab;
     }
 
-    public SettingsTab CreateSettingsTab()
+    public SettingsTab CreateSettingsTab(string? category = null)
     {
         var existing = Tabs.OfType<SettingsTab>().FirstOrDefault();
         if (existing != null)
         {
+            if (!string.IsNullOrEmpty(category))
+            {
+                existing.InitialCategory = category;
+            }
             ActiveTab = existing;
             NotifyStateChanged();
             return existing;
         }
 
-        var tab = new SettingsTab();
+        var tab = new SettingsTab(category);
         Tabs.Add(tab);
         ActiveTab = tab;
         NotifyStateChanged();
