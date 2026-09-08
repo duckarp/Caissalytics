@@ -1,6 +1,7 @@
 using Caissalytics.Components;
 using Caissalytics.Data;
 using Caissalytics.Engine;
+using Caissalytics.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using Photino.Blazor;
 
@@ -18,7 +19,9 @@ appBuilder.Services.AddSingleton<IUserAnalyticsService, UserAnalyticsService>();
 appBuilder.Services.AddSingleton<IUpdateService, UpdateService>();
 appBuilder.Services.AddSingleton<IPuzzleService, PuzzleService>();
 appBuilder.Services.AddSingleton<IRepertoireService, RepertoireService>();
+appBuilder.Services.AddSingleton<IHomeworkService, HomeworkService>();
 appBuilder.Services.AddScoped<IAppearanceService, AppearanceService>();
+appBuilder.Services.AddScoped<ILocalizationService, LocalizationService>();
 appBuilder.Services.AddSingleton<IOpponentDossierService, OpponentDossierService>();
 appBuilder.Services.AddSingleton<IFideScoutingService, FideScoutingService>();
 appBuilder.Services.AddSingleton<IChessResultsScoutingService, ChessResultsScoutingService>();

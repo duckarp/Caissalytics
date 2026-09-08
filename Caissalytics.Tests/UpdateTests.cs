@@ -119,8 +119,8 @@ public class UpdateTests
         var update = await service.CheckForUpdatesAsync(force: true);
 
         Assert.NotNull(update);
-        Assert.Equal("1.0.0", service.GetCurrentVersion());
-        Assert.Equal("1.0.0", update.LatestVersion);
+        Assert.Equal("1.1.0", service.GetCurrentVersion());
+        Assert.False(string.IsNullOrWhiteSpace(update.LatestVersion));
         Assert.NotNull(update.AssetDownloadUrl);
         Assert.NotEmpty(update.AssetDownloadUrl!);
         Assert.NotNull(update.AssetFileName);

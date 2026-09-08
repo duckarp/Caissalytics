@@ -1,0 +1,674 @@
+@namespace Caissalytics.Components.Homework
+@using Caissalytics.Core
+@using Caissalytics.Data
+@using Caissalytics.Components.Board
+@inject IHomeworkService HomeworkService
+@inject WorkspaceState Workspace
+@inject IJSRuntime JS
+@implements IDisposable
+
+<div class="homework-workbench-container @(_viewMode == ViewMode.PrintPreview ? "print-preview-active" : "")">
+	@if (_viewMode == ViewMode.Hub)
+	{
+		<!-- View 1: Hub (List of all homework sheets) -->
+		<div class="homework-hub-view">
+			<div class="homework-hub-header">
+				<div class="hub-title-block">
+					<div class="hub-title-row">
+						<span class="hub-title-icon">📝</span>
+						<h1 class="hub-title">@Loc["Homework_Title"]</h1>
+					</div>
+					<p class="hub-subtitle">@Loc["Homework_Subtitle"]</p>
+				</div>
+				<div class="hub-header-actions">
+					<button type="button" class="btn-primary btn-new-sheet" @onclick="() => CreateNewSheet(6, defaultTemplate: true)">
+						<span>➕</span>
+						<span>@Loc["Homework_NewSheet"] (6 @Loc["Homework_DiagramsCount"])</span>
+					</button>
+					<button type="button" class="btn-secondary" @onclick="() => CreateNewSheet(4, defaultTemplate: true)">
+						<span>4 @Loc["Homework_DiagramsCount"]</span>
+					</button>
+					<button type="button" class="btn-secondary" @onclick="() => CreateNewSheet(8, defaultTemplate: true)">
+						<span>8 @Loc["Homework_DiagramsCount"]</span>
+					</button>
+				</div>
+			</div>
+
+			<div class="homework-sheets-grid">
+				@if (_sheets.Count == 0)
+				{
+					<div class="reference-empty-state">
+						<span class="empty-state-icon">📋</span>
+						<h4>@Loc["Homework_NoSheets"]</h4>
+						<p>@Loc["Homework_NoSheetsDesc"]</p>
+						<button type="button" class="btn-primary" style="margin-top: 12px;" @onclick="() => CreateNewSheet(6)">
+							@Loc["Homework_CreateFirst"]
+						</button>
+					</div>
+				}
+				else
+				{
+					@foreach (var sheet in _sheets)
+					{
+						<div class="sheet-hub-card">
+							<div class="sheet-card-top">
+								<div class="sheet-card-title-group">
+									<h3 class="sheet-card-title" @onclick="() => OpenEditor(sheet)">@sheet.Title</h3>
+									<span class="sheet-card-meta">
+										@sheet.Exercises.Count @Loc["Homework_DiagramsCount"] • @sheet.DiagramsPerRow @Loc["Homework_PerRow"] • @sheet.UpdatedAt.ToLocalTime().ToString("g")
+									</span>
+								</div>
+								<div class="sheet-card-badges">
+									@if (sheet.ShowStudentHeader)
+									{
+										<span class="sheet-badge">@Loc["Homework_StudentHeader"]</span>
+									}
+									@if (sheet.IncludeAnswerKey)
+									{
+										<span class="sheet-badge badge-accent">@Loc["Homework_AnswerKeyBadge"]</span>
+									}
+								</div>
+							</div>
+
+							<p class="sheet-card-desc">@sheet.Subtitle</p>
+
+							<!-- Miniature Diagram Thumbnails -->
+							<div class="sheet-card-preview-strip">
+								@foreach (var ex in sheet.Exercises.Take(4))
+								{
+									<div class="sheet-thumb-item" title="@ex.Title: @ex.Prompt">
+										<PrintableChessDiagram Exercise="ex" ShowCoordinates="false" ShowSolutionLines="false" />
+									</div>
+								}
+								@if (sheet.Exercises.Count > 4)
+								{
+									<div class="sheet-thumb-more">+@(sheet.Exercises.Count - 4)</div>
+								}
+							</div>
+
+							<div class="sheet-card-actions">
+								<button type="button" class="btn-sheet-action btn-primary-soft" @onclick="() => OpenEditor(sheet)">
+									<span>✏️</span>
+									<span>@Loc["Homework_Edit"]</span>
+								</button>
+								<button type="button" class="btn-sheet-action" @onclick="() => OpenPrintPreview(sheet)">
+									<span>🖨️</span>
+									<span>@Loc["Homework_PrintPreview"]</span>
+								</button>
+								<button type="button" class="btn-sheet-action" @onclick="() => DuplicateSheetAsync(sheet.Id)" title="@Loc["Homework_Duplicate"]">
+									<span>📄</span>
+								</button>
+								<button type="button" class="btn-sheet-action btn-danger-icon" @onclick="() => PromptDeleteSheet(sheet)" title="@Loc["Homework_Delete"]">
+									<span>🗑️</span>
+								</button>
+							</div>
+						</div>
+					}
+				}
+			</div>
+		</div>
+	}
+	else if (_viewMode == ViewMode.Editor && _activeSheet != null)
+	{
+		<!-- View 2: Sheet Editor -->
+		<div class="homework-editor-view">
+			<!-- Top Editor Navigation Bar -->
+			<div class="editor-nav-bar">
+				<div class="nav-bar-left">
+					<button type="button" class="btn-secondary" @onclick="BackToHub">
+						<span>←</span>
+						<span>@Loc["Homework_AllSheets"]</span>
+					</button>
+					<span class="editor-header-title">@_activeSheet.Title</span>
+				</div>
+				<div class="nav-bar-right">
+					<button type="button" class="btn-secondary" @onclick="() => OpenPrintPreview(_activeSheet)">
+						<span>🖨️</span>
+						<span>@Loc["Homework_PrintPreview"]</span>
+					</button>
+					<button type="button" class="btn-primary" @onclick="SaveCurrentSheetAsync">
+						<span>💾</span>
+						<span>@Loc["Common_Save"]</span>
+					</button>
+				</div>
+			</div>
+
+			<!-- Sheet Settings Panel -->
+			<div class="sheet-settings-card">
+				<div class="settings-form-grid">
+					<div class="settings-form-group span-2">
+						<label class="form-label">@Loc["Homework_SheetTitle"]</label>
+						<input type="text" class="form-input" @bind="_activeSheet.Title" @bind:event="oninput" />
+					</div>
+					<div class="settings-form-group span-2">
+						<label class="form-label">@Loc["Homework_Instructions"]</label>
+						<input type="text" class="form-input" @bind="_activeSheet.Subtitle" @bind:event="oninput" />
+					</div>
+					<div class="settings-form-group">
+						<label class="form-label">@Loc["Homework_CoachName"]</label>
+						<input type="text" class="form-input" placeholder="e.g. Coach Tomas" @bind="_activeSheet.CoachName" />
+					</div>
+					<div class="settings-form-group">
+						<label class="form-label">@Loc["Homework_ClubName"]</label>
+						<input type="text" class="form-input" placeholder="e.g. Chess Club" @bind="_activeSheet.ClubName" />
+					</div>
+					<div class="settings-form-group">
+						<label class="form-label">@Loc["Homework_DiagramsPerRow"]</label>
+						<select class="form-select" @bind="_activeSheet.DiagramsPerRow">
+							<option value="2">2 @Loc["Homework_Columns"] (2x2, 2x3, 2x4)</option>
+							<option value="3">3 @Loc["Homework_Columns"] (3x2, 3x3)</option>
+						</select>
+					</div>
+					<div class="settings-form-group toggles-group span-3">
+						<label class="toggle-checkbox-item">
+							<input type="checkbox" @bind="_activeSheet.ShowStudentHeader" />
+							<span>@Loc["Homework_StudentHeader"]</span>
+						</label>
+						<label class="toggle-checkbox-item">
+							<input type="checkbox" @bind="_activeSheet.ShowCoordinates" />
+							<span>@Loc["Homework_ShowCoordinates"]</span>
+						</label>
+						<label class="toggle-checkbox-item">
+							<input type="checkbox" @bind="_activeSheet.ShowSolutionLines" />
+							<span>@Loc["Homework_ShowSolutionLines"]</span>
+						</label>
+						<label class="toggle-checkbox-item">
+							<input type="checkbox" @bind="_activeSheet.IncludeAnswerKey" />
+							<span>@Loc["Homework_IncludeAnswerKey"]</span>
+						</label>
+					</div>
+				</div>
+			</div>
+
+			<!-- Diagrams Section Header -->
+			<div class="editor-section-header">
+				<div class="section-title-group">
+					<h2 class="section-title">@Loc["Homework_DiagramsList"] (@_activeSheet.Exercises.Count)</h2>
+					<span class="section-subtext">@Loc["Homework_DiagramsListDesc"]</span>
+				</div>
+				<div class="section-actions">
+					@if (HasActiveAnalysisTab)
+					{
+						<button type="button" class="btn-secondary" @onclick="ImportActiveAnalysisPosition" title="Grab position from currently open analysis board">
+							<span>📥</span>
+							<span>@Loc["Homework_ImportFromAnalysis"]</span>
+						</button>
+					}
+					<button type="button" class="btn-primary" @onclick="AddNewDiagram">
+						<span>➕</span>
+						<span>@Loc["Homework_AddDiagram"]</span>
+					</button>
+				</div>
+			</div>
+
+			<!-- Exercises Grid -->
+			<div class="editor-exercises-grid @($"cols-{_activeSheet.DiagramsPerRow}")">
+				@for (int i = 0; i < _activeSheet.Exercises.Count; i++)
+				{
+					var ex = _activeSheet.Exercises[i];
+					int index = i;
+
+					<div class="exercise-editor-card" @key="ex.Id">
+						<div class="exercise-card-header">
+							<div class="exercise-num-group">
+								<span class="exercise-num-tag">#@(index + 1)</span>
+								<input type="text" class="exercise-title-input" @bind="ex.Title" />
+							</div>
+							<div class="exercise-header-actions">
+								<button type="button" class="btn-icon-tiny" disabled="@(index == 0)" @onclick="() => MoveExercise(index, -1)" title="@Loc["Common_MoveUp"]">▲</button>
+								<button type="button" class="btn-icon-tiny" disabled="@(index == _activeSheet.Exercises.Count - 1)" @onclick="() => MoveExercise(index, 1)" title="@Loc["Common_MoveDown"]">▼</button>
+								<button type="button" class="btn-icon-tiny" @onclick="() => DuplicateExercise(index)" title="@Loc["Homework_Duplicate"]">📄</button>
+								<button type="button" class="btn-icon-tiny btn-danger-icon" @onclick="() => DeleteExercise(index)" title="@Loc["Homework_Delete"]">🗑️</button>
+							</div>
+						</div>
+
+						<!-- Diagram Preview & Quick Options -->
+						<div class="exercise-board-row">
+							<div class="exercise-board-container" @onclick="() => OpenBoardEditor(ex)">
+								<PrintableChessDiagram Exercise="ex" ShowCoordinates="_activeSheet.ShowCoordinates" ShowSolutionLines="false" />
+								<div class="board-hover-overlay">
+									<span>✏️ @Loc["BoardEditor_EditPosition"]</span>
+								</div>
+							</div>
+
+							<div class="exercise-quick-controls">
+								<div class="quick-control-group">
+									<label class="control-label-tiny">@Loc["BoardEditor_SideToMove"]</label>
+									<div class="turn-mini-pillbox">
+										<button type="button"
+												class="turn-mini-pill @(ex.ToMove == "white" ? "active-white" : "")"
+												@onclick='() => SetExerciseTurn(ex, "white")'>
+											○ @Loc["Endgame_WhiteToMove"]
+										</button>
+										<button type="button"
+												class="turn-mini-pill @(ex.ToMove == "black" ? "active-black" : "")"
+												@onclick='() => SetExerciseTurn(ex, "black")'>
+											● @Loc["Endgame_BlackToMove"]
+										</button>
+									</div>
+								</div>
+
+								<div class="quick-control-group">
+									<label class="control-label-tiny">@Loc["Homework_Orientation"]</label>
+									<button type="button" class="btn-secondary-tiny" @onclick="() => ToggleExerciseOrientation(ex)">
+										🔄 @(ex.Orientation == "white" ? "White on bottom" : "Black on bottom")
+									</button>
+								</div>
+
+								<button type="button" class="btn-primary-soft btn-full-width" @onclick="() => OpenBoardEditor(ex)">
+									<span>♟️</span>
+									<span>@Loc["BoardEditor_EditPosition"]</span>
+								</button>
+							</div>
+						</div>
+
+						<!-- Exercise Fields: Prompt & Solution -->
+						<div class="exercise-fields-group">
+							<div class="field-item">
+								<label class="field-label">@Loc["Homework_ExercisePrompt"]</label>
+								<input type="text" class="form-input-compact" placeholder="e.g. White to move and mate in 1" @bind="ex.Prompt" />
+							</div>
+							<div class="field-item">
+								<label class="field-label">@Loc["Homework_Solution"] (@Loc["Homework_TeacherKey"])</label>
+								<input type="text" class="form-input-compact font-mono" placeholder="e.g. 1. Ra8#" @bind="ex.Solution" />
+							</div>
+						</div>
+					</div>
+				}
+			</div>
+		</div>
+	}
+	else if (_viewMode == ViewMode.PrintPreview && _activeSheet != null)
+	{
+		<!-- View 3: Print & PDF Preview (A4 Page View) -->
+		<div class="homework-preview-view">
+			<!-- Non-printable Toolbar -->
+			<div class="preview-toolbar no-print">
+				<div class="preview-toolbar-left">
+					<button type="button" class="btn-secondary" @onclick="BackToEditor">
+						<span>←</span>
+						<span>@Loc["Homework_BackToEditor"]</span>
+					</button>
+					<span class="preview-title-badge">📄 @Loc["Homework_PrintPreview"]: @_activeSheet.Title</span>
+				</div>
+				<div class="preview-toolbar-right">
+					<button type="button" class="btn-primary btn-print-cta" @onclick="TriggerBrowserPrint">
+						<span>🖨️</span>
+						<span>@Loc["Homework_Print"]</span>
+					</button>
+				</div>
+			</div>
+
+			<!-- The Printable A4 Document Container -->
+			<div class="printable-document">
+				<!-- Page 1: Student Worksheet -->
+				<div class="a4-page-sheet printable-page">
+					<!-- Sheet Header -->
+					<div class="print-sheet-header">
+						<div class="print-header-top">
+							<div class="print-title-group">
+								<h1 class="print-sheet-title">@_activeSheet.Title</h1>
+								@if (!string.IsNullOrWhiteSpace(_activeSheet.Subtitle))
+								{
+									<p class="print-sheet-subtitle">@_activeSheet.Subtitle</p>
+								}
+							</div>
+							@if (!string.IsNullOrWhiteSpace(_activeSheet.ClubName) || !string.IsNullOrWhiteSpace(_activeSheet.CoachName))
+							{
+								<div class="print-club-info">
+									@if (!string.IsNullOrWhiteSpace(_activeSheet.ClubName))
+									{
+										<div class="print-club-name">@_activeSheet.ClubName</div>
+									}
+									@if (!string.IsNullOrWhiteSpace(_activeSheet.CoachName))
+									{
+										<div class="print-coach-name">@_activeSheet.CoachName</div>
+									}
+								</div>
+							}
+						</div>
+
+						@if (_activeSheet.ShowStudentHeader)
+						{
+							<div class="print-student-bar">
+								<div class="student-bar-field">
+									<span class="student-bar-label">@Loc["Homework_StudentName"]</span>
+									<span class="student-bar-line"></span>
+								</div>
+								<div class="student-bar-field">
+									<span class="student-bar-label">@Loc["Homework_Date"]</span>
+									<span class="student-bar-line"></span>
+								</div>
+								<div class="student-bar-field student-score-field">
+									<span class="student-bar-label">@Loc["Homework_Score"]</span>
+									<span class="score-box">/ @_activeSheet.Exercises.Count</span>
+								</div>
+							</div>
+						}
+					</div>
+
+					<!-- Diagrams Grid -->
+					<div class="print-diagrams-grid @($"grid-cols-{_activeSheet.DiagramsPerRow}")">
+						@foreach (var ex in _activeSheet.Exercises)
+						{
+							<PrintableChessDiagram Exercise="ex"
+												   ShowCoordinates="_activeSheet.ShowCoordinates"
+												   ShowSolutionLines="_activeSheet.ShowSolutionLines"
+												   ShowAnswer="false" />
+						}
+					</div>
+
+					<div class="print-page-footer">
+						<span>Caissalytics Chess</span>
+						<span>@DateTime.Now.ToString("yyyy-MM-dd")</span>
+					</div>
+				</div>
+
+				<!-- Page 2 (Optional): Teacher Answer Key -->
+				@if (_activeSheet.IncludeAnswerKey)
+				{
+					<div class="a4-page-sheet printable-page page-break-before">
+						<div class="print-sheet-header">
+							<div class="print-header-top">
+								<div class="print-title-group">
+									<h1 class="print-sheet-title">@_activeSheet.Title — @Loc["Homework_AnswerKeyTitle"]</h1>
+									<p class="print-sheet-subtitle">@Loc["Homework_AnswerKeyDesc"]</p>
+								</div>
+								<div class="print-club-info">
+									<span class="teacher-key-badge">🔑 @Loc["Homework_TeacherKey"]</span>
+								</div>
+							</div>
+						</div>
+
+						<div class="print-diagrams-grid @($"grid-cols-{_activeSheet.DiagramsPerRow}")">
+							@foreach (var ex in _activeSheet.Exercises)
+							{
+								<PrintableChessDiagram Exercise="ex"
+													   ShowCoordinates="_activeSheet.ShowCoordinates"
+													   ShowSolutionLines="false"
+													   ShowAnswer="true" />
+							}
+						</div>
+
+						<div class="print-page-footer">
+							<span>Caissalytics Chess • @Loc["Homework_TeacherKey"]</span>
+							<span>@DateTime.Now.ToString("yyyy-MM-dd")</span>
+						</div>
+					</div>
+				}
+			</div>
+		</div>
+	}
+</div>
+
+<!-- Position Editor Modal -->
+@if (_editingExercise != null)
+{
+	<BoardEditorModal Title="@($"{_editingExercise.Title} - {Loc["BoardEditor_EditPosition"]}")"
+					  InitialFen="@_editingExercise.Fen"
+					  OnSave="HandleSavePosition"
+					  OnClose="() => _editingExercise = null" />
+}
+
+<!-- Delete Confirmation Modal -->
+@if (_deletingSheet != null)
+{
+	<div class="modal-backdrop" @onclick="() => _deletingSheet = null">
+		<div class="modal-card modal-delete" @onclick:stopPropagation="true">
+			<h3>@Loc["Homework_DeleteConfirmTitle"]</h3>
+			<p>@string.Format(Loc["Homework_DeleteConfirmDesc"], _deletingSheet.Title)</p>
+			<div class="modal-actions">
+				<button class="btn-secondary" @onclick="() => _deletingSheet = null">@Loc["Common_Cancel"]</button>
+				<button class="btn-danger" @onclick="ConfirmDeleteSheetAsync">@Loc["Common_Delete"]</button>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	[Parameter] public HomeworkTab Tab { get; set; } = default!;
+
+	private enum ViewMode { Hub, Editor, PrintPreview }
+	private ViewMode _viewMode = ViewMode.Hub;
+
+	private List<HomeworkSheet> _sheets = new();
+	private HomeworkSheet? _activeSheet;
+	private HomeworkExercise? _editingExercise;
+	private HomeworkSheet? _deletingSheet;
+
+	private bool HasActiveAnalysisTab => Workspace.Tabs.OfType<AnalysisTab>().Any();
+
+	protected override async Task OnInitializedAsync()
+	{
+		Loc.OnLanguageChanged += StateHasChanged;
+		HomeworkService.OnSheetsChanged += HandleSheetsChanged;
+		await LoadSheetsAsync();
+
+		if (!string.IsNullOrEmpty(Tab.InitialSheetId))
+		{
+			var target = _sheets.FirstOrDefault(s => s.Id == Tab.InitialSheetId);
+			if (target != null)
+			{
+				_activeSheet = target;
+				_viewMode = ViewMode.Editor;
+			}
+		}
+	}
+
+	private async Task LoadSheetsAsync()
+	{
+		_sheets = await HomeworkService.GetSheetsAsync();
+	}
+
+	private async void HandleSheetsChanged()
+	{
+		await InvokeAsync(async () =>
+		{
+			await LoadSheetsAsync();
+			StateHasChanged();
+		});
+	}
+
+	private void OpenEditor(HomeworkSheet sheet)
+	{
+		_activeSheet = sheet;
+		_viewMode = ViewMode.Editor;
+	}
+
+	private void OpenPrintPreview(HomeworkSheet sheet)
+	{
+		_activeSheet = sheet;
+		_viewMode = ViewMode.PrintPreview;
+	}
+
+	private void BackToHub()
+	{
+		_viewMode = ViewMode.Hub;
+		_activeSheet = null;
+	}
+
+	private void BackToEditor()
+	{
+		_viewMode = ViewMode.Editor;
+	}
+
+	private async Task CreateNewSheet(int exerciseCount, bool defaultTemplate = false)
+	{
+		string title = exerciseCount switch
+		{
+			4 => "Chess Tactics Drill (4 Diagrams)",
+			8 => "Club Homework Sheet (8 Diagrams)",
+			_ => "Chess Homework Worksheet (6 Diagrams)"
+		};
+
+		var sheet = await HomeworkService.CreateNewSheetAsync(title, exerciseCount, defaultTemplate ? "mate_in_one" : "");
+		_activeSheet = sheet;
+		_viewMode = ViewMode.Editor;
+	}
+
+	private async Task SaveCurrentSheetAsync()
+	{
+		if (_activeSheet == null) return;
+		await HomeworkService.SaveSheetAsync(_activeSheet);
+	}
+
+	private async Task DuplicateSheetAsync(string id)
+	{
+		var copy = await HomeworkService.DuplicateSheetAsync(id);
+		_activeSheet = copy;
+		_viewMode = ViewMode.Editor;
+	}
+
+	private void PromptDeleteSheet(HomeworkSheet sheet)
+	{
+		_deletingSheet = sheet;
+	}
+
+	private async Task ConfirmDeleteSheetAsync()
+	{
+		if (_deletingSheet == null) return;
+		await HomeworkService.DeleteSheetAsync(_deletingSheet.Id);
+		_deletingSheet = null;
+	}
+
+	private void AddNewDiagram()
+	{
+		if (_activeSheet == null) return;
+		int nextOrder = _activeSheet.Exercises.Count + 1;
+		_activeSheet.Exercises.Add(new HomeworkExercise
+		{
+			Order = nextOrder,
+			Title = $"Exercise {nextOrder}",
+			Fen = BoardPosition.StartFen,
+			ToMove = "white",
+			Prompt = "White to move and win",
+			Solution = ""
+		});
+	}
+
+	private void MoveExercise(int index, int delta)
+	{
+		if (_activeSheet == null) return;
+		int newIndex = index + delta;
+		if (newIndex < 0 || newIndex >= _activeSheet.Exercises.Count) return;
+
+		var item = _activeSheet.Exercises[index];
+		_activeSheet.Exercises.RemoveAt(index);
+		_activeSheet.Exercises.Insert(newIndex, item);
+
+		for (int i = 0; i < _activeSheet.Exercises.Count; i++)
+		{
+			_activeSheet.Exercises[i].Order = i + 1;
+		}
+	}
+
+	private void DuplicateExercise(int index)
+	{
+		if (_activeSheet == null || index < 0 || index >= _activeSheet.Exercises.Count) return;
+		var original = _activeSheet.Exercises[index];
+		var copy = new HomeworkExercise
+		{
+			Id = Guid.NewGuid().ToString("N"),
+			Order = index + 2,
+			Title = $"{original.Title} (Copy)",
+			Fen = original.Fen,
+			ToMove = original.ToMove,
+			Orientation = original.Orientation,
+			Prompt = original.Prompt,
+			Solution = original.Solution,
+			Points = original.Points,
+			Difficulty = original.Difficulty
+		};
+		_activeSheet.Exercises.Insert(index + 1, copy);
+
+		for (int i = 0; i < _activeSheet.Exercises.Count; i++)
+		{
+			_activeSheet.Exercises[i].Order = i + 1;
+		}
+	}
+
+	private void DeleteExercise(int index)
+	{
+		if (_activeSheet == null || index < 0 || index >= _activeSheet.Exercises.Count) return;
+		_activeSheet.Exercises.RemoveAt(index);
+		for (int i = 0; i < _activeSheet.Exercises.Count; i++)
+		{
+			_activeSheet.Exercises[i].Order = i + 1;
+		}
+	}
+
+	private void SetExerciseTurn(HomeworkExercise ex, string turn)
+	{
+		ex.ToMove = turn;
+		try
+		{
+			var pos = FenParser.Parse(ex.Fen);
+			pos.ActiveColor = turn == "black" ? PieceColor.Black : PieceColor.White;
+			ex.Fen = FenParser.ToFen(pos);
+		}
+		catch { }
+	}
+
+	private void ToggleExerciseOrientation(HomeworkExercise ex)
+	{
+		ex.Orientation = ex.Orientation == "white" ? "black" : "white";
+	}
+
+	private void OpenBoardEditor(HomeworkExercise ex)
+	{
+		_editingExercise = ex;
+	}
+
+	private void HandleSavePosition(string fen)
+	{
+		if (_editingExercise != null)
+		{
+			_editingExercise.Fen = fen;
+			try
+			{
+				var pos = FenParser.Parse(fen);
+				_editingExercise.ToMove = pos.ActiveColor == PieceColor.Black ? "black" : "white";
+			}
+			catch { }
+		}
+		_editingExercise = null;
+		StateHasChanged();
+	}
+
+	private void ImportActiveAnalysisPosition()
+	{
+		if (_activeSheet == null) return;
+		var activeAnalysis = Workspace.Tabs.OfType<AnalysisTab>().FirstOrDefault();
+		if (activeAnalysis == null) return;
+
+		string fen = FenParser.ToFen(activeAnalysis.Tree.CurrentNode.Position);
+		int nextOrder = _activeSheet.Exercises.Count + 1;
+		string toMove = activeAnalysis.Tree.CurrentNode.Position.ActiveColor == PieceColor.Black ? "black" : "white";
+
+		_activeSheet.Exercises.Add(new HomeworkExercise
+		{
+			Order = nextOrder,
+			Title = $"Exercise {nextOrder}",
+			Fen = fen,
+			ToMove = toMove,
+			Orientation = activeAnalysis.Orientation,
+			Prompt = $"{char.ToUpper(toMove[0])}{toMove.Substring(1)} to move and win",
+			Solution = ""
+		});
+	}
+
+	private async Task TriggerBrowserPrint()
+	{
+		try
+		{
+			await JS.InvokeVoidAsync("window.print");
+		}
+		catch { }
+	}
+
+	public void Dispose()
+	{
+		Loc.OnLanguageChanged -= StateHasChanged;
+		HomeworkService.OnSheetsChanged -= HandleSheetsChanged;
+	}
+}

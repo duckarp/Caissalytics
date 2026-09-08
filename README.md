@@ -7,7 +7,7 @@
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-512bd4.svg?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![Photino.Blazor](https://img.shields.io/badge/Photino-Blazor-0078d4.svg?style=flat-square)](https://www.tryphotino.io/)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows-brightgreen.svg?style=flat-square)](https://github.com/)
-[![Tests](https://img.shields.io/badge/Tests-169%20Passing-success.svg?style=flat-square)](file:///home/tomask/projects/Caissalytics/Caissalytics.Tests)
+[![Tests](https://img.shields.io/badge/Tests-218%20Passing-success.svg?style=flat-square)](file:///home/tomask/projects/Caissalytics/Caissalytics.Tests)
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg?style=flat-square)](LICENSE)
 
 *Caissalytics is a lightweight, blazing-fast, open-source alternative to commercial chess software. Built with modern .NET 10, Photino.Blazor native desktop shell, Chessground, Stockfish, and SQLite.*
@@ -19,9 +19,12 @@
 ## 🌟 Key Highlights
 
 - **⚡ Blazing-Fast Desktop Performance**: Powered by .NET 10 and Photino native OS webviews. Consumes a fraction of the RAM of Electron apps (~60-120 MB vs 600+ MB) and boots instantaneously.
-- **💻 Stockfish UCI Analysis**: Multi-PV deep line calculation, real-time evaluation charts, blunder and mistake classification, threat arrows, and 1-click automatic engine installer.
+- **💻 Stockfish UCI Analysis & Engine Management**: Multi-PV deep line calculation, real-time evaluation charts, blunder and mistake classification, threat arrows, 1-click automatic engine installer, and custom UCI engine removal.
 - **🏆 Syzygy Endgame Tablebases**: Instant, cached probing for all positions with $\le 7$ pieces via Lichess 7-Piece Tablebase API with exact WDL and DTZ/DTM metrics. Also supports local `.rtbw`/`.rtbz` tablebase folders for Stockfish search via `SyzygyPath`.
 - **👑 Classical Endgame Trainer**: Master theoretical endgames (Lucena bridge, Philidor defense, Vancura active checks, Trebuchet mutual zugzwang, Bishop & Knight mate) against an optimal tablebase-driven sparring opponent with instant blunder warnings.
+- **📝 Printable Homework & Diagram Sheet Generator**: Purpose-built for chess coaches and club trainers. Create high-resolution worksheets (2-8 diagrams per page), customize student headers, exercise prompts, and print directly to A4 or export to PDF with auto-generated Teacher Answer Keys.
+- **♟️ Interactive & Reusable Board Editor**: Modular 8x8 position setup tool with complete piece palettes, clear/starting board shortcuts, color inversion, castling/en-passant rules, live FEN two-way sync, and strict legality validation.
+- **🌍 Bilingual Interface (English & Slovak)**: Full localization across all workbenches, controls, and diagnostics with instantaneous runtime switching and persistent preference storage.
 - **📚 Local & Master Database Engine**: High-throughput SQLite chess indexing engine. Query master games and position stats in sub-millisecond time. Comes with built-in 1-click downloaders for TWIC, Czech & Slovak Extraliga, and custom PGN drag-and-drop.
 - **📖 Opening Tree & Repertoire Explorer**: Unified candidate move explorer querying local databases and the live Lichess Masters & Community databases. Build personal White and Black repertoires, attach preparation notes, and export to PGN study files.
 - **🕵️‍♂️ Opponent Preparation & Scouting Dossier**: Complete pre-game scouting reports on tournament opponents. Analyzes White & Black opening repertoires, highlights weakest lines, pinpoints tactical vulnerabilities, and classifies playing styles (<30 vs 50+ moves).
@@ -37,6 +40,7 @@
 | Module | Description | Key Capabilities |
 |---|---|---|
 | **Analysis Workbench** | Master-level game review & position deep-dive | Multi-PV Stockfish, dynamic evaluation graph, threat arrows, live reference tree, blunder annotations, Syzygy tablebase panel |
+| **Homework & Diagrams** | Coaching worksheet & diagram sheet generator | A4 print layout, 2 or 3 columns, student grading header, ruled handwriting lines, Teacher Answer Key, 1-click import from Analysis |
 | **Endgame Trainer** | Theoretical endgame curriculum & tablebase sparring | 18 curated positions across 5 categories (100% Syzygy-verified), automated tablebase defense, move quality evaluation, key square coaching |
 | **Database Explorer** | High-volume master & personal game library | SQLite indexing, advanced header/date/ECO filtering, game preview, duplicate detection, batch PGN import |
 | **Opening & Repertoire** | Personal opening tree & repertoire builder | Lichess Masters/Community (with free API token support) + 100% offline Local DB stats, move classification (*Main Line*, *Alternative*, *Surprise*), study export |
@@ -44,7 +48,7 @@
 | **Tactics Workbench** | Interactive tactical puzzle trainer | Curated master tactics, personalized blunder trainer, dynamic rating system, step-by-step solutions |
 | **Career Analytics** | Long-term performance & statistical insight | Elo rating tracking over time, opening win rates, color performance, time-control breakdowns |
 | **Sync Center** | Automatic online games aggregator | Direct REST API integration with Lichess & Chess.com, incremental syncing, automatic PGN parsing, protected storage with 1-click foreign game cleanup |
-| **Control Center** | Settings, engines & customization hub | Engine management, Syzygy tablebase folder path, online probe toggle, Lichess API token, board themes, sound triggers, updater |
+| **Control Center** | Settings, engines & customization hub | Engine management & removal, Syzygy tablebase folder path, online probe toggle, Lichess API token, board themes, sound triggers, language switcher (EN/SK), updater |
 
 ---
 

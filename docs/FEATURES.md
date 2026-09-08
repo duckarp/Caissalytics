@@ -258,7 +258,67 @@ Choose between 6 vector board styles rendered via crisp SVGs that never blur:
 - **1-Click Stockfish**: Automatically download and configure the latest Stockfish build.
 - **Add Custom UCI Engine**: Add any third-party UCI engine (e.g., Leela Chess Zero, Berserk, Komodo) by selecting its executable. Caissalytics automatically runs a probe handshake to verify compatibility.
 - **Scan System Engines**: Scans standard OS binary directories (`/usr/bin`, `/usr/local/bin`, `C:\Program Files`) to auto-detect installed engines.
+- **Remove Engine**: Easily remove custom UCI engines via the **🗑️ Remove** button. A modal asks for confirmation; if removing your active engine, Caissalytics automatically rebinds to an installed fallback engine.
 
 ### Auto-Updater
 - Caissalytics periodically checks GitHub Releases for new desktop builds.
 - When an update is ready, an unobtrusive banner notifies you with release notes and 1-click upgrade options.
+
+---
+
+## 10. Printable Homework & Diagram Sheet Generator 📝
+
+Designed specifically for chess coaches, club instructors, and scholastic teachers to generate high-resolution, professional chess worksheets.
+
+### Worksheet Hub & Templates
+- Access from the **Dashboard Hub** (*Printable Homework & Diagrams*) or open a new Homework tab.
+- Pre-loaded with starter coaching templates:
+  - **Checkmate in 1 Move**: Tactical mates in one.
+  - **Forks & Double Attacks**: Knight and Bishop tactical forks.
+- Duplicate existing sheets with 1 click to iterate on curricula across different skill groups.
+
+### Sheet Customization & Layout
+- **Metadata**: Add custom Sheet Title, Instructions / Subtitles, Coach Name, and Chess Club / School Name.
+- **Grid Layout**: Select 2 columns (ideal for 4, 6, or 8 diagrams) or 3 columns (ideal for 6 or 9 diagrams).
+- **Student Header**: Toggle the student score/name/date header on or off.
+- **Coordinates & Ruled Lines**: Toggle rank/file coordinates and handwriting solution lines (`1. ...`, `2. ...`).
+- **Import from Active Analysis**: With one click, capture the exact position and orientation from any currently active Analysis Board tab into a new exercise diagram.
+
+### Print Preview & PDF Export
+- Real-time A4 visual preview rendering crisp vector pieces that never pixelate.
+- Optional Page 2 **Teacher Answer Key** with official solutions for rapid grading.
+- Click **Print / Export PDF** to open the browser print dialog (`window.print()`). `@media print` rules automatically hide application tabs, buttons, and navigation chrome, ensuring clean paper prints or PDF files.
+
+---
+
+## 11. Reusable Board Editor ♟️
+
+A versatile, decoupled 8x8 position setup tool available whenever custom positions need to be created or adjusted.
+
+### Features:
+- **Interactive Board**: Click any square to place the selected piece; right-click or use the Eraser tool to clear squares.
+- **Piece Palette**: Complete set of White (♔♕♖♗♘♙) and Black (♚♛♜♝♞♟) pieces, plus Erase mode.
+- **Quick Shortcuts**:
+  - **Starting Position**: Reset to initial 32-piece game array.
+  - **Clear Board**: Empty all 64 squares.
+  - **Invert Colors**: Swap piece colors across the board.
+  - **Flip Board**: Toggle White and Black perspectives.
+- **Rules & FEN Controls**:
+  - Toggle side to move (**White to move** / **Black to move**).
+  - Castling rights toggles ($K, Q, k, q$).
+  - En-passant target square, halfmove clock, and fullmove number.
+  - Two-way live FEN editing: edit squares to update FEN, or paste FEN to update the board immediately.
+  - 1-click FEN copy to clipboard.
+- **Legality Validation**: Guards against invalid positions by disabling the Save button and displaying explanatory alerts if:
+  - White or Black king is missing or duplicated.
+  - Pawns are placed on the 1st or 8th rank.
+  - Kings are placed on adjacent/touching squares.
+
+---
+
+## 12. Bilingual Interface (English & Slovak) 🌍
+
+Caissalytics supports complete localization for English and Slovak:
+- Switch languages on the fly under **Control Center → Interface, Appearance & Sound**.
+- All menus, action cards, game annotations, evaluation statuses, and tooltips instantly update.
+- Language preference is stored locally and restored on cold boot without any visual flicker.

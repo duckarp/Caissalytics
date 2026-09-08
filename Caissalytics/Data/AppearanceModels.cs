@@ -15,6 +15,7 @@ public class AppearanceSettings
 
     public string BoardTheme { get; set; } = "brown"; // "brown", "green", "blue", "slate", "marble", "monochrome"
     public string PieceSet { get; set; } = "cburnett";
+    public string Language { get; set; } = "en";
     public bool SoundEnabled { get; set; } = true;
 
     public int Volume

@@ -244,6 +244,17 @@ public class EndgameTrainerTab : WorkspaceTab
     }
 }
 
+public class HomeworkTab : WorkspaceTab
+{
+    public override string Title => "Homework & Diagrams";
+    public override string Icon => "📝";
+    public string? InitialSheetId { get; set; }
+
+    public HomeworkTab(string? initialSheetId = null)
+    {
+        InitialSheetId = initialSheetId;
+    }
+}
 
 public class WorkspaceState
 {
@@ -444,6 +455,27 @@ public class WorkspaceState
         return tab;
     }
 
+    public HomeworkTab CreateHomeworkTab(string? sheetId = null)
+    {
+        var existing = Tabs.OfType<HomeworkTab>().FirstOrDefault();
+        if (existing != null)
+        {
+            if (!string.IsNullOrEmpty(sheetId))
+            {
+                existing.InitialSheetId = sheetId;
+            }
+            ActiveTab = existing;
+            NotifyStateChanged();
+            return existing;
+        }
+
+        var tab = new HomeworkTab(sheetId);
+        Tabs.Add(tab);
+        ActiveTab = tab;
+        NotifyStateChanged();
+        return tab;
+    }
+
     public void SelectTab(Guid id)
     {
         var target = Tabs.FirstOrDefault(t => t.Id == id);
@@ -576,6 +608,15 @@ public class WorkspaceState
                         PositionId = endgame.SelectedPositionId
                     });
                     break;
+
+                case HomeworkTab hw:
+                    dto.Tabs.Add(new WorkspaceTabDto
+                    {
+                        Id = hw.Id,
+                        Type = "homework",
+                        Title = hw.Title
+                    });
+                    break;
             }
         }
 
@@ -669,6 +710,11 @@ public class WorkspaceState
                     {
                         var endgamesTab = new EndgameTrainerTab(tabDto.PositionId) { Id = tabDto.Id };
                         Tabs.Add(endgamesTab);
+                    }
+                    else if (tabDto.Type == "homework")
+                    {
+                        var hwTab = new HomeworkTab { Id = tabDto.Id };
+                        Tabs.Add(hwTab);
                     }
                 }
 

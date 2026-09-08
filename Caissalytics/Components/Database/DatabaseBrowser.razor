@@ -12,9 +12,9 @@
 		<div class="db-sidebar-header">
 			<div class="db-sidebar-title">
 				<span>🗄️</span>
-				<span>Databases</span>
+				<span>@Loc["Db_Databases"]</span>
 			</div>
-			<button class="btn-secondary" @onclick="() => _showNewDbModal = true">+ New DB</button>
+			<button class="btn-secondary" @onclick="() => _showNewDbModal = true">@Loc["Db_NewDb"]</button>
 		</div>
 
 		<div class="db-list-wrapper">
@@ -28,31 +28,31 @@
 						<div class="db-card-badges">
 							@if (db.IsReference)
 							{
-								<span class="db-badge-reference" title="Designated reference database for opening analysis">⭐ Reference</span>
+								<span class="db-badge-reference" title="Designated reference database for opening analysis">@Loc["Db_Reference"]</span>
 							}
 							@if (db.IsActive)
 							{
-								<span class="db-badge-active">Active</span>
+								<span class="db-badge-active">@Loc["Common_Active"]</span>
 							}
 						</div>
 					</div>
 					<div class="db-card-meta">
-						<span>@db.GameCount.ToString("N0") games</span>
+						<span>@Loc["Db_GamesCount", db.GameCount.ToString("N0")]</span>
 						<span>•</span>
 						<span>@db.FormattedSize</span>
 					</div>
 					<div class="db-card-actions">
 						@if (!db.IsReference)
 						{
-							<button class="db-card-btn db-card-btn-ref" title="Set as primary reference database for opening analysis" @onclick:stopPropagation="true" @onclick="() => SetAsReferenceDb(db.Name)">⭐ Set Ref</button>
+							<button class="db-card-btn db-card-btn-ref" title="Set as primary reference database for opening analysis" @onclick:stopPropagation="true" @onclick="() => SetAsReferenceDb(db.Name)">@Loc["Db_SetRef"]</button>
 						}
 						@if (isOnlineDb)
 						{
-							<button class="db-card-btn db-card-btn-sync" title="Sync online games from Lichess &amp; Chess.com" @onclick:stopPropagation="true" @onclick="OpenOnlineSyncModal">🔄 Sync</button>
+							<button class="db-card-btn db-card-btn-sync" title="Sync online games from Lichess &amp; Chess.com" @onclick:stopPropagation="true" @onclick="OpenOnlineSyncModal">@Loc["Db_Sync"]</button>
 						}
 						@if (_databases.Count > 1)
 						{
-							<button class="db-card-btn" title="Delete database" @onclick:stopPropagation="true" @onclick="() => PromptDeleteDatabase(db)">🗑️ Delete</button>
+							<button class="db-card-btn" title="Delete database" @onclick:stopPropagation="true" @onclick="() => PromptDeleteDatabase(db)">@Loc["Db_Delete"]</button>
 						}
 					</div>
 				</div>
@@ -60,11 +60,11 @@
 		</div>
 
 		<div class="db-sidebar-footer">
-			<button class="btn-secondary btn-master-lib" @onclick="OpenMasterLibraryModal">📚 Master Library</button>
+			<button class="btn-secondary btn-master-lib" @onclick="OpenMasterLibraryModal">@Loc["Db_MasterLib"]</button>
 			@if (!IsOnlineGamesDb(_currentDbName))
 			{
-				<button class="btn-primary" @onclick="AddNewGame">+ Add a new game</button>
-				<button class="btn-secondary" @onclick="() => _showImportModal = true">📥 Import PGN</button>
+				<button class="btn-primary" @onclick="AddNewGame">@Loc["Db_AddNewGame"]</button>
+				<button class="btn-secondary" @onclick="() => _showImportModal = true">@Loc["Db_ImportPgn"]</button>
 			}
 		</div>
 	</div>
@@ -76,26 +76,26 @@
 				<h2 class="db-current-title">@_currentDbName</h2>
 				@if (IsCurrentDbReference)
 				{
-					<span class="db-badge-reference" title="Primary Reference Database for opening analysis">⭐ Reference DB</span>
+					<span class="db-badge-reference" title="Primary Reference Database for opening analysis">@Loc["Db_ReferenceDb"]</span>
 				}
-				<span class="db-game-count-badge">@_totalCount.ToString("N0") games</span>
+				<span class="db-game-count-badge">@Loc["Db_GamesCount", _totalCount.ToString("N0")]</span>
 			</div>
 
 			<div class="db-header-actions">
 				@if (!IsCurrentDbReference)
 				{
-					<button class="btn-secondary btn-header-ref" title="Designate this database as the Master Reference for opening analysis" @onclick="() => SetAsReferenceDb(_currentDbName)">⭐ Set as Reference</button>
+					<button class="btn-secondary btn-header-ref" title="Designate this database as the Master Reference for opening analysis" @onclick="() => SetAsReferenceDb(_currentDbName)">@Loc["Db_SetAsReference"]</button>
 				}
-				<button class="btn-secondary btn-master-lib" @onclick="OpenMasterLibraryModal">📚 Master Library</button>
+				<button class="btn-secondary btn-master-lib" @onclick="OpenMasterLibraryModal">@Loc["Db_MasterLib"]</button>
 				@if (IsOnlineGamesDb(_currentDbName))
 				{
-					<button class="btn-secondary" @onclick="OpenOnlineSyncModal">🔄 Sync games</button>
-					<button class="btn-secondary btn-clean-foreign" title="Scan and purge scouted/foreign games not belonging to your online handles" @onclick="PromptCleanForeignGames">🧹 Clean foreign games</button>
+					<button class="btn-secondary" @onclick="OpenOnlineSyncModal">@Loc["Db_SyncGames"]</button>
+					<button class="btn-secondary btn-clean-foreign" title="Scan and purge scouted/foreign games not belonging to your online handles" @onclick="PromptCleanForeignGames">@Loc["Db_CleanForeign"]</button>
 				}
 				else
 				{
-					<button class="btn-primary" @onclick="AddNewGame">+ Add a new game</button>
-					<button class="btn-secondary" @onclick="() => _showImportModal = true">📥 Import PGN</button>
+					<button class="btn-primary" @onclick="AddNewGame">@Loc["Db_AddNewGame"]</button>
+					<button class="btn-secondary" @onclick="() => _showImportModal = true">@Loc["Db_ImportPgn"]</button>
 				}
 			</div>
 		</div>
@@ -103,38 +103,38 @@
 		<!-- Filter Bar -->
 		<div class="db-filter-bar">
 			<div class="filter-group">
-				<label class="filter-label">Player</label>
-				<input class="filter-input" placeholder="e.g. Kasparov, Fischer" @bind="_filter.Player" @bind:event="oninput" @onkeydown="HandleFilterKeyDown" />
+				<label class="filter-label">@Loc["Db_Filter_Player"]</label>
+				<input class="filter-input" placeholder="@Loc["Db_Filter_PlayerPlaceholder"]" @bind="_filter.Player" @bind:event="oninput" @onkeydown="HandleFilterKeyDown" />
 			</div>
 
 			<div class="filter-group">
-				<label class="filter-label">ECO</label>
+				<label class="filter-label">@Loc["Db_Filter_Eco"]</label>
 				<input class="filter-input filter-input-small" placeholder="B90" @bind="_filter.Eco" @bind:event="oninput" @onkeydown="HandleFilterKeyDown" />
 			</div>
 
 			<div class="filter-group">
-				<label class="filter-label">Min Elo</label>
+				<label class="filter-label">@Loc["Db_Filter_MinElo"]</label>
 				<input class="filter-input filter-input-small" type="number" placeholder="2500" @bind="_filter.MinElo" @onkeydown="HandleFilterKeyDown" />
 			</div>
 
 			<div class="filter-group">
-				<label class="filter-label">Result</label>
+				<label class="filter-label">@Loc["Db_Filter_Result"]</label>
 				<select class="filter-select" @bind="_filter.Result">
-					<option value="all">All</option>
-					<option value="1-0">1-0 (White win)</option>
-					<option value="0-1">0-1 (Black win)</option>
-					<option value="1/2-1/2">½-½ (Draw)</option>
+					<option value="all">@Loc["Db_Filter_All"]</option>
+					<option value="1-0">@Loc["Db_Filter_WhiteWin"]</option>
+					<option value="0-1">@Loc["Db_Filter_BlackWin"]</option>
+					<option value="1/2-1/2">@Loc["Db_Filter_Draw"]</option>
 				</select>
 			</div>
 
 			<div class="filter-group">
-				<label class="filter-label">Event</label>
-				<input class="filter-input" placeholder="Tournament / Event" @bind="_filter.Event" @bind:event="oninput" @onkeydown="HandleFilterKeyDown" />
+				<label class="filter-label">@Loc["Db_Filter_Event"]</label>
+				<input class="filter-input" placeholder="@Loc["Db_Filter_EventPlaceholder"]" @bind="_filter.Event" @bind:event="oninput" @onkeydown="HandleFilterKeyDown" />
 			</div>
 
 			<div class="filter-actions">
-				<button class="btn-primary" @onclick="SearchAsync">Search</button>
-				<button class="btn-secondary" @onclick="ResetFilterAsync">Reset</button>
+				<button class="btn-primary" @onclick="SearchAsync">@Loc["Db_Filter_Search"]</button>
+				<button class="btn-secondary" @onclick="ResetFilterAsync">@Loc["Db_Filter_Reset"]</button>
 			</div>
 		</div>
 
@@ -143,15 +143,15 @@
 			@if (_isLoading)
 			{
 				<div class="reference-empty-state">
-					<span>Loading games...</span>
+					<span>@Loc["Db_LoadingGames"]</span>
 				</div>
 			}
 			else if (_games.Count == 0)
 			{
 				<div class="reference-empty-state">
 					<span class="empty-state-icon">♟️</span>
-					<h4>No games match your search criteria.</h4>
-					<p>Try clearing filters or importing games from PGN files.</p>
+					<h4>@Loc["Db_NoGamesMatch"]</h4>
+					<p>@Loc["Db_NoGamesMatchDesc"]</p>
 				</div>
 			}
 			else
@@ -161,17 +161,17 @@
 						<tr>
 							@if (ShowPlatformColumn)
 							{
-								<th class="col-platform" title="Source platform">Site</th>
+								<th class="col-platform" title="Source platform">@Loc["Db_Col_Site"]</th>
 							}
-							<th class="col-players">White</th>
-							<th class="col-elo">Elo</th>
-							<th class="col-players">Black</th>
-							<th class="col-elo">Elo</th>
-							<th class="col-result">Result</th>
-							<th class="col-eco">ECO</th>
-							<th class="col-date">Date</th>
-							<th class="col-event">Event</th>
-							<th class="col-moves">Moves</th>
+							<th class="col-players">@Loc["Db_Col_White"]</th>
+							<th class="col-elo">@Loc["Db_Col_Elo"]</th>
+							<th class="col-players">@Loc["Db_Col_Black"]</th>
+							<th class="col-elo">@Loc["Db_Col_Elo"]</th>
+							<th class="col-result">@Loc["Db_Col_Result"]</th>
+							<th class="col-eco">@Loc["Db_Col_Eco"]</th>
+							<th class="col-date">@Loc["Db_Col_Date"]</th>
+							<th class="col-event">@Loc["Db_Col_Event"]</th>
+							<th class="col-moves">@Loc["Db_Col_Moves"]</th>
 							<th class="col-actions"></th>
 						</tr>
 					</thead>
@@ -189,7 +189,7 @@
 									<span>@game.White</span>
 									@if (IsWhiteUser(game))
 									{
-										<span class="db-user-tag" title="You (matches your profile)">You</span>
+										<span class="db-user-tag" title="You (matches your profile)">@Loc["Db_You"]</span>
 									}
 								</td>
 								<td class="col-elo">@(game.WhiteElo?.ToString() ?? "-")</td>
@@ -197,9 +197,10 @@
 									<span>@game.Black</span>
 									@if (IsBlackUser(game))
 									{
-										<span class="db-user-tag" title="You (matches your profile)">You</span>
+										<span class="db-user-tag" title="You (matches your profile)">@Loc["Db_You"]</span>
 									}
 								</td>
+								<td class="col-elo">@(game.BlackElo?.ToString() ?? "-")</td>
 								<td class="col-result">
 									<span class="ref-result-badge @GetResultClass(game.Result)">@game.Result</span>
 								</td>
@@ -209,8 +210,8 @@
 								<td class="col-moves">@game.PlyCount</td>
 								<td class="col-actions">
 									<div class="row-actions-group">
-										<button class="btn-secondary-small" title="Open Game" @onclick="() => OpenGameInAnalysis(game)">Open</button>
-										<button class="btn-danger-small" title="Delete Game" @onclick="() => PromptDeleteGame(game)">🗑️</button>
+										<button class="btn-secondary-small" title="@Loc["Db_OpenGame"]" @onclick="() => OpenGameInAnalysis(game)">@Loc["Db_OpenGame"]</button>
+										<button class="btn-danger-small" title="@Loc["Db_DeleteGame"]" @onclick="() => PromptDeleteGame(game)">🗑️</button>
 									</div>
 								</td>
 							</tr>
@@ -223,14 +224,13 @@
 		<!-- Pagination Footer -->
 		<div class="db-pagination-footer">
 			<div class="pagination-info">
-				Showing @Math.Min((_filter.PageNumber - 1) * _filter.PageSize + 1, _totalCount) - 
-				@Math.Min(_filter.PageNumber * _filter.PageSize, _totalCount) of @_totalCount games
+				@Loc["Db_ShowingGames", Math.Min((_filter.PageNumber - 1) * _filter.PageSize + 1, _totalCount), Math.Min(_filter.PageNumber * _filter.PageSize, _totalCount), _totalCount]
 			</div>
 
 			<div class="pagination-controls">
-				<button class="btn-secondary" disabled="@(_filter.PageNumber <= 1)" @onclick="PreviousPageAsync">◀ Prev</button>
-				<span class="pagination-info">Page @_filter.PageNumber of @TotalPages</span>
-				<button class="btn-secondary" disabled="@(_filter.PageNumber >= TotalPages)" @onclick="NextPageAsync">Next ▶</button>
+				<button class="btn-secondary" disabled="@(_filter.PageNumber <= 1)" @onclick="PreviousPageAsync">@Loc["Db_PrevPage"]</button>
+				<span class="pagination-info">@Loc["Db_PageOf", _filter.PageNumber, TotalPages]</span>
+				<button class="btn-secondary" disabled="@(_filter.PageNumber >= TotalPages)" @onclick="NextPageAsync">@Loc["Db_NextPage"]</button>
 			</div>
 		</div>
 	</div>
@@ -242,18 +242,18 @@
 	<div class="modal-backdrop" @onclick="() => _showNewDbModal = false">
 		<div class="modal-dialog" @onclick:stopPropagation="true">
 			<div class="modal-header">
-				<h3 class="modal-title">Create New Database</h3>
+				<h3 class="modal-title">@Loc["Db_CreateDb_Title"]</h3>
 				<button class="modal-close-btn" @onclick="() => _showNewDbModal = false">✕</button>
 			</div>
 			<div class="modal-body">
 				<div class="modal-form-group">
-					<label class="filter-label">Database Name</label>
-					<input class="modal-input" placeholder="e.g. Masters, Sicilian, LichessBlitz" @bind="_newDbName" />
+					<label class="filter-label">@Loc["Db_CreateDb_Name"]</label>
+					<input class="modal-input" placeholder="@Loc["Db_CreateDb_Placeholder"]" @bind="_newDbName" />
 				</div>
 			</div>
 			<div class="modal-footer">
-				<button class="btn-secondary" @onclick="() => _showNewDbModal = false">Cancel</button>
-				<button class="btn-primary" disabled="@string.IsNullOrWhiteSpace(_newDbName)" @onclick="CreateDatabaseAsync">Create</button>
+				<button class="btn-secondary" @onclick="() => _showNewDbModal = false">@Loc["Common_Cancel"]</button>
+				<button class="btn-primary" disabled="@string.IsNullOrWhiteSpace(_newDbName)" @onclick="CreateDatabaseAsync">@Loc["Db_CreateDb_Btn"]</button>
 			</div>
 		</div>
 	</div>
@@ -271,7 +271,7 @@
 	<div class="modal-backdrop" @onclick="() => _showCleanForeignModal = false">
 		<div class="modal-dialog" @onclick:stopPropagation="true">
 			<div class="modal-header">
-				<h3 class="modal-title">🧹 Clean Foreign Games from @SyncService.OnlineGamesDatabaseName</h3>
+				<h3 class="modal-title">@Loc["Db_CleanForeign_Title", SyncService.OnlineGamesDatabaseName]</h3>
 				<button class="modal-close-btn" @onclick="() => _showCleanForeignModal = false">✕</button>
 			</div>
 			<div class="modal-body">
@@ -281,27 +281,27 @@
 				@if (_isScanningForeign)
 				{
 					<div class="reference-empty-state">
-						<span>Scanning for foreign games...</span>
+						<span>@Loc["Db_CleanForeign_Scanning"]</span>
 					</div>
 				}
 				else if (_foreignGamesCount == 0)
 				{
 					<div class="clean-foreign-empty-state">
 						<span class="empty-state-icon">✅</span>
-						<h4>All Clean!</h4>
-						<p>All games in "@SyncService.OnlineGamesDatabaseName" match your profile handles. No foreign or scouted games found.</p>
+						<h4>@Loc["Db_CleanForeign_AllClean"]</h4>
+						<p>@Loc["Db_CleanForeign_AllCleanDesc", SyncService.OnlineGamesDatabaseName]</p>
 					</div>
 				}
 				else
 				{
 					<div class="modal-warning-box">
-						<div class="modal-warning-title">⚠️ Non-Profile Games Detected</div>
-						<div>Found <strong>@_foreignGamesCount</strong> @(_foreignGamesCount == 1 ? "game" : "games") that do not belong to your online accounts:</div>
+						<div class="modal-warning-title">@Loc["Db_CleanForeign_Detected"]</div>
+						<div>@Loc["Db_CleanForeign_Found", _foreignGamesCount, _foreignGamesCount == 1 ? "game" : "games"]</div>
 						<div class="clean-foreign-handles-list">
-							Active Profile Handles: <strong>@(GetActiveProfileHandlesString())</strong>
+							@Loc["Db_CleanForeign_ActiveHandles"] <strong>@(GetActiveProfileHandlesString())</strong>
 						</div>
 						<div class="modal-irreversible-warning">
-							Purging will remove these foreign/scouted games and keep only your personal online matches.
+							@Loc["Db_CleanForeign_Irreversible"]
 						</div>
 					</div>
 				}
@@ -313,12 +313,12 @@
 			</div>
 			<div class="modal-footer">
 				<button class="btn-secondary" @onclick="() => _showCleanForeignModal = false">
-					@(_cleanFinished ? "Close" : "Cancel")
+					@(_cleanFinished ? Loc["Common_Close"] : Loc["Common_Cancel"])
 				</button>
 				@if (!_isScanningForeign && _foreignGamesCount > 0 && !_cleanFinished)
 				{
 					<button class="btn-danger" @onclick="ExecuteCleanForeignGamesAsync" disabled="@_isCleaningForeign">
-						@(_isCleaningForeign ? "Cleaning..." : $"Purge {_foreignGamesCount} Foreign Games")
+						@(_isCleaningForeign ? "..." : Loc["Db_CleanForeign_PurgeBtn", _foreignGamesCount])
 					</button>
 				}
 			</div>
@@ -332,25 +332,25 @@
 	<div class="modal-backdrop" @onclick="() => _showDeleteModal = false">
 		<div class="modal-dialog" @onclick:stopPropagation="true">
 			<div class="modal-header">
-				<h3 class="modal-title">Delete Game</h3>
+				<h3 class="modal-title">@Loc["Db_DeleteConfirm_Title"]</h3>
 				<button class="modal-close-btn" @onclick="() => _showDeleteModal = false">✕</button>
 			</div>
 			<div class="modal-body">
 				<div class="modal-warning-box">
-					<div class="modal-warning-title">⚠️ Confirmation Required</div>
-					<div>Are you sure you want to delete this game from <strong>@_currentDbName</strong>?</div>
+					<div class="modal-warning-title">@Loc["Db_DeleteConfirm_Warning"]</div>
+					<div>@Loc["Db_DeleteConfirm_Question", _currentDbName]</div>
 					<div class="modal-game-summary">
 						<PlatformIcon Game="_gameToDelete" />
 						<span>@_gameToDelete.White vs @_gameToDelete.Black (@_gameToDelete.FormattedDate) • @_gameToDelete.Result</span>
 					</div>
 					<div class="modal-irreversible-warning">
-						This action cannot be undone. Do you want to continue?
+						@Loc["Db_DeleteConfirm_Irreversible"]
 					</div>
 				</div>
 			</div>
 			<div class="modal-footer">
-				<button class="btn-secondary" @onclick="() => _showDeleteModal = false">Cancel</button>
-				<button class="btn-danger" @onclick="ConfirmDeleteGameAsync">Delete Game</button>
+				<button class="btn-secondary" @onclick="() => _showDeleteModal = false">@Loc["Common_Cancel"]</button>
+				<button class="btn-danger" @onclick="ConfirmDeleteGameAsync">@Loc["Common_Delete"]</button>
 			</div>
 		</div>
 	</div>
@@ -362,24 +362,24 @@
 	<div class="modal-backdrop" @onclick="CancelDeleteDatabase">
 		<div class="modal-dialog" @onclick:stopPropagation="true">
 			<div class="modal-header">
-				<h3 class="modal-title">Delete Database</h3>
+				<h3 class="modal-title">@Loc["Db_DeleteConfirm_Title"]</h3>
 				<button class="modal-close-btn" @onclick="CancelDeleteDatabase">✕</button>
 			</div>
 			<div class="modal-body">
 				<div class="modal-warning-box">
-					<div class="modal-warning-title">⚠️ Warning: Irreversible Action</div>
-					<div>Are you sure you want to permanently delete the database <strong>@_dbToDelete.Name</strong>?</div>
+					<div class="modal-warning-title">@Loc["Db_DeleteConfirm_Warning"]</div>
+					<div>@Loc["Db_DeleteConfirm_Question", _dbToDelete.Name]</div>
 					<div class="modal-game-summary">
 						<span>🗄️ @_dbToDelete.Name • @_dbToDelete.GameCount.ToString("N0") games • @_dbToDelete.FormattedSize</span>
 					</div>
 					<div class="modal-irreversible-warning">
-						All games and indexed data in this database will be permanently deleted from disk. This action cannot be undone.
+						@Loc["Db_DeleteConfirm_Irreversible"]
 					</div>
 				</div>
 			</div>
 			<div class="modal-footer">
-				<button class="btn-secondary" @onclick="CancelDeleteDatabase">Cancel</button>
-				<button class="btn-danger" @onclick="ConfirmDeleteDatabaseAsync">Delete Database</button>
+				<button class="btn-secondary" @onclick="CancelDeleteDatabase">@Loc["Common_Cancel"]</button>
+				<button class="btn-danger" @onclick="ConfirmDeleteDatabaseAsync">@Loc["Common_Delete"]</button>
 			</div>
 		</div>
 	</div>
@@ -521,6 +521,7 @@
 		DatabaseService.OnReferenceDatabaseChanged += HandleReferenceDatabaseChanged;
 		DatabaseService.OnDatabaseModified += HandleDatabaseModified;
 		ProfileService.OnProfileChanged += HandleProfileChanged;
+		Loc.OnLanguageChanged += StateHasChanged;
 		await LoadProfileAsync();
 
 		if (Tab != null && !string.IsNullOrWhiteSpace(Tab.TargetDatabase))
@@ -917,5 +918,6 @@
 		DatabaseService.OnReferenceDatabaseChanged -= HandleReferenceDatabaseChanged;
 		DatabaseService.OnDatabaseModified -= HandleDatabaseModified;
 		ProfileService.OnProfileChanged -= HandleProfileChanged;
+		Loc.OnLanguageChanged -= StateHasChanged;
 	}
 }

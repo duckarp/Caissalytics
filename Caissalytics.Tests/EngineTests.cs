@@ -348,6 +348,65 @@ public class EngineTests
         }
     }
 
+    [Fact]
+    public async Task RemoveEngineAsync_RemovesNonCustomEngine_AndCleansDisk()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), $"caissa_engine_remove_test_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            using var manager = new EngineManager(tempDir);
+
+            // Simulate an updated Stockfish engine in managed directory
+            string sf19Dir = Path.Combine(tempDir, "stockfish-19");
+            Directory.CreateDirectory(sf19Dir);
+            string binaryPath = Path.Combine(sf19Dir, "stockfish");
+            File.WriteAllText(binaryPath, "mock binary");
+
+            // Register Stockfish 19 as non-custom installed engine
+            var enginesField = typeof(EngineManager).GetField("_engines", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            var enginesList = enginesField?.GetValue(manager) as List<EngineInfo>;
+            Assert.NotNull(enginesList);
+
+            enginesList!.Insert(0, new EngineInfo
+            {
+                Id = "stockfish-19",
+                Name = "Stockfish 19",
+                Version = "19.0",
+                ExecutablePath = binaryPath,
+                IsInstalled = true,
+                IsCustom = false
+            });
+
+            await manager.SetActiveEngineAsync("stockfish-19");
+            var active = await manager.GetActiveEngineAsync();
+            Assert.Equal("stockfish-19", active?.Id);
+
+            // Removing stockfish-17 should fail (baseline)
+            bool removedBaseline = await manager.RemoveEngineAsync("stockfish-17");
+            Assert.False(removedBaseline);
+
+            // Removing stockfish-19 should succeed
+            bool removed = await manager.RemoveEngineAsync("stockfish-19");
+            Assert.True(removed);
+
+            var enginesAfter = await manager.GetEnginesAsync();
+            Assert.DoesNotContain(enginesAfter, e => e.Id == "stockfish-19");
+
+            // Active engine should have failed over to stockfish-17
+            var activeAfter = await manager.GetActiveEngineAsync();
+            Assert.Equal("stockfish-17", activeAfter?.Id);
+
+            // Managed directory should have been deleted from disk
+            Assert.False(Directory.Exists(sf19Dir));
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true);
+        }
+    }
+
     private class TestHttpMessageHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _sender;

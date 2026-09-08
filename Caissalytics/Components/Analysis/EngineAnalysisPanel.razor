@@ -10,7 +10,7 @@
 			<button class="btn-engine-toggle @(IsAnalyzing ? "btn-engine-stop" : "btn-engine-start")"
 					@onclick="ToggleEngineAnalysis"
 					disabled="@(!_isEngineInstalled || _isInstalling)">
-				@(IsAnalyzing ? "⏹ Stop" : "▶ Start")
+				@(IsAnalyzing ? Loc["Engine_Stop"] : Loc["Engine_Start"])
 			</button>
 
 			<select class="engine-select-dropdown" value="@_activeEngineId" @onchange="HandleEngineSelected" disabled="@(!_isEngineInstalled || _isInstalling)">
@@ -26,16 +26,16 @@
 						@onclick="UpdateStockfishDirectly"
 						disabled="@_isUpdatingStockfish"
 						title="Update Stockfish to @_stockfishUpdate.LatestVersion">
-					@(_isUpdatingStockfish ? $"Updating ({_updateProgress}%)..." : $"⚡ Update to {_stockfishUpdate.ReleaseTag.Replace("sf_", "SF ")}")
+					@(_isUpdatingStockfish ? Loc["Engine_UpdatingStockfish", _updateProgress] : Loc["Engine_UpdateStockfishBtn", _stockfishUpdate.ReleaseTag.Replace("sf_", "SF ")])
 				</button>
 			}
 
 			<select class="multipv-select-dropdown" value="@MultiPv" @onchange="HandleMultiPvChange" disabled="@(!IsAnalyzing)">
-				<option value="1">1 Line</option>
-				<option value="2">2 Lines</option>
-				<option value="3">3 Lines</option>
-				<option value="4">4 Lines</option>
-				<option value="5">5 Lines</option>
+				<option value="1">@Loc["Engine_Line_1"]</option>
+				<option value="2">@Loc["Engine_Line_2"]</option>
+				<option value="3">@Loc["Engine_Line_3"]</option>
+				<option value="4">@Loc["Engine_Line_4"]</option>
+				<option value="5">@Loc["Engine_Line_5"]</option>
 			</select>
 		</div>
 
@@ -43,12 +43,12 @@
 			@if (IsAnalyzing && EvalLines.Count > 0)
 			{
 				var top = EvalLines[0];
-				<span>depth: @top.Depth</span>
-				<span>nps: @FormatNps(top.Nps)</span>
+				<span>@Loc["Engine_Depth"]: @top.Depth</span>
+				<span>@Loc["Engine_Nps"]: @FormatNps(top.Nps)</span>
 			}
 			else
 			{
-				<span>Engine Idle</span>
+				<span>@Loc["Engine_Idle"]</span>
 			}
 		</div>
 	</div>
@@ -57,20 +57,20 @@
 	{
 		<div class="engine-install-banner">
 			<div class="banner-text-block">
-				<span class="banner-title">Chess Engine is not installed yet</span>
+				<span class="banner-title">@Loc["Engine_NotInstalled"]</span>
 				<span class="banner-subtext">
 					@if (_isInstalling)
 					{
-						<span>Downloading and unpacking official binary (@_installProgress%)...</span>
+						<span>@Loc["Engine_Installing", _installProgress]</span>
 					}
 					else
 					{
-						<span>Enable 1-click deep engine analysis, live eval bar, and best-move arrows.</span>
+						<span>@Loc["Engine_NotInstalledDesc"]</span>
 					}
 				</span>
 			</div>
 			<button class="banner-install-btn" @onclick="InstallStockfish" disabled="@_isInstalling">
-				@(_isInstalling ? "Installing..." : "⚡ 1-Click Install")
+				@(_isInstalling ? "..." : Loc["Engine_Install1Click"])
 			</button>
 		</div>
 	}
@@ -80,13 +80,13 @@
 			@if (!IsAnalyzing)
 			{
 				<div class="empty-notation-prompt">
-					<span>Click ▶ Start to evaluate candidate moves with Stockfish</span>
+					<span>@Loc["Engine_ClickStart"]</span>
 				</div>
 			}
 			else if (EvalLines.Count == 0)
 			{
 				<div class="empty-notation-prompt">
-					<span>Evaluating position...</span>
+					<span>@Loc["Engine_Evaluating"]</span>
 				</div>
 			}
 			else
@@ -98,7 +98,7 @@
 						<div class="pv-eval-chip">@line.FormattedScore</div>
 						<div class="pv-moves-text" title="@formattedLine">@formattedLine</div>
 						<button class="add-variation-btn" title="Add this candidate line as a variation" @onclick="() => AddPvAsVariation(line.PvMoves)">
-							+ Variation
+							@Loc["Engine_AddVariation"]
 						</button>
 					</div>
 				}
@@ -129,6 +129,7 @@
 	{
 		EngineService.OnEnginesChanged += HandleEnginesChanged;
 		EngineService.OnStockfishUpdateChanged += HandleStockfishUpdateChanged;
+		Loc.OnLanguageChanged += StateHasChanged;
 		_stockfishUpdate = EngineService.CachedStockfishUpdate;
 		if (_stockfishUpdate == null)
 		{
@@ -234,6 +235,7 @@
 	{
 		EngineService.OnEnginesChanged -= HandleEnginesChanged;
 		EngineService.OnStockfishUpdateChanged -= HandleStockfishUpdateChanged;
+		Loc.OnLanguageChanged -= StateHasChanged;
 	}
 
 	private async Task AddPvAsVariation(List<string> uciMoves)

@@ -21,6 +21,7 @@ graph TD
         Blazor --> WS["WorkspaceState"]
         Blazor --> Profile["IUserProfileService"]
         Blazor --> Appearance["IAppearanceService"]
+        Blazor --> Loc["ILocalizationService"]
     end
 
     subgraph "Core Domain Layer (Pure C#)"
@@ -44,6 +45,7 @@ graph TD
         DBMgr["DatabaseManager (SQLite)"]
         RepStore["RepertoireService"]
         PuzzleStore["PuzzleService"]
+        HWStore["HomeworkService (JSON)"]
         UpdateMgr["UpdateService"]
     end
 
@@ -55,6 +57,7 @@ graph TD
     Blazor --> Dossier
     Blazor --> RepStore
     Blazor --> PuzzleStore
+    Blazor --> HWStore
     Dossier --> Fide
     Dossier --> CR
     Dossier --> DBMgr
@@ -285,6 +288,7 @@ Unlike traditional chess applications that package heavy `.mp3` or `.wav` sound 
   - `OpponentDossierTab`
   - `PuzzlesTab`
   - `AnalyticsTab`
+  - `HomeworkTab`
   - `SettingsTab`
 - Tab sessions automatically serialize to `localStorage` via `workspaceStorage.js`, surviving application restarts.
 
@@ -292,3 +296,60 @@ Unlike traditional chess applications that package heavy `.mp3` or `.wav` sound 
 - All styling is consolidated into `wwwroot/css/` modular stylesheets.
 - Strict design rule: **0 inline `style="..."` attributes and 0 `<style>` tags** inside Razor components.
 - Dark theme system driven by CSS variables defined in `theme.css`.
+
+---
+
+## 9. Printable Homework & Reusable Board Editor Architecture
+
+Caissalytics includes an extensible diagram publishing and position setup engine:
+
+```mermaid
+graph TD
+    User["Coach / Player"] --> Workbench["HomeworkWorkbench.razor"]
+    Workbench --> Service["IHomeworkService / HomeworkService"]
+    Service --> JSON[("homework_sheets.json Store")]
+    Workbench --> Editor["BoardEditor.razor / BoardEditorModal.razor"]
+    Workbench --> Diagram["PrintableChessDiagram.razor"]
+    Editor --> Core["BoardPosition / FenParser / MoveGenerator"]
+    Diagram --> VectorPieces["Vector SVG Piece Sprites"]
+    Workbench --> PrintCSS["@media print A4 Paging"]
+```
+
+### Components:
+- **`BoardEditor.razor` & `BoardEditorModal.razor`**:
+  - Independent, decoupled board setup component.
+  - Interactive square selection with piece palette (White/Black sets, eraser).
+  - Side-to-move, castling flags ($K, Q, k, q$), and en-passant square controls.
+  - Live two-way FEN synchronization with clipboard copy.
+  - Legality validation: checks king presence (exactly 1 per side), adjacent king prevention, and pawn back-rank placement rules.
+- **`PrintableChessDiagram.razor`**:
+  - High-DPI vector rendering utilizing embedded base64 SVG piece graphics.
+  - Exercise numbering, standard publishing turn indicators ($\bigcirc$ / $\CIRCLE$), exercise prompts, and ruled handwriting answer lines.
+- **`HomeworkService.cs` (`IHomeworkService`)**:
+  - Thread-safe persistence to `%LocalAppData%\Caissalytics\homework_sheets.json`.
+  - Built-in starter coaching templates (*Checkmate in 1 Move*, *Forks & Double Attacks*).
+  - Full CRUD operations with deep duplication support.
+- **Print Optimization (`homework.css`)**:
+  - CSS `@media print` forces exact color reproduction (`-webkit-print-color-adjust: exact`).
+  - Hides application tabs, sidebars, and control buttons.
+  - Isolates student worksheets and teacher answer keys with CSS `page-break-before: always`.
+
+---
+
+## 10. Localization & Internationalization Architecture
+
+Caissalytics features a low-overhead, zero-dependency localization architecture:
+
+```mermaid
+graph TD
+    App["Blazor Components (@Loc)"] --> LocService["LocalizationService (ILocalizationService)"]
+    LocService --> Dicts["InMemory Dictionaries (EN & SK)"]
+    LocService --> Appearance["AppearanceService (appearance_settings.json)"]
+    Appearance --> FileSystem[("~/.local/share/Caissalytics or %LocalAppData%")]
+    LocService --> Event["OnLanguageChanged Event Bus"]
+    Event --> App
+```
+
+- **Zero Flash of Unlocalized Content**: Cold boot loads persisted language preference synchronously before initial Blazor component lifecycle invocation.
+- **Hierarchical Fallback Chain**: If a string key is missing in a non-default language (e.g. Slovak), `LocalizationService` transparently falls back to English, and finally to the key identifier itself.
+- **Runtime Reactive Updates**: Invoking `SetLanguageAsync(code)` persists the setting immediately and fires `OnLanguageChanged`, updating all active tabs without application restarts.

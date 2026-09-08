@@ -14,9 +14,9 @@
 		<div class="endgames-turn-indicator">
 			<div class="endgames-turn-left">
 				<span class="turn-color-dot @(_tree.CurrentNode.Position.ActiveColor == PieceColor.White ? "white" : "black")"></span>
-				<span>@(_tree.CurrentNode.Position.ActiveColor == PieceColor.White ? "White to move" : "Black to move")</span>
+				<span>@(_tree.CurrentNode.Position.ActiveColor == PieceColor.White ? Loc["Endgame_WhiteToMove"] : Loc["Endgame_BlackToMove"])</span>
 				<span class="endgame-target-pill @(_currentPosition.TargetOutcome == "Win" ? "target-win" : "target-draw")">
-					Target: @(_currentPosition.TargetOutcome == "Win" ? "Win" : "Draw") as @(_currentPosition.PlayerColor)
+					@(_currentPosition.TargetOutcome == "Win" ? Loc["Endgame_TargetWin", _currentPosition.PlayerColor] : Loc["Endgame_TargetDraw", _currentPosition.PlayerColor])
 				</span>
 			</div>
 
@@ -29,7 +29,7 @@
 				}
 				else if (_isComputerThinking)
 				{
-					<span class="endgame-tb-verdict-pill">Opponent thinking...</span>
+					<span class="endgame-tb-verdict-pill">@Loc["Endgame_OpponentThinking"]</span>
 				}
 			</div>
 		</div>
@@ -54,21 +54,21 @@
 		<div class="endgames-card">
 			<div class="endgames-card-header">
 				<h3 class="endgames-card-title">
-					<span>🏆 Classical Endgames</span>
+					<span>@Loc["Endgame_ClassicalEndgames"]</span>
 				</h3>
 				<span class="endgames-progress-badge">
-					Mastered: @_solvedIds.Count / @EndgameCurriculum.AllPositions.Count (@(EndgameCurriculum.AllPositions.Count > 0 ? (_solvedIds.Count * 100 / EndgameCurriculum.AllPositions.Count) : 0)%)
+					@Loc["Endgame_Mastered", _solvedIds.Count, EndgameCurriculum.AllPositions.Count, (EndgameCurriculum.AllPositions.Count > 0 ? (_solvedIds.Count * 100 / EndgameCurriculum.AllPositions.Count) : 0)]
 				</span>
 			</div>
 
 			<!-- Category Filter Bar -->
 			<div class="endgame-category-bar">
-				<button class="endgame-cat-btn @(_selectedCategory == "all" ? "active" : "")" @onclick='() => SetCategory("all")'>All</button>
-				<button class="endgame-cat-btn @(_selectedCategory == "Pawns" ? "active" : "")" @onclick='() => SetCategory("Pawns")'>Pawns</button>
-				<button class="endgame-cat-btn @(_selectedCategory == "Rooks" ? "active" : "")" @onclick='() => SetCategory("Rooks")'>Rooks</button>
-				<button class="endgame-cat-btn @(_selectedCategory == "Queens" ? "active" : "")" @onclick='() => SetCategory("Queens")'>Queens</button>
-				<button class="endgame-cat-btn @(_selectedCategory == "MinorPieces" ? "active" : "")" @onclick='() => SetCategory("MinorPieces")'>Minor Pieces</button>
-				<button class="endgame-cat-btn @(_selectedCategory == "Practical" ? "active" : "")" @onclick='() => SetCategory("Practical")'>Practical</button>
+				<button class="endgame-cat-btn @(_selectedCategory == "all" ? "active" : "")" @onclick='() => SetCategory("all")'>@Loc["Endgame_Cat_All"]</button>
+				<button class="endgame-cat-btn @(_selectedCategory == "Pawns" ? "active" : "")" @onclick='() => SetCategory("Pawns")'>@Loc["Endgame_Cat_Pawns"]</button>
+				<button class="endgame-cat-btn @(_selectedCategory == "Rooks" ? "active" : "")" @onclick='() => SetCategory("Rooks")'>@Loc["Endgame_Cat_Rooks"]</button>
+				<button class="endgame-cat-btn @(_selectedCategory == "Queens" ? "active" : "")" @onclick='() => SetCategory("Queens")'>@Loc["Endgame_Cat_Queens"]</button>
+				<button class="endgame-cat-btn @(_selectedCategory == "MinorPieces" ? "active" : "")" @onclick='() => SetCategory("MinorPieces")'>@Loc["Endgame_Cat_MinorPieces"]</button>
+				<button class="endgame-cat-btn @(_selectedCategory == "Practical" ? "active" : "")" @onclick='() => SetCategory("Practical")'>@Loc["Endgame_Cat_Practical"]</button>
 			</div>
 
 			<!-- Positions Scroll List -->
@@ -99,7 +99,7 @@
 			<div class="endgames-card-header">
 				<h3 class="endgames-card-title">@_currentPosition.Title</h3>
 				<span class="endgame-target-pill @(_currentPosition.TargetOutcome == "Win" ? "target-win" : "target-draw")">
-					@_currentPosition.TargetOutcome as @_currentPosition.PlayerColor
+					@(_currentPosition.TargetOutcome == "Win" ? Loc["Endgame_TargetWinShort", _currentPosition.PlayerColor] : Loc["Endgame_TargetDrawShort", _currentPosition.PlayerColor])
 				</span>
 			</div>
 
@@ -116,7 +116,7 @@
 			@if (_currentPosition.KeySquares.Count > 0)
 			{
 				<div class="key-squares-row">
-					<span class="key-squares-label">Key Squares:</span>
+					<span class="key-squares-label">@Loc["Endgame_KeySquares"]</span>
 					@foreach (var sq in _currentPosition.KeySquares)
 					{
 						<span class="key-square-badge">@sq</span>
@@ -133,18 +133,18 @@
 			<div class="endgame-actions-bar">
 				<div class="actions-left">
 					<button class="btn-secondary btn-sm" @onclick="ResetCurrentPosition" title="Reset to starting position">
-						↻ Reset
+						@Loc["Endgame_Reset"]
 					</button>
 					<button class="btn-secondary btn-sm" @onclick="ToggleHint">
-						@(_showHint ? "Hide Hint" : "💡 Hint")
+						@(_showHint ? Loc["Endgame_HideHint"] : Loc["Endgame_Hint"])
 					</button>
 					<button class="btn-secondary btn-sm" @onclick="ToggleTablebaseView">
-						@(_showTablebase ? "Hide Moves" : "⚡ Tablebase")
+						@(_showTablebase ? Loc["Endgame_HideMoves"] : Loc["Endgame_Tablebase"])
 					</button>
 				</div>
 				<div class="actions-right">
 					<button class="btn-primary btn-sm" @onclick="GoToNextEndgame">
-						Next ▶
+						@Loc["Endgame_Next"]
 					</button>
 				</div>
 			</div>
@@ -155,17 +155,17 @@
 		{
 			<div class="endgames-card">
 				<div class="endgames-card-header">
-					<h4 class="endgames-card-title">⚡ Tablebase Candidate Moves</h4>
-					<span class="theory-desc-text">@_tbResult.Moves.Count moves</span>
+					<h4 class="endgames-card-title">@Loc["Endgame_TbCandidates"]</h4>
+					<span class="theory-desc-text">@Loc["Db_GamesCount", _tbResult.Moves.Count]</span>
 				</div>
 
 				<div class="tablebase-moves-container">
 					<div class="tablebase-moves-header">
-						<span class="col-move">Move</span>
-						<span class="col-outcome">Result</span>
-						<span class="col-dtz">DTZ</span>
-						<span class="col-dtm">DTM</span>
-						<span class="col-action">Action</span>
+						<span class="col-move">@Loc["Tablebase_Move"]</span>
+						<span class="col-outcome">@Loc["Tablebase_Result"]</span>
+						<span class="col-dtz">@Loc["Tablebase_Dtz"]</span>
+						<span class="col-dtm">@Loc["Tablebase_Dtm"]</span>
+						<span class="col-action">@Loc["Tablebase_Action"]</span>
 					</div>
 
 					<div class="tablebase-moves-list">
@@ -225,6 +225,7 @@
 
 	protected override async Task OnInitializedAsync()
 	{
+		Loc.OnLanguageChanged += StateHasChanged;
 		if (!string.IsNullOrEmpty(Tab.SelectedPositionId))
 		{
 			var match = EndgameCurriculum.GetById(Tab.SelectedPositionId);
@@ -468,5 +469,6 @@
 	public void Dispose()
 	{
 		_isDisposed = true;
+		Loc.OnLanguageChanged -= StateHasChanged;
 	}
 }

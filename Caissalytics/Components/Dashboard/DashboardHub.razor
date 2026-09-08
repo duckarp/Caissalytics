@@ -5,78 +5,100 @@
 @inject IDatabaseService DatabaseService
 @inject IUserProfileService ProfileService
 @inject IOnlineGameSyncService SyncService
+@implements IDisposable
 
 <div class="dashboard-container">
 	<div class="dashboard-hero">
-		<h1 class="dashboard-heading">Welcome to Caissalytics</h1>
-		<p class="dashboard-subtitle">A modern, open-source chess analysis and database platform.</p>
+		<h1 class="dashboard-heading">@Loc["Dash_Welcome"]</h1>
+		<p class="dashboard-subtitle">@Loc["Dash_Subtitle"]</p>
 	</div>
 
 	<div class="quick-actions-grid">
 		<div class="action-card" @onclick="() => Workspace.CreateAnalysisTab()">
 			<div class="card-icon">♟️</div>
-			<h2 class="card-title">New Analysis Board</h2>
-			<p class="card-description">Open an interactive board to explore moves, build variations, annotate with glyphs, and run Stockfish.</p>
+			<h2 class="card-title">@Loc["Dash_Card_Analysis"]</h2>
+			<p class="card-description">@Loc["Dash_Card_Analysis_Desc"]</p>
 		</div>
 
 		<div class="action-card" @onclick="() => Workspace.CreateDatabaseTab()">
 			<div class="card-icon">🗄️</div>
-			<h2 class="card-title">Browse Databases</h2>
-			<p class="card-description">Manage collections, search games by player, ECO, or Elo, and import your PGN libraries.</p>
+			<h2 class="card-title">@Loc["Dash_Card_Databases"]</h2>
+			<p class="card-description">@Loc["Dash_Card_Databases_Desc"]</p>
 		</div>
 
 		<label class="action-card">
 			<div class="card-icon">📂</div>
-			<h2 class="card-title">Open PGN File</h2>
-			<p class="card-description">Import a game or study from your computer. Supports full notation, branching variations, and annotations.</p>
+			<h2 class="card-title">@Loc["Dash_Card_OpenPgn"]</h2>
+			<p class="card-description">@Loc["Dash_Card_OpenPgn_Desc"]</p>
 			<InputFile OnChange="HandlePgnUpload" class="hidden-file-input" accept=".pgn" />
 		</label>
 
 		<div class="action-card" @onclick="HandleMyOnlineGamesClicked">
 			<div class="card-icon">🌐</div>
-			<h2 class="card-title">My Online Games</h2>
-			<p class="card-description">Sync and analyze your games from Lichess and Chess.com into your local database.</p>
+			<h2 class="card-title">@Loc["Dash_Card_OnlineGames"]</h2>
+			<p class="card-description">@Loc["Dash_Card_OnlineGames_Desc"]</p>
 		</div>
 
 		<div class="action-card" @onclick="() => Workspace.CreatePuzzleTrainerTab()">
 			<div class="card-icon">🧩</div>
-			<h2 class="card-title">Solve My Blunders</h2>
-			<p class="card-description">Practice tactical positions and blunder recovery from your real games and master combinations.</p>
+			<h2 class="card-title">@Loc["Dash_Card_Puzzles"]</h2>
+			<p class="card-description">@Loc["Dash_Card_Puzzles_Desc"]</p>
 		</div>
 
 		<div class="action-card" @onclick="() => Workspace.CreateRepertoireTab()">
 			<div class="card-icon">📖</div>
-			<h2 class="card-title">Opening Tree &amp; Repertoire</h2>
-			<p class="card-description">Explore move frequency, win rates, and master games from your databases and build your personal repertoire.</p>
+			<h2 class="card-title">@Loc["Dash_Card_Repertoire"]</h2>
+			<p class="card-description">@Loc["Dash_Card_Repertoire_Desc"]</p>
 		</div>
 
 		<div class="action-card" @onclick="() => Workspace.CreateOpponentDossierTab()">
 			<div class="card-icon">🕵️‍♂️</div>
-			<h2 class="card-title">Opponent Preparation</h2>
-			<p class="card-description">Generate comprehensive scouting dossiers on tournament opponents, analyze their opening repertoire, and expose weaknesses.</p>
+			<h2 class="card-title">@Loc["Dash_Card_Dossier"]</h2>
+			<p class="card-description">@Loc["Dash_Card_Dossier_Desc"]</p>
 		</div>
 
 		<div class="action-card" @onclick="() => Workspace.CreateEndgameTrainerTab()">
 			<div class="card-icon">🏆</div>
-			<h2 class="card-title">Endgame Tablebases &amp; Trainer</h2>
-			<p class="card-description">Master theoretical endgames (Lucena, Philidor, Trebuchet) against Syzygy tablebases with instant blunder warnings.</p>
+			<h2 class="card-title">@Loc["Dash_Card_Endgames"]</h2>
+			<p class="card-description">@Loc["Dash_Card_Endgames_Desc"]</p>
 		</div>
 
 		<div class="action-card" @onclick="() => Workspace.CreateAnalyticsTab()">
 			<div class="card-icon">📊</div>
-			<h2 class="card-title">Personal Insights</h2>
-			<p class="card-description">Explore your win/loss performance, White vs Black stats, rating timeline, and opening repertoire.</p>
+			<h2 class="card-title">@Loc["Nav_Insights"]</h2>
+			<p class="card-description">@Loc["Dash_Card_Insights_Desc"]</p>
+		</div>
+
+		<div class="action-card" @onclick="() => Workspace.CreateHomeworkTab()">
+			<div class="card-icon">📝</div>
+			<h2 class="card-title">@Loc["Dash_Card_Homework"]</h2>
+			<p class="card-description">@Loc["Dash_Card_Homework_Desc"]</p>
 		</div>
 
 		<div class="action-card" @onclick="() => Workspace.CreateSettingsTab()">
 			<div class="card-icon">⚙️</div>
-			<h2 class="card-title">Control Center</h2>
-			<p class="card-description">Configure your player profile, manage UCI engines, and customize online sync preferences.</p>
+			<h2 class="card-title">@Loc["Dash_Card_Settings"]</h2>
+			<p class="card-description">@Loc["Dash_Card_Settings_Desc"]</p>
 		</div>
 	</div>
 </div>
 
 @code {
+	protected override void OnInitialized()
+	{
+		Loc.OnLanguageChanged += HandleLanguageChanged;
+	}
+
+	public void Dispose()
+	{
+		Loc.OnLanguageChanged -= HandleLanguageChanged;
+	}
+
+	private void HandleLanguageChanged()
+	{
+		InvokeAsync(StateHasChanged);
+	}
+
 	private async Task HandleMyOnlineGamesClicked()
 	{
 		var profile = await ProfileService.GetProfileAsync();

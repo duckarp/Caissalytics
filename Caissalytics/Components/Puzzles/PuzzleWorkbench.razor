@@ -44,13 +44,13 @@
 			<div class="puzzles-turn-indicator">
 				<div class="turn-pill">
 					<span class="turn-color-dot @(_currentPuzzle.PlayerColor == "white" ? "white" : "black")"></span>
-					<span>@(_currentPuzzle.PlayerColor == "white" ? "White to move" : "Black to move")</span>
+					<span>@(_currentPuzzle.PlayerColor == "white" ? Loc["Puzzle_WhiteToMove"] : Loc["Puzzle_BlackToMove"])</span>
 				</div>
 				<div class="puzzle-rating-tag" title="Puzzle Difficulty Rating">
-					<span>🎯 Est. Rating: @_currentPuzzle.Rating</span>
+					<span>@Loc["Puzzle_EstRating", _currentPuzzle.Rating]</span>
 				</div>
 				<div class="puzzle-rating-tag">
-					<span>#@(_currentIndex + 1) of @_puzzles.Count</span>
+					<span>@Loc["Puzzle_NumOf", _currentIndex + 1, _puzzles.Count]</span>
 				</div>
 			</div>
 
@@ -66,25 +66,24 @@
 		else
 		{
 			<div class="puzzles-turn-indicator">
-				<span>@(_filterMode == "blunders" ? "My Blunders: 0 Found" : "No Puzzles Found")</span>
+				<span>@(_filterMode == "blunders" ? $"{Loc["Puzzle_Mode_Blunders"]}: 0" : Loc["Puzzle_NoPuzzles"])</span>
 			</div>
 			<div class="puzzles-empty-state">
 				<span class="empty-state-icon">♟️</span>
 				@if (_filterMode == "blunders")
 				{
-					<h4>No personal blunder drills yet</h4>
-					<p>Caissalytics generates personal drills from games where you made a mistake or blunder.</p>
-					<p>Sync your online games or analyze games with Stockfish, then click <strong>Scan Games for Blunders</strong> below.</p>
+					<h4>@Loc["Puzzle_NoBlundersYet"]</h4>
+					<p>@Loc["Puzzle_NoBlundersDesc"]</p>
 				}
 				else if (_filterMode == "review")
 				{
-					<h4>Review queue is clear!</h4>
-					<p>Puzzles you fail during practice will automatically appear here for spaced repetition.</p>
+					<h4>@Loc["Puzzle_ReviewQueueClear"]</h4>
+					<p>@Loc["Puzzle_ReviewQueueDesc"]</p>
 				}
 				else
 				{
-					<h4>No puzzles found</h4>
-					<p>Try selecting another category above or scan your database.</p>
+					<h4>@Loc["Puzzle_NoPuzzles"]</h4>
+					<p>@Loc["Puzzle_NoPuzzlesDesc"]</p>
 				}
 			</div>
 		}
@@ -96,21 +95,21 @@
 		<div class="puzzles-card">
 			<div class="puzzles-stats-grid">
 				<div class="puzzles-stat-box">
-					<span class="stat-box-label">Puzzle Rating</span>
+					<span class="stat-box-label">@Loc["Puzzle_Rating"]</span>
 					<span class="stat-box-value">@_stats.CurrentRating 🏆</span>
 				</div>
 				<div class="puzzles-stat-box">
-					<span class="stat-box-label">Current Streak</span>
+					<span class="stat-box-label">@Loc["Puzzle_CurrentStreak"]</span>
 					<span class="stat-box-value @(_stats.CurrentStreak >= 3 ? "streak-hot" : "")">
 						🔥 @_stats.CurrentStreak
 					</span>
 				</div>
 				<div class="puzzles-stat-box">
-					<span class="stat-box-label">Solved</span>
+					<span class="stat-box-label">@Loc["Puzzle_Solved"]</span>
 					<span class="stat-box-value">@_stats.SolvedCount / @_stats.TotalAttempts</span>
 				</div>
 				<div class="puzzles-stat-box">
-					<span class="stat-box-label">Accuracy</span>
+					<span class="stat-box-label">@Loc["Puzzle_Accuracy"]</span>
 					<span class="stat-box-value">@($"{_stats.WinRate:F0}%")</span>
 				</div>
 			</div>
@@ -118,13 +117,13 @@
 			<!-- Mode Filter Buttons -->
 			<div class="puzzles-filter-row">
 				<button class="puzzles-filter-btn @(_filterMode == "all" ? "active" : "")"
-						@onclick='() => ChangeFilterMode("all")'>All</button>
+						@onclick='() => ChangeFilterMode("all")'>@Loc["Puzzle_Mode_All"]</button>
 				<button class="puzzles-filter-btn @(_filterMode == "blunders" ? "active" : "")"
-						@onclick='() => ChangeFilterMode("blunders")'>My Blunders</button>
+						@onclick='() => ChangeFilterMode("blunders")'>@Loc["Puzzle_Mode_Blunders"]</button>
 				<button class="puzzles-filter-btn @(_filterMode == "curated" ? "active" : "")"
-						@onclick='() => ChangeFilterMode("curated")'>Master Tactics</button>
+						@onclick='() => ChangeFilterMode("curated")'>@Loc["Puzzle_Mode_Master"]</button>
 				<button class="puzzles-filter-btn @(_filterMode == "review" ? "active" : "")"
-						@onclick='() => ChangeFilterMode("review")'>Review</button>
+						@onclick='() => ChangeFilterMode("review")'>@Loc["Puzzle_Mode_Review"]</button>
 			</div>
 		</div>
 
@@ -135,7 +134,7 @@
 				<div class="puzzles-game-origin">
 					<div class="origin-header-row">
 						<span class="origin-badge @(_currentPuzzle.IsUserBlunder ? "blunder-badge" : "")">
-							@(_currentPuzzle.IsUserBlunder ? "Your Real Game" : _currentPuzzle.Source)
+							@(_currentPuzzle.IsUserBlunder ? Loc["Puzzle_YourRealGame"] : _currentPuzzle.Source)
 						</span>
 						@if (!string.IsNullOrEmpty(_currentPuzzle.Opening))
 						{
@@ -161,11 +160,11 @@
 					<div class="puzzles-feedback-box feedback-prompt">
 						<div class="feedback-headline">
 							<span>🎯</span>
-							<span>Your turn! Find the best move for @(_currentPuzzle.PlayerColor == "white" ? "White" : "Black")</span>
+							<span>@Loc["Puzzle_YourTurn", _currentPuzzle.PlayerColor == "white" ? Loc["Puzzle_White"] : Loc["Puzzle_Black"]]</span>
 						</div>
 						@if (_solutionStep > 0)
 						{
-							<p class="feedback-explanation">Good move! Now find the continuation...</p>
+							<p class="feedback-explanation">@Loc["Puzzle_GoodMoveContinuation"]</p>
 						}
 					</div>
 				}
@@ -174,11 +173,11 @@
 					<div class="puzzles-feedback-box feedback-success">
 						<div class="feedback-headline">
 							<span>🎉</span>
-							<span>Solved! +15 Rating</span>
+							<span>@Loc["Puzzle_SolvedBonus"]</span>
 						</div>
 						<p class="feedback-explanation">@_currentPuzzle.Explanation</p>
 						<div class="feedback-moves-sequence">
-							Solution: @string.Join(" ", _currentPuzzle.SolutionMovesSan)
+							@Loc["Puzzle_WinningMoves", string.Join(" ", _currentPuzzle.SolutionMovesSan)]
 						</div>
 					</div>
 				}
@@ -187,7 +186,7 @@
 					<div class="puzzles-feedback-box feedback-blunder">
 						<div class="feedback-headline">
 							<span>⚠️</span>
-							<span>You played the real-game blunder!</span>
+							<span>@Loc["Puzzle_PlayedBlunder"]</span>
 						</div>
 						<p class="feedback-explanation">
 							In the game, @_currentPuzzle.PlayedBlunderSan was played. Can you find the winning tactical alternative?
@@ -199,9 +198,9 @@
 					<div class="puzzles-feedback-box feedback-wrong">
 						<div class="feedback-headline">
 							<span>❌</span>
-							<span>Not quite the best move.</span>
+							<span>@Loc["Puzzle_WrongMove"]</span>
 						</div>
-						<p class="feedback-explanation">Try again or reveal the tactical solution below.</p>
+						<p class="feedback-explanation">@Loc["Puzzle_WrongMoveDesc"]</p>
 					</div>
 				}
 				else if (_solveState == SolveState.SolutionRevealed)
@@ -209,11 +208,11 @@
 					<div class="puzzles-feedback-box feedback-prompt">
 						<div class="feedback-headline">
 							<span>💡</span>
-							<span>Solution Revealed</span>
+							<span>@Loc["Puzzle_SolutionRevealed"]</span>
 						</div>
 						<p class="feedback-explanation">@_currentPuzzle.Explanation</p>
 						<div class="feedback-moves-sequence">
-							Winning moves: @string.Join(" ", _currentPuzzle.SolutionMovesSan)
+							@Loc["Puzzle_WinningMoves", string.Join(" ", _currentPuzzle.SolutionMovesSan)]
 						</div>
 					</div>
 				}
@@ -224,28 +223,28 @@
 					{
 						<button class="btn-puzzle btn-next" @onclick="NextPuzzle">
 							<span class="btn-puzzle-icon">➔</span>
-							<span class="btn-puzzle-text">Next Puzzle</span>
+							<span class="btn-puzzle-text">@Loc["Puzzle_NextPuzzle"]</span>
 						</button>
 					}
 					else
 					{
 						<button class="btn-puzzle btn-secondary-action" @onclick="ShowSolution" title="Reveal the tactical solution">
 							<span class="btn-puzzle-icon">💡</span>
-							<span class="btn-puzzle-text">Solution</span>
+							<span class="btn-puzzle-text">@Loc["Puzzle_Solution"]</span>
 						</button>
 						<button class="btn-puzzle btn-secondary-action" @onclick="ResetPuzzle" title="Restart this puzzle from the initial position">
 							<span class="btn-puzzle-icon">↺</span>
-							<span class="btn-puzzle-text">Reset</span>
+							<span class="btn-puzzle-text">@Loc["Puzzle_Reset"]</span>
 						</button>
 						<button class="btn-puzzle btn-secondary-action" @onclick="NextPuzzle" title="Skip to the next puzzle">
 							<span class="btn-puzzle-icon">⏭</span>
-							<span class="btn-puzzle-text">Skip</span>
+							<span class="btn-puzzle-text">@Loc["Puzzle_Skip"]</span>
 						</button>
 					}
 
 					<button class="btn-puzzle btn-secondary-action" @onclick="OpenInAnalysisBoard" title="Explore position in Stockfish Analysis Board">
 						<span class="btn-puzzle-icon">♟️</span>
-						<span class="btn-puzzle-text">Analyze</span>
+						<span class="btn-puzzle-text">@Loc["Puzzle_Analyze"]</span>
 					</button>
 				</div>
 			</div>
@@ -254,18 +253,18 @@
 		<!-- 3. Extract / Scan Card -->
 		<div class="puzzles-card">
 			<div class="puzzles-extract-box">
-				<h4 class="extract-box-title">Extract My Blunders</h4>
+				<h4 class="extract-box-title">@Loc["Puzzle_ExtractTitle"]</h4>
 				<p class="extract-box-desc">
-					Automatically scan your synced online games (or active database) for mistakes and generate personal blunder drills.
+					@Loc["Puzzle_ExtractDesc"]
 				</p>
 				<button class="btn-extract" @onclick="ExtractUserBlundersAsync" disabled="@_isExtracting">
 					@if (_isExtracting)
 					{
-						<span>⏳ Scanning games...</span>
+						<span>@Loc["Puzzle_Scanning"]</span>
 					}
 					else
 					{
-						<span>🔍 Scan Games for Blunders</span>
+						<span>@Loc["Puzzle_ScanBtn"]</span>
 					}
 				</button>
 				@if (!string.IsNullOrEmpty(_extractStatus))
@@ -306,6 +305,7 @@
 
 	protected override async Task OnInitializedAsync()
 	{
+		Loc.OnLanguageChanged += StateHasChanged;
 		PuzzleService.OnPuzzleStatsChanged += HandleStatsChanged;
 		_stats = await PuzzleService.GetStatsAsync();
 
@@ -362,10 +362,10 @@
 
 	private string GetFilterModeTitle() => _filterMode switch
 	{
-		"blunders" => "My Blunders",
-		"curated" => "Master Tactics",
-		"review" => "Review Queue",
-		_ => "Puzzles"
+		"blunders" => Loc["Puzzle_Mode_Blunders"],
+		"curated" => Loc["Puzzle_Mode_Master"],
+		"review" => Loc["Puzzle_Mode_Review"],
+		_ => Loc["Tab_Puzzles"]
 	};
 
 	private void SetupPuzzle(int index)
@@ -554,6 +554,7 @@
 
 	public void Dispose()
 	{
+		Loc.OnLanguageChanged -= StateHasChanged;
 		PuzzleService.OnPuzzleStatsChanged -= HandleStatsChanged;
 	}
 }

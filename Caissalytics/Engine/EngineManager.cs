@@ -551,10 +551,15 @@ public class EngineManager : IEngineService, IDisposable
 
     public Task<bool> RemoveEngineAsync(string engineId)
     {
+        string? binaryToDelete = null;
+        string? dirToDelete = null;
+        bool wasActive = false;
+
         lock (_lock)
         {
             var eng = _engines.FirstOrDefault(e => e.Id == engineId);
-            if (eng == null || !eng.IsCustom)
+            // Baseline stockfish-17 cannot be removed
+            if (eng == null || eng.Id == "stockfish-17")
             {
                 return Task.FromResult(false);
             }
@@ -563,11 +568,68 @@ public class EngineManager : IEngineService, IDisposable
 
             if (_activeEngineId == engineId)
             {
+                wasActive = true;
                 _activeEngineId = _engines.FirstOrDefault(e => e.IsInstalled)?.Id ?? "stockfish-17";
             }
 
             UpdateActiveFlag();
             SaveConfig();
+
+            // Check if engine files were stored inside Caissalytics managed engines directory
+            if (!string.IsNullOrEmpty(eng.ExecutablePath) &&
+                eng.ExecutablePath.StartsWith(_engineStorageDir, StringComparison.OrdinalIgnoreCase))
+            {
+                var parentDir = Path.GetDirectoryName(eng.ExecutablePath);
+                if (!string.IsNullOrEmpty(parentDir) &&
+                    parentDir.StartsWith(_engineStorageDir, StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(parentDir, _engineStorageDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    dirToDelete = parentDir;
+                }
+                else
+                {
+                    binaryToDelete = eng.ExecutablePath;
+                }
+            }
+        }
+
+        // Clean up managed files from disk outside lock
+        if (dirToDelete != null && Directory.Exists(dirToDelete))
+        {
+            try
+            {
+                Directory.Delete(dirToDelete, true);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[EngineManager] Error deleting engine dir: {ex.Message}");
+            }
+        }
+        else if (binaryToDelete != null && File.Exists(binaryToDelete))
+        {
+            try
+            {
+                File.Delete(binaryToDelete);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[EngineManager] Error deleting engine file: {ex.Message}");
+            }
+        }
+
+        // Stop active UCI client if it was running the removed engine
+        if (wasActive && _activeClient != null)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _activeClient.StopAnalysisAsync();
+                    _activeClient.Dispose();
+                    _activeClient = null;
+                }
+                catch { }
+            });
         }
 
         OnEnginesChanged?.Invoke();

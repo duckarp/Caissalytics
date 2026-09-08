@@ -8,7 +8,7 @@
 
 <header class="app-header">
 	<div class="app-brand">
-		<span class="brand-title">Caissalytics</span>
+		<span class="brand-title">@Loc["Nav_Brand"]</span>
 		<span class="brand-badge">Alpha</span>
 	</div>
 	<div class="header-actions">
@@ -18,7 +18,7 @@
 					title="New version v@_availableUpdate.LatestVersion is available! Click to update."
 					@onclick="() => _showUpdateDialog = true">
 				<span class="update-pill-icon">🚀</span>
-				<span class="update-pill-text">Update v@_availableUpdate.LatestVersion</span>
+				<span class="update-pill-text">@Loc["Nav_Update", _availableUpdate.LatestVersion]</span>
 			</button>
 		}
 		@if (_activeDb != null)
@@ -37,22 +37,22 @@
 					title="Open Database"
 					@onclick="() => Workspace.CreateDatabaseTab()">
 				<span class="header-db-icon">🗄️</span>
-				<span class="header-db-name">Database</span>
+				<span class="header-db-name">@Loc["Nav_Database"]</span>
 			</button>
 		}
 		<button class="btn-secondary header-analytics-btn"
 				title="Personal Chess Analytics & Performance Insights"
 				@onclick="() => Workspace.CreateAnalyticsTab()">
 			<span>📊</span>
-			<span class="header-analytics-label">Insights</span>
+			<span class="header-analytics-label">@Loc["Nav_Insights"]</span>
 		</button>
 		<button class="btn-secondary header-control-btn"
 				title="Open Settings & Control Center (User profile, engine management, sync accounts)"
 				@onclick="() => Workspace.CreateSettingsTab()">
 			<span>⚙️</span>
-			<span class="header-control-label">Control Center</span>
+			<span class="header-control-label">@Loc["Nav_ControlCenter"]</span>
 		</button>
-		<button class="btn-primary" @onclick="() => Workspace.CreateAnalysisTab()">+ New Board</button>
+		<button class="btn-primary" @onclick="() => Workspace.CreateAnalysisTab()">@Loc["Nav_NewBoard"]</button>
 	</div>
 </header>
 
@@ -65,7 +65,7 @@
 
 			<button class="@tabClass" @onclick="() => Workspace.SelectTab(tab.Id)">
 				<span class="tab-icon">@tab.Icon</span>
-				<span>@tab.Title</span>
+				<span>@GetTabTitle(tab)</span>
 				@if (tab.CanClose)
 				{
 					<span class="tab-close-btn" @onclick="() => Workspace.CloseTab(tab.Id)" @onclick:stopPropagation="true">✕</span>
@@ -91,6 +91,7 @@
 		DatabaseService.OnActiveDatabaseChanged += HandleDatabaseChanged;
 		DatabaseService.OnDatabaseModified += HandleDatabaseModified;
 		UpdateService.OnUpdateStateChanged += HandleUpdateStateChanged;
+		Loc.OnLanguageChanged += StateHasChanged;
 
 		_availableUpdate = UpdateService.CachedUpdate;
 		await LoadActiveDatabaseAsync();
@@ -135,11 +136,27 @@
 		});
 	}
 
+	private string GetTabTitle(WorkspaceTab tab) => tab switch
+	{
+		DashboardTab => Loc["Tab_Dashboard"],
+		DatabaseBrowserTab => Loc["Tab_Database"],
+		SettingsTab => Loc["Tab_Settings"],
+		AnalyticsTab => Loc["Tab_Analytics"],
+		PuzzleTrainerTab => Loc["Tab_Puzzles"],
+		RepertoireExplorerTab => Loc["Tab_Repertoire"],
+		OpponentDossierTab => Loc["Tab_OpponentDossier"],
+		EndgameTrainerTab => Loc["Tab_Endgames"],
+		HomeworkTab => Loc["Tab_Homework"],
+		AnalysisTab a when a.Title == "Analysis Board" => Loc["Tab_Analysis"],
+		_ => tab.Title
+	};
+
 	public void Dispose()
 	{
 		Workspace.OnChange -= StateHasChanged;
 		DatabaseService.OnActiveDatabaseChanged -= HandleDatabaseChanged;
 		DatabaseService.OnDatabaseModified -= HandleDatabaseModified;
 		UpdateService.OnUpdateStateChanged -= HandleUpdateStateChanged;
+		Loc.OnLanguageChanged -= StateHasChanged;
 	}
 }

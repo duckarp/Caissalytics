@@ -1,0 +1,1061 @@
+/* Caissalytics Printable Homework & Diagram Sheet Generator Styles */
+
+.homework-workbench-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+}
+
+/* ==========================================================================
+   1. Hub View
+   ========================================================================== */
+.homework-hub-view {
+  max-width: 1300px;
+  margin: 0 auto;
+  padding: 24px;
+  width: 100%;
+}
+
+.homework-hub-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.hub-title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hub-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.hub-title-icon {
+  font-size: 26px;
+}
+
+.hub-title {
+  font-size: 24px;
+  font-weight: 800;
+  margin: 0;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+}
+
+.hub-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.hub-header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.homework-sheets-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 20px;
+}
+
+.sheet-hub-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.sheet-hub-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-medium);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.sheet-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.sheet-card-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sheet-card-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.sheet-card-title:hover {
+  color: var(--accent-blue);
+}
+
+.sheet-card-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.sheet-card-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sheet-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 3px 8px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-secondary);
+}
+
+.sheet-badge.badge-accent {
+  background-color: rgba(33, 150, 243, 0.15);
+  border-color: rgba(33, 150, 243, 0.35);
+  color: #64b5f6;
+}
+
+.sheet-card-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.sheet-card-preview-strip {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background-color: var(--bg-surface-elevated);
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+}
+
+.sheet-thumb-item {
+  width: 58px;
+  height: 58px;
+  overflow: hidden;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: #fff;
+  flex-shrink: 0;
+}
+
+.sheet-thumb-item .printable-diagram-card {
+  border: none;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.sheet-thumb-item .diagram-card-header,
+.sheet-thumb-item .diagram-prompt-box,
+.sheet-thumb-item .diagram-solution-lines {
+  display: none !important;
+}
+
+.sheet-thumb-item .diagram-board-grid {
+  width: 58px;
+  height: 58px;
+  grid-template-columns: repeat(8, 7.25px);
+  grid-template-rows: repeat(8, 7.25px);
+}
+
+.sheet-thumb-item .diagram-sq {
+  width: 7.25px;
+  height: 7.25px;
+}
+
+.sheet-thumb-item .diagram-piece {
+  width: 6.5px;
+  height: 6.5px;
+}
+
+.sheet-thumb-more {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding-left: 6px;
+}
+
+.sheet-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.btn-sheet-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-sheet-action:hover {
+  background-color: var(--bg-surface-hover);
+  border-color: var(--border-medium);
+}
+
+.btn-sheet-action.btn-primary-soft {
+  background-color: rgba(33, 150, 243, 0.15);
+  border-color: rgba(33, 150, 243, 0.4);
+  color: #64b5f6;
+}
+
+.btn-sheet-action.btn-primary-soft:hover {
+  background-color: rgba(33, 150, 243, 0.25);
+  color: #fff;
+}
+
+.btn-danger-icon:hover {
+  background-color: rgba(255, 82, 82, 0.2);
+  border-color: #ff5252;
+  color: #ff8a80;
+}
+
+/* ==========================================================================
+   2. Sheet Editor View
+   ========================================================================== */
+.homework-editor-view {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px 24px;
+  width: 100%;
+}
+
+.editor-nav-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.nav-bar-left, .nav-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.editor-header-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.sheet-settings-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+}
+
+.settings-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px 20px;
+}
+
+.settings-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-form-group.span-2 {
+  grid-column: span 2;
+}
+
+.settings-form-group.span-3 {
+  grid-column: span 3;
+}
+
+.form-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.form-input, .form-select {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 13px;
+  padding: 7px 12px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.form-input:focus, .form-select:focus {
+  border-color: var(--accent-blue);
+}
+
+.toggles-group {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.toggle-checkbox-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.editor-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.section-subtext {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.section-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* Exercises Grid */
+.editor-exercises-grid {
+  display: grid;
+  gap: 20px;
+}
+
+.editor-exercises-grid.cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.editor-exercises-grid.cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 1000px) {
+  .editor-exercises-grid.cols-2,
+  .editor-exercises-grid.cols-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.exercise-editor-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.exercise-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.exercise-num-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.exercise-num-tag {
+  background-color: var(--accent-blue);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.exercise-title-input {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 8px;
+  flex: 1;
+}
+
+.exercise-header-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.btn-icon-tiny {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: 4px;
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.btn-icon-tiny:hover:not(:disabled) {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.btn-icon-tiny:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.exercise-board-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.exercise-board-container {
+  position: relative;
+  cursor: pointer;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border-medium);
+  flex-shrink: 0;
+}
+
+.exercise-board-container:hover .board-hover-overlay {
+  opacity: 1;
+}
+
+.board-hover-overlay {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.exercise-quick-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.quick-control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.control-label-tiny {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.turn-mini-pillbox {
+  display: flex;
+  gap: 6px;
+}
+
+.turn-mini-pill {
+  flex: 1;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.turn-mini-pill.active-white {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-color: #fff;
+  color: #fff;
+}
+
+.turn-mini-pill.active-black {
+  background-color: rgba(0, 0, 0, 0.4);
+  border-color: var(--accent-blue);
+  color: var(--text-primary);
+}
+
+.btn-secondary-tiny {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px 8px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.btn-full-width {
+  width: 100%;
+  justify-content: center;
+}
+
+.exercise-fields-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.field-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.field-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.form-input-compact {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  padding: 6px 10px;
+  outline: none;
+}
+
+.form-input-compact:focus {
+  border-color: var(--accent-blue);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* ==========================================================================
+   3. Printable Chess Diagram Component Styles
+   ========================================================================== */
+.printable-diagram-card {
+  background-color: #ffffff;
+  color: #1a1a1a;
+  border: 1.5px solid #222222;
+  border-radius: 6px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+}
+
+.diagram-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+.diagram-number-badge {
+  font-size: 12px;
+  font-weight: 800;
+  color: #111;
+  background-color: #eaeaea;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+.diagram-title-group {
+  flex: 1;
+}
+
+.diagram-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111;
+}
+
+.diagram-turn-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #888;
+}
+
+.diagram-turn-badge.turn-white {
+  background-color: #f5f5f5;
+  color: #222;
+}
+
+.diagram-turn-badge.turn-black {
+  background-color: #222;
+  color: #fff;
+  border-color: #000;
+}
+
+.turn-symbol {
+  font-size: 13px;
+}
+
+/* Board Grid in Diagram */
+.diagram-board-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.diagram-board-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 28px);
+  grid-template-rows: repeat(8, 28px);
+  width: 224px;
+  height: 224px;
+  border: 2px solid #222;
+  background-color: #fff;
+  position: relative;
+  user-select: none;
+}
+
+.diagram-sq {
+  width: 28px;
+  height: 28px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.diagram-sq.sq-light {
+  background-color: #ffffff;
+}
+
+.diagram-sq.sq-dark {
+  background-color: #d8d8d8;
+}
+
+.diag-rank-coord {
+  position: absolute;
+  top: 1px;
+  left: 2px;
+  font-size: 8px;
+  font-weight: 700;
+  color: #666;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.diag-file-coord {
+  position: absolute;
+  bottom: 1px;
+  right: 2px;
+  font-size: 8px;
+  font-weight: 700;
+  color: #666;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.diagram-piece {
+  width: 26px;
+  height: 26px;
+}
+
+/* Prompt Box */
+.diagram-prompt-box {
+  font-size: 12px;
+  font-weight: 600;
+  color: #222;
+  text-align: center;
+  min-height: 18px;
+}
+
+/* Handwriting Lines for student answers */
+.diagram-solution-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.solution-line {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.line-prefix {
+  font-size: 11px;
+  font-weight: 700;
+  color: #444;
+  width: 14px;
+}
+
+.line-dots {
+  flex: 1;
+  border-bottom: 1.5px dotted #777;
+  height: 12px;
+}
+
+/* Answer Box in Teacher Key */
+.diagram-answer-box {
+  background-color: #e8f5e9;
+  border: 1px solid #81c784;
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: #1b5e20;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.answer-label {
+  font-weight: 700;
+}
+
+.answer-text {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* ==========================================================================
+   4. Print Preview & A4 Document Rendering
+   ========================================================================== */
+.homework-preview-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+  width: 100%;
+}
+
+.preview-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 210mm;
+  max-width: 100%;
+  margin-bottom: 20px;
+  padding: 10px 16px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.preview-toolbar-left, .preview-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.preview-title-badge {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.btn-print-cta {
+  font-weight: 700;
+  padding: 8px 18px;
+  font-size: 14px;
+}
+
+/* A4 Sheet Dimensions */
+.printable-document {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.a4-page-sheet {
+  width: 210mm;
+  min-height: 297mm;
+  background-color: #ffffff;
+  color: #111111;
+  padding: 14mm 16mm;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* Print Header */
+.print-sheet-header {
+  border-bottom: 2px solid #222;
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.print-header-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.print-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.print-sheet-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: #111;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.print-sheet-subtitle {
+  font-size: 12px;
+  color: #444;
+  margin: 0;
+}
+
+.print-club-info {
+  text-align: right;
+}
+
+.print-club-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111;
+}
+
+.print-coach-name {
+  font-size: 11px;
+  color: #555;
+}
+
+.teacher-key-badge {
+  font-size: 12px;
+  font-weight: 800;
+  background-color: #2e7d32;
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 4px;
+}
+
+/* Student Bar */
+.print-student-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+  margin-top: 4px;
+}
+
+.student-bar-field {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex: 1;
+}
+
+.student-score-field {
+  flex: 0.5;
+}
+
+.student-bar-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #222;
+}
+
+.student-bar-line {
+  flex: 1;
+  border-bottom: 1.5px solid #333;
+  height: 14px;
+}
+
+.score-box {
+  font-size: 12px;
+  font-weight: 700;
+  color: #444;
+  border-bottom: 1.5px solid #333;
+  padding: 0 10px;
+  min-width: 60px;
+  text-align: right;
+}
+
+/* Grid of Diagrams on Print Page */
+.print-diagrams-grid {
+  display: grid;
+  gap: 16px 20px;
+  flex: 1;
+}
+
+.print-diagrams-grid.grid-cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.print-diagrams-grid.grid-cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.print-page-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  color: #888;
+  padding-top: 10px;
+  margin-top: auto;
+  border-top: 1px solid #ddd;
+}
+
+/* ==========================================================================
+   5. Browser Print Media Rules (@media print)
+   ========================================================================== */
+@media print {
+  body, html {
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  /* Hide app frame, sidebars, tabs, and screen tools */
+  .workspace-tabs-container,
+  .app-header-toolbar,
+  .no-print,
+  .workspace-view.view-hidden,
+  .preview-toolbar {
+    display: none !important;
+  }
+
+  .homework-workbench-container {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+    padding: 0 !important;
+  }
+
+  .homework-preview-view {
+    padding: 0 !important;
+  }
+
+  .printable-document {
+    gap: 0 !important;
+  }
+
+  .a4-page-sheet {
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 10mm 12mm !important;
+    width: 100% !important;
+    min-height: auto !important;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .a4-page-sheet.page-break-before {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  .printable-diagram-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    box-shadow: none !important;
+  }
+
+  /* Force browsers to print exact background colors and vector borders */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

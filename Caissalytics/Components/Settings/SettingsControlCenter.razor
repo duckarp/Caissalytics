@@ -19,8 +19,8 @@
 		<div class="control-title-group">
 			<span class="control-header-icon">⚙️</span>
 			<div>
-				<h2 class="control-heading">Control Center</h2>
-				<p class="control-subtitle">Manage user profile, configure chess engines, and customize online sync preferences.</p>
+				<h2 class="control-heading">@Loc["Settings_Title"]</h2>
+				<p class="control-subtitle">@Loc["Settings_Subtitle"]</p>
 			</div>
 		</div>
 	</div>
@@ -31,48 +31,48 @@
 				<button class="@GetNavClass("profile")" @onclick='() => SetCategory("profile")'>
 					<span class="nav-item-icon">👤</span>
 					<div class="nav-item-content">
-						<span class="nav-item-title">Profile &amp; Handles</span>
-						<span class="nav-item-desc">Name, FIDE ID, online accounts</span>
+						<span class="nav-item-title">@Loc["Settings_Nav_Profile"]</span>
+						<span class="nav-item-desc">@Loc["Settings_Nav_Profile_Desc"]</span>
 					</div>
 				</button>
 
 				<button class="@GetNavClass("appearance")" @onclick='() => SetCategory("appearance")'>
 					<span class="nav-item-icon">🎨</span>
 					<div class="nav-item-content">
-						<span class="nav-item-title">Board &amp; Audio</span>
-						<span class="nav-item-desc">Themes, sound effects, volume</span>
+						<span class="nav-item-title">@Loc["Settings_Nav_Appearance"]</span>
+						<span class="nav-item-desc">@Loc["Settings_Nav_Appearance_Desc"]</span>
 					</div>
 				</button>
 
 				<button class="@GetNavClass("engines")" @onclick='() => SetCategory("engines")'>
 					<span class="nav-item-icon">⚙️</span>
 					<div class="nav-item-content">
-						<span class="nav-item-title">Chess Engines</span>
-						<span class="nav-item-desc">Installed engines, active UCI, 1-click install</span>
+						<span class="nav-item-title">@Loc["Settings_Nav_Engines"]</span>
+						<span class="nav-item-desc">@Loc["Settings_Nav_Engines_Desc"]</span>
 					</div>
 				</button>
 
 				<button class="@GetNavClass("tablebases")" @onclick='() => SetCategory("tablebases")'>
 					<span class="nav-item-icon">🏆</span>
 					<div class="nav-item-content">
-						<span class="nav-item-title">Syzygy Tablebases</span>
-						<span class="nav-item-desc">Endgame probe, local path, online API</span>
+						<span class="nav-item-title">@Loc["Settings_Nav_Tablebases"]</span>
+						<span class="nav-item-desc">@Loc["Settings_Nav_Tablebases_Desc"]</span>
 					</div>
 				</button>
 
 				<button class="@GetNavClass("sync")" @onclick='() => SetCategory("sync")'>
 					<span class="nav-item-icon">🌐</span>
 					<div class="nav-item-content">
-						<span class="nav-item-title">Online Games Sync</span>
-						<span class="nav-item-desc">Batch size, database status, auto sync</span>
+						<span class="nav-item-title">@Loc["Settings_Nav_Sync"]</span>
+						<span class="nav-item-desc">@Loc["Settings_Nav_Sync_Desc"]</span>
 					</div>
 				</button>
 
 				<button class="@GetNavClass("updates")" @onclick='() => SetCategory("updates")'>
 					<span class="nav-item-icon">🚀</span>
 					<div class="nav-item-content">
-						<span class="nav-item-title">App &amp; Updates</span>
-						<span class="nav-item-desc">Version, releases, auto-updater</span>
+						<span class="nav-item-title">@Loc["Settings_Nav_Updates"]</span>
+						<span class="nav-item-desc">@Loc["Settings_Nav_Updates_Desc"]</span>
 					</div>
 				</button>
 			</nav>
@@ -332,9 +332,9 @@
 										</button>
 									}
 
-									@if (eng.IsCustom)
+									@if (eng.Id != "stockfish-17")
 									{
-										<button class="btn-danger-outline btn-sm" @onclick="() => RemoveCustomEngineAsync(eng.Id)" title="Remove custom engine">🗑️</button>
+										<button class="btn-danger-outline btn-sm" @onclick="() => PromptRemoveEngine(eng)" title="Remove this engine">🗑️ Remove</button>
 									}
 								</div>
 							</div>
@@ -699,8 +699,33 @@
 			{
 				<div class="control-section-card">
 					<div class="card-section-header">
-						<h3 class="card-section-title">🎨 Visual Board Themes</h3>
-						<p class="card-section-desc">Select your preferred vector chessboard styling. Crisp rendering at all display resolutions.</p>
+						<h3 class="card-section-title">🌐 @Loc["Settings_Lang_Title"]</h3>
+						<p class="card-section-desc">@Loc["Settings_Lang_Desc"]</p>
+					</div>
+
+					<div class="languages-grid">
+						@foreach (var lang in Loc.SupportedLanguages)
+						{
+							bool isCurrent = Loc.CurrentLanguage == lang.Code;
+							<div class="language-card @(isCurrent ? "language-card-active" : "")" @onclick="() => ChangeLanguageAsync(lang.Code)">
+								<span class="language-flag">@lang.FlagEmoji</span>
+								<div class="language-info">
+									<span class="language-native-name">@lang.NativeName</span>
+									<span class="language-name">@lang.Name</span>
+								</div>
+								@if (isCurrent)
+								{
+									<span class="theme-active-pill">@Loc["Settings_Lang_Active"]</span>
+								}
+							</div>
+						}
+					</div>
+
+					<div class="section-divider"></div>
+
+					<div class="card-section-header">
+						<h3 class="card-section-title">🎨 @Loc["Settings_BoardThemes_Title"]</h3>
+						<p class="card-section-desc">@Loc["Settings_BoardThemes_Desc"]</p>
 					</div>
 
 					<div class="board-themes-grid">
@@ -720,7 +745,7 @@
 								</div>
 								@if (isSelected)
 								{
-									<span class="theme-active-pill">Active</span>
+									<span class="theme-active-pill">@Loc["Common_Active"]</span>
 								}
 							</div>
 						}
@@ -729,8 +754,8 @@
 					<div class="section-divider"></div>
 
 					<div class="card-section-header">
-						<h3 class="card-section-title">🔊 Chess Sound Engine</h3>
-						<p class="card-section-desc">Zero-latency synthesized audio effects powered by Web Audio API.</p>
+						<h3 class="card-section-title">🔊 @Loc["Settings_SoundEngine_Title"]</h3>
+						<p class="card-section-desc">@Loc["Settings_SoundEngine_Desc"]</p>
 					</div>
 
 					<div class="audio-settings-card">
@@ -742,7 +767,7 @@
 								<label for="masterSoundToggle" class="switch-slider"></label>
 							</div>
 							<div class="audio-master-label">
-								<span class="audio-master-title">Enable Sound Effects</span>
+								<span class="audio-master-title">@Loc["Settings_Sound_Master"]</span>
 								<span class="audio-master-desc">Play acoustic cues for moves, captures, checks, and achievements.</span>
 							</div>
 						</div>
@@ -751,7 +776,7 @@
 						{
 							<div class="audio-volume-panel">
 								<div class="volume-slider-header">
-									<span class="volume-label">Master Volume</span>
+									<span class="volume-label">@Loc["Settings_Sound_Volume"]</span>
 									<span class="volume-value-badge">@_appearanceSettings.Volume%</span>
 								</div>
 								<div class="volume-slider-row">
@@ -771,10 +796,10 @@
 											<input type="checkbox" class="sound-check-box"
 												   checked="@_appearanceSettings.PlayMoveSound"
 												   @onchange='e => ToggleSoundEvent("move", e)' />
-											<span>Move (tactile wood click)</span>
+											<span>@Loc["Settings_Sound_Move"]</span>
 										</label>
 										<button class="sound-test-btn" @onclick='() => TestSound(ChessSoundType.Move)' title="Test Move Sound">
-											<span>▶ Test</span>
+											<span>▶ @Loc["Settings_Sound_Test"]</span>
 										</button>
 									</div>
 
@@ -783,10 +808,10 @@
 											<input type="checkbox" class="sound-check-box"
 												   checked="@_appearanceSettings.PlayCaptureSound"
 												   @onchange='e => ToggleSoundEvent("capture", e)' />
-											<span>Capture (crisp mechanical snap)</span>
+											<span>@Loc["Settings_Sound_Capture"]</span>
 										</label>
 										<button class="sound-test-btn" @onclick='() => TestSound(ChessSoundType.Capture)' title="Test Capture Sound">
-											<span>▶ Test</span>
+											<span>▶ @Loc["Settings_Sound_Test"]</span>
 										</button>
 									</div>
 
@@ -795,10 +820,10 @@
 											<input type="checkbox" class="sound-check-box"
 												   checked="@_appearanceSettings.PlayCheckSound"
 												   @onchange='e => ToggleSoundEvent("check", e)' />
-											<span>Check (dual-tone alert chime)</span>
+											<span>@Loc["Settings_Sound_Check"]</span>
 										</label>
 										<button class="sound-test-btn" @onclick='() => TestSound(ChessSoundType.Check)' title="Test Check Sound">
-											<span>▶ Test</span>
+											<span>▶ @Loc["Settings_Sound_Test"]</span>
 										</button>
 									</div>
 
@@ -807,10 +832,10 @@
 											<input type="checkbox" class="sound-check-box"
 												   checked="@_appearanceSettings.PlayVictorySound"
 												   @onchange='e => ToggleSoundEvent("victory", e)' />
-											<span>Victory / Puzzle Solved (major triad chime)</span>
+											<span>@Loc["Settings_Sound_Victory"]</span>
 										</label>
 										<button class="sound-test-btn" @onclick='() => TestSound(ChessSoundType.Victory)' title="Test Victory Sound">
-											<span>▶ Test</span>
+											<span>▶ @Loc["Settings_Sound_Test"]</span>
 										</button>
 									</div>
 
@@ -819,10 +844,10 @@
 											<input type="checkbox" class="sound-check-box"
 												   checked="@_appearanceSettings.PlayLowTimeSound"
 												   @onchange='e => ToggleSoundEvent("lowtime", e)' />
-											<span>Low Time (clock tick alert)</span>
+											<span>@Loc["Settings_Sound_LowTime"]</span>
 										</label>
 										<button class="sound-test-btn" @onclick='() => TestSound(ChessSoundType.LowTime)' title="Test Low Time Sound">
-											<span>▶ Test</span>
+											<span>▶ @Loc["Settings_Sound_Test"]</span>
 										</button>
 									</div>
 								</div>
@@ -831,11 +856,11 @@
 
 						<div class="form-action-row">
 							<button class="btn btn-primary" @onclick="SaveAppearanceSettingsAsync">
-								💾 Save Preferences
+								💾 @Loc["Common_Save"]
 							</button>
 							@if (_appearanceSettingsSaved)
 							{
-								<span class="save-status-badge">✓ Preferences saved!</span>
+								<span class="save-status-badge">@Loc["Common_PreferencesSaved"]</span>
 							}
 						</div>
 					</div>
@@ -852,6 +877,41 @@
 <UpdateDialog IsOpen="_showUpdateDialogFromSettings"
 			  Update="_latestUpdate"
 			  OnClose="() => _showUpdateDialogFromSettings = false" />
+
+@if (_showRemoveEngineModal && _engineToRemove != null)
+{
+	<div class="modal-backdrop" @onclick="CancelRemoveEngine">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<h3 class="modal-title">@Loc["Engine_RemoveConfirm_Title"]</h3>
+				<button class="modal-close-btn" @onclick="CancelRemoveEngine">✕</button>
+			</div>
+			<div class="modal-body">
+				<div class="modal-warning-box">
+					<div class="modal-warning-title">⚠️ @Loc["Engine_RemoveConfirm_Warning"]</div>
+					<div>@Loc["Engine_RemoveConfirm_Question", _engineToRemove.Name]</div>
+					<div class="modal-game-summary">
+						<span>⚙️ @_engineToRemove.Name @(!string.IsNullOrEmpty(_engineToRemove.Version) ? $"v{_engineToRemove.Version}" : "")</span>
+						@if (!string.IsNullOrEmpty(_engineToRemove.ExecutablePath))
+						{
+							<span class="engine-path-truncate" title="@_engineToRemove.ExecutablePath">📁 @_engineToRemove.ExecutablePath</span>
+						}
+					</div>
+					@if (_engineToRemove.IsActive)
+					{
+						<div class="modal-irreversible-warning">
+							@Loc["Engine_RemoveConfirm_ActiveWarning"]
+						</div>
+					}
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="CancelRemoveEngine">@Loc["Common_Cancel"]</button>
+				<button class="btn-danger" @onclick="ConfirmRemoveEngineAsync">🗑️ @Loc["Engine_RemoveConfirm_Btn"]</button>
+			</div>
+		</div>
+	</div>
+}
 
 @code {
 	[Parameter] public SettingsTab Tab { get; set; } = default!;
@@ -876,6 +936,8 @@
 	private string _customAddSuccess = "";
 	private bool _isScanning = false;
 	private string _scanResultText = "";
+	private bool _showRemoveEngineModal = false;
+	private EngineInfo? _engineToRemove;
 
 	// Stockfish 1-Click Update State
 	private StockfishUpdateInfo? _sfUpdate;
@@ -927,6 +989,7 @@
 		EngineService.OnStockfishUpdateChanged += HandleStockfishUpdateChanged;
 		ProfileService.OnProfileChanged += HandleProfileChanged;
 		UpdateService.OnUpdateStateChanged += HandleUpdateChanged;
+		Loc.OnLanguageChanged += HandleLanguageChanged;
 
 		_currentVersion = UpdateService.GetCurrentVersion();
 		_latestUpdate = UpdateService.CachedUpdate;
@@ -1059,9 +1122,26 @@
 		_handshakeResult = await EngineService.ProbeEngineFileAsync(engine.ExecutablePath);
 	}
 
-	private async Task RemoveCustomEngineAsync(string engineId)
+	private void PromptRemoveEngine(EngineInfo engine)
 	{
-		await EngineService.RemoveEngineAsync(engineId);
+		_engineToRemove = engine;
+		_showRemoveEngineModal = true;
+	}
+
+	private void CancelRemoveEngine()
+	{
+		_showRemoveEngineModal = false;
+		_engineToRemove = null;
+	}
+
+	private async Task ConfirmRemoveEngineAsync()
+	{
+		if (_engineToRemove == null) return;
+		string id = _engineToRemove.Id;
+		_showRemoveEngineModal = false;
+		_engineToRemove = null;
+
+		await EngineService.RemoveEngineAsync(id);
 		await LoadEnginesAsync();
 	}
 
@@ -1195,6 +1275,19 @@
 		EngineService.OnStockfishUpdateChanged -= HandleStockfishUpdateChanged;
 		ProfileService.OnProfileChanged -= HandleProfileChanged;
 		UpdateService.OnUpdateStateChanged -= HandleUpdateChanged;
+		Loc.OnLanguageChanged -= HandleLanguageChanged;
+	}
+
+	private void HandleLanguageChanged()
+	{
+		InvokeAsync(StateHasChanged);
+	}
+
+	private async Task ChangeLanguageAsync(string code)
+	{
+		await Loc.SetLanguageAsync(code);
+		_appearanceSettings.Language = code;
+		StateHasChanged();
 	}
 
 	private async Task CheckStockfishUpdateNowAsync()

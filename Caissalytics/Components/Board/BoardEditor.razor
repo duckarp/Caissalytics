@@ -1,0 +1,549 @@
+@namespace Caissalytics.Components.Board
+@using Caissalytics.Core
+@inject IJSRuntime JS
+
+<div class="board-editor-container">
+	<!-- Left / Center: Interactive Board & Quick Action Bar -->
+	<div class="board-editor-board-pane">
+		<div class="board-editor-grid-wrapper @($"orientation-{_orientation}")">
+			<div class="board-editor-ranks-col">
+				@for (int r = (_orientation == "white" ? 8 : 1); (_orientation == "white" ? r >= 1 : r <= 8); r += (_orientation == "white" ? -1 : 1))
+				{
+					<span class="rank-coord">@r</span>
+				}
+			</div>
+
+			<div class="board-editor-squares-container">
+				<div class="board-editor-grid">
+					@for (int r = (_orientation == "white" ? 7 : 0); (_orientation == "white" ? r >= 0 : r <= 7); r += (_orientation == "white" ? -1 : 1))
+					{
+						@for (int f = (_orientation == "white" ? 0 : 7); (_orientation == "white" ? f <= 7 : f >= 0); f += (_orientation == "white" ? 1 : -1))
+						{
+							int rank = r;
+							int file = f;
+							bool isLight = (file + rank) % 2 != 0;
+							var piece = _position[file, rank];
+							<div class="editor-sq @(isLight ? "sq-light" : "sq-dark")"
+								 @onclick="() => HandleSquareClick(file, rank)"
+								 @oncontextmenu="() => HandleSquareRightClick(file, rank)"
+								 @oncontextmenu:preventDefault="true"
+								 title="@GetSquareLabel(file, rank)">
+								@if (!piece.IsEmpty)
+								{
+									<div class="editor-piece captured-piece @piece.Type.ToString().ToLowerInvariant() @(piece.Color == PieceColor.White ? "white" : "black")"></div>
+								}
+							</div>
+						}
+					}
+				</div>
+
+				<div class="board-editor-files-row">
+					@for (int f = (_orientation == "white" ? 0 : 7); (_orientation == "white" ? f <= 7 : f >= 0); f += (_orientation == "white" ? 1 : -1))
+					{
+						<span class="file-coord">@((char)('a' + f))</span>
+					}
+				</div>
+			</div>
+		</div>
+
+		<!-- Quick Board Action Buttons -->
+		<div class="board-editor-quick-actions">
+			<button type="button" class="btn-editor-action" @onclick="SetStartingPosition" title="@Loc["BoardEditor_StartingPos"]">
+				<span>♟️</span>
+				<span>@Loc["BoardEditor_StartingPos"]</span>
+			</button>
+			<button type="button" class="btn-editor-action" @onclick="ClearBoard" title="@Loc["BoardEditor_ClearBoard"]">
+				<span>🧹</span>
+				<span>@Loc["BoardEditor_ClearBoard"]</span>
+			</button>
+			<button type="button" class="btn-editor-action" @onclick="InvertColors" title="@Loc["BoardEditor_InvertColors"]">
+				<span>🔄</span>
+				<span>@Loc["BoardEditor_InvertColors"]</span>
+			</button>
+			<button type="button" class="btn-editor-action" @onclick="ToggleOrientation" title="@Loc["Board_FlipBoard"]">
+				<span>🔃</span>
+				<span>@Loc["Board_FlipBoard"]</span>
+			</button>
+		</div>
+	</div>
+
+	<!-- Right: Piece Palette, Position Setup, Castling, Validation -->
+	<div class="board-editor-sidebar">
+		<!-- Piece Palette -->
+		<div class="editor-card">
+			<div class="editor-card-header">
+				<span class="editor-card-title">@Loc["BoardEditor_PiecePalette"]</span>
+			</div>
+			<div class="palette-container">
+				<!-- White Pieces -->
+				<div class="palette-row">
+					<span class="palette-label">@Loc["BoardEditor_WhitePieces"]</span>
+					<div class="palette-pieces">
+						@foreach (var pt in new[] { PieceType.King, PieceType.Queen, PieceType.Rook, PieceType.Bishop, PieceType.Knight, PieceType.Pawn })
+						{
+							var p = new Piece(PieceColor.White, pt);
+							bool isSelected = !_isEraseMode && _selectedPiece == p;
+							<button type="button"
+									class="palette-piece-btn @(isSelected ? "selected" : "")"
+									@onclick="() => SelectPiece(p)"
+									title="@pt">
+								<div class="editor-piece captured-piece @pt.ToString().ToLowerInvariant() white"></div>
+							</button>
+						}
+					</div>
+				</div>
+
+				<!-- Black Pieces -->
+				<div class="palette-row">
+					<span class="palette-label">@Loc["BoardEditor_BlackPieces"]</span>
+					<div class="palette-pieces">
+						@foreach (var pt in new[] { PieceType.King, PieceType.Queen, PieceType.Rook, PieceType.Bishop, PieceType.Knight, PieceType.Pawn })
+						{
+							var p = new Piece(PieceColor.Black, pt);
+							bool isSelected = !_isEraseMode && _selectedPiece == p;
+							<button type="button"
+									class="palette-piece-btn @(isSelected ? "selected" : "")"
+									@onclick="() => SelectPiece(p)"
+									title="@pt">
+								<div class="editor-piece captured-piece @pt.ToString().ToLowerInvariant() black"></div>
+							</button>
+						}
+					</div>
+				</div>
+
+				<!-- Tools: Trash / Erase -->
+				<div class="palette-tools-row">
+					<button type="button"
+							class="palette-tool-btn @(_isEraseMode ? "selected-tool" : "")"
+							@onclick="SelectEraseMode"
+							title="@Loc["BoardEditor_EraseSquare"]">
+						<span>❌</span>
+						<span>@Loc["BoardEditor_EraseSquare"]</span>
+					</button>
+					<span class="palette-hint">@Loc["BoardEditor_RightClickHint"]</span>
+				</div>
+			</div>
+		</div>
+
+		<!-- Position Options (Turn, Castling, En Passant) -->
+		<div class="editor-card">
+			<div class="editor-card-header">
+				<span class="editor-card-title">@Loc["BoardEditor_PositionRules"]</span>
+			</div>
+			<div class="editor-options-grid">
+				<!-- Side to Move -->
+				<div class="option-group">
+					<label class="option-label">@Loc["BoardEditor_SideToMove"]</label>
+					<div class="turn-toggle-group">
+						<button type="button"
+								class="turn-btn @(_position.ActiveColor == PieceColor.White ? "active white-turn" : "")"
+								@onclick="() => SetActiveColor(PieceColor.White)">
+							<span>⚪</span>
+							<span>@Loc["Endgame_WhiteToMove"]</span>
+						</button>
+						<button type="button"
+								class="turn-btn @(_position.ActiveColor == PieceColor.Black ? "active black-turn" : "")"
+								@onclick="() => SetActiveColor(PieceColor.Black)">
+							<span>⚫</span>
+							<span>@Loc["Endgame_BlackToMove"]</span>
+						</button>
+					</div>
+				</div>
+
+				<!-- Castling Rights -->
+				<div class="option-group">
+					<label class="option-label">@Loc["BoardEditor_CastlingRights"]</label>
+					<div class="castling-checks-grid">
+						<label class="castling-check-item">
+							<input type="checkbox" checked="@HasCastling(CastlingRights.WhiteKing)" @onchange='e => ToggleCastling(CastlingRights.WhiteKing, (bool)(e.Value ?? false))' />
+							<span>White O-O</span>
+						</label>
+						<label class="castling-check-item">
+							<input type="checkbox" checked="@HasCastling(CastlingRights.WhiteQueen)" @onchange='e => ToggleCastling(CastlingRights.WhiteQueen, (bool)(e.Value ?? false))' />
+							<span>White O-O-O</span>
+						</label>
+						<label class="castling-check-item">
+							<input type="checkbox" checked="@HasCastling(CastlingRights.BlackKing)" @onchange='e => ToggleCastling(CastlingRights.BlackKing, (bool)(e.Value ?? false))' />
+							<span>Black O-O</span>
+						</label>
+						<label class="castling-check-item">
+							<input type="checkbox" checked="@HasCastling(CastlingRights.BlackQueen)" @onchange='e => ToggleCastling(CastlingRights.BlackQueen, (bool)(e.Value ?? false))' />
+							<span>Black O-O-O</span>
+						</label>
+					</div>
+				</div>
+
+				<!-- En Passant & Counters -->
+				<div class="option-row-inline">
+					<div class="option-subgroup">
+						<label class="option-label">En Passant</label>
+						<select class="option-select-compact" value="@(_position.EnPassantSquare?.ToString() ?? "-")" @onchange="HandleEnPassantChanged">
+							<option value="-">-</option>
+							@foreach (var sq in GetPossibleEnPassantSquares())
+							{
+								<option value="@sq">@sq</option>
+							}
+						</select>
+					</div>
+					<div class="option-subgroup">
+						<label class="option-label">Halfmoves</label>
+						<input type="number" min="0" max="100" class="option-input-compact" value="@_position.HalfmoveClock" @onchange="HandleHalfmoveChanged" />
+					</div>
+					<div class="option-subgroup">
+						<label class="option-label">Move #</label>
+						<input type="number" min="1" max="500" class="option-input-compact" value="@_position.FullmoveNumber" @onchange="HandleFullmoveChanged" />
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- FEN Import / Export -->
+		<div class="editor-card">
+			<div class="editor-card-header">
+				<span class="editor-card-title">FEN</span>
+				@if (_copied)
+				{
+					<span class="copied-badge">✓ @Loc["Common_Copied"]</span>
+				}
+			</div>
+			<div class="fen-control-group">
+				<input type="text" class="fen-input-text" @bind="_fenInput" @bind:event="oninput" spellcheck="false" />
+				<div class="fen-actions-row">
+					<button type="button" class="btn-fen-action" @onclick="LoadFenFromInput" title="@Loc["BoardEditor_LoadFen"]">
+						<span>📥</span>
+						<span>@Loc["BoardEditor_LoadFen"]</span>
+					</button>
+					<button type="button" class="btn-fen-action" @onclick="CopyFenToClipboard" title="@Loc["BoardEditor_CopyFen"]">
+						<span>📋</span>
+						<span>@Loc["BoardEditor_CopyFen"]</span>
+					</button>
+				</div>
+			</div>
+
+			<!-- Position Validation Status -->
+			<div class="validation-status-box @(string.IsNullOrEmpty(_validationMessage) ? "valid" : "invalid")">
+				@if (string.IsNullOrEmpty(_validationMessage))
+				{
+					<span class="validation-icon">✅</span>
+					<span class="validation-text">@Loc["BoardEditor_PositionValid"]</span>
+				}
+				else
+				{
+					<span class="validation-icon">⚠️</span>
+					<span class="validation-text">@_validationMessage</span>
+				}
+			</div>
+		</div>
+
+		@if (ShowActionButtons)
+		{
+			<div class="board-editor-footer-actions">
+				<button type="button" class="btn-puzzle btn-secondary-action" @onclick="HandleCancel">
+					@Loc["Common_Cancel"]
+				</button>
+				<button type="button" class="btn-puzzle btn-next" @onclick="HandleSave">
+					💾 @Loc["Common_Save"]
+				</button>
+			</div>
+		}
+	</div>
+</div>
+
+@code {
+	[Parameter] public string InitialFen { get; set; } = BoardPosition.StartFen;
+	[Parameter] public EventCallback<string> OnSave { get; set; }
+	[Parameter] public EventCallback OnCancel { get; set; }
+	[Parameter] public bool ShowActionButtons { get; set; } = true;
+
+	private BoardPosition _position = new();
+	private Piece? _selectedPiece = new Piece(PieceColor.White, PieceType.Pawn);
+	private bool _isEraseMode = false;
+	private string _orientation = "white";
+	private string _fenInput = "";
+	private string? _validationMessage;
+	private bool _copied = false;
+
+	protected override void OnInitialized()
+	{
+		InitFromFen(InitialFen);
+	}
+
+	protected override void OnParametersSet()
+	{
+		if (!string.IsNullOrWhiteSpace(InitialFen) && FenParser.ToFen(_position) != InitialFen)
+		{
+			InitFromFen(InitialFen);
+		}
+	}
+
+	private void InitFromFen(string fen)
+	{
+		try
+		{
+			_position = FenParser.Parse(fen);
+			_fenInput = FenParser.ToFen(_position);
+			ValidatePosition();
+		}
+		catch
+		{
+			_position = FenParser.Parse(BoardPosition.StartFen);
+			_fenInput = BoardPosition.StartFen;
+			_validationMessage = "Failed to parse FEN. Restored default position.";
+		}
+	}
+
+	private void HandleSquareClick(int file, int rank)
+	{
+		if (_isEraseMode)
+		{
+			_position[file, rank] = Piece.None;
+		}
+		else if (_selectedPiece.HasValue)
+		{
+			_position[file, rank] = _selectedPiece.Value;
+		}
+		else
+		{
+			var current = _position[file, rank];
+			if (!current.IsEmpty)
+			{
+				_selectedPiece = current;
+			}
+		}
+
+		UpdateFen();
+	}
+
+	private void HandleSquareRightClick(int file, int rank)
+	{
+		_position[file, rank] = Piece.None;
+		UpdateFen();
+	}
+
+	private void SelectPiece(Piece p)
+	{
+		_isEraseMode = false;
+		_selectedPiece = p;
+	}
+
+	private void SelectEraseMode()
+	{
+		_isEraseMode = true;
+		_selectedPiece = null;
+	}
+
+	private void SetStartingPosition()
+	{
+		InitFromFen(BoardPosition.StartFen);
+	}
+
+	private void ClearBoard()
+	{
+		for (int f = 0; f < 8; f++)
+		{
+			for (int r = 0; r < 8; r++)
+			{
+				_position[f, r] = Piece.None;
+			}
+		}
+		_position.Castling = CastlingRights.None;
+		_position.EnPassantSquare = null;
+		UpdateFen();
+	}
+
+	private void InvertColors()
+	{
+		for (int f = 0; f < 8; f++)
+		{
+			for (int r = 0; r < 8; r++)
+			{
+				var p = _position[f, r];
+				if (!p.IsEmpty)
+				{
+					var newColor = p.Color == PieceColor.White ? PieceColor.Black : PieceColor.White;
+					_position[f, r] = new Piece(newColor, p.Type);
+				}
+			}
+		}
+		_position.ActiveColor = _position.ActiveColor == PieceColor.White ? PieceColor.Black : PieceColor.White;
+		UpdateFen();
+	}
+
+	private void ToggleOrientation()
+	{
+		_orientation = _orientation == "white" ? "black" : "white";
+	}
+
+	private void SetActiveColor(PieceColor color)
+	{
+		_position.ActiveColor = color;
+		UpdateFen();
+	}
+
+	private bool HasCastling(CastlingRights right) => (_position.Castling & right) != 0;
+
+	private void ToggleCastling(CastlingRights right, bool enabled)
+	{
+		if (enabled)
+		{
+			_position.Castling |= right;
+		}
+		else
+		{
+			_position.Castling &= ~right;
+		}
+		UpdateFen();
+	}
+
+	private void HandleEnPassantChanged(ChangeEventArgs e)
+	{
+		string val = e.Value?.ToString() ?? "-";
+		if (val == "-" || string.IsNullOrWhiteSpace(val))
+		{
+			_position.EnPassantSquare = null;
+		}
+		else if (Enum.TryParse<Square>(val, true, out var sq))
+		{
+			_position.EnPassantSquare = sq;
+		}
+		UpdateFen();
+	}
+
+	private void HandleHalfmoveChanged(ChangeEventArgs e)
+	{
+		if (int.TryParse(e.Value?.ToString(), out int hm))
+		{
+			_position.HalfmoveClock = Math.Max(0, hm);
+			UpdateFen();
+		}
+	}
+
+	private void HandleFullmoveChanged(ChangeEventArgs e)
+	{
+		if (int.TryParse(e.Value?.ToString(), out int fm))
+		{
+			_position.FullmoveNumber = Math.Max(1, fm);
+			UpdateFen();
+		}
+	}
+
+	private void LoadFenFromInput()
+	{
+		InitFromFen(_fenInput);
+	}
+
+	private async Task CopyFenToClipboard()
+	{
+		try
+		{
+			await JS.InvokeVoidAsync("navigator.clipboard.writeText", _fenInput);
+			_copied = true;
+			StateHasChanged();
+			await Task.Delay(1500);
+			_copied = false;
+			StateHasChanged();
+		}
+		catch { }
+	}
+
+	private void UpdateFen()
+	{
+		_fenInput = FenParser.ToFen(_position);
+		ValidatePosition();
+		StateHasChanged();
+	}
+
+	private void ValidatePosition()
+	{
+		int whiteKings = 0;
+		int blackKings = 0;
+		bool invalidPawns = false;
+
+		Square whiteKingSq = Square.None;
+		Square blackKingSq = Square.None;
+
+		for (int f = 0; f < 8; f++)
+		{
+			for (int r = 0; r < 8; r++)
+			{
+				var p = _position[f, r];
+				if (p.IsEmpty) continue;
+
+				if (p.Type == PieceType.King)
+				{
+					if (p.Color == PieceColor.White)
+					{
+						whiteKings++;
+						whiteKingSq = SquareExtensions.FromCoords(f, r);
+					}
+					else
+					{
+						blackKings++;
+						blackKingSq = SquareExtensions.FromCoords(f, r);
+					}
+				}
+				else if (p.Type == PieceType.Pawn)
+				{
+					if (r == 0 || r == 7)
+					{
+						invalidPawns = true;
+					}
+				}
+			}
+		}
+
+		if (whiteKings != 1)
+		{
+			_validationMessage = whiteKings == 0 ? Loc["BoardEditor_NoWhiteKing"] : Loc["BoardEditor_MultipleWhiteKings"];
+			return;
+		}
+
+		if (blackKings != 1)
+		{
+			_validationMessage = blackKings == 0 ? Loc["BoardEditor_NoBlackKing"] : Loc["BoardEditor_MultipleBlackKings"];
+			return;
+		}
+
+		if (invalidPawns)
+		{
+			_validationMessage = Loc["BoardEditor_PawnsOnBackRank"];
+			return;
+		}
+
+		if (whiteKingSq != Square.None && blackKingSq != Square.None)
+		{
+			int fileDiff = Math.Abs(whiteKingSq.File() - blackKingSq.File());
+			int rankDiff = Math.Abs(whiteKingSq.Rank() - blackKingSq.Rank());
+			if (fileDiff <= 1 && rankDiff <= 1)
+			{
+				_validationMessage = Loc["BoardEditor_KingsAdjacent"];
+				return;
+			}
+		}
+
+		_validationMessage = null;
+	}
+
+	private static List<string> GetPossibleEnPassantSquares()
+	{
+		var list = new List<string>();
+		for (char c = 'a'; c <= 'h'; c++)
+		{
+			list.Add($"{c}3");
+			list.Add($"{c}6");
+		}
+		return list;
+	}
+
+	private static string GetSquareLabel(int f, int r) => $"{(char)('a' + f)}{r + 1}";
+
+	private async Task HandleSave()
+	{
+		await OnSave.InvokeAsync(_fenInput);
+	}
+
+	private async Task HandleCancel()
+	{
+		await OnCancel.InvokeAsync();
+	}
+}

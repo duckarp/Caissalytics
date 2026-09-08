@@ -510,6 +510,17 @@
   border-color: var(--accent-red);
 }
 
+.engine-path-truncate {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+
 /* Probe Feedback */
 .probe-feedback-box {
   padding: 12px 16px;
@@ -963,6 +974,61 @@
   font-size: 13px;
   color: var(--text-primary);
   cursor: pointer;
+}
+
+/* Language Selection */
+.languages-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.language-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+  position: relative;
+}
+
+.language-card:hover {
+  background-color: var(--bg-surface-hover);
+  border-color: var(--border-medium);
+}
+
+.language-card.language-card-active {
+  border-color: var(--accent-blue);
+  background-color: rgba(59, 130, 246, 0.08);
+  box-shadow: 0 0 0 1px var(--accent-blue);
+}
+
+.language-flag {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.language-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.language-native-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.language-name {
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 /* Board Themes & Audio Engine Settings */

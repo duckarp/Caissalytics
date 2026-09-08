@@ -10,7 +10,7 @@
 	{
 		<div class="gamereport-progress-card">
 			<div class="progress-header-row">
-				<span class="progress-title-text">Analyzing game with Stockfish 17...</span>
+				<span class="progress-title-text">@Loc["Report_AnalyzingWithStockfish"]</span>
 				<span class="progress-percent-text">@(_progress?.PercentComplete ?? 0)%</span>
 			</div>
 
@@ -19,8 +19,8 @@
 			</div>
 
 			<div class="progress-details-row">
-				<span>Move @(_progress?.CurrentPly ?? 0) of @(_progress?.TotalPlies ?? 0) (@(_progress?.CurrentMoveSan ?? "..."))</span>
-				<button class="btn-secondary" @onclick="CancelAnalysis">Cancel</button>
+				<span>@Loc["Report_MoveProgress", _progress?.CurrentPly ?? 0, _progress?.TotalPlies ?? 0, _progress?.CurrentMoveSan ?? "..."]</span>
+				<button class="btn-secondary" @onclick="CancelAnalysis">@Loc["Common_Cancel"]</button>
 			</div>
 		</div>
 	}
@@ -28,23 +28,23 @@
 	{
 		<div class="gamereport-cta-card">
 			<div class="gamereport-cta-icon">📊</div>
-			<h3 class="gamereport-cta-title">Full Game Analysis</h3>
+			<h3 class="gamereport-cta-title">@Loc["Report_FullGameAnalysis"]</h3>
 			<p class="gamereport-cta-desc">
-				Run Stockfish through every move of the game to generate player accuracy scores, detect blunders & mistakes, and build the interactive evaluation curve.
+				@Loc["Report_FullGameDesc"]
 			</p>
 
 			<div class="gamereport-speed-selector">
 				<button class="speed-option-btn @(_selectedSpeed == "Quick" ? "speed-active" : "")"
 						@onclick='() => _selectedSpeed = "Quick"'>
-					Quick Scan (80ms)
+					@Loc["Report_QuickScan"]
 				</button>
 				<button class="speed-option-btn @(_selectedSpeed == "Standard" ? "speed-active" : "")"
 						@onclick='() => _selectedSpeed = "Standard"'>
-					Standard (150ms)
+					@Loc["Report_Standard"]
 				</button>
 				<button class="speed-option-btn @(_selectedSpeed == "Deep" ? "speed-active" : "")"
 						@onclick='() => _selectedSpeed = "Deep"'>
-					Deep Analysis (400ms)
+					@Loc["Report_Deep"]
 				</button>
 			</div>
 
@@ -55,7 +55,7 @@
 				</div>
 			}
 
-			<button class="btn-primary" @onclick="StartAnalysisAsync">📊 Analyze Entire Game</button>
+			<button class="btn-primary" @onclick="StartAnalysisAsync">@Loc["Report_AnalyzeEntireGame"]</button>
 		</div>
 	}
 	else
@@ -85,44 +85,44 @@
 
 		<!-- Move Quality Breakdown Table -->
 		<div class="quality-breakdown-card">
-			<div class="quality-card-header">Move Classification Breakdown</div>
+			<div class="quality-card-header">@Loc["Report_Classification"]</div>
 			<div class="quality-table-wrapper">
 				<table class="quality-table">
 					<thead>
 						<tr>
-							<th>Classification</th>
-							<th>White</th>
-							<th>Black</th>
+							<th>@Loc["Report_Classification"]</th>
+							<th>@Loc["Analysis_White"].Replace(":", "")</th>
+							<th>@Loc["Analysis_Black"].Replace(":", "")</th>
 						</tr>
 					</thead>
 					<tbody>
 						<tr class="quality-row">
-							<td><span class="quality-badge badge-best">Best</span></td>
+							<td><span class="quality-badge badge-best">@Loc["Report_Best"]</span></td>
 							<td>@report.WhiteBestCount</td>
 							<td>@report.BlackBestCount</td>
 						</tr>
 						<tr class="quality-row">
-							<td><span class="quality-badge badge-excellent">Excellent</span></td>
+							<td><span class="quality-badge badge-excellent">@Loc["Report_Excellent"]</span></td>
 							<td>@report.WhiteExcellentCount</td>
 							<td>@report.BlackExcellentCount</td>
 						</tr>
 						<tr class="quality-row">
-							<td><span class="quality-badge badge-good">Good</span></td>
+							<td><span class="quality-badge badge-good">@Loc["Report_Good"]</span></td>
 							<td>@report.WhiteGoodCount</td>
 							<td>@report.BlackGoodCount</td>
 						</tr>
 						<tr class="quality-row">
-							<td><span class="quality-badge badge-inaccuracy">Inaccuracy (?!)</span></td>
+							<td><span class="quality-badge badge-inaccuracy">@Loc["Report_Inaccuracy"]</span></td>
 							<td>@report.WhiteInaccuracyCount</td>
 							<td>@report.BlackInaccuracyCount</td>
 						</tr>
 						<tr class="quality-row">
-							<td><span class="quality-badge badge-mistake">Mistake (?)</span></td>
+							<td><span class="quality-badge badge-mistake">@Loc["Report_Mistake"]</span></td>
 							<td>@report.WhiteMistakeCount</td>
 							<td>@report.BlackMistakeCount</td>
 						</tr>
 						<tr class="quality-row">
-							<td><span class="quality-badge badge-blunder">Blunder (??)</span></td>
+							<td><span class="quality-badge badge-blunder">@Loc["Report_Blunder"]</span></td>
 							<td>@report.WhiteBlunderCount</td>
 							<td>@report.BlackBlunderCount</td>
 						</tr>
@@ -134,10 +134,10 @@
 		<!-- Action Buttons -->
 		<div class="report-actions-row">
 			<button class="btn-primary" @onclick="AnnotateTree" disabled="@_isAnnotated">
-				@(_isAnnotated ? "✓ Tree Annotated" : "✨ Annotate Move Tree")
+				@(_isAnnotated ? Loc["Report_TreeAnnotated"] : Loc["Report_AnnotateTree"])
 			</button>
 			<button class="btn-secondary" @onclick="NextMistake">
-				🔍 Next Mistake ▶
+				@Loc["Report_NextMistake"]
 			</button>
 			<button class="btn-secondary" @onclick="() => Tab.AnalysisReport = null">
 				🔄 Re-analyze

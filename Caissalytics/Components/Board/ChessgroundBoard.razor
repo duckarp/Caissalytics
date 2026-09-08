@@ -16,7 +16,7 @@
 					@TopPlayerName
 					@if (TopPlayerIsUser)
 					{
-						<span class="player-user-badge" title="You (matches your profile)">You</span>
+						<span class="player-user-badge" title="@Loc["Board_You"]">@Loc["Board_You"]</span>
 					}
 				</span>
 				@if (!string.IsNullOrEmpty(TopPlayerElo))
@@ -48,16 +48,16 @@
 			{
 				<div class="promotion-dialog-overlay">
 					<div class="promotion-dialog-content">
-						<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Queen)" title="Queen">
+						<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Queen)" title="@Loc["Board_Promotion_Queen"]">
 							@(_pendingPromotionColor == PieceColor.White ? "♕" : "♛")
 						</button>
-						<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Rook)" title="Rook">
+						<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Rook)" title="@Loc["Board_Promotion_Rook"]">
 							@(_pendingPromotionColor == PieceColor.White ? "♖" : "♜")
 						</button>
-						<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Bishop)" title="Bishop">
+						<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Bishop)" title="@Loc["Board_Promotion_Bishop"]">
 							@(_pendingPromotionColor == PieceColor.White ? "♗" : "♝")
 						</button>
-						<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Knight)" title="Knight">
+						<button class="promotion-piece-btn" @onclick="() => SelectPromotion(PieceType.Knight)" title="@Loc["Board_Promotion_Knight"]">
 							@(_pendingPromotionColor == PieceColor.White ? "♘" : "♞")
 						</button>
 					</div>
@@ -75,7 +75,7 @@
 					@BottomPlayerName
 					@if (BottomPlayerIsUser)
 					{
-						<span class="player-user-badge" title="You (matches your profile)">You</span>
+						<span class="player-user-badge" title="@Loc["Board_You"]">@Loc["Board_You"]</span>
 					}
 				</span>
 				@if (!string.IsNullOrEmpty(BottomPlayerElo))
@@ -96,28 +96,28 @@
 	}
 
 	<div class="board-controls-toolbar">
-		<button class="board-control-btn" title="First Move" @onclick="OnFirst" disabled="@(!CanGoBack)">
+		<button class="board-control-btn" title="@Loc["Board_FirstMove"]" @onclick="OnFirst" disabled="@(!CanGoBack)">
 			<svg class="board-control-icon" viewBox="0 0 24 24" fill="currentColor">
 				<path d="M5 5h2v14H5zm4 7 10 7V5z"/>
 			</svg>
 		</button>
-		<button class="board-control-btn" title="Previous Move" @onclick="OnPrev" disabled="@(!CanGoBack)">
+		<button class="board-control-btn" title="@Loc["Board_PrevMove"]" @onclick="OnPrev" disabled="@(!CanGoBack)">
 			<svg class="board-control-icon" viewBox="0 0 24 24" fill="currentColor">
 				<path d="M17 5v14l-10-7z"/>
 			</svg>
 		</button>
-		<button class="board-control-btn" title="Next Move" @onclick="OnNext" disabled="@(!CanGoForward)">
+		<button class="board-control-btn" title="@Loc["Board_NextMove"]" @onclick="OnNext" disabled="@(!CanGoForward)">
 			<svg class="board-control-icon" viewBox="0 0 24 24" fill="currentColor">
 				<path d="M7 5v14l10-7z"/>
 			</svg>
 		</button>
-		<button class="board-control-btn" title="Last Move" @onclick="OnLast" disabled="@(!CanGoForward)">
+		<button class="board-control-btn" title="@Loc["Board_LastMove"]" @onclick="OnLast" disabled="@(!CanGoForward)">
 			<svg class="board-control-icon" viewBox="0 0 24 24" fill="currentColor">
 				<path d="M5 5v14l10-7-10-7zm12 0h2v14h-2z"/>
 			</svg>
 		</button>
 		<div class="control-divider"></div>
-		<button class="board-control-btn" title="Flip Board" @onclick="ToggleOrientation">
+		<button class="board-control-btn" title="@Loc["Board_FlipBoard"]" @onclick="ToggleOrientation">
 			<svg class="board-control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
 				<path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
 				<path d="M3 3v5h5"/>
@@ -196,6 +196,7 @@
 
 	protected override async Task OnInitializedAsync()
 	{
+		Loc.OnLanguageChanged += StateHasChanged;
 		ProfileService.OnProfileChanged += HandleProfileChanged;
 		AppearanceService.OnAppearanceChanged += HandleAppearanceChanged;
 		await LoadProfileAsync();
@@ -458,6 +459,7 @@
 	public async ValueTask DisposeAsync()
 	{
 		_isDisposed = true;
+		Loc.OnLanguageChanged -= StateHasChanged;
 		ProfileService.OnProfileChanged -= HandleProfileChanged;
 		AppearanceService.OnAppearanceChanged -= HandleAppearanceChanged;
 		try

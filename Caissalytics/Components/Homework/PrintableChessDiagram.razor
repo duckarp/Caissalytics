@@ -1,0 +1,101 @@
+@namespace Caissalytics.Components.Homework
+@using Caissalytics.Core
+@using Caissalytics.Data
+
+<div class="printable-diagram-card">
+	<div class="diagram-card-header">
+		<div class="diagram-number-badge">#@Exercise.Order</div>
+		<div class="diagram-title-group">
+			<span class="diagram-title">@Exercise.Title</span>
+		</div>
+		<div class="diagram-turn-badge @(Exercise.ToMove.ToLowerInvariant() == "white" ? "turn-white" : "turn-black")">
+			<span class="turn-symbol">@(Exercise.ToMove.ToLowerInvariant() == "white" ? "○" : "●")</span>
+			<span class="turn-text">@(Exercise.ToMove.ToLowerInvariant() == "white" ? Loc["Endgame_WhiteToMove"] : Loc["Endgame_BlackToMove"])</span>
+		</div>
+	</div>
+
+	<!-- Board with optional rank & file coordinates -->
+	<div class="diagram-board-wrapper">
+		<div class="diagram-board-grid">
+			@{
+				bool flip = Exercise.Orientation.ToLowerInvariant() == "black";
+			}
+			@for (int r = (flip ? 0 : 7); (flip ? r <= 7 : r >= 0); r += (flip ? 1 : -1))
+			{
+				@for (int f = (flip ? 7 : 0); (flip ? f >= 0 : f <= 7); f += (flip ? -1 : 1))
+				{
+					int file = f;
+					int rank = r;
+					bool isLight = (file + rank) % 2 != 0;
+					var piece = _pos[file, rank];
+
+					<div class="diagram-sq @(isLight ? "sq-light" : "sq-dark")">
+						@if (ShowCoordinates)
+						{
+							@if (file == (flip ? 7 : 0))
+							{
+								<span class="diag-rank-coord">@(rank + 1)</span>
+							}
+							@if (rank == (flip ? 7 : 0))
+							{
+								<span class="diag-file-coord">@((char)('a' + file))</span>
+							}
+						}
+						@if (!piece.IsEmpty)
+						{
+							<div class="diagram-piece editor-piece captured-piece @piece.Type.ToString().ToLowerInvariant() @(piece.Color == PieceColor.White ? "white" : "black")"></div>
+						}
+					</div>
+				}
+			}
+		</div>
+	</div>
+
+	<!-- Exercise Prompt / Instruction -->
+	<div class="diagram-prompt-box">
+		<span class="prompt-text">@Exercise.Prompt</span>
+	</div>
+
+	<!-- Handwriting solution lines (Student Sheet) or Solution text (Answer Key) -->
+	@if (ShowAnswer)
+	{
+		<div class="diagram-answer-box">
+			<span class="answer-label">@Loc["Homework_Solution"]:</span>
+			<strong class="answer-text">@(string.IsNullOrWhiteSpace(Exercise.Solution) ? "—" : Exercise.Solution)</strong>
+		</div>
+	}
+	else if (ShowSolutionLines)
+	{
+		<div class="diagram-solution-lines">
+			<div class="solution-line">
+				<span class="line-prefix">1.</span>
+				<span class="line-dots"></span>
+			</div>
+			<div class="solution-line">
+				<span class="line-prefix">2.</span>
+				<span class="line-dots"></span>
+			</div>
+		</div>
+	}
+</div>
+
+@code {
+	[Parameter, EditorRequired] public HomeworkExercise Exercise { get; set; } = default!;
+	[Parameter] public bool ShowCoordinates { get; set; } = true;
+	[Parameter] public bool ShowSolutionLines { get; set; } = true;
+	[Parameter] public bool ShowAnswer { get; set; } = false;
+
+	private BoardPosition _pos = new();
+
+	protected override void OnParametersSet()
+	{
+		try
+		{
+			_pos = FenParser.Parse(Exercise.Fen);
+		}
+		catch
+		{
+			_pos = FenParser.Parse(BoardPosition.StartFen);
+		}
+	}
+}

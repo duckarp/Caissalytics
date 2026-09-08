@@ -12,17 +12,17 @@
 		<div class="dossier-search-left">
 			<div class="dossier-search-modes">
 				<button type="button" class="search-mode-pill @(_searchMode == "local" ? "active" : "")" @onclick='() => SetSearchMode("local")'>
-					<span>💾 Local DB</span>
+					<span>@Loc["Dossier_LocalDb"]</span>
 				</button>
 				<button type="button" class="search-mode-pill @(_searchMode == "fide" ? "active" : "")" @onclick='() => SetSearchMode("fide")'>
-					<span>🌐 FIDE &amp; Web</span>
+					<span>@Loc["Dossier_FideWeb"]</span>
 				</button>
 			</div>
 
 			<div class="dossier-input-wrapper">
 				<input type="text"
 					   class="dossier-search-input"
-					   placeholder="@(_searchMode == "fide" ? "Enter FIDE ID (e.g. 1503014) or Name..." : "Search opponent name (e.g. Kasparov, Carlsen)...")"
+					   placeholder="@(_searchMode == "fide" ? Loc["Dossier_SearchPlaceholder_Fide"] : Loc["Dossier_SearchPlaceholder_Local"])"
 					   @bind="_searchQuery"
 					   @bind:event="oninput"
 					   @onkeyup="HandleKeyUp" />
@@ -73,7 +73,7 @@
 			</div>
 
 			<button class="dossier-action-btn btn-primary" @onclick="() => SearchPlayerAsync(_searchQuery)">
-				@(_searchMode == "fide" ? "Scout FIDE & Web" : "Scout Opponent")
+				@(_searchMode == "fide" ? Loc["Dossier_ScoutFide"] : Loc["Dossier_ScoutOpponent"])
 			</button>
 		</div>
 
@@ -87,7 +87,7 @@
 
 			<button class="dossier-action-btn" @onclick="OpenOnlineFetchModal" title="Download games for any online player on Lichess, Chess.com or Chess-Results">
 				<span>🌐</span>
-				<span>Fetch Online Games</span>
+				<span>@Loc["Dossier_FetchOnline"]</span>
 			</button>
 		</div>
 	</header>
@@ -97,17 +97,17 @@
 	{
 		<div class="dossier-empty-state">
 			<div class="workspace-loading-spinner"></div>
-			<div class="empty-state-title">Generating Scouting Dossier...</div>
-			<div class="empty-state-desc">Analyzing game records, parsing opening lines, and computing tactical tendencies.</div>
+			<div class="empty-state-title">@Loc["Dossier_Generating"]</div>
+			<div class="empty-state-desc">@Loc["Dossier_GeneratingDesc"]</div>
 		</div>
 	}
 	else if (_currentReport == null)
 	{
 		<div class="dossier-empty-state">
 			<span class="empty-state-icon">♟️</span>
-			<div class="empty-state-title">No Opponent Selected</div>
+			<div class="empty-state-title">@Loc["Dossier_NoOpponent"]</div>
 			<div class="empty-state-desc">
-				Type a player's name above to generate a comprehensive pre-game scouting report, or fetch their latest games from Lichess / Chess.com.
+				@Loc["Dossier_NoOpponentDesc"]
 			</div>
 		</div>
 	}
@@ -159,13 +159,13 @@
 								<span class="hero-badge">Database: @_currentReport.DatabaseSource</span>
 								@if (_currentReport.PeakElo.HasValue)
 								{
-									<span class="hero-badge hero-badge-elo">Peak Elo: @_currentReport.PeakElo</span>
+									<span class="hero-badge hero-badge-elo">@Loc["Dossier_PeakElo", _currentReport.PeakElo]</span>
 								}
 								@if (_currentReport.AvgElo.HasValue)
 								{
-									<span class="hero-badge hero-badge-elo">Avg Elo: @_currentReport.AvgElo</span>
+									<span class="hero-badge hero-badge-elo">@Loc["Dossier_AvgElo", _currentReport.AvgElo]</span>
 								}
-								<span class="hero-badge hero-badge-style">Style: @_currentReport.PlayingStyle</span>
+								<span class="hero-badge hero-badge-style">@Loc["Dossier_Style", _currentReport.PlayingStyle]</span>
 								@if (!string.IsNullOrEmpty(_currentReport.EarliestDate))
 								{
 									<span class="hero-badge">@_currentReport.EarliestDate — @_currentReport.LatestDate</span>
@@ -197,19 +197,19 @@
 						{
 							<button class="dossier-action-btn" @onclick="OpenExportModal">
 								<span>💾</span>
-								<span>Export Games (@SelectedGamesCount)</span>
+								<span>@Loc["Dossier_ExportGames", SelectedGamesCount]</span>
 							</button>
 						}
 						@if (_currentReport.FideCard != null || _currentReport.RecentTournaments.Count > 0)
 						{
 							<button class="dossier-action-btn btn-primary" @onclick="FetchChessResultsGamesAsync" disabled="@_isFetchingChessResults">
 								<span>⬇️</span>
-								<span>@(_isFetchingChessResults ? "Importing..." : "Import from Chess-Results")</span>
+								<span>@(_isFetchingChessResults ? Loc["Dossier_Importing"] : Loc["Dossier_ImportChessResults"])</span>
 							</button>
 						}
 						<button class="dossier-action-btn" @onclick="OpenOnlineFetchModal">
 							<span>🌐</span>
-							<span>Fetch Online Games</span>
+							<span>@Loc["Dossier_FetchOnline"]</span>
 						</button>
 					</div>
 				</div>
@@ -217,21 +217,21 @@
 				<!-- Performance Stat Cards -->
 				<div class="hero-stats-grid">
 					<div class="stat-pill-card">
-						<span class="stat-pill-label">Total Games</span>
+						<span class="stat-pill-label">@Loc["Dossier_TotalGames"]</span>
 						<span class="stat-pill-value">@_currentReport.TotalGames.ToString("N0")</span>
-						<span class="stat-pill-sub">@_currentReport.OverallScore% score (@_currentReport.TotalWins W / @_currentReport.TotalDraws D / @_currentReport.TotalLosses L)</span>
+						<span class="stat-pill-sub">@Loc["Dossier_Score", _currentReport.OverallScore, _currentReport.TotalWins, _currentReport.TotalDraws, _currentReport.TotalLosses]</span>
 						@RenderRatioBar(_currentReport.TotalWins, _currentReport.TotalDraws, _currentReport.TotalLosses, _currentReport.TotalGames)
 					</div>
 
 					<div class="stat-pill-card">
-						<span class="stat-pill-label">When Playing White</span>
+						<span class="stat-pill-label">@Loc["Dossier_PlayingWhite"]</span>
 						<span class="stat-pill-value">@_currentReport.WhiteScore%</span>
 						<span class="stat-pill-sub">@_currentReport.WhiteGamesCount games (@_currentReport.WhiteWins W / @_currentReport.WhiteDraws D / @_currentReport.WhiteLosses L)</span>
 						@RenderRatioBar(_currentReport.WhiteWins, _currentReport.WhiteDraws, _currentReport.WhiteLosses, _currentReport.WhiteGamesCount)
 					</div>
 
 					<div class="stat-pill-card">
-						<span class="stat-pill-label">When Playing Black</span>
+						<span class="stat-pill-label">@Loc["Dossier_PlayingBlack"]</span>
 						<span class="stat-pill-value">@_currentReport.BlackScore%</span>
 						<span class="stat-pill-sub">@_currentReport.BlackGamesCount games (@_currentReport.BlackWins W / @_currentReport.BlackDraws D / @_currentReport.BlackLosses L)</span>
 						@RenderRatioBar(_currentReport.BlackWins, _currentReport.BlackDraws, _currentReport.BlackLosses, _currentReport.BlackGamesCount)
@@ -258,11 +258,11 @@
 									<span>@vuln.Title</span>
 								</span>
 								<span class="vuln-badge @(vuln.Severity == "High" ? "severity-high" : "severity-moderate")">
-									@vuln.Severity Priority
+									@(vuln.Severity == "High" ? Loc["Dossier_Priority_High"] : Loc["Dossier_Priority_Moderate"])
 								</span>
 							</div>
 							<div class="vuln-desc">@vuln.Description</div>
-							<div class="vuln-recommendation">🎯 Recommendation: @vuln.Recommendation</div>
+							<div class="vuln-recommendation">@Loc["Dossier_Recommendation", vuln.Recommendation]</div>
 						</div>
 					}
 				</div>
@@ -271,19 +271,19 @@
 			<!-- Navigation Tabs inside Dossier -->
 			<nav class="dossier-nav-tabs">
 				<button class="dossier-tab-btn @(_activeSection == "white" ? "active" : "")" @onclick='() => _activeSection = "white"'>
-					<span>⚪ White Repertoire (@_currentReport.WhiteGamesCount)</span>
+					<span>@Loc["Dossier_Nav_WhiteRep", _currentReport.WhiteGamesCount]</span>
 				</button>
 				<button class="dossier-tab-btn @(_activeSection == "black" ? "active" : "")" @onclick='() => _activeSection = "black"'>
-					<span>⚫ Black Repertoire (@_currentReport.BlackGamesCount)</span>
+					<span>@Loc["Dossier_Nav_BlackRep", _currentReport.BlackGamesCount]</span>
 				</button>
 				<button class="dossier-tab-btn @(_activeSection == "style" ? "active" : "")" @onclick='() => _activeSection = "style"'>
-					<span>📊 Playing Style &amp; Phases</span>
+					<span>@Loc["Dossier_Nav_Style"]</span>
 				</button>
 				<button class="dossier-tab-btn @(_activeSection == "games" ? "active" : "")" @onclick='() => _activeSection = "games"'>
-					<span>🗄️ Games Archive (@_currentReport.RecentGames.Count)</span>
+					<span>@Loc["Dossier_Nav_Games", _currentReport.RecentGames.Count]</span>
 				</button>
 				<button class="dossier-tab-btn @(_activeSection == "tournaments" ? "active" : "")" @onclick='() => _activeSection = "tournaments"'>
-					<span>🏆 OTB Tournaments (@(_currentReport.RecentTournaments?.Count ?? 0))</span>
+					<span>@Loc["Dossier_Nav_Tournaments", _currentReport.RecentTournaments?.Count ?? 0]</span>
 				</button>
 			</nav>
 
@@ -294,7 +294,7 @@
 					@if (_currentReport.WhiteRepertoire.Count == 0)
 					{
 						<div class="dossier-empty-state">
-							<div class="empty-state-title">No games as White found</div>
+							<div class="empty-state-title">@Loc["Dossier_NoWhiteGames"]</div>
 						</div>
 					}
 					else
@@ -362,7 +362,7 @@
 					@if (_currentReport.BlackRepertoire.Count == 0)
 					{
 						<div class="dossier-empty-state">
-							<div class="empty-state-title">No games as Black found</div>
+							<div class="empty-state-title">@Loc["Dossier_NoBlackGames"]</div>
 						</div>
 					}
 					else
@@ -778,6 +778,7 @@
 
 	protected override async Task OnInitializedAsync()
 	{
+		Loc.OnLanguageChanged += StateHasChanged;
 		await LoadDatabasesAsync();
 
 		if (!string.IsNullOrEmpty(Tab.TargetPlayer))
@@ -1194,5 +1195,6 @@
 
 	public void Dispose()
 	{
+		Loc.OnLanguageChanged -= StateHasChanged;
 	}
 }

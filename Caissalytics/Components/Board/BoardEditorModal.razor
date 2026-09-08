@@ -1,0 +1,37 @@
+@namespace Caissalytics.Components.Board
+
+<div class="board-editor-modal-backdrop" @onclick="HandleCancel">
+	<div class="board-editor-modal-container" @onclick:stopPropagation="true">
+		<div class="board-editor-modal-header">
+			<div class="modal-title-group">
+				<span class="modal-title-icon">♟️</span>
+				<h3 class="modal-title-text">@Title</h3>
+			</div>
+			<button type="button" class="modal-close-btn" @onclick="HandleCancel">✕</button>
+		</div>
+
+		<div class="board-editor-modal-body">
+			<BoardEditor InitialFen="@InitialFen"
+						 OnSave="HandleSave"
+						 OnCancel="HandleCancel"
+						 ShowActionButtons="true" />
+		</div>
+	</div>
+</div>
+
+@code {
+	[Parameter] public string Title { get; set; } = "Board Position Editor";
+	[Parameter] public string InitialFen { get; set; } = "";
+	[Parameter] public EventCallback<string> OnSave { get; set; }
+	[Parameter] public EventCallback OnClose { get; set; }
+
+	private async Task HandleSave(string fen)
+	{
+		await OnSave.InvokeAsync(fen);
+	}
+
+	private async Task HandleCancel()
+	{
+		await OnClose.InvokeAsync();
+	}
+}

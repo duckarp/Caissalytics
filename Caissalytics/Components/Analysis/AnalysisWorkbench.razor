@@ -36,20 +36,20 @@
 	<div class="workbench-right-panel">
 		<div class="panel-header-tabs">
 			<button class="panel-tab-btn @(_activeRightTab == "moves" ? "tab-active" : "")" 
-					@onclick="@(() => _activeRightTab = "moves")">Moves & Annotations</button>
+					@onclick="@(() => _activeRightTab = "moves")">@Loc["Analysis_Tab_Moves"]</button>
 			<button class="panel-tab-btn @(_activeRightTab == "report" ? "tab-active" : "")" 
-					@onclick="@(() => _activeRightTab = "report")">Game Report</button>
+					@onclick="@(() => _activeRightTab = "report")">@Loc["Analysis_Tab_Report"]</button>
 			<button class="panel-tab-btn @(_activeRightTab == "reference" ? "tab-active" : "")" 
-					@onclick="@(() => _activeRightTab = "reference")">Opening Reference</button>
+					@onclick="@(() => _activeRightTab = "reference")">@Loc["Analysis_Tab_Reference"]</button>
 			@if (TablebaseService.CanProbePosition(Tab.Tree.CurrentNode.Position))
 			{
 				<button class="panel-tab-btn tb-tab-btn @(_activeRightTab == "tablebase" ? "tab-active" : "")" 
-						@onclick="@(() => _activeRightTab = "tablebase")">🏆 Tablebase</button>
+						@onclick="@(() => _activeRightTab = "tablebase")">@Loc["Analysis_Tab_Tablebase"]</button>
 			}
 			<button class="panel-tab-btn @(_activeRightTab == "tools" ? "tab-active" : "")" 
-					@onclick="@(() => _activeRightTab = "tools")">PGN & FEN</button>
+					@onclick="@(() => _activeRightTab = "tools")">@Loc["Analysis_Tab_Tools"]</button>
 			<div class="workbench-header-actions">
-				<button class="btn-primary-small" title="Save game to database" @onclick="() => _showSaveModal = true">💾 Save to DB</button>
+				<button class="btn-primary-small" title="Save game to database" @onclick="() => _showSaveModal = true">@Loc["Analysis_SaveToDb"]</button>
 			</div>
 		</div>
 
@@ -90,33 +90,33 @@
 			{
 				<div class="panel-top-section tools-panel-body">
 					<div class="modal-form-group">
-						<button class="btn-primary" @onclick="() => _showSaveModal = true">💾 Save Game to Database</button>
+						<button class="btn-primary" @onclick="() => _showSaveModal = true">@Loc["Analysis_SaveGameToDb"]</button>
 					</div>
 
-					<h3 class="section-title">Game Headers</h3>
+					<h3 class="section-title">@Loc["Analysis_GameHeaders"]</h3>
 					<div class="headers-grid">
-						<span class="header-key">White:</span>
+						<span class="header-key">@Loc["Analysis_White"]</span>
 						<span class="header-value">@(Tab.Tree.Headers.GetValueOrDefault("White", "White"))</span>
-						<span class="header-key">Black:</span>
+						<span class="header-key">@Loc["Analysis_Black"]</span>
 						<span class="header-value">@(Tab.Tree.Headers.GetValueOrDefault("Black", "Black"))</span>
-						<span class="header-key">Event:</span>
-						<span class="header-value">@(Tab.Tree.Headers.GetValueOrDefault("Event", "Casual Analysis"))</span>
-						<span class="header-key">Result:</span>
+						<span class="header-key">@Loc["Analysis_Event"]</span>
+						<span class="header-value">@(Tab.Tree.Headers.GetValueOrDefault("Event", Loc["Analysis_CasualAnalysis"]))</span>
+						<span class="header-key">@Loc["Analysis_Result"]</span>
 						<span class="header-value">@(Tab.Tree.Headers.GetValueOrDefault("Result", "*"))</span>
 					</div>
 
 					<div class="tools-header-row">
-						<h3 class="tools-subheading">FEN</h3>
+						<h3 class="tools-subheading">@Loc["Analysis_Fen"]</h3>
 						<button class="btn-copy-action" @onclick="CopyFenAsync" title="Copy FEN to clipboard">
-							@(_fenCopied ? "✅ Copied!" : "📋 Copy FEN")
+							@(_fenCopied ? Loc["Analysis_Copied"] : Loc["Analysis_CopyFen"])
 						</button>
 					</div>
 					<input class="comment-input-field" readonly value="@FenParser.ToFen(Tab.Tree.CurrentNode.Position)" />
 
 					<div class="tools-header-row">
-						<h3 class="tools-subheading">PGN Export</h3>
+						<h3 class="tools-subheading">@Loc["Analysis_PgnExport"]</h3>
 						<button class="btn-copy-action" @onclick="CopyPgnAsync" title="Copy PGN to clipboard">
-							@(_pgnCopied ? "✅ Copied!" : "📋 Copy PGN")
+							@(_pgnCopied ? Loc["Analysis_Copied"] : Loc["Analysis_CopyPgn"])
 						</button>
 					</div>
 					<textarea class="comment-input-field pgn-export-area" rows="6" readonly>@PgnHandler.ExportPgn(Tab.Tree)</textarea>
@@ -204,6 +204,7 @@
 	protected override void OnInitialized()
 	{
 		Tab.Tree.PositionChanged += OnPositionChanged;
+		Loc.OnLanguageChanged += StateHasChanged;
 	}
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -445,6 +446,7 @@
 	{
 		_isDisposed = true;
 		Tab.Tree.PositionChanged -= OnPositionChanged;
+		Loc.OnLanguageChanged -= StateHasChanged;
 		try
 		{
 			_engineCts?.Cancel();
