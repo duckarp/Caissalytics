@@ -29,6 +29,39 @@ appBuilder.Services.AddSingleton<ITablebaseService, TablebaseService>();
 appBuilder.Services.AddSingleton<LichessExplorerClient>();
 appBuilder.Services.AddScoped<WorkspaceState>();
 
+// Configure file provider supporting both physical wwwroot and embedded resources for single-file binaries
+var physicalWwwroot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot");
+Microsoft.Extensions.FileProviders.IFileProvider fileProvider;
+try
+{
+	var embeddedProvider = new Microsoft.Extensions.FileProviders.ManifestEmbeddedFileProvider(typeof(App).Assembly, "wwwroot");
+	if (Directory.Exists(physicalWwwroot))
+	{
+		fileProvider = new Microsoft.Extensions.FileProviders.CompositeFileProvider(
+			new Microsoft.Extensions.FileProviders.PhysicalFileProvider(physicalWwwroot),
+			embeddedProvider);
+	}
+	else
+	{
+		fileProvider = embeddedProvider;
+	}
+}
+catch
+{
+	if (!Directory.Exists(physicalWwwroot))
+	{
+		Directory.CreateDirectory(physicalWwwroot);
+	}
+	fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(physicalWwwroot);
+}
+
+var existingProviderDescriptor = appBuilder.Services.FirstOrDefault(s => s.ServiceType == typeof(Microsoft.Extensions.FileProviders.IFileProvider));
+if (existingProviderDescriptor != null)
+{
+	appBuilder.Services.Remove(existingProviderDescriptor);
+}
+appBuilder.Services.AddSingleton<Microsoft.Extensions.FileProviders.IFileProvider>(fileProvider);
+
 // Register root desktop component
 appBuilder.RootComponents.Add<App>("div#app");
 

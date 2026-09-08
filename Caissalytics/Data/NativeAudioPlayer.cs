@@ -52,6 +52,35 @@ public static class NativeAudioPlayer
             }
         }
 
+        // If running as a standalone single-file binary, extract from embedded resources into user data directory
+        try
+        {
+            string userSoundsDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Caissalytics", "sounds");
+            string extractedPath = Path.Combine(userSoundsDir, fileName);
+            if (File.Exists(extractedPath))
+            {
+                return extractedPath;
+            }
+
+            var asm = typeof(NativeAudioPlayer).Assembly;
+            string? resName = asm.GetManifestResourceNames()
+                .FirstOrDefault(n => n.EndsWith($"sounds.{fileName}", StringComparison.OrdinalIgnoreCase));
+            if (resName != null)
+            {
+                using var stream = asm.GetManifestResourceStream(resName);
+                if (stream != null)
+                {
+                    Directory.CreateDirectory(userSoundsDir);
+                    using var fileStream = File.Create(extractedPath);
+                    stream.CopyTo(fileStream);
+                    return extractedPath;
+                }
+            }
+        }
+        catch { }
+
         return null;
     }
 
