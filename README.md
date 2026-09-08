@@ -160,8 +160,15 @@ We welcome contributions from chess players and developers! Please read our [doc
 
 ---
 
+## 🤖 Built with AI Collaboration
+
+Caissalytics was developed through an iterative pair-programming collaboration between human engineering and AI assistance (Large Language Models), uniting chess domain design, modern .NET 10 desktop engineering, and rigorous automated testing.
+
+---
+
 ## 📄 License
 
-Caissalytics is licensed under the [MIT License](LICENSE).
-Pieces and board graphics derived from open-source Lichess/Chessground assets.
-Stockfish is licensed under the GNU General Public License v3.0.
+Caissalytics is free and open-source software licensed under the [GNU General Public License v3.0 (GPLv3)](LICENSE).
+
+- **Stockfish** is licensed under the GNU General Public License v3.0.
+- Pieces and board vector graphics are derived from open-source Lichess/Chessground assets.
