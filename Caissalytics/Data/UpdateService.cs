@@ -35,7 +35,7 @@ public class UpdateService : IUpdateService
 
     public string GetCurrentVersion()
     {
-        var asm = Assembly.GetEntryAssembly() ?? Assembly.GetExecutingAssembly();
+        var asm = typeof(UpdateService).Assembly;
         var infoVer = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
         if (!string.IsNullOrWhiteSpace(infoVer))
         {

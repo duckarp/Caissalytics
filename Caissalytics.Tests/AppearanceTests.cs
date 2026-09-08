@@ -1,4 +1,5 @@
 using Caissalytics.Data;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Caissalytics.Tests;
@@ -144,5 +145,71 @@ public class AppearanceTests
                 Directory.Delete(tempDir, recursive: true);
             }
         }
+    }
+
+    [Fact]
+    public void Test_Scoped_DI_Resolution()
+    {
+        var services = new Microsoft.Extensions.DependencyInjection.ServiceCollection();
+        services.AddScoped<Microsoft.JSInterop.IJSRuntime, DummyJs>();
+        services.AddScoped<IAppearanceService, AppearanceService>();
+        var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var svc = scope.ServiceProvider.GetRequiredService<IAppearanceService>();
+        
+        var field = typeof(AppearanceService).GetField("_jsRuntime", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var js = field?.GetValue(svc);
+        Assert.NotNull(js);
+        Assert.IsType<DummyJs>(js);
+    }
+
+    [Fact]
+    public void Test_SetJSRuntime()
+    {
+        var svc = new AppearanceService();
+        var dummy = new DummyJs();
+        svc.SetJSRuntime(dummy);
+
+        var field = typeof(AppearanceService).GetField("_jsRuntime", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+        var js = field?.GetValue(svc);
+        Assert.Same(dummy, js);
+    }
+
+    [Fact]
+    public void NativeAudioPlayer_SoundFiles_Exist()
+    {
+        var movePath = NativeAudioPlayer.GetSoundFilePath(ChessSoundType.Move);
+        var capPath = NativeAudioPlayer.GetSoundFilePath(ChessSoundType.Capture);
+        var chkPath = NativeAudioPlayer.GetSoundFilePath(ChessSoundType.Check);
+        var vicPath = NativeAudioPlayer.GetSoundFilePath(ChessSoundType.Victory);
+        var ltPath = NativeAudioPlayer.GetSoundFilePath(ChessSoundType.LowTime);
+
+        Assert.NotNull(movePath);
+        Assert.True(File.Exists(movePath));
+
+        Assert.NotNull(capPath);
+        Assert.True(File.Exists(capPath));
+
+        Assert.NotNull(chkPath);
+        Assert.True(File.Exists(chkPath));
+
+        Assert.NotNull(vicPath);
+        Assert.True(File.Exists(vicPath));
+
+        Assert.NotNull(ltPath);
+        Assert.True(File.Exists(ltPath));
+    }
+
+    [Fact]
+    public void NativeAudioPlayer_Play_DoesNotThrow()
+    {
+        // Playing should not throw any exception
+        Assert.True(NativeAudioPlayer.Play(ChessSoundType.Move, 0.5f));
+    }
+
+    private class DummyJs : Microsoft.JSInterop.IJSRuntime
+    {
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => default;
+        public ValueTask<TValue> InvokeAsync<TValue>(string identifier, CancellationToken cancellationToken, object?[]? args) => default;
     }
 }

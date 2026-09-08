@@ -10,6 +10,7 @@
 @inject IUpdateService UpdateService
 @inject IAppearanceService AppearanceService
 @inject WorkspaceState Workspace
+@inject IJSRuntime JS
 @using System.Runtime.InteropServices
 @implements IDisposable
 
@@ -1343,7 +1344,8 @@
 
 	private async Task TestSound(ChessSoundType soundType)
 	{
-		await AppearanceService.PlaySoundAsync(soundType);
+		AppearanceService.SetJSRuntime(JS);
+		await AppearanceService.PlaySoundAsync(soundType, JS);
 	}
 
 	private async Task SaveAppearanceSettingsAsync()

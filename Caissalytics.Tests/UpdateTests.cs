@@ -111,4 +111,19 @@ public class UpdateTests
         Assert.False(updateInfo.IsUpdateAvailable);
         Assert.Contains("up to date", updateInfo.StatusMessage);
     }
+
+    [Fact]
+    public async Task CheckForUpdatesAsync_RetrievesLatestReleaseMetadata()
+    {
+        var service = new UpdateService();
+        var update = await service.CheckForUpdatesAsync(force: true);
+
+        Assert.NotNull(update);
+        Assert.Equal("1.0.0", service.GetCurrentVersion());
+        Assert.Equal("1.0.0", update.LatestVersion);
+        Assert.NotNull(update.AssetDownloadUrl);
+        Assert.NotEmpty(update.AssetDownloadUrl!);
+        Assert.NotNull(update.AssetFileName);
+        Assert.NotEmpty(update.AssetFileName!);
+    }
 }

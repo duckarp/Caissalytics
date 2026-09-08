@@ -5,7 +5,7 @@ namespace Caissalytics.Data;
 
 public class AppearanceService : IAppearanceService
 {
-    private readonly IJSRuntime? _jsRuntime;
+    private IJSRuntime? _jsRuntime;
     private readonly string _settingsFilePath;
     private readonly SemaphoreSlim _lock = new(1, 1);
     private AppearanceSettings? _cachedSettings;
@@ -31,6 +31,11 @@ public class AppearanceService : IAppearanceService
         {
             Directory.CreateDirectory(dir);
         }
+    }
+
+    public void SetJSRuntime(IJSRuntime jsRuntime)
+    {
+        _jsRuntime = jsRuntime;
     }
 
     public async Task<AppearanceSettings> GetSettingsAsync()
@@ -85,7 +90,7 @@ public class AppearanceService : IAppearanceService
         OnAppearanceChanged?.Invoke(settings);
     }
 
-    public async Task PlaySoundAsync(ChessSoundType soundType)
+    public async Task PlaySoundAsync(ChessSoundType soundType, IJSRuntime? jsRuntime = null)
     {
         var settings = await GetSettingsAsync();
 
@@ -104,7 +109,22 @@ public class AppearanceService : IAppearanceService
             _ => true
         };
 
-        if (!shouldPlay || _jsRuntime == null)
+        if (!shouldPlay)
+        {
+            return;
+        }
+
+        float volumeRatio = Math.Clamp(settings.Volume / 100f, 0f, 1f);
+
+        // 1. Primary: Native system audio (zero latency, immune to WebKitGTK / browser audio sink issues)
+        if (NativeAudioPlayer.Play(soundType, volumeRatio))
+        {
+            return;
+        }
+
+        // 2. Fallback: JavaScript audio playback (for Web / WebAssembly or if no native CLI player is found)
+        var js = jsRuntime ?? _jsRuntime;
+        if (js == null)
         {
             return;
         }
@@ -119,15 +139,13 @@ public class AppearanceService : IAppearanceService
             _ => "chessSound.playMove"
         };
 
-        float volumeRatio = Math.Clamp(settings.Volume / 100f, 0f, 1f);
-
         try
         {
-            await _jsRuntime.InvokeVoidAsync(jsMethod, volumeRatio);
+            await js.InvokeVoidAsync(jsMethod, volumeRatio);
         }
-        catch
+        catch (Exception ex)
         {
-            // Ignore audio playback errors (e.g. user hasn't interacted with document yet or disposed JS engine)
+            Console.Error.WriteLine($"[AppearanceService] JS PlaySound error: {ex.Message}");
         }
     }
 }

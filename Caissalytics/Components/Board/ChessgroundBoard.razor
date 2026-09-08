@@ -312,6 +312,7 @@
 	{
 		if (firstRender)
 		{
+			AppearanceService.SetJSRuntime(JS);
 			_dotNetRef = DotNetObjectReference.Create(this);
 			_module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/chessgroundInterop.js");
 
@@ -366,15 +367,15 @@
 				_lastSoundMove = lastMove;
 				if (inCheck)
 				{
-					_ = AppearanceService.PlaySoundAsync(ChessSoundType.Check);
+					_ = AppearanceService.PlaySoundAsync(ChessSoundType.Check, JS);
 				}
 				else if (lastMove.Value.IsCapture || lastMove.Value.IsEnPassant)
 				{
-					_ = AppearanceService.PlaySoundAsync(ChessSoundType.Capture);
+					_ = AppearanceService.PlaySoundAsync(ChessSoundType.Capture, JS);
 				}
 				else
 				{
-					_ = AppearanceService.PlaySoundAsync(ChessSoundType.Move);
+					_ = AppearanceService.PlaySoundAsync(ChessSoundType.Move, JS);
 				}
 			}
 		}

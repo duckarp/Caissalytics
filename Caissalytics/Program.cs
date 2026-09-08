@@ -18,7 +18,7 @@ appBuilder.Services.AddSingleton<IUserAnalyticsService, UserAnalyticsService>();
 appBuilder.Services.AddSingleton<IUpdateService, UpdateService>();
 appBuilder.Services.AddSingleton<IPuzzleService, PuzzleService>();
 appBuilder.Services.AddSingleton<IRepertoireService, RepertoireService>();
-appBuilder.Services.AddSingleton<IAppearanceService, AppearanceService>();
+appBuilder.Services.AddScoped<IAppearanceService, AppearanceService>();
 appBuilder.Services.AddSingleton<IOpponentDossierService, OpponentDossierService>();
 appBuilder.Services.AddSingleton<IFideScoutingService, FideScoutingService>();
 appBuilder.Services.AddSingleton<IChessResultsScoutingService, ChessResultsScoutingService>();
@@ -52,6 +52,7 @@ app.MainWindow
 	.SetTitle("Caissalytics")
 	.SetSize(1400, 900)
 	.SetMinSize(1000, 650)
+	.SetMediaAutoplayEnabled(true)
 	.SetUseOsDefaultLocation(false);
 
 AppDomain.CurrentDomain.UnhandledException += (sender, error) =>
