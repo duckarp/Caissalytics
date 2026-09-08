@@ -37,7 +37,10 @@ public static class NativeAudioPlayer
             Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "sounds"),
             Path.Combine(AppContext.BaseDirectory, "wwwroot", "sounds"),
             Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "sounds"),
-            Path.Combine(Directory.GetCurrentDirectory(), "Caissalytics", "wwwroot", "sounds")
+            Path.Combine(Directory.GetCurrentDirectory(), "Caissalytics", "wwwroot", "sounds"),
+            Path.Combine(Directory.GetCurrentDirectory(), "..", "Caissalytics", "wwwroot", "sounds"),
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "Caissalytics", "wwwroot", "sounds"),
+            Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "Caissalytics", "wwwroot", "sounds")
         ];
 
         foreach (var dir in candidateDirs)
