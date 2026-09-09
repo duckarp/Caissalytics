@@ -9,7 +9,7 @@
 <header class="app-header">
 	<div class="app-brand">
 		<span class="brand-title">@Loc["Nav_Brand"]</span>
-		<span class="brand-badge">Alpha</span>
+		<span class="brand-badge">v@(UpdateService.GetCurrentVersion())</span>
 	</div>
 	<div class="header-actions">
 		@if (_availableUpdate != null && _availableUpdate.IsUpdateAvailable)
