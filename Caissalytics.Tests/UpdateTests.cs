@@ -117,20 +117,20 @@ public class UpdateTests
     {
         string fakeJson = """
         {
-            "tag_name": "v1.2.0",
-            "name": "Caissalytics 1.2.0",
+            "tag_name": "v1.3.0",
+            "name": "Caissalytics 1.3.0",
             "body": "New features release",
-            "html_url": "https://github.com/duckarp/Caissalytics/releases/tag/v1.2.0",
+            "html_url": "https://github.com/duckarp/Caissalytics/releases/tag/v1.3.0",
             "published_at": "2026-09-08T18:00:00Z",
             "assets": [
                 {
                     "name": "Caissalytics-linux-x64.tar.gz",
-                    "browser_download_url": "https://github.com/duckarp/Caissalytics/releases/download/v1.2.0/Caissalytics-linux-x64.tar.gz",
+                    "browser_download_url": "https://github.com/duckarp/Caissalytics/releases/download/v1.3.0/Caissalytics-linux-x64.tar.gz",
                     "size": 50000000
                 },
                 {
                     "name": "Caissalytics-win-x64.zip",
-                    "browser_download_url": "https://github.com/duckarp/Caissalytics/releases/download/v1.2.0/Caissalytics-win-x64.zip",
+                    "browser_download_url": "https://github.com/duckarp/Caissalytics/releases/download/v1.3.0/Caissalytics-win-x64.zip",
                     "size": 52000000
                 }
             ]
@@ -147,8 +147,8 @@ public class UpdateTests
         var update = await service.CheckForUpdatesAsync(force: true);
 
         Assert.NotNull(update);
-        Assert.Equal("1.1.0", service.GetCurrentVersion());
-        Assert.Equal("1.2.0", update.LatestVersion);
+        Assert.Equal("1.2.0", service.GetCurrentVersion());
+        Assert.Equal("1.3.0", update.LatestVersion);
         Assert.True(update.IsUpdateAvailable);
         Assert.NotNull(update.AssetDownloadUrl);
         Assert.NotEmpty(update.AssetDownloadUrl!);

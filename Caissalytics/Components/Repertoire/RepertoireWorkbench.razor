@@ -6,6 +6,7 @@
 @inject IDatabaseService DatabaseService
 @inject IRepertoireService RepertoireService
 @inject IUserProfileService ProfileService
+@inject IAppearanceService AppearanceService
 @inject LichessExplorerClient LichessClient
 @inject WorkspaceState Workspace
 @implements IDisposable
@@ -19,7 +20,14 @@
 				<span class="opening-name-text">@ActiveOpeningName</span>
 			</div>
 			<div class="opening-turn-indicator">
-				<span>@(_tree.CurrentNode.Position.ActiveColor == PieceColor.White ? Loc["Endgame_WhiteToMove"] : Loc["Endgame_BlackToMove"])</span>
+				@if (_trainingMode)
+				{
+					<span>@Loc["Rep_TrainYourMove"]</span>
+				}
+				else
+				{
+					<span>@(_tree.CurrentNode.Position.ActiveColor == PieceColor.White ? Loc["Endgame_WhiteToMove"] : Loc["Endgame_BlackToMove"])</span>
+				}
 			</div>
 		</div>
 
@@ -27,8 +35,8 @@
 						  Position="@_tree.CurrentNode.Position"
 						  LastMove="@(_tree.CurrentNode.IsRoot ? null : _tree.CurrentNode.Move)"
 						  Orientation="@_orientation"
-						  CanGoBack="@_tree.CanGoBack"
-						  CanGoForward="@_tree.CanGoForward"
+						  CanGoBack="@(!_trainingMode && _tree.CanGoBack)"
+						  CanGoForward="@(!_trainingMode && _tree.CanGoForward)"
 						  OnMoveMade="HandleBoardMove"
 						  OrientationChanged="HandleOrientationChanged"
 						  OnFirst="HandleFirst"
@@ -40,179 +48,287 @@
 
 	<!-- Right Column: Opening Tree & Repertoire Explorer -->
 	<div class="repertoire-sidebar">
-		<!-- Source Selection & Repertoire Bar -->
-		<div class="repertoire-source-bar">
-			<div class="source-select-row">
-				<div class="source-selector-group">
-					<label class="source-label">@Loc["Rep_Source"]</label>
-					<select class="source-select" value="@_selectedSourceStr" @onchange="HandleSourceChanged">
-						<optgroup label="@Loc["Rep_LocalDbs"]">
-							@foreach (var db in _databases)
-							{
-								<option value="db:@db.Name">🗄️ @db.Name (@string.Format(Loc["Rep_GamesCount"], db.GameCount.ToString("N0")))</option>
-							}
-						</optgroup>
-						<optgroup label="@Loc["Rep_OnlineExplorer"]">
-							<option value="lichess:masters">👑 Lichess Masters (FIDE Master Games)</option>
-							<option value="lichess:community">🌐 Lichess Community (Rated Games)</option>
-						</optgroup>
-					</select>
+		@if (_trainingMode)
+		{
+			<!-- Training Mode Panel -->
+			<div class="training-mode-panel">
+				<div class="training-header">
+					<span class="training-title">@string.Format(Loc["Rep_TrainTitle"], _trainingLine?.Name ?? "")</span>
+					<button class="btn-puzzle btn-secondary-action btn-header-exit" @onclick="ExitTraining" title="@Loc["Rep_TrainExit"]">
+						<span class="btn-puzzle-icon">✕</span>
+						<span class="btn-puzzle-text">@Loc["Rep_TrainExit"]</span>
+					</button>
+				</div>
+
+				<div class="training-progress-bar">
+					<div class="training-progress-fill" style="width: @(_trainingTotalPositions > 0 ? (_trainingCurrentStep * 100 / _trainingTotalPositions) : 0)%"></div>
+				</div>
+
+				@if (_trainingComplete)
+				{
+					<div class="training-complete-card">
+						<span class="training-complete-icon">🏆</span>
+						<span class="training-complete-title">@Loc["Rep_TrainComplete"]</span>
+						<span class="training-complete-score">@string.Format(Loc["Rep_TrainScore"], _trainingCorrect, _trainingTotalPositions)</span>
+						<div class="training-complete-actions puzzles-action-row">
+							<button class="btn-puzzle btn-next" @onclick="RestartTraining">
+								<span class="btn-puzzle-icon">🔄</span>
+								<span class="btn-puzzle-text">@Loc["Rep_TrainAgain"]</span>
+							</button>
+							<button class="btn-puzzle btn-secondary-action" @onclick="ExitTraining">
+								<span class="btn-puzzle-icon">✕</span>
+								<span class="btn-puzzle-text">@Loc["Rep_TrainExit"]</span>
+							</button>
+						</div>
+					</div>
+				}
+				else
+				{
+					<div class="training-prompt-area">
+						<span class="training-position-info">@string.Format(Loc["Rep_TrainProgress"], _trainingCurrentStep + 1, _trainingTotalPositions)</span>
+						<span class="training-prompt-text">@Loc["Rep_TrainYourMove"]</span>
+
+						@if (_trainingFeedback != null)
+						{
+							<div class="training-feedback @(_trainingFeedbackCorrect ? "correct" : "wrong")">
+								<span>@_trainingFeedback</span>
+							</div>
+						}
+
+						<div class="training-actions puzzles-action-row">
+							<button class="btn-puzzle btn-secondary-action" @onclick="ShowTrainingAnswer" title="@Loc["Rep_TrainSkip"]">
+								<span class="btn-puzzle-icon">💡</span>
+								<span class="btn-puzzle-text">@Loc["Rep_TrainSkip"]</span>
+							</button>
+						</div>
+					</div>
+				}
+			</div>
+		}
+		else
+		{
+			<!-- Source Selection & Repertoire Bar -->
+			<div class="repertoire-source-bar">
+				<div class="source-select-row">
+					<div class="source-selector-group">
+						<label class="source-label">@Loc["Rep_Source"]</label>
+						<select class="source-select" value="@_selectedSourceStr" @onchange="HandleSourceChanged">
+							<optgroup label="@Loc["Rep_LocalDbs"]">
+								@foreach (var db in _databases)
+								{
+									<option value="db:@db.Name">🗄️ @db.Name (@string.Format(Loc["Rep_GamesCount"], db.GameCount.ToString("N0")))</option>
+								}
+							</optgroup>
+							<optgroup label="@Loc["Rep_OnlineExplorer"]">
+								<option value="lichess:masters">👑 Lichess Masters (FIDE Master Games)</option>
+								<option value="lichess:community">🌐 Lichess Community (Rated Games)</option>
+							</optgroup>
+						</select>
+					</div>
+				</div>
+
+				<div class="repertoire-mode-pills">
+					<button class="rep-mode-pill @(_colorFilter == "all" ? "active" : "")"
+							@onclick='() => SetColorFilter("all")'>@Loc["Rep_AllMoves"]</button>
+					<button class="rep-mode-pill @(_colorFilter == "white" ? "active" : "")"
+							@onclick='() => SetColorFilter("white")'>@Loc["Rep_WhiteRep"]</button>
+					<button class="rep-mode-pill @(_colorFilter == "black" ? "active" : "")"
+							@onclick='() => SetColorFilter("black")'>@Loc["Rep_BlackRep"]</button>
 				</div>
 			</div>
 
-			<div class="repertoire-mode-pills">
-				<button class="rep-mode-pill @(_colorFilter == "all" ? "active" : "")"
-						@onclick='() => SetColorFilter("all")'>@Loc["Rep_AllMoves"]</button>
-				<button class="rep-mode-pill @(_colorFilter == "white" ? "active" : "")"
-						@onclick='() => SetColorFilter("white")'>@Loc["Rep_WhiteRep"]</button>
-				<button class="rep-mode-pill @(_colorFilter == "black" ? "active" : "")"
-						@onclick='() => SetColorFilter("black")'>@Loc["Rep_BlackRep"]</button>
-			</div>
-		</div>
+			<!-- Move Tree Table -->
+			<div class="repertoire-tree-section">
+				<div class="repertoire-section-title-row">
+					<span>@Loc["Rep_CandidateMoves"]</span>
+					<span>@string.Format(Loc["Rep_GamesCount"], _currentStats?.TotalPositionGames.ToString("N0") ?? "0")</span>
+				</div>
 
-		<!-- Move Tree Table -->
-		<div class="repertoire-tree-section">
-			<div class="repertoire-section-title-row">
-				<span>@Loc["Rep_CandidateMoves"]</span>
-				<span>@string.Format(Loc["Rep_GamesCount"], _currentStats?.TotalPositionGames.ToString("N0") ?? "0")</span>
-			</div>
-
-			<div class="repertoire-table-scroll">
-				@if (_isLoading)
-				{
-					<div class="reference-empty-state">
-						<span>@Loc["Rep_LoadingStats"]</span>
-					</div>
-				}
-				else if (_currentStats?.IsUnauthorized == true)
-				{
-					<div class="explorer-auth-notice">
-						<div class="auth-notice-header">
-							<span class="auth-notice-icon">🔒</span>
-							<span class="auth-notice-title">@Loc["Rep_LichessTokenRequired"]</span>
-						</div>
-						<p class="auth-notice-desc">
-							@Loc["Rep_LichessTokenDesc"]
-						</p>
-						<div class="auth-notice-actions">
-							<button class="btn-auth-action btn-auth-primary" @onclick="() => Workspace.CreateSettingsTab()">
-								@Loc["Rep_ConfigureInSettings"]
-							</button>
-							<a class="btn-auth-action" href="https://lichess.org/account/oauth/token" target="_blank" rel="noopener noreferrer">
-								@Loc["Rep_GetFreeToken"]
-							</a>
-						</div>
-						<div class="auth-offline-hint">
-							<span>@Loc["Rep_OfflineHint"]</span>
-						</div>
-					</div>
-				}
-				else if (!string.IsNullOrEmpty(_currentStats?.ErrorMessage))
-				{
-					<div class="reference-empty-state">
-						<span class="empty-state-icon">⚠️</span>
-						<span>@_currentStats.ErrorMessage</span>
-					</div>
-				}
-				else if (_currentStats == null || _currentStats.CandidateMoves.Count == 0)
-				{
-					<div class="reference-empty-state">
-						<span class="empty-state-icon">📖</span>
-						<span>@Loc["Rep_NoRecordedMoves"]</span>
-					</div>
-				}
-				else
-				{
-					<table class="repertoire-table">
-						<thead>
-							<tr>
-								<th>@Loc["Rep_ColRep"]</th>
-								<th>@Loc["Rep_Move"]</th>
-								<th>@Loc["Rep_Games"]</th>
-								<th>@Loc["Rep_Freq"]</th>
-								<th>@Loc["Rep_Score"]</th>
-								<th>@Loc["Rep_Distribution"]</th>
-								<th>@Loc["Rep_AvgElo"]</th>
-								<th>@Loc["Rep_Years"]</th>
-							</tr>
-						</thead>
-						<tbody>
-							@foreach (var move in _currentStats.CandidateMoves)
-							{
-								bool isRep = move.IsRepertoireMove;
-								<tr class="tree-row @(isRep ? "in-repertoire" : "")" @onclick="() => PlayCandidateMove(move.MoveSan)">
-									<td>
-										<button class="star-bookmark-btn @(isRep ? "bookmarked" : "")"
-												title="@(isRep ? $"{Loc["Rep_InRepertoire"]} ({GetRepertoireStatusDisplay(move.RepertoireStatus)}). {Loc["Rep_ClickToEdit"]}." : Loc["Rep_AddToRepertoire"])"
-												@onclick:stopPropagation="true"
-												@onclick="() => ToggleRepertoireMove(move)">
-											@(isRep ? "★" : "☆")
-										</button>
-									</td>
-									<td class="move-san-cell">
-										@move.MoveSan
-										@if (!string.IsNullOrEmpty(move.RepertoireStatus))
-										{
-											<span class="rep-tag @move.RepertoireStatus.ToLowerInvariant()">@GetRepertoireStatusDisplay(move.RepertoireStatus)</span>
-										}
-									</td>
-									<td class="games-num-cell">@move.TotalGames.ToString("N0")</td>
-									<td class="games-num-cell">@move.FrequencyPct.ToString("0.0")%</td>
-									<td class="score-num-cell">@move.ScoreRate.ToString("0.0")%</td>
-									<td class="bar-cell">
-										<div class="winrate-bar-track" title="White: @move.WhiteWinRate.ToString("0.0")% | Draw: @move.DrawRate.ToString("0.0")% | Black: @move.BlackWinRate.ToString("0.0")%">
-											<div class="bar-segment bar-white @($"bar-w-{move.WhiteWinPct}")"></div>
-											<div class="bar-segment bar-draw @($"bar-w-{move.DrawPct}")"></div>
-											<div class="bar-segment bar-black @($"bar-w-{move.BlackWinPct}")"></div>
-										</div>
-									</td>
-									<td class="games-num-cell">@(move.AvgRating.HasValue ? move.AvgRating.Value.ToString() : "-")</td>
-									<td class="games-num-cell">@move.YearRangeFormatted</td>
-								</tr>
-							}
-						</tbody>
-					</table>
-				}
-			</div>
-		</div>
-
-		<!-- Master Games Section -->
-		<div class="repertoire-games-section">
-			<div class="repertoire-section-title-row">
-				<span>@Loc["Rep_TopGames"]</span>
-				<span>@string.Format(Loc["Rep_DisplayedCount"], _currentStats?.TopGames.Count ?? 0)</span>
-			</div>
-
-			<div class="repertoire-games-scroll">
-				@if (_currentStats?.TopGames != null && _currentStats.TopGames.Count > 0)
-				{
-					@foreach (var g in _currentStats.TopGames)
+				<div class="repertoire-table-scroll">
+					@if (_isLoading)
 					{
-						<div class="rep-game-card" @onclick="() => OpenGameInAnalysis(g)">
-							<div class="rep-game-players-info">
-								<div class="rep-player-row">
-									<span>@g.White @(g.WhiteElo.HasValue ? $"({g.WhiteElo})" : "")</span>
-									<span> vs </span>
-									<span>@g.Black @(g.BlackElo.HasValue ? $"({g.BlackElo})" : "")</span>
-								</div>
-								<span class="rep-game-subinfo">
-									@(string.IsNullOrEmpty(g.Date) ? Loc["General_Unknown"] : g.FormattedDate)
-									@(!string.IsNullOrEmpty(g.Event) ? $" • {g.Event}" : "")
-									@(!string.IsNullOrEmpty(g.Eco) ? $" • {g.Eco}" : "")
-								</span>
-							</div>
-							<span class="rep-game-result-badge @GetResultClass(g.Result)">@g.Result</span>
+						<div class="reference-empty-state">
+							<span>@Loc["Rep_LoadingStats"]</span>
 						</div>
 					}
-				}
-				else
-				{
-					<div class="reference-empty-state">
-						<span>@Loc["Rep_NoRecordedGames"]</span>
-					</div>
-				}
+					else if (_currentStats?.IsUnauthorized == true)
+					{
+						<div class="explorer-auth-notice">
+							<div class="auth-notice-header">
+								<span class="auth-notice-icon">🔒</span>
+								<span class="auth-notice-title">@Loc["Rep_LichessTokenRequired"]</span>
+							</div>
+							<p class="auth-notice-desc">
+								@Loc["Rep_LichessTokenDesc"]
+							</p>
+							<div class="auth-notice-actions">
+								<button class="btn-auth-action btn-auth-primary" @onclick="() => Workspace.CreateSettingsTab()">
+									@Loc["Rep_ConfigureInSettings"]
+								</button>
+								<a class="btn-auth-action" href="https://lichess.org/account/oauth/token" target="_blank" rel="noopener noreferrer">
+									@Loc["Rep_GetFreeToken"]
+								</a>
+							</div>
+							<div class="auth-offline-hint">
+								<span>@Loc["Rep_OfflineHint"]</span>
+							</div>
+						</div>
+					}
+					else if (!string.IsNullOrEmpty(_currentStats?.ErrorMessage))
+					{
+						<div class="reference-empty-state">
+							<span class="empty-state-icon">⚠️</span>
+							<span>@_currentStats.ErrorMessage</span>
+						</div>
+					}
+					else if (_currentStats == null || _currentStats.CandidateMoves.Count == 0)
+					{
+						<div class="reference-empty-state">
+							<span class="empty-state-icon">📖</span>
+							<span>@Loc["Rep_NoRecordedMoves"]</span>
+						</div>
+					}
+					else
+					{
+						<table class="repertoire-table">
+							<thead>
+								<tr>
+									<th>@Loc["Rep_ColRep"]</th>
+									<th>@Loc["Rep_Move"]</th>
+									<th>@Loc["Rep_Games"]</th>
+									<th>@Loc["Rep_Freq"]</th>
+									<th>@Loc["Rep_Score"]</th>
+									<th>@Loc["Rep_Distribution"]</th>
+									<th>@Loc["Rep_AvgElo"]</th>
+									<th>@Loc["Rep_Years"]</th>
+								</tr>
+							</thead>
+							<tbody>
+								@foreach (var move in _currentStats.CandidateMoves)
+								{
+									bool isRep = move.IsRepertoireMove;
+									<tr class="tree-row @(isRep ? "in-repertoire" : "")" @onclick="() => PlayCandidateMove(move.MoveSan)">
+										<td>
+											<button class="star-bookmark-btn @(isRep ? "bookmarked" : "")"
+													title="@(isRep ? $"{Loc["Rep_InRepertoire"]} ({GetRepertoireStatusDisplay(move.RepertoireStatus)}). {Loc["Rep_ClickToEdit"]}." : Loc["Rep_AddToRepertoire"])"
+													@onclick:stopPropagation="true"
+													@onclick="() => ToggleRepertoireMove(move)">
+												@(isRep ? "★" : "☆")
+											</button>
+										</td>
+										<td class="move-san-cell">
+											@move.MoveSan
+											@if (!string.IsNullOrEmpty(move.RepertoireStatus))
+											{
+												<span class="rep-tag @move.RepertoireStatus.ToLowerInvariant()">@GetRepertoireStatusDisplay(move.RepertoireStatus)</span>
+											}
+										</td>
+										<td class="games-num-cell">@move.TotalGames.ToString("N0")</td>
+										<td class="games-num-cell">@move.FrequencyPct.ToString("0.0")%</td>
+										<td class="score-num-cell">@move.ScoreRate.ToString("0.0")%</td>
+										<td class="bar-cell">
+											<div class="winrate-bar-track" title="White: @move.WhiteWinRate.ToString("0.0")% | Draw: @move.DrawRate.ToString("0.0")% | Black: @move.BlackWinRate.ToString("0.0")%">
+												<div class="bar-segment bar-white @($"bar-w-{move.WhiteWinPct}")"></div>
+												<div class="bar-segment bar-draw @($"bar-w-{move.DrawPct}")"></div>
+												<div class="bar-segment bar-black @($"bar-w-{move.BlackWinPct}")"></div>
+											</div>
+										</td>
+										<td class="games-num-cell">@(move.AvgRating.HasValue ? move.AvgRating.Value.ToString() : "-")</td>
+										<td class="games-num-cell">@move.YearRangeFormatted</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					}
+				</div>
 			</div>
-		</div>
+
+			<!-- My Lines Section -->
+			<div class="repertoire-lines-section">
+				<div class="repertoire-lines-header">
+					<span class="repertoire-lines-title">@Loc["Rep_MyLines"]</span>
+					<button class="btn-save-line" disabled="@(!HasMovesOnBoard)" @onclick="OpenSaveLineModal">
+						📌 @Loc["Rep_SaveLine"]
+					</button>
+				</div>
+
+				<div class="repertoire-lines-scroll">
+					@if (_lines.Count == 0)
+					{
+						<div class="lines-empty-state">
+							<span>@Loc["Rep_NoLines"]</span>
+							<span>@Loc["Rep_NoLinesHint"]</span>
+						</div>
+					}
+					else
+					{
+						@foreach (var line in _filteredLines)
+						{
+							bool isReplayingThis = _isReplaying && _replayingLineId == line.Id;
+							<div class="rep-line-card @(_replayingLineId == line.Id ? "active-line" : "")" @onclick="() => ReplayLine(line)">
+								<div class="rep-line-info">
+									<span class="rep-line-name">@line.Name</span>
+									<div class="rep-line-meta">
+										<span class="rep-line-color-badge @line.Color.ToLowerInvariant()">@line.Color</span>
+										<span>@string.Format(Loc["Rep_LineMoves"], line.Moves.Count)</span>
+									</div>
+								</div>
+								<div class="rep-line-actions" @onclick:stopPropagation="true">
+									<button class="btn-line-action train-btn" title="@Loc["Rep_TrainLine"]" @onclick="() => StartTraining(line)">🎯</button>
+									@if (isReplayingThis)
+									{
+										<button class="btn-line-action active" title="Stop" @onclick="() => StopReplay()">⏹️</button>
+									}
+									else
+									{
+										<button class="btn-line-action" title="@Loc["Rep_ReplayLine"]" @onclick="() => ReplayLine(line)">▶️</button>
+									}
+									<button class="btn-line-action delete-btn" title="@Loc["Rep_LineDelete"]" @onclick="() => PromptDeleteLine(line)">🗑️</button>
+								</div>
+							</div>
+						}
+					}
+				</div>
+			</div>
+
+			<!-- Top Games Section -->
+			<div class="repertoire-games-section">
+				<div class="repertoire-section-title-row">
+					<span>@Loc["Rep_TopGames"]</span>
+					<span>@string.Format(Loc["Rep_DisplayedCount"], _currentStats?.TopGames.Count ?? 0)</span>
+				</div>
+
+				<div class="repertoire-games-scroll">
+					@if (_currentStats?.TopGames != null && _currentStats.TopGames.Count > 0)
+					{
+						@foreach (var g in _currentStats.TopGames)
+						{
+							<div class="rep-game-card" @onclick="() => OpenGameInAnalysis(g)">
+								<div class="rep-game-players-info">
+									<div class="rep-player-row">
+										<span>@g.White @(g.WhiteElo.HasValue ? $"({g.WhiteElo})" : "")</span>
+										<span> vs </span>
+										<span>@g.Black @(g.BlackElo.HasValue ? $"({g.BlackElo})" : "")</span>
+									</div>
+									<span class="rep-game-subinfo">
+										@(string.IsNullOrEmpty(g.Date) ? Loc["General_Unknown"] : g.FormattedDate)
+										@(!string.IsNullOrEmpty(g.Event) ? $" • {g.Event}" : "")
+										@(!string.IsNullOrEmpty(g.Eco) ? $" • {g.Eco}" : "")
+									</span>
+								</div>
+								<span class="rep-game-result-badge @GetResultClass(g.Result)">@g.Result</span>
+							</div>
+						}
+					}
+					else
+					{
+						<div class="reference-empty-state">
+							<span>@Loc["Rep_NoRecordedGames"]</span>
+						</div>
+					}
+				</div>
+			</div>
+		}
 	</div>
 </div>
 
@@ -254,6 +370,86 @@
 	</div>
 }
 
+<!-- Save Opening Line Modal -->
+@if (_showSaveLineModal)
+{
+	<div class="rep-modal-backdrop" @onclick="() => _showSaveLineModal = false">
+		<div class="save-line-modal-card" @onclick:stopPropagation="true">
+			<h3 class="rep-modal-title">@Loc["Rep_SaveLine"]</h3>
+
+			<div class="save-line-move-preview">
+				@_saveLineMovePreview
+			</div>
+
+			<div class="rep-form-group">
+				<label class="rep-form-label">@Loc["Rep_LineName"]</label>
+				<input class="rep-form-input" type="text"
+					   placeholder="@Loc["Rep_LineNamePlaceholder"]"
+					   @bind="_saveLineName" />
+			</div>
+
+			<div class="rep-form-group">
+				<label class="rep-form-label">@Loc["Rep_LineColor"]</label>
+				<div class="save-line-color-row">
+					<button class="color-radio-btn @(_saveLineColor == "white" ? "active" : "")"
+							@onclick='() => _saveLineColor = "white"'>♔ White</button>
+					<button class="color-radio-btn @(_saveLineColor == "black" ? "active" : "")"
+							@onclick='() => _saveLineColor = "black"'>♚ Black</button>
+				</div>
+			</div>
+
+			<div class="rep-form-group">
+				<label class="rep-form-label">@Loc["Rep_LineDesc"]</label>
+				<textarea class="rep-form-textarea"
+						  placeholder="@Loc["Rep_LineDescPlaceholder"]"
+						  @bind="_saveLineDescription"></textarea>
+			</div>
+
+			<div class="rep-modal-actions">
+				<button class="btn-puzzle btn-secondary-action" @onclick="() => _showSaveLineModal = false">
+					@Loc["Common_Cancel"]
+				</button>
+				<button class="btn-puzzle btn-next" disabled="@(string.IsNullOrWhiteSpace(_saveLineName))" @onclick="SaveLineAsync">
+					@Loc["Rep_LineSave"]
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
+<!-- Delete Line Confirmation Modal -->
+@if (_lineToDelete != null)
+{
+	<div class="rep-modal-backdrop" @onclick="() => _lineToDelete = null">
+		<div class="rep-modal-card" @onclick:stopPropagation="true">
+			<h3 class="rep-modal-title">@Loc["Rep_LineDelete"]</h3>
+
+			<p class="rep-modal-desc">
+				@Loc["Rep_LineDeleteConfirm"]
+			</p>
+
+			<div class="rep-line-card rep-line-preview-card">
+				<div class="rep-line-info">
+					<span class="rep-line-name">@_lineToDelete.Name</span>
+					<div class="rep-line-meta">
+						<span class="rep-line-color-badge @_lineToDelete.Color.ToLowerInvariant()">@_lineToDelete.Color</span>
+						<span>@string.Format(Loc["Rep_LineMoves"], @_lineToDelete.Moves.Count)</span>
+					</div>
+				</div>
+			</div>
+
+			<div class="rep-modal-actions">
+				<button class="btn-puzzle btn-secondary-action" @onclick="() => _lineToDelete = null">
+					@Loc["Common_Cancel"]
+				</button>
+				<button class="btn-puzzle btn-danger-soft" @onclick="ConfirmDeleteLineAsync">
+					@Loc["Rep_LineDelete"]
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
 @code {
 	[Parameter, EditorRequired] public RepertoireExplorerTab Tab { get; set; } = default!;
 
@@ -269,6 +465,38 @@
 	private bool _isLoading = false;
 	private bool _showNoteModal = false;
 	private RepertoireMove? _editingMove;
+
+	// Lines state
+	private List<RepertoireLine> _lines = new();
+	private string? _replayingLineId;
+	private bool _isReplaying = false;
+	private CancellationTokenSource? _replayCts;
+	private RepertoireLine? _lineToDelete;
+
+	// Save Line Modal state
+	private bool _showSaveLineModal = false;
+	private string _saveLineName = "";
+	private string _saveLineColor = "white";
+	private string _saveLineDescription = "";
+	private string _saveLineMovePreview = "";
+
+	// Training state
+	private bool _trainingMode = false;
+	private RepertoireLine? _trainingLine;
+	private int _trainingCurrentStep = 0;
+	private int _trainingTotalPositions = 0;
+	private int _trainingCorrect = 0;
+	private bool _trainingComplete = false;
+	private string? _trainingFeedback;
+	private bool _trainingFeedbackCorrect = false;
+	private bool _trainingWaitingForNext = false;
+	private List<int> _trainingPlayerMoveIndices = new();
+	private int _trainingPlayerMoveIdx = 0;
+
+	private bool HasMovesOnBoard => !_tree.CurrentNode.IsRoot || _tree.Root.Children.Count > 0;
+	private List<RepertoireLine> _filteredLines => _colorFilter == "all"
+		? _lines
+		: _lines.Where(l => string.Equals(l.Color, _colorFilter, StringComparison.OrdinalIgnoreCase)).ToList();
 
 	private string ActiveOpeningName => OpeningCatalog.ResolveOpeningName(ActiveEco, PgnHandler.ExportPgn(_tree));
 	private string ActiveEco
@@ -288,6 +516,7 @@
 
 		_repertoireTree = await RepertoireService.GetRepertoireAsync();
 		_databases = await DatabaseService.GetDatabasesAsync();
+		_lines = await RepertoireService.GetLinesAsync();
 
 		if (_databases.Count > 0)
 		{
@@ -302,6 +531,7 @@
 	private async void HandleRepertoireChanged()
 	{
 		_repertoireTree = await RepertoireService.GetRepertoireAsync();
+		_lines = await RepertoireService.GetLinesAsync();
 		await InvokeAsync(async () =>
 		{
 			await AnnotateCandidateMovesWithRepertoireAsync();
@@ -328,11 +558,27 @@
 	private async Task SetColorFilter(string filter)
 	{
 		_colorFilter = filter;
-		await QueryStatsForCurrentPositionAsync();
+		if (filter == "white")
+		{
+			_orientation = "white";
+		}
+		else if (filter == "black")
+		{
+			_orientation = "black";
+		}
+		await AnnotateCandidateMovesWithRepertoireAsync();
+		StateHasChanged();
 	}
 
 	private async Task HandleBoardMove(Move move)
 	{
+		StopReplay();
+		if (_trainingMode)
+		{
+			await HandleTrainingMove(move);
+			return;
+		}
+
 		_tree.AddMove(move);
 		if (_boardRef != null)
 		{
@@ -343,6 +589,7 @@
 
 	private async Task PlayCandidateMove(string moveSan)
 	{
+		StopReplay();
 		var move = SanParser.ParseSan(_tree.CurrentNode.Position, moveSan);
 		if (!move.IsEmpty)
 		{
@@ -357,6 +604,8 @@
 
 	private async Task HandleFirst()
 	{
+		StopReplay();
+		if (_trainingMode) return;
 		_tree.GoToStart();
 		if (_boardRef != null) await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, null);
 		await QueryStatsForCurrentPositionAsync();
@@ -364,6 +613,8 @@
 
 	private async Task HandlePrev()
 	{
+		StopReplay();
+		if (_trainingMode) return;
 		_tree.GoBack();
 		if (_boardRef != null) await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, _tree.CurrentNode.IsRoot ? null : _tree.CurrentNode.Move);
 		await QueryStatsForCurrentPositionAsync();
@@ -371,6 +622,8 @@
 
 	private async Task HandleNext()
 	{
+		StopReplay();
+		if (_trainingMode) return;
 		_tree.GoForward();
 		if (_boardRef != null) await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, _tree.CurrentNode.Move);
 		await QueryStatsForCurrentPositionAsync();
@@ -378,6 +631,8 @@
 
 	private async Task HandleLast()
 	{
+		StopReplay();
+		if (_trainingMode) return;
 		_tree.GoToEnd();
 		if (_boardRef != null) await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, _tree.CurrentNode.Move);
 		await QueryStatsForCurrentPositionAsync();
@@ -435,7 +690,15 @@
 		bool isWhiteTurn = _tree.CurrentNode.Position.ActiveColor == PieceColor.White;
 		string turnColor = isWhiteTurn ? "white" : "black";
 
-		var repMoves = await RepertoireService.GetMovesForPositionAsync(fen, turnColor);
+		// Use the color filter when set, otherwise use the turn color
+		string? annotationColor = _colorFilter switch
+		{
+			"white" => "white",
+			"black" => "black",
+			_ => turnColor
+		};
+
+		var repMoves = await RepertoireService.GetMovesForPositionAsync(fen, annotationColor);
 
 		foreach (var m in _currentStats.CandidateMoves)
 		{
@@ -507,6 +770,428 @@
 		_showNoteModal = false;
 	}
 
+	// =========================================================
+	// Save Line
+	// =========================================================
+
+	private void OpenSaveLineModal()
+	{
+		// Build a preview of the move sequence from the game tree
+		var moves = new List<string>();
+		var node = _tree.Root;
+		while (node.Children.Count > 0)
+		{
+			node = node.Children[0];
+			moves.Add(node.San);
+		}
+
+		if (moves.Count == 0) return;
+
+		// Build preview string like "1. e4 e5 2. Nf3 Nc6 3. Bb5"
+		var sb = new System.Text.StringBuilder();
+		for (int i = 0; i < moves.Count; i++)
+		{
+			if (i % 2 == 0)
+			{
+				sb.Append($"{(i / 2) + 1}. ");
+			}
+			sb.Append(moves[i]);
+			if (i < moves.Count - 1) sb.Append(' ');
+		}
+
+		_saveLineMovePreview = sb.ToString();
+		_saveLineName = ActiveOpeningName != "Uncommon Opening" ? ActiveOpeningName : "";
+		_saveLineColor = _colorFilter == "black" ? "black" : "white";
+		_saveLineDescription = "";
+		_showSaveLineModal = true;
+	}
+
+	private async Task SaveLineAsync()
+	{
+		if (string.IsNullOrWhiteSpace(_saveLineName)) return;
+
+		var lineMoves = new List<RepertoireLineMove>();
+		var node = _tree.Root;
+		int moveNum = 1;
+		while (node.Children.Count > 0)
+		{
+			var parentPos = node.Position;
+			node = node.Children[0];
+			string fen = FenParser.ToFen(parentPos);
+			string uci = node.Move.ToUci();
+
+			lineMoves.Add(new RepertoireLineMove
+			{
+				Fen = RepertoireService.NormalizeFen(fen),
+				MoveSan = node.San,
+				MoveUci = uci,
+				MoveNumber = moveNum
+			});
+			moveNum++;
+		}
+
+		var line = new RepertoireLine
+		{
+			Name = _saveLineName.Trim(),
+			Color = _saveLineColor,
+			Description = _saveLineDescription.Trim(),
+			Moves = lineMoves
+		};
+
+		await RepertoireService.SaveLineAsync(line);
+		_showSaveLineModal = false;
+		_lines = await RepertoireService.GetLinesAsync();
+		StateHasChanged();
+	}
+
+	private void PromptDeleteLine(RepertoireLine line)
+	{
+		_lineToDelete = line;
+	}
+
+	private async Task ConfirmDeleteLineAsync()
+	{
+		if (_lineToDelete == null) return;
+		if (_replayingLineId == _lineToDelete.Id)
+		{
+			StopReplay();
+		}
+		await RepertoireService.DeleteLineAsync(_lineToDelete.Id);
+		_lines = await RepertoireService.GetLinesAsync();
+		_lineToDelete = null;
+		StateHasChanged();
+	}
+
+	private void StopReplay()
+	{
+		if (_replayCts != null)
+		{
+			try
+			{
+				_replayCts.Cancel();
+				_replayCts.Dispose();
+			}
+			catch { }
+			_replayCts = null;
+		}
+		_isReplaying = false;
+	}
+
+	private async Task ReplayLine(RepertoireLine line)
+	{
+		if (_isReplaying && _replayingLineId == line.Id)
+		{
+			StopReplay();
+			return;
+		}
+
+		StopReplay();
+
+		_replayCts = new CancellationTokenSource();
+		var token = _replayCts.Token;
+
+		_replayingLineId = line.Id;
+		_isReplaying = true;
+		_orientation = line.Color;
+
+		_tree = new GameTree();
+		if (_boardRef != null)
+		{
+			await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, null);
+		}
+		StateHasChanged();
+
+		try
+		{
+			await Task.Delay(400, token);
+
+			foreach (var m in line.Moves)
+			{
+				if (token.IsCancellationRequested) break;
+
+				var move = SanParser.ParseSan(_tree.CurrentNode.Position, m.MoveSan);
+				if (move.IsEmpty) break;
+
+				_tree.AddMove(move);
+				if (_boardRef != null)
+				{
+					await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, move);
+				}
+
+				_ = AppearanceService.PlaySoundAsync(move.IsCapture ? ChessSoundType.Capture : ChessSoundType.Move);
+				StateHasChanged();
+
+				await Task.Delay(750, token);
+			}
+
+			if (!token.IsCancellationRequested)
+			{
+				await QueryStatsForCurrentPositionAsync();
+			}
+		}
+		catch (OperationCanceledException)
+		{
+			// Replay stopped or cancelled by user action
+		}
+		finally
+		{
+			_isReplaying = false;
+			StateHasChanged();
+		}
+	}
+
+	// =========================================================
+	// Training Mode
+	// =========================================================
+
+	private async Task StartTraining(RepertoireLine line)
+	{
+		StopReplay();
+		_trainingLine = line;
+		_trainingMode = true;
+		_trainingComplete = false;
+		_trainingCorrect = 0;
+		_trainingFeedback = null;
+		_trainingWaitingForNext = false;
+
+		// Build the game tree for this line
+		_tree = new GameTree();
+		foreach (var m in line.Moves)
+		{
+			var move = SanParser.ParseSan(_tree.CurrentNode.Position, m.MoveSan);
+			if (move.IsEmpty) break;
+			_tree.AddMove(move);
+		}
+
+		// Determine which moves are "player" moves (the color the line is for)
+		bool playerIsWhite = string.Equals(line.Color, "white", StringComparison.OrdinalIgnoreCase);
+		_trainingPlayerMoveIndices = new List<int>();
+		for (int i = 0; i < line.Moves.Count; i++)
+		{
+			// Move i is at index i in the line.
+			// Even indices (0, 2, 4...) are white's moves, odd are black's
+			bool isWhiteMove = (i % 2 == 0);
+			if (isWhiteMove == playerIsWhite)
+			{
+				_trainingPlayerMoveIndices.Add(i);
+			}
+		}
+
+		_trainingTotalPositions = _trainingPlayerMoveIndices.Count;
+		if (_trainingTotalPositions == 0)
+		{
+			_trainingMode = false;
+			return;
+		}
+
+		_trainingPlayerMoveIdx = 0;
+		_trainingCurrentStep = 0;
+		_orientation = line.Color;
+
+		await SetupTrainingPosition();
+	}
+
+	private async Task SetupTrainingPosition()
+	{
+		if (_trainingLine == null || _trainingPlayerMoveIdx >= _trainingPlayerMoveIndices.Count)
+		{
+			_trainingComplete = true;
+			StateHasChanged();
+			return;
+		}
+
+		int moveIdx = _trainingPlayerMoveIndices[_trainingPlayerMoveIdx];
+
+		// Navigate the tree to the position BEFORE this move
+		_tree.GoToStart();
+		for (int i = 0; i < moveIdx; i++)
+		{
+			_tree.GoForward();
+		}
+
+		_trainingFeedback = null;
+		_trainingWaitingForNext = false;
+
+		if (_boardRef != null)
+		{
+			await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, _tree.CurrentNode.IsRoot ? null : _tree.CurrentNode.Move);
+		}
+		StateHasChanged();
+	}
+
+	private async Task HandleTrainingMove(Move move)
+	{
+		if (_trainingComplete || _trainingWaitingForNext || _trainingLine == null) return;
+		if (_trainingPlayerMoveIdx >= _trainingPlayerMoveIndices.Count) return;
+
+		int moveIdx = _trainingPlayerMoveIndices[_trainingPlayerMoveIdx];
+		string expectedSan = _trainingLine.Moves[moveIdx].MoveSan;
+		string playedSan = SanParser.ToSan(_tree.CurrentNode.Position, move);
+
+		if (string.Equals(playedSan, expectedSan, StringComparison.OrdinalIgnoreCase))
+		{
+			// Correct!
+			_trainingCorrect++;
+			_trainingFeedback = Loc["Rep_TrainCorrect"];
+			_trainingFeedbackCorrect = true;
+
+			_ = AppearanceService.PlaySoundAsync(move.IsCapture ? ChessSoundType.Capture : ChessSoundType.Move);
+
+			_tree.AddMove(move);
+			if (_boardRef != null)
+			{
+				await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, move);
+			}
+
+			_trainingWaitingForNext = true;
+			StateHasChanged();
+
+			await Task.Delay(800);
+
+			// Auto-play opponent's next move(s) up to the next player move
+			await AdvanceToNextTrainingPosition();
+		}
+		else
+		{
+			// Wrong
+			_trainingFeedback = string.Format(Loc["Rep_TrainWrong"], expectedSan);
+			_trainingFeedbackCorrect = false;
+			_trainingWaitingForNext = true;
+
+			// Revert board to position before wrong move
+			if (_boardRef != null)
+			{
+				await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, _tree.CurrentNode.IsRoot ? null : _tree.CurrentNode.Move);
+			}
+
+			StateHasChanged();
+
+			await Task.Delay(1500);
+
+			// Show the correct move and advance
+			var correctMove = SanParser.ParseSan(_tree.CurrentNode.Position, expectedSan);
+			if (!correctMove.IsEmpty)
+			{
+				_ = AppearanceService.PlaySoundAsync(correctMove.IsCapture ? ChessSoundType.Capture : ChessSoundType.Move);
+				_tree.AddMove(correctMove);
+				if (_boardRef != null)
+				{
+					await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, correctMove);
+				}
+			}
+
+			await Task.Delay(600);
+			await AdvanceToNextTrainingPosition();
+		}
+	}
+
+	private async Task AdvanceToNextTrainingPosition()
+	{
+		_trainingPlayerMoveIdx++;
+		_trainingCurrentStep++;
+
+		if (_trainingPlayerMoveIdx >= _trainingPlayerMoveIndices.Count)
+		{
+			_trainingComplete = true;
+			_ = AppearanceService.PlaySoundAsync(ChessSoundType.Victory);
+			StateHasChanged();
+			return;
+		}
+
+		// Auto-play opponent moves between the current position and the next player position
+		int nextMoveIdx = _trainingPlayerMoveIndices[_trainingPlayerMoveIdx];
+		int currentTreeDepth = GetTreeDepth();
+		while (currentTreeDepth < nextMoveIdx)
+		{
+			if (currentTreeDepth < _trainingLine!.Moves.Count)
+			{
+				string opponentSan = _trainingLine.Moves[currentTreeDepth].MoveSan;
+				var opponentMove = SanParser.ParseSan(_tree.CurrentNode.Position, opponentSan);
+				if (opponentMove.IsEmpty) break;
+				_tree.AddMove(opponentMove);
+				if (_boardRef != null)
+				{
+					await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, opponentMove);
+				}
+				_ = AppearanceService.PlaySoundAsync(opponentMove.IsCapture ? ChessSoundType.Capture : ChessSoundType.Move);
+				await Task.Delay(400);
+			}
+			else
+			{
+				break;
+			}
+			currentTreeDepth = GetTreeDepth();
+		}
+
+		_trainingFeedback = null;
+		_trainingWaitingForNext = false;
+
+		if (_boardRef != null)
+		{
+			await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, _tree.CurrentNode.IsRoot ? null : _tree.CurrentNode.Move);
+		}
+		StateHasChanged();
+	}
+
+	private int GetTreeDepth()
+	{
+		int depth = 0;
+		var node = _tree.CurrentNode;
+		while (node.Parent != null)
+		{
+			depth++;
+			node = node.Parent;
+		}
+		return depth;
+	}
+
+	private async Task ShowTrainingAnswer()
+	{
+		if (_trainingComplete || _trainingWaitingForNext || _trainingLine == null) return;
+		if (_trainingPlayerMoveIdx >= _trainingPlayerMoveIndices.Count) return;
+
+		int moveIdx = _trainingPlayerMoveIndices[_trainingPlayerMoveIdx];
+		string expectedSan = _trainingLine.Moves[moveIdx].MoveSan;
+
+		_trainingFeedback = string.Format(Loc["Rep_TrainWrong"], expectedSan);
+		_trainingFeedbackCorrect = false;
+		_trainingWaitingForNext = true;
+		StateHasChanged();
+
+		var correctMove = SanParser.ParseSan(_tree.CurrentNode.Position, expectedSan);
+		if (!correctMove.IsEmpty)
+		{
+			_ = AppearanceService.PlaySoundAsync(correctMove.IsCapture ? ChessSoundType.Capture : ChessSoundType.Move);
+			_tree.AddMove(correctMove);
+			if (_boardRef != null)
+			{
+				await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, correctMove);
+			}
+		}
+
+		await Task.Delay(1200);
+		await AdvanceToNextTrainingPosition();
+	}
+
+	private async Task RestartTraining()
+	{
+		if (_trainingLine != null)
+		{
+			await StartTraining(_trainingLine);
+		}
+	}
+
+	private async Task ExitTraining()
+	{
+		StopReplay();
+		_trainingMode = false;
+		_trainingLine = null;
+		_trainingFeedback = null;
+		_tree = new GameTree();
+		if (_boardRef != null) await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, null);
+		await QueryStatsForCurrentPositionAsync();
+	}
+
 	private void OpenGameInAnalysis(GameHeader game)
 	{
 		Workspace.CreateAnalysisTab(
@@ -539,6 +1224,7 @@
 
 	public void Dispose()
 	{
+		StopReplay();
 		Loc.OnLanguageChanged -= StateHasChanged;
 		RepertoireService.OnRepertoireChanged -= HandleRepertoireChanged;
 		DatabaseService.OnActiveDatabaseChanged -= HandleActiveDatabaseChanged;

@@ -7,7 +7,7 @@ namespace Caissalytics.Data;
 public class RepertoireService : IRepertoireService
 {
     private readonly string _repertoireFilePath;
-    private RepertoireTree _tree = new();
+    private RepertoireCollection _collection = new();
     private readonly object _lock = new();
 
     public event Action? OnRepertoireChanged;
@@ -27,7 +27,7 @@ public class RepertoireService : IRepertoireService
     {
         lock (_lock)
         {
-            return Task.FromResult(CloneTree(_tree));
+            return Task.FromResult(CloneTree(_collection));
         }
     }
 
@@ -36,8 +36,8 @@ public class RepertoireService : IRepertoireService
         lock (_lock)
         {
             var list = string.Equals(move.Color, "black", StringComparison.OrdinalIgnoreCase)
-                ? _tree.BlackMoves
-                : _tree.WhiteMoves;
+                ? _collection.BlackMoves
+                : _collection.WhiteMoves;
 
             string cleanFen = NormalizeFen(move.Fen);
             move.Fen = cleanFen;
@@ -69,8 +69,8 @@ public class RepertoireService : IRepertoireService
         lock (_lock)
         {
             var list = string.Equals(color, "black", StringComparison.OrdinalIgnoreCase)
-                ? _tree.BlackMoves
-                : _tree.WhiteMoves;
+                ? _collection.BlackMoves
+                : _collection.WhiteMoves;
 
             string cleanFen = NormalizeFen(fen);
             list.RemoveAll(m =>
@@ -93,12 +93,12 @@ public class RepertoireService : IRepertoireService
 
             if (color == null || string.Equals(color, "white", StringComparison.OrdinalIgnoreCase))
             {
-                result.AddRange(_tree.WhiteMoves.Where(m => string.Equals(NormalizeFen(m.Fen), cleanFen, StringComparison.OrdinalIgnoreCase)));
+                result.AddRange(_collection.WhiteMoves.Where(m => string.Equals(NormalizeFen(m.Fen), cleanFen, StringComparison.OrdinalIgnoreCase)));
             }
 
             if (color == null || string.Equals(color, "black", StringComparison.OrdinalIgnoreCase))
             {
-                result.AddRange(_tree.BlackMoves.Where(m => string.Equals(NormalizeFen(m.Fen), cleanFen, StringComparison.OrdinalIgnoreCase)));
+                result.AddRange(_collection.BlackMoves.Where(m => string.Equals(NormalizeFen(m.Fen), cleanFen, StringComparison.OrdinalIgnoreCase)));
             }
 
             return Task.FromResult(result);
@@ -110,7 +110,7 @@ public class RepertoireService : IRepertoireService
         lock (_lock)
         {
             bool isBlack = string.Equals(color, "black", StringComparison.OrdinalIgnoreCase);
-            var moves = isBlack ? _tree.BlackMoves : _tree.WhiteMoves;
+            var moves = isBlack ? _collection.BlackMoves : _collection.WhiteMoves;
 
             var sb = new StringBuilder();
             sb.AppendLine($"[Event \"Caissalytics Personal {(isBlack ? "Black" : "White")} Repertoire\"]");
@@ -132,6 +132,80 @@ public class RepertoireService : IRepertoireService
         }
     }
 
+    public Task<List<RepertoireLine>> GetLinesAsync(string? color = null)
+    {
+        lock (_lock)
+        {
+            var lines = _collection.Lines;
+            if (!string.IsNullOrEmpty(color))
+            {
+                lines = lines.Where(l => string.Equals(l.Color, color, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+            return Task.FromResult(lines.Select(l => CloneLine(l)).ToList());
+        }
+    }
+
+    public Task SaveLineAsync(RepertoireLine line)
+    {
+        lock (_lock)
+        {
+            var existing = _collection.Lines.FirstOrDefault(l => l.Id == line.Id);
+            if (existing != null)
+            {
+                existing.Name = line.Name;
+                existing.Color = line.Color;
+                existing.Description = line.Description;
+                existing.Moves = line.Moves.Select(m => new RepertoireLineMove
+                {
+                    Fen = m.Fen, MoveSan = m.MoveSan, MoveUci = m.MoveUci, MoveNumber = m.MoveNumber
+                }).ToList();
+            }
+            else
+            {
+                _collection.Lines.Add(line);
+            }
+            SaveRepertoire();
+        }
+        OnRepertoireChanged?.Invoke();
+        return Task.CompletedTask;
+    }
+
+    public Task DeleteLineAsync(string lineId)
+    {
+        lock (_lock)
+        {
+            _collection.Lines.RemoveAll(l => l.Id == lineId);
+            SaveRepertoire();
+        }
+        OnRepertoireChanged?.Invoke();
+        return Task.CompletedTask;
+    }
+
+    public Task<RepertoireLine?> GetLineByIdAsync(string lineId)
+    {
+        lock (_lock)
+        {
+            var line = _collection.Lines.FirstOrDefault(l => l.Id == lineId);
+            return Task.FromResult(line != null ? CloneLine(line) : null);
+        }
+    }
+
+    private static RepertoireLine CloneLine(RepertoireLine src)
+    {
+        return new RepertoireLine
+        {
+            Id = src.Id,
+            Name = src.Name,
+            Color = src.Color,
+            Description = src.Description,
+            CreatedAt = src.CreatedAt,
+            Moves = src.Moves.Select(m => new RepertoireLineMove
+            {
+                Fen = m.Fen, MoveSan = m.MoveSan, MoveUci = m.MoveUci, MoveNumber = m.MoveNumber
+            }).ToList()
+        };
+    }
+
     private void LoadRepertoire()
     {
         lock (_lock)
@@ -141,10 +215,31 @@ public class RepertoireService : IRepertoireService
                 try
                 {
                     string json = File.ReadAllText(_repertoireFilePath);
-                    var t = JsonSerializer.Deserialize<RepertoireTree>(json);
-                    if (t != null)
+                    
+                    // Try new format first
+                    var collection = JsonSerializer.Deserialize<RepertoireCollection>(json);
+                    if (collection != null)
                     {
-                        _tree = t;
+                        _collection = collection;
+                        return;
+                    }
+                }
+                catch { }
+                
+                try
+                {
+                    // Try legacy RepertoireTree format
+                    string json = File.ReadAllText(_repertoireFilePath);
+                    var legacy = JsonSerializer.Deserialize<RepertoireTree>(json);
+                    if (legacy != null)
+                    {
+                        _collection = new RepertoireCollection
+                        {
+                            WhiteMoves = legacy.WhiteMoves,
+                            BlackMoves = legacy.BlackMoves,
+                            Lines = new()
+                        };
+                        SaveRepertoire();
                         return;
                     }
                 }
@@ -162,7 +257,7 @@ public class RepertoireService : IRepertoireService
         string startFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
         // White: 1. e4 (King's Pawn Opening)
-        _tree.WhiteMoves.Add(new RepertoireMove
+        _collection.WhiteMoves.Add(new RepertoireMove
         {
             Fen = NormalizeFen(startFen),
             MoveSan = "e4",
@@ -173,7 +268,7 @@ public class RepertoireService : IRepertoireService
 
         // Black: 1... c5 (Sicilian Defense) against 1. e4
         string e4Fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1";
-        _tree.BlackMoves.Add(new RepertoireMove
+        _collection.BlackMoves.Add(new RepertoireMove
         {
             Fen = NormalizeFen(e4Fen),
             MoveSan = "c5",
@@ -187,7 +282,7 @@ public class RepertoireService : IRepertoireService
     {
         try
         {
-            string json = JsonSerializer.Serialize(_tree, new JsonSerializerOptions { WriteIndented = true });
+            string json = JsonSerializer.Serialize(_collection, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(_repertoireFilePath, json);
         }
         catch (Exception ex)
@@ -210,31 +305,19 @@ public class RepertoireService : IRepertoireService
         return parts[0];
     }
 
-    private static RepertoireTree CloneTree(RepertoireTree src)
+    private static RepertoireTree CloneTree(RepertoireCollection src)
     {
         return new RepertoireTree
         {
             WhiteMoves = src.WhiteMoves.Select(m => new RepertoireMove
             {
-                Id = m.Id,
-                Fen = m.Fen,
-                MoveSan = m.MoveSan,
-                MoveUci = m.MoveUci,
-                Color = m.Color,
-                Status = m.Status,
-                Note = m.Note,
-                CreatedAt = m.CreatedAt
+                Id = m.Id, Fen = m.Fen, MoveSan = m.MoveSan, MoveUci = m.MoveUci,
+                Color = m.Color, Status = m.Status, Note = m.Note, CreatedAt = m.CreatedAt
             }).ToList(),
             BlackMoves = src.BlackMoves.Select(m => new RepertoireMove
             {
-                Id = m.Id,
-                Fen = m.Fen,
-                MoveSan = m.MoveSan,
-                MoveUci = m.MoveUci,
-                Color = m.Color,
-                Status = m.Status,
-                Note = m.Note,
-                CreatedAt = m.CreatedAt
+                Id = m.Id, Fen = m.Fen, MoveSan = m.MoveSan, MoveUci = m.MoveUci,
+                Color = m.Color, Status = m.Status, Note = m.Note, CreatedAt = m.CreatedAt
             }).ToList()
         };
     }

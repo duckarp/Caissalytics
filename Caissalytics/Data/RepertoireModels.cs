@@ -20,6 +20,31 @@ public class RepertoireTree
     public List<RepertoireMove> BlackMoves { get; set; } = new();
 }
 
+public class RepertoireLine
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Name { get; set; } = string.Empty;
+    public string Color { get; set; } = "white"; // "white" or "black"
+    public string Description { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public List<RepertoireLineMove> Moves { get; set; } = new();
+}
+
+public class RepertoireLineMove
+{
+    public string Fen { get; set; } = string.Empty;
+    public string MoveSan { get; set; } = string.Empty;
+    public string MoveUci { get; set; } = string.Empty;
+    public int MoveNumber { get; set; }
+}
+
+public class RepertoireCollection
+{
+    public List<RepertoireMove> WhiteMoves { get; set; } = new();
+    public List<RepertoireMove> BlackMoves { get; set; } = new();
+    public List<RepertoireLine> Lines { get; set; } = new();
+}
+
 public enum TreeSourceType
 {
     ActiveDatabase,

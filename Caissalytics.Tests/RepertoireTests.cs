@@ -140,4 +140,194 @@ public class RepertoireTests
         Assert.Equal(2882, game.White.Rating);
         Assert.Equal(2024, game.Year);
     }
+
+    [Fact]
+    public async Task RepertoireService_SaveAndGetLine_PersistsNamedLine()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), "rep_test_" + Guid.NewGuid().ToString("N"));
+        var service = new RepertoireService(tempDir);
+
+        var line = new RepertoireLine
+        {
+            Name = "Spanish Opening, Morphy Defense",
+            Color = "white",
+            Description = "Classical main line",
+            Moves = new List<RepertoireLineMove>
+            {
+                new() { Fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -", MoveSan = "e4", MoveUci = "e2e4", MoveNumber = 1 },
+                new() { Fen = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -", MoveSan = "e5", MoveUci = "e7e5", MoveNumber = 2 },
+                new() { Fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -", MoveSan = "Nf3", MoveUci = "g1f3", MoveNumber = 3 },
+                new() { Fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq -", MoveSan = "Nc6", MoveUci = "b8c6", MoveNumber = 4 },
+                new() { Fen = "r1bqkbnr/pppp1ppp/2n5/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R w KQkq -", MoveSan = "Bb5", MoveUci = "f1b5", MoveNumber = 5 },
+            }
+        };
+
+        await service.SaveLineAsync(line);
+
+        var lines = await service.GetLinesAsync();
+        Assert.Single(lines);
+        Assert.Equal("Spanish Opening, Morphy Defense", lines[0].Name);
+        Assert.Equal("white", lines[0].Color);
+        Assert.Equal(5, lines[0].Moves.Count);
+        Assert.Equal("e4", lines[0].Moves[0].MoveSan);
+        Assert.Equal("Bb5", lines[0].Moves[4].MoveSan);
+    }
+
+    [Fact]
+    public async Task RepertoireService_GetLinesByColor_FiltersCorrectly()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), "rep_test_" + Guid.NewGuid().ToString("N"));
+        var service = new RepertoireService(tempDir);
+
+        await service.SaveLineAsync(new RepertoireLine
+        {
+            Name = "Italian Game",
+            Color = "white",
+            Moves = new List<RepertoireLineMove>
+            {
+                new() { Fen = "start", MoveSan = "e4", MoveUci = "e2e4", MoveNumber = 1 }
+            }
+        });
+
+        await service.SaveLineAsync(new RepertoireLine
+        {
+            Name = "Sicilian Defense",
+            Color = "black",
+            Moves = new List<RepertoireLineMove>
+            {
+                new() { Fen = "after_e4", MoveSan = "c5", MoveUci = "c7c5", MoveNumber = 1 }
+            }
+        });
+
+        var whiteLines = await service.GetLinesAsync("white");
+        Assert.Single(whiteLines);
+        Assert.Equal("Italian Game", whiteLines[0].Name);
+
+        var blackLines = await service.GetLinesAsync("black");
+        Assert.Single(blackLines);
+        Assert.Equal("Sicilian Defense", blackLines[0].Name);
+
+        var allLines = await service.GetLinesAsync();
+        Assert.Equal(2, allLines.Count);
+    }
+
+    [Fact]
+    public async Task RepertoireService_DeleteLine_RemovesLine()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), "rep_test_" + Guid.NewGuid().ToString("N"));
+        var service = new RepertoireService(tempDir);
+
+        var line = new RepertoireLine
+        {
+            Name = "Test Line",
+            Color = "white",
+            Moves = new List<RepertoireLineMove>
+            {
+                new() { Fen = "start", MoveSan = "e4", MoveUci = "e2e4", MoveNumber = 1 }
+            }
+        };
+
+        await service.SaveLineAsync(line);
+        var linesBefore = await service.GetLinesAsync();
+        Assert.Single(linesBefore);
+
+        await service.DeleteLineAsync(line.Id);
+        var linesAfter = await service.GetLinesAsync();
+        Assert.Empty(linesAfter);
+    }
+
+    [Fact]
+    public async Task RepertoireService_GetLineById_ReturnsCorrectLine()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), "rep_test_" + Guid.NewGuid().ToString("N"));
+        var service = new RepertoireService(tempDir);
+
+        var line = new RepertoireLine
+        {
+            Name = "French Defense",
+            Color = "black",
+            Description = "Solid defense against 1.e4",
+            Moves = new List<RepertoireLineMove>
+            {
+                new() { Fen = "after_e4", MoveSan = "e6", MoveUci = "e7e6", MoveNumber = 1 }
+            }
+        };
+
+        await service.SaveLineAsync(line);
+
+        var retrieved = await service.GetLineByIdAsync(line.Id);
+        Assert.NotNull(retrieved);
+        Assert.Equal("French Defense", retrieved.Name);
+        Assert.Equal("Solid defense against 1.e4", retrieved.Description);
+
+        var nonExistent = await service.GetLineByIdAsync("nonexistent");
+        Assert.Null(nonExistent);
+    }
+
+    [Fact]
+    public async Task RepertoireService_UpdateLine_ModifiesExisting()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), "rep_test_" + Guid.NewGuid().ToString("N"));
+        var service = new RepertoireService(tempDir);
+
+        var line = new RepertoireLine
+        {
+            Name = "Original Name",
+            Color = "white",
+            Moves = new List<RepertoireLineMove>
+            {
+                new() { Fen = "start", MoveSan = "e4", MoveUci = "e2e4", MoveNumber = 1 }
+            }
+        };
+
+        await service.SaveLineAsync(line);
+
+        // Update the same line (same ID)
+        line.Name = "Updated Name";
+        line.Description = "Now with description";
+        await service.SaveLineAsync(line);
+
+        var lines = await service.GetLinesAsync();
+        Assert.Single(lines);
+        Assert.Equal("Updated Name", lines[0].Name);
+        Assert.Equal("Now with description", lines[0].Description);
+    }
+
+    [Fact]
+    public async Task RepertoireService_LegacyMigration_PreservesMovesAndAddsLines()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), "rep_test_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+
+        // Write a legacy-format file (RepertoireTree without Lines)
+        var legacyTree = new RepertoireTree
+        {
+            WhiteMoves = new List<RepertoireMove>
+            {
+                new() { Fen = "start_fen", MoveSan = "d4", Color = "white", Status = "main", Note = "QGD" }
+            },
+            BlackMoves = new List<RepertoireMove>
+            {
+                new() { Fen = "after_e4", MoveSan = "c5", Color = "black", Status = "main", Note = "Sicilian" }
+            }
+        };
+
+        string json = JsonSerializer.Serialize(legacyTree, new JsonSerializerOptions { WriteIndented = true });
+        File.WriteAllText(Path.Combine(tempDir, "repertoire_data.json"), json);
+
+        // Load with new service — should migrate
+        var service = new RepertoireService(tempDir);
+
+        // Individual moves should still be there
+        var whiteMoves = await service.GetMovesForPositionAsync("start_fen", "white");
+        Assert.Contains(whiteMoves, m => m.MoveSan == "d4");
+
+        var blackMoves = await service.GetMovesForPositionAsync("after_e4", "black");
+        Assert.Contains(blackMoves, m => m.MoveSan == "c5");
+
+        // Lines list should be empty (legacy had no lines)
+        var lines = await service.GetLinesAsync();
+        Assert.Empty(lines);
+    }
 }
+
