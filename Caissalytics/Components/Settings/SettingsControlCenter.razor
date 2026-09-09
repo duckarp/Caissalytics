@@ -615,7 +615,7 @@
 						<div class="update-info-card">
 							<div class="update-info-label">Installed Version</div>
 							<div class="update-info-value">
-								<span class="version-badge version-badge-current">v@_currentVersion</span>
+								<span class="version-badge version-badge-current">v@(_currentVersion)</span>
 								<span class="version-os-badge">@RuntimeInformation.OSDescription</span>
 							</div>
 						</div>
@@ -629,7 +629,7 @@
 								}
 								else if (_latestUpdate != null && _latestUpdate.IsUpdateAvailable)
 								{
-									<span class="update-status-available">New version v@_latestUpdate.LatestVersion available!</span>
+									<span class="update-status-available">New version v@(_latestUpdate.LatestVersion) available!</span>
 								}
 								else
 								{

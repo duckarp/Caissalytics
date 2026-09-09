@@ -15,7 +15,7 @@
 		@if (_availableUpdate != null && _availableUpdate.IsUpdateAvailable)
 		{
 			<button class="header-update-pill"
-					title="New version v@_availableUpdate.LatestVersion is available! Click to update."
+					title="New version v@(_availableUpdate.LatestVersion) is available! Click to update."
 					@onclick="() => _showUpdateDialog = true">
 				<span class="update-pill-icon">🚀</span>
 				<span class="update-pill-text">@Loc["Nav_Update", _availableUpdate.LatestVersion]</span>
