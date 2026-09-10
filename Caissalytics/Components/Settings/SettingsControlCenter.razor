@@ -201,17 +201,6 @@
 							<input class="field-input" placeholder="e.g. ŠK Považské Podhradie" @bind="_clubSettings.ClubName" @bind:event="oninput" />
 							<span class="field-hint">@Loc["Club_ClubName_Hint"]</span>
 						</div>
-
-						<div class="form-field-block form-field-full">
-							<label class="field-label">@Loc["Club_CoachInfo"]</label>
-							<div class="input-with-link-row">
-								<input class="field-input" readonly value="@(string.IsNullOrWhiteSpace(_profile.FullName) || _profile.FullName == "Anonymous Player" ? "(Not set in profile)" : _profile.FullName)" style="opacity: 0.85; background: var(--bg-surface-elevated);" />
-								<button type="button" class="btn-secondary btn-sm" @onclick='() => SetCategory("profile")' style="white-space: nowrap;">
-									<span>@Loc["Club_EditProfile"]</span>
-								</button>
-							</div>
-							<span class="field-hint">@Loc["Club_CoachInfo_Hint"]</span>
-						</div>
 					</div>
 
 					<div class="form-action-bar">
