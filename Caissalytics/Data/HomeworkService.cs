@@ -4,14 +4,23 @@ namespace Caissalytics.Data;
 
 public class HomeworkService : IHomeworkService
 {
+    private readonly IUserProfileService? _profileService;
+    private readonly IChessClubService? _clubService;
     private readonly string _filePath;
     private readonly object _lock = new();
     private List<HomeworkSheet> _sheets = new();
 
     public event Action? OnSheetsChanged;
 
-    public HomeworkService(string? storageDirectory = null)
+    public HomeworkService(IUserProfileService? profileService = null, IChessClubService? clubService = null)
+        : this(null, profileService, clubService)
     {
+    }
+
+    public HomeworkService(string? storageDirectory, IUserProfileService? profileService = null, IChessClubService? clubService = null)
+    {
+        _profileService = profileService;
+        _clubService = clubService;
         string baseDir = storageDirectory ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Caissalytics");
@@ -101,13 +110,37 @@ public class HomeworkService : IHomeworkService
         return Task.FromResult(cloned);
     }
 
-    public Task<HomeworkSheet> CreateNewSheetAsync(string title, int exerciseCount = 6, string templateType = "mate_in_one")
+    public async Task<HomeworkSheet> CreateNewSheetAsync(string title, int exerciseCount = 6, string templateType = "mate_in_one")
     {
+        string coachName = "";
+        if (_profileService != null)
+        {
+            try
+            {
+                var profile = await _profileService.GetProfileAsync();
+                coachName = $"{profile.FirstName} {profile.LastName}".Trim();
+            }
+            catch { }
+        }
+
+        string clubName = "";
+        if (_clubService != null)
+        {
+            try
+            {
+                var club = await _clubService.GetSettingsAsync();
+                clubName = club.ClubName?.Trim() ?? "";
+            }
+            catch { }
+        }
+
         var sheet = new HomeworkSheet
         {
             Id = Guid.NewGuid().ToString("N"),
             Title = string.IsNullOrWhiteSpace(title) ? "Chess Tactics Worksheet" : title,
             Subtitle = "Find the best move in each position. Write down your solution and key defense.",
+            CoachName = coachName,
+            ClubName = clubName,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
             DiagramsPerRow = exerciseCount <= 4 ? 2 : 2
@@ -144,7 +177,7 @@ public class HomeworkService : IHomeworkService
         }
 
         OnSheetsChanged?.Invoke();
-        return Task.FromResult(sheet);
+        return sheet;
     }
 
     private void LoadSheets()

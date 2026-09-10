@@ -1,0 +1,553 @@
+@namespace Caissalytics.Components.Messages
+@using Caissalytics.Core
+@using Caissalytics.Data
+@inject ISkppIntegrationService SkppService
+@inject WorkspaceState Workspace
+@implements IDisposable
+
+<div class="messages-workbench-container">
+	@if (!_clubState.IsConnected)
+	{
+		<div class="messages-empty-state" style="margin: auto; max-width: 500px;">
+			<div class="empty-icon">🌐</div>
+			<h2>@Loc["Homework_Club_NotConnected"]</h2>
+			<p style="margin-bottom: 20px;">@Loc["Homework_Club_NotConnectedDesc"]</p>
+			<button type="button" class="btn-primary" @onclick='() => Workspace.CreateSettingsTab("club")'>
+				@Loc["Homework_Club_ConnectBtn"]
+			</button>
+		</div>
+	}
+	else
+	{
+		<div class="messages-layout">
+			<!-- Left Sidebar: Inbox List -->
+			<div class="messages-sidebar">
+				<div class="messages-sidebar-header">
+					<div class="messages-title-row">
+						<div class="messages-title-group">
+							<svg class="messages-header-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+								<polyline points="22,6 12,13 2,6"/>
+							</svg>
+							<h2>@Loc["Messages_Title"]</h2>
+						</div>
+						<div class="messages-header-actions">
+							<button type="button" class="btn-icon-transparent" title="@Loc["Messages_Refresh"]" @onclick="LoadMessagesAsync" disabled="@_isLoading">
+								<svg class="@(_isLoading ? "spin-icon" : "")" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M23 4v6h-6"/>
+									<path d="M1 20v-6h6"/>
+									<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+								</svg>
+							</button>
+							<button type="button" class="btn-new-message" @onclick="() => StartCompose()">
+								<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+									<line x1="12" y1="5" x2="12" y2="19"/>
+									<line x1="5" y1="12" x2="19" y2="12"/>
+								</svg>
+								<span>@Loc["Messages_NewMessage"]</span>
+							</button>
+						</div>
+					</div>
+
+					<div class="messages-search-box">
+						<input type="text"
+							   class="messages-search-input"
+							   placeholder="@Loc["Messages_SearchPlaceholder"]"
+							   @bind="_searchQuery"
+							   @bind:event="oninput" />
+					</div>
+
+					<div class="messages-filter-tabs">
+						<button type="button"
+								class="messages-filter-btn @(_filter == MessageFilter.All ? "active" : "")"
+								@onclick="() => _filter = MessageFilter.All">
+							@Loc["Messages_Filter_All"] (@_messages.Count)
+						</button>
+						<button type="button"
+								class="messages-filter-btn @(_filter == MessageFilter.Unread ? "active" : "")"
+								@onclick="() => _filter = MessageFilter.Unread">
+							@Loc["Messages_Filter_Unread"] (@_messages.Count(m => !m.IsRead))
+						</button>
+					</div>
+				</div>
+
+				<div class="messages-list">
+					@if (_isLoading)
+					{
+						<div style="padding: 24px; text-align: center; color: var(--text-muted, #9ca3af);">
+							<span>⏳ @Loc["Messages_Loading"]</span>
+						</div>
+					}
+					else if (FilteredMessages.Count == 0)
+					{
+						<div style="padding: 32px 16px; text-align: center; color: var(--text-muted, #9ca3af);">
+							<span style="font-size: 2rem; display: block; margin-bottom: 8px;">📭</span>
+							<p style="margin: 0; font-size: 0.88rem;">@Loc["Messages_NoMessages"]</p>
+						</div>
+					}
+					else
+					{
+						@foreach (var msg in FilteredMessages)
+						{
+							bool isSelected = !_isComposing && _selectedMessage?.Id == msg.Id;
+							string itemClass = "message-item" +
+								(isSelected ? " active" : "") +
+								(!msg.IsRead ? " unread" : "");
+
+							<div class="@itemClass" @onclick="() => SelectMessageAsync(msg)">
+								<div class="message-item-header">
+									<div class="message-sender">
+										@if (!msg.IsRead)
+										{
+											<span class="message-unread-dot" title="@Loc["Messages_UnreadTag"]"></span>
+										}
+										<span>@(string.IsNullOrWhiteSpace(msg.SenderName) ? Loc["Messages_System"] : msg.SenderName)</span>
+									</div>
+									<span class="message-date">@FormatDate(msg.CreatedAt)</span>
+								</div>
+								<div class="message-subject-line">@msg.Subject</div>
+								<div class="message-preview-line">@msg.Body</div>
+								<div>
+									@if (!string.IsNullOrEmpty(msg.TargetGroupName))
+									{
+										<span class="message-pill-badge pill-group">👥 @msg.TargetGroupName</span>
+									}
+									else if (msg.MessageType == "SystemNotification")
+									{
+										<span class="message-pill-badge pill-system">🔔 @Loc["Messages_System"]</span>
+									}
+									else
+									{
+										<span class="message-pill-badge pill-direct">💬 @Loc["Messages_Direct"]</span>
+									}
+								</div>
+							</div>
+						}
+					}
+				</div>
+			</div>
+
+			<!-- Right Pane: Detail View or Compose View -->
+			<div class="messages-content-pane">
+				@if (_isComposing)
+				{
+					<!-- Compose View -->
+					<div class="compose-container">
+						<h3 class="compose-title">
+							<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+								<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+							</svg>
+							<span>@(_isReplying ? Loc["Messages_ReplyTitle"] : Loc["Messages_NewMessage"])</span>
+						</h3>
+
+						@if (!string.IsNullOrEmpty(_sendError))
+						{
+							<div class="alert-box alert-danger" style="margin-bottom: 16px; padding: 10px 14px; border-radius: 6px; background: rgba(239, 68, 68, 0.15); border: 1px solid #ef4444; color: #fca5a5;">
+								⚠️ @_sendError
+							</div>
+						}
+
+						@if (!string.IsNullOrEmpty(_sendSuccess))
+						{
+							<div class="alert-box alert-success" style="margin-bottom: 16px; padding: 10px 14px; border-radius: 6px; background: rgba(16, 185, 129, 0.15); border: 1px solid #10b981; color: #6ee7b7;">
+								✓ @_sendSuccess
+							</div>
+						}
+
+						<div class="compose-form-group">
+							<label class="compose-label">@Loc["Messages_SendTo"]</label>
+							@if (_clubState.User?.Groups != null && _clubState.User.Groups.Count > 0)
+							{
+								<select class="compose-select" @bind="_composeGroupId">
+									@foreach (var g in _clubState.User.Groups)
+									{
+										<option value="@g.Id">
+											👥 @g.Name @(g.PrimaryCoach != null ? $"({Loc["Messages_Coach"]}: {g.PrimaryCoach.FullName})" : "")
+										</option>
+									}
+								</select>
+							}
+							else
+							{
+								<p style="font-size: 0.85rem; color: var(--text-muted, #9ca3af);">@Loc["Messages_NoGroupsAvailable"]</p>
+							}
+						</div>
+
+						<div class="compose-form-group">
+							<label class="compose-label">@Loc["Messages_Subject"]</label>
+							<input type="text"
+								   class="compose-input"
+								   placeholder="@Loc["Messages_SubjectPlaceholder"]"
+								   @bind="_composeSubject" />
+						</div>
+
+						<div class="compose-form-group">
+							<label class="compose-label">@Loc["Messages_Body"]</label>
+							<textarea class="compose-textarea"
+									  placeholder="@Loc["Messages_BodyPlaceholder"]"
+									  @bind="_composeBody"></textarea>
+						</div>
+
+						<div class="compose-actions">
+							<button type="button" class="btn-secondary" @onclick="CancelCompose">
+								@Loc["Common_Cancel"]
+							</button>
+							<button type="button" class="btn-primary btn-action-label" @onclick="SendMessageAsync" disabled="@_isSending">
+								@if (_isSending)
+								{
+									<svg class="spin-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+										<path d="M12 2a10 10 0 0 1 10 10"/>
+									</svg>
+									<span>@Loc["Messages_Sending"]</span>
+								}
+								else
+								{
+									<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<line x1="22" y1="2" x2="11" y2="13"/>
+										<polygon points="22 2 15 22 11 13 2 9 22 2"/>
+									</svg>
+									<span>@Loc["Messages_SendBtn"]</span>
+								}
+							</button>
+						</div>
+					</div>
+				}
+				else if (_selectedMessage != null)
+				{
+					<!-- Message Detail View -->
+					<div class="message-detail-container">
+						<div class="message-detail-header">
+							<h2 class="message-detail-subject">@_selectedMessage.Subject</h2>
+							<div class="message-detail-meta">
+								<div class="sender-card">
+									<div class="sender-avatar">
+										@(string.IsNullOrWhiteSpace(_selectedMessage.SenderName) ? "S" : _selectedMessage.SenderName[0].ToString().ToUpper())
+									</div>
+									<div class="sender-info-lines">
+										<span class="sender-name-full">
+											@(string.IsNullOrWhiteSpace(_selectedMessage.SenderName) ? Loc["Messages_System"] : _selectedMessage.SenderName)
+										</span>
+										<span class="message-timestamp-full">
+											@_selectedMessage.CreatedAt.ToLocalTime().ToString("f")
+										</span>
+									</div>
+								</div>
+
+								<div style="display: flex; gap: 8px;">
+									<button type="button" class="btn-reply-action" @onclick="() => StartReply(_selectedMessage)">
+										<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+											<polyline points="9 17 4 12 9 7"/>
+											<path d="M20 18v-2a4 4 0 0 0-4-4H4"/>
+										</svg>
+										<span>@Loc["Messages_ReplyBtn"]</span>
+									</button>
+								</div>
+							</div>
+						</div>
+
+						@if (_selectedMessage.ReferenceType == "CoachingTask" && _selectedMessage.ReferenceId.HasValue)
+						{
+							<div class="message-reference-card">
+								<div class="reference-card-info">
+									<span style="font-size: 1.5rem;">📝</span>
+									<div>
+										<strong style="font-size: 0.9rem; color: #fff;">@Loc["Messages_ReferenceHomeworkTitle"]</strong>
+										<div style="font-size: 0.8rem; color: var(--text-muted, #9ca3af);">
+											@Loc["Messages_ReferenceHomeworkDesc"]
+										</div>
+									</div>
+								</div>
+								<button type="button" class="btn-primary-tiny btn-action-label" @onclick="() => OpenReferencedTask(_selectedMessage.ReferenceId.Value)">
+									<span>@Loc["Messages_OpenReferenceTask"]</span>
+									<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<line x1="5" y1="12" x2="19" y2="12"/>
+										<polyline points="12 5 19 12 12 19"/>
+									</svg>
+								</button>
+							</div>
+						}
+
+						<div class="message-detail-body">@_selectedMessage.Body</div>
+					</div>
+				}
+				else
+				{
+					<!-- Empty selection -->
+					<div class="messages-empty-state">
+						<div class="empty-icon">📬</div>
+						<h3>@Loc["Messages_SelectToRead"]</h3>
+						<p>@Loc["Messages_SelectToReadDesc"]</p>
+					</div>
+				}
+			</div>
+		</div>
+	}
+</div>
+
+@code {
+	[Parameter] public ClubMessagesTab Tab { get; set; } = default!;
+
+	private enum MessageFilter { All, Unread }
+	private MessageFilter _filter = MessageFilter.All;
+
+	private SkppConnectionState _clubState = new();
+	private List<SkppMessageDto> _messages = new();
+	private SkppMessageDto? _selectedMessage;
+	private bool _isLoading = false;
+	private string _searchQuery = "";
+
+	// Compose state
+	private bool _isComposing = false;
+	private bool _isReplying = false;
+	private int? _composeGroupId;
+	private string? _composeRecipientUserId;
+	private string _composeSubject = "";
+	private string _composeBody = "";
+	private bool _isSending = false;
+	private string? _sendError;
+	private string? _sendSuccess;
+
+	private List<SkppMessageDto> FilteredMessages
+	{
+		get
+		{
+			var query = _messages.AsEnumerable();
+			if (_filter == MessageFilter.Unread)
+			{
+				query = query.Where(m => !m.IsRead);
+			}
+			if (!string.IsNullOrWhiteSpace(_searchQuery))
+			{
+				string q = _searchQuery.Trim();
+				query = query.Where(m =>
+					(m.Subject != null && m.Subject.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+					(m.SenderName != null && m.SenderName.Contains(q, StringComparison.OrdinalIgnoreCase)) ||
+					(m.Body != null && m.Body.Contains(q, StringComparison.OrdinalIgnoreCase)));
+			}
+			return query.OrderByDescending(m => m.CreatedAt).ToList();
+		}
+	}
+
+	protected override async Task OnInitializedAsync()
+	{
+		Loc.OnLanguageChanged += StateHasChanged;
+		SkppService.OnConnectionStateChanged += HandleConnectionStateChanged;
+		SkppService.OnUnreadCountChanged += HandleUnreadCountChanged;
+
+		_clubState = await SkppService.GetConnectionStateAsync();
+		if (_clubState.IsConnected)
+		{
+			await LoadMessagesAsync();
+
+			if (Tab.InitialMessageId.HasValue)
+			{
+				var target = _messages.FirstOrDefault(m => m.Id == Tab.InitialMessageId.Value);
+				if (target != null)
+				{
+					await SelectMessageAsync(target);
+				}
+			}
+		}
+	}
+
+	private async void HandleConnectionStateChanged()
+	{
+		await InvokeAsync(async () =>
+		{
+			_clubState = await SkppService.GetConnectionStateAsync();
+			if (_clubState.IsConnected)
+			{
+				await LoadMessagesAsync();
+			}
+			else
+			{
+				_messages.Clear();
+				_selectedMessage = null;
+			}
+			StateHasChanged();
+		});
+	}
+
+	private void HandleUnreadCountChanged(int count)
+	{
+		InvokeAsync(async () =>
+		{
+			// Background check detected updated unread count, reload messages to stay in sync
+			if (_clubState.IsConnected && !_isLoading)
+			{
+				await LoadMessagesAsync();
+			}
+		});
+	}
+
+	private async Task LoadMessagesAsync()
+	{
+		_isLoading = true;
+		StateHasChanged();
+
+		try
+		{
+			_messages = await SkppService.GetMessagesAsync(groupId: null, page: 1, pageSize: 100);
+
+			if (_selectedMessage != null)
+			{
+				_selectedMessage = _messages.FirstOrDefault(m => m.Id == _selectedMessage.Id) ?? _selectedMessage;
+			}
+			else if (_messages.Count > 0 && !_isComposing)
+			{
+				var first = _messages[0];
+				await SelectMessageAsync(first);
+			}
+		}
+		finally
+		{
+			_isLoading = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task SelectMessageAsync(SkppMessageDto msg)
+	{
+		_isComposing = false;
+		_selectedMessage = msg;
+		StateHasChanged();
+
+		if (!msg.IsRead)
+		{
+			msg.IsRead = true;
+			await SkppService.MarkMessageAsReadAsync(msg.Id);
+			StateHasChanged();
+		}
+	}
+
+	private void StartCompose()
+	{
+		_isComposing = true;
+		_isReplying = false;
+		_composeSubject = "";
+		_composeBody = "";
+		_sendError = null;
+		_sendSuccess = null;
+		_composeGroupId = _clubState.User?.Groups.FirstOrDefault()?.Id;
+		_composeRecipientUserId = null;
+		StateHasChanged();
+	}
+
+	private void StartReply(SkppMessageDto msg)
+	{
+		_isComposing = true;
+		_isReplying = true;
+		_composeSubject = msg.Subject.StartsWith("Re:", StringComparison.OrdinalIgnoreCase)
+			? msg.Subject
+			: $"Re: {msg.Subject}";
+		_composeBody = $"\n\n--- {msg.SenderName} ({msg.CreatedAt:g}) ---\n{msg.Body}";
+		_sendError = null;
+		_sendSuccess = null;
+
+		if (msg.ReferenceType == "CoachingGroup" && msg.ReferenceId.HasValue)
+		{
+			_composeGroupId = msg.ReferenceId.Value;
+		}
+		else
+		{
+			_composeGroupId = _clubState.User?.Groups.FirstOrDefault()?.Id;
+		}
+
+		_composeRecipientUserId = msg.SenderId;
+		StateHasChanged();
+	}
+
+	private void CancelCompose()
+	{
+		_isComposing = false;
+		_sendError = null;
+		_sendSuccess = null;
+		StateHasChanged();
+	}
+
+	private async Task SendMessageAsync()
+	{
+		if (string.IsNullOrWhiteSpace(_composeSubject))
+		{
+			_sendError = Loc["Messages_SubjectRequired"];
+			return;
+		}
+
+		if (string.IsNullOrWhiteSpace(_composeBody))
+		{
+			_sendError = Loc["Messages_BodyRequired"];
+			return;
+		}
+
+		_isSending = true;
+		_sendError = null;
+		_sendSuccess = null;
+		StateHasChanged();
+
+		try
+		{
+			var req = new SkppSendMessageRequest
+			{
+				CoachingGroupId = _composeGroupId,
+				RecipientUserId = _composeRecipientUserId,
+				Subject = _composeSubject.Trim(),
+				Body = _composeBody.Trim()
+			};
+
+			var result = await SkppService.SendMessageAsync(req);
+			if (result.Success)
+			{
+				_sendSuccess = Loc["Messages_SentSuccess"];
+				_isComposing = false;
+				await LoadMessagesAsync();
+
+				if (result.Message != null)
+				{
+					_selectedMessage = result.Message;
+				}
+			}
+			else
+			{
+				_sendError = result.ErrorMessage ?? "Failed to send message.";
+			}
+		}
+		catch (Exception ex)
+		{
+			_sendError = ex.Message;
+		}
+		finally
+		{
+			_isSending = false;
+			StateHasChanged();
+		}
+	}
+
+	private void OpenReferencedTask(int taskId)
+	{
+		Workspace.CreateClubHomeworkTab(taskId);
+	}
+
+	private static string FormatDate(DateTime dt)
+	{
+		var local = dt.ToLocalTime();
+		var now = DateTime.Now;
+		if (local.Date == now.Date)
+		{
+			return local.ToString("t");
+		}
+		if (local.Date == now.Date.AddDays(-1))
+		{
+			return "Yesterday";
+		}
+		return local.ToString("d");
+	}
+
+	public void Dispose()
+	{
+		Loc.OnLanguageChanged -= StateHasChanged;
+		SkppService.OnConnectionStateChanged -= HandleConnectionStateChanged;
+		SkppService.OnUnreadCountChanged -= HandleUnreadCountChanged;
+	}
+}

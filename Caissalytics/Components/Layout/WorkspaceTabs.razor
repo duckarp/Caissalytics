@@ -4,6 +4,7 @@
 @inject WorkspaceState Workspace
 @inject IDatabaseService DatabaseService
 @inject IUpdateService UpdateService
+@inject ISkppIntegrationService SkppService
 @implements IDisposable
 
 <header class="app-header">
@@ -40,11 +41,18 @@
 				<span class="header-db-name">@Loc["Nav_Database"]</span>
 			</button>
 		}
-		<button class="btn-secondary header-analytics-btn"
-				title="Personal Chess Analytics & Performance Insights"
-				@onclick="() => Workspace.CreateAnalyticsTab()">
-			<span>📊</span>
-			<span class="header-analytics-label">@Loc["Nav_Insights"]</span>
+		<button class="btn-secondary header-messages-btn @(_unreadMessagesCount > 0 ? "has-unread" : "")"
+				title="@Loc["Nav_Messages_Tooltip"]"
+				@onclick="() => Workspace.CreateMessagesTab()">
+			<svg class="header-btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+				<polyline points="22,6 12,13 2,6"/>
+			</svg>
+			<span class="header-messages-label">@Loc["Nav_Messages"]</span>
+			@if (_unreadMessagesCount > 0)
+			{
+				<span class="messages-unread-badge">@_unreadMessagesCount</span>
+			}
 		</button>
 		<button class="btn-secondary header-control-btn"
 				title="Open Settings & Control Center (User profile, engine management, sync accounts)"
@@ -64,7 +72,27 @@
 			string tabClass = isActive ? "workspace-tab tab-active" : "workspace-tab";
 
 			<button class="@tabClass" @onclick="() => Workspace.SelectTab(tab.Id)">
-				<span class="tab-icon">@tab.Icon</span>
+				<span class="tab-icon">
+					@if (tab is ClubMessagesTab)
+					{
+						<svg class="tab-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 2px;">
+							<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+							<polyline points="22,6 12,13 2,6"/>
+						</svg>
+					}
+					else if (tab is ClubHomeworkTab)
+					{
+						<svg class="tab-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 2px;">
+							<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+							<polyline points="8 13 12 17 16 13"/>
+							<line x1="12" y1="9" x2="12" y2="17"/>
+						</svg>
+					}
+					else
+					{
+						@tab.Icon
+					}
+				</span>
 				<span>@GetTabTitle(tab)</span>
 				@if (tab.CanClose)
 				{
@@ -84,6 +112,7 @@
 	private DatabaseInfo? _activeDb;
 	private UpdateInfo? _availableUpdate;
 	private bool _showUpdateDialog = false;
+	private int _unreadMessagesCount = 0;
 
 	protected override async Task OnInitializedAsync()
 	{
@@ -92,9 +121,25 @@
 		DatabaseService.OnDatabaseModified += HandleDatabaseModified;
 		UpdateService.OnUpdateStateChanged += HandleUpdateStateChanged;
 		Loc.OnLanguageChanged += StateHasChanged;
+		SkppService.OnUnreadCountChanged += HandleUnreadCountChanged;
+		SkppService.OnConnectionStateChanged += HandleSkppStateChanged;
 
+		_unreadMessagesCount = SkppService.UnreadMessageCount;
 		_availableUpdate = UpdateService.CachedUpdate;
 		await LoadActiveDatabaseAsync();
+		_ = SkppService.CheckUnreadMessagesAsync();
+	}
+
+	private void HandleUnreadCountChanged(int count)
+	{
+		_unreadMessagesCount = count;
+		InvokeAsync(StateHasChanged);
+	}
+
+	private void HandleSkppStateChanged()
+	{
+		_unreadMessagesCount = SkppService.UnreadMessageCount;
+		InvokeAsync(StateHasChanged);
 	}
 
 	private async Task LoadActiveDatabaseAsync()
@@ -147,6 +192,8 @@
 		OpponentDossierTab => Loc["Tab_OpponentDossier"],
 		EndgameTrainerTab => Loc["Tab_Endgames"],
 		HomeworkTab => Loc["Tab_Homework"],
+		ClubHomeworkTab => Loc["Tab_ClubHomework"],
+		ClubMessagesTab => Loc["Tab_Messages"],
 		AnalysisTab a when a.Title == "Analysis Board" => Loc["Tab_Analysis"],
 		_ => tab.Title
 	};
@@ -158,5 +205,7 @@
 		DatabaseService.OnDatabaseModified -= HandleDatabaseModified;
 		UpdateService.OnUpdateStateChanged -= HandleUpdateStateChanged;
 		Loc.OnLanguageChanged -= StateHasChanged;
+		SkppService.OnUnreadCountChanged -= HandleUnreadCountChanged;
+		SkppService.OnConnectionStateChanged -= HandleSkppStateChanged;
 	}
 }

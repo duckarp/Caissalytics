@@ -1,0 +1,597 @@
+@namespace Caissalytics.Components.Homework
+@using System.Text
+@using Caissalytics.Core
+@using Caissalytics.Data
+@using Caissalytics.Components.Board
+@inject ISkppIntegrationService SkppService
+@inject WorkspaceState Workspace
+@implements IDisposable
+
+<div class="homework-workbench-container">
+	@if (_viewMode == ViewMode.List)
+	{
+		<!-- View 1: Online Club Homeworks List -->
+		<div class="homework-hub-view">
+			<div class="homework-hub-header">
+				<div class="hub-title-block">
+					<div class="hub-title-row">
+						<span class="hub-title-icon">📥</span>
+						<h1 class="hub-title">@Loc["Homework_Tab_ClubAssigned"]</h1>
+					</div>
+					<p class="hub-subtitle">
+						@if (_clubState.IsConnected && _clubState.User != null)
+						{
+							<span>@(string.IsNullOrWhiteSpace(_clubState.User.FullName) ? _clubState.User.UserName : _clubState.User.FullName) • @(_clubState.User.Groups.FirstOrDefault()?.Name ?? "Club Member")</span>
+						}
+						else
+						{
+							<span>@Loc["Homework_Club_NotConnectedDesc"]</span>
+						}
+					</p>
+				</div>
+				<div class="hub-header-actions">
+					@if (_clubState.IsConnected)
+					{
+						<button type="button" class="btn-secondary btn-action-label" @onclick="LoadClubStateAndTasksAsync" disabled="@_isLoadingTasks">
+							<svg class="@(_isLoadingTasks ? "spin-icon" : "")" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M23 4v6h-6"/>
+								<path d="M1 20v-6h6"/>
+								<path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+							</svg>
+							<span>@Loc["Homework_Club_Refresh"]</span>
+						</button>
+					}
+				</div>
+			</div>
+
+			@if (!_clubState.IsConnected)
+			{
+				<div class="club-not-connected-card">
+					<span style="font-size: 3rem; margin-bottom: 12px;">🌐</span>
+					<h3>@Loc["Homework_Club_NotConnected"]</h3>
+					<p>@Loc["Homework_Club_NotConnectedDesc"]</p>
+					<button type="button" class="btn-primary" @onclick='() => Workspace.CreateSettingsTab("club")'>
+						@Loc["Homework_Club_ConnectBtn"]
+					</button>
+				</div>
+			}
+			else if (_isLoadingTasks)
+			{
+				<div class="club-loading-state">
+					<span>⏳ @Loc["Homework_Club_Loading"]</span>
+				</div>
+			}
+			else if (_assignedHomeworks.Count == 0)
+			{
+				<div class="reference-empty-state">
+					<span class="empty-state-icon">📋</span>
+					<h4>@Loc["Homework_Club_NoTasks"]</h4>
+					<p>@Loc["Homework_Club_NoTasksDesc"]</p>
+				</div>
+			}
+			else
+			{
+				<div class="club-tasks-grid">
+					@foreach (var task in _assignedHomeworks)
+					{
+						<div class="club-task-card @(task.IsOverdue ? "task-overdue" : "")">
+							<div class="sheet-card-top">
+								<div class="sheet-card-title-group">
+									<h3 class="sheet-card-title" @onclick="() => OpenSolver(task)">@task.Title</h3>
+									<span class="sheet-card-meta">
+										@if (!string.IsNullOrEmpty(task.CreatedByName))
+										{
+											<span>@string.Format(Loc["Homework_Club_AssignedBy"], task.CreatedByName)</span>
+										}
+									</span>
+								</div>
+								<div class="sheet-card-badges">
+									<span class="club-task-badge badge-@task.StatusText.ToLowerInvariant()">
+										@Loc[$"Homework_Club_Status_{task.StatusText}"]
+									</span>
+								</div>
+							</div>
+
+							<p class="sheet-card-desc">@task.Description</p>
+
+							@if (!string.IsNullOrWhiteSpace(task.Fen))
+							{
+								<div class="sheet-card-preview-strip" style="cursor: pointer;" @onclick="() => OpenSolver(task)">
+									<div class="sheet-thumb-item" title="@task.Title">
+										<PrintableChessDiagram Exercise="CreatePreviewExercise(task)" ShowCoordinates="false" ShowSolutionLines="false" />
+									</div>
+								</div>
+							}
+
+							<div class="club-task-footer-info">
+								@if (task.DueDate.HasValue)
+								{
+									<span class="task-due-date @(task.IsOverdue ? "overdue" : "")">
+										📅 @string.Format(Loc["Homework_Club_DueDate"], task.DueDate.Value.ToLocalTime().ToString("g"))
+										@if (task.IsOverdue)
+										{
+											<span class="overdue-tag">(@Loc["Homework_Club_Overdue"])</span>
+										}
+									</span>
+								}
+								else
+								{
+									<span>📅 @Loc["Homework_Club_NoDueDate"]</span>
+								}
+
+								@if (task.MySubmission?.Points.HasValue == true)
+								{
+									<span style="float: right; font-weight: 700; color: #81c784;">
+										⭐ @string.Format(Loc["Homework_Solver_PointsAwarded"], task.MySubmission.Points.Value)
+									</span>
+								}
+							</div>
+
+							<div class="sheet-card-actions">
+								@if (task.StatusText == "Assigned")
+								{
+									<button type="button" class="btn-sheet-action btn-primary-soft btn-action-label" @onclick="() => OpenSolver(task)">
+										<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+											<polygon points="5 3 19 12 5 21 5 3"/>
+										</svg>
+										<span>@Loc["Homework_Club_SolveTask"]</span>
+									</button>
+								}
+								else
+								{
+									<button type="button" class="btn-sheet-action btn-action-label" @onclick="() => OpenSolver(task)">
+										<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+											<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+											<circle cx="12" cy="12" r="3"/>
+										</svg>
+										<span>@Loc["Homework_Club_ViewSubmission"]</span>
+									</button>
+								}
+							</div>
+						</div>
+					}
+				</div>
+			}
+		</div>
+	}
+	else if (_viewMode == ViewMode.Solver && _activeTask != null)
+	{
+		<!-- View 2: Interactive Student Task Solver -->
+		<div class="homework-solver-view">
+			<!-- Top Solver Navigation Bar -->
+			<div class="editor-nav-bar">
+				<div class="nav-bar-left">
+					<button type="button" class="btn-secondary btn-action-label" @onclick="BackToList">
+						<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<line x1="19" y1="12" x2="5" y2="12"/>
+							<polyline points="12 19 5 12 12 5"/>
+						</svg>
+						<span>@Loc["Homework_Solver_Back"]</span>
+					</button>
+					<span class="editor-header-title">@_activeTask.Title</span>
+					<span class="club-task-badge badge-@_activeTask.StatusText.ToLowerInvariant()">
+						@Loc[$"Homework_Club_Status_{_activeTask.StatusText}"]
+					</span>
+				</div>
+				<div class="nav-bar-right">
+					@if (_activeTask.DueDate.HasValue)
+					{
+						<span class="task-due-date @(_activeTask.IsOverdue ? "overdue" : "")">
+							📅 @string.Format(Loc["Homework_Club_DueDate"], _activeTask.DueDate.Value.ToLocalTime().ToString("g"))
+						</span>
+					}
+				</div>
+			</div>
+
+			<div class="solver-main-grid" style="padding: 20px;">
+				<!-- Left: Interactive Board Panel -->
+				<div class="solver-board-panel">
+					<div class="solver-board-card">
+						<div class="solver-board-header">
+							<span class="control-label-tiny">
+								@(_currentPosition.ActiveColor == PieceColor.White ? Loc["Endgame_WhiteToMove"] : Loc["Endgame_BlackToMove"])
+							</span>
+							<div style="display: flex; gap: 8px;">
+								<button type="button" class="btn-board-action" @onclick="UndoLastMove" disabled="@(_moveHistory.Count == 0)" title="@Loc["Common_Undo"]">
+									<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<polyline points="1 4 1 10 7 10"/>
+										<path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+									</svg>
+									<span>@Loc["Common_Undo"]</span>
+								</button>
+								<button type="button" class="btn-board-action" @onclick="ResetBoard" disabled="@(_moveHistory.Count == 0)" title="@Loc["Homework_Solver_ResetBoard"]">
+									<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+										<path d="M3 3v5h5"/>
+									</svg>
+									<span>@Loc["Homework_Solver_ResetBoard"]</span>
+								</button>
+							</div>
+						</div>
+						<div class="solver-board-wrapper">
+							<ChessgroundBoard @ref="_boardRef"
+											  Position="@_currentPosition"
+											  LastMove="@_lastMove"
+											  Orientation="@_orientation"
+											  CanGoBack="false"
+											  CanGoForward="false"
+											  OnMoveMade="HandleBoardMove"
+											  OrientationChanged="o => _orientation = o" />
+						</div>
+					</div>
+				</div>
+
+				<!-- Right: Details & Submission Panel -->
+				<div class="solver-sidebar-panel">
+					<div class="solver-instructions-card">
+						<h4 class="solver-panel-title">📋 @Loc["Homework_Solver_Instructions"]</h4>
+						<p class="solver-instructions-text">@_activeTask.Description</p>
+						<div class="solver-instructions-meta">
+							@if (!string.IsNullOrEmpty(_activeTask.CreatedByName))
+							{
+								<span>👤 @string.Format(Loc["Homework_Club_AssignedBy"], _activeTask.CreatedByName)</span>
+							}
+							@if (_activeTask.DueDate.HasValue)
+							{
+								<span>📅 @string.Format(Loc["Homework_Club_DueDate"], _activeTask.DueDate.Value.ToLocalTime().ToString("d"))</span>
+							}
+						</div>
+					</div>
+
+					@if (_activeTask.StatusText == "Reviewed" && _activeTask.MySubmission != null)
+					{
+						<div class="solver-feedback-card">
+							<div class="feedback-header">
+								<span class="feedback-icon">🎓</span>
+								<div>
+									<h4 class="feedback-title">@Loc["Homework_Club_Status_Reviewed"]</h4>
+									@if (_activeTask.MySubmission.ReviewedAt.HasValue)
+									{
+										<span class="feedback-date">@string.Format(Loc["Homework_Solver_ReviewedOn"], _activeTask.MySubmission.ReviewedAt.Value.ToLocalTime().ToString("g"))</span>
+									}
+								</div>
+							</div>
+
+							@if (_activeTask.MySubmission.Points.HasValue)
+							{
+								<div style="font-size: 16px; font-weight: 700; color: #81c784; margin-bottom: 12px;">
+									⭐ @string.Format(Loc["Homework_Solver_PointsAwarded"], _activeTask.MySubmission.Points.Value)
+								</div>
+							}
+
+							@if (!string.IsNullOrWhiteSpace(_activeTask.MySubmission.CoachFeedback))
+							{
+								<div class="feedback-label">@Loc["Homework_Solver_CoachFeedback"]:</div>
+								<div class="feedback-text">@_activeTask.MySubmission.CoachFeedback</div>
+							}
+
+							@if (!string.IsNullOrWhiteSpace(_activeTask.Solution))
+							{
+								<div class="feedback-label">@Loc["Homework_Solver_OfficialSolution"]:</div>
+								<code class="official-solution-code">@_activeTask.Solution</code>
+							}
+						</div>
+					}
+
+					<div class="solver-submission-card">
+						<h4 class="solver-panel-title">✍️ @Loc["Homework_Solver_YourSolution"]</h4>
+
+						<div class="solver-field-group">
+							<label class="control-label-tiny">@Loc["Homework_Solver_MovesLine"]</label>
+							<div class="solver-moves-box">
+								@if (string.IsNullOrWhiteSpace(_movesNotation))
+								{
+									<span class="moves-empty-hint">Play moves on the board to record your solution...</span>
+								}
+								else
+								{
+									<span class="moves-recorded-text">@_movesNotation</span>
+								}
+							</div>
+						</div>
+
+						<div class="solver-field-group">
+							<label class="control-label-tiny">@Loc["Homework_Solver_Explanation"]</label>
+							@if (_activeTask.StatusText == "Reviewed")
+							{
+								<div class="submitted-answer-view">@(!string.IsNullOrWhiteSpace(_studentAnswer) ? _studentAnswer : "—")</div>
+							}
+							else
+							{
+								<textarea class="form-input solver-textarea"
+										  placeholder="@Loc["Homework_Solver_ExplanationPlaceholder"]"
+										  @bind="_studentAnswer"
+										  rows="3"></textarea>
+							}
+						</div>
+
+						@if (_activeTask.StatusText == "Submitted")
+						{
+							<div class="submitted-status-badge" style="margin-bottom: 12px;">
+								<span>✅</span>
+								<span>@Loc["Homework_Solver_WaitingReview"]</span>
+							</div>
+						}
+
+						@if (!string.IsNullOrEmpty(_errorMessage))
+						{
+							<div class="auth-error-banner" style="margin-bottom: 12px;">@_errorMessage</div>
+						}
+
+						@if (!string.IsNullOrEmpty(_successMessage))
+						{
+							<div class="auth-success-banner" style="margin-bottom: 12px;">@_successMessage</div>
+						}
+
+						@if (_activeTask.StatusText != "Reviewed")
+						{
+							<button type="button"
+									class="btn-primary btn-submit-solution btn-action-label"
+									disabled="@(_isSubmitting || (string.IsNullOrWhiteSpace(_movesNotation) && string.IsNullOrWhiteSpace(_studentAnswer)))"
+									@onclick="SubmitSolutionAsync">
+								@if (_isSubmitting)
+								{
+									<svg class="spin-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<circle cx="12" cy="12" r="10" stroke-opacity="0.25"/>
+										<path d="M12 2a10 10 0 0 1 10 10"/>
+									</svg>
+									<span>@Loc["Homework_Solver_Submitting"]</span>
+								}
+								else
+								{
+									<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<line x1="22" y1="2" x2="11" y2="13"/>
+										<polygon points="22 2 15 22 11 13 2 9 22 2"/>
+									</svg>
+									<span>@Loc["Homework_Solver_SubmitBtn"]</span>
+								}
+							</button>
+						}
+					</div>
+				</div>
+			</div>
+		</div>
+	}
+</div>
+
+@code {
+	[Parameter] public ClubHomeworkTab Tab { get; set; } = default!;
+
+	private enum ViewMode { List, Solver }
+	private ViewMode _viewMode = ViewMode.List;
+
+	private SkppConnectionState _clubState = new();
+	private List<SkppHomeworkDto> _assignedHomeworks = new();
+	private bool _isLoadingTasks = false;
+
+	private SkppHomeworkDto? _activeTask;
+	private ChessgroundBoard? _boardRef;
+	private BoardPosition _initialPosition = FenParser.Parse(BoardPosition.StartFen);
+	private BoardPosition _currentPosition = FenParser.Parse(BoardPosition.StartFen);
+	private Move? _lastMove;
+	private string _orientation = "white";
+	private string _initialFen = BoardPosition.StartFen;
+	private List<(Move Move, string San, BoardPosition AfterPosition)> _moveHistory = new();
+	private string _movesNotation = "";
+	private string _studentAnswer = "";
+	private bool _isSubmitting = false;
+	private string? _errorMessage;
+	private string? _successMessage;
+
+	protected override async Task OnInitializedAsync()
+	{
+		Loc.OnLanguageChanged += StateHasChanged;
+		SkppService.OnConnectionStateChanged += HandleSkppStateChanged;
+
+		await LoadClubStateAndTasksAsync();
+
+		if (Tab.InitialTaskId.HasValue)
+		{
+			var target = _assignedHomeworks.FirstOrDefault(h => h.Id == Tab.InitialTaskId.Value);
+			if (target != null)
+			{
+				OpenSolver(target);
+			}
+		}
+	}
+
+	private async void HandleSkppStateChanged()
+	{
+		await InvokeAsync(async () =>
+		{
+			await LoadClubStateAndTasksAsync();
+			StateHasChanged();
+		});
+	}
+
+	private async Task LoadClubStateAndTasksAsync()
+	{
+		_clubState = await SkppService.GetConnectionStateAsync();
+		if (_clubState.IsConnected)
+		{
+			_isLoadingTasks = true;
+			StateHasChanged();
+			try
+			{
+				_assignedHomeworks = await SkppService.GetAssignedHomeworksAsync();
+			}
+			finally
+			{
+				_isLoadingTasks = false;
+			}
+		}
+		else
+		{
+			_assignedHomeworks.Clear();
+		}
+	}
+
+	private void OpenSolver(SkppHomeworkDto task)
+	{
+		_activeTask = task;
+		_initialFen = !string.IsNullOrWhiteSpace(task.Fen) ? task.Fen : BoardPosition.StartFen;
+		try
+		{
+			_initialPosition = FenParser.Parse(_initialFen);
+		}
+		catch
+		{
+			_initialPosition = FenParser.Parse(BoardPosition.StartFen);
+		}
+
+		_orientation = _initialPosition.ActiveColor == PieceColor.Black ? "black" : "white";
+		_moveHistory.Clear();
+		_currentPosition = _initialPosition.Clone();
+		_lastMove = null;
+		_movesNotation = "";
+		_studentAnswer = task.MySubmission?.StudentAnswer ?? "";
+		_errorMessage = null;
+		_successMessage = null;
+		_viewMode = ViewMode.Solver;
+	}
+
+	private void BackToList()
+	{
+		_viewMode = ViewMode.List;
+		_activeTask = null;
+	}
+
+	private void HandleBoardMove(Move move)
+	{
+		var currentPos = _moveHistory.Count > 0 ? _moveHistory[^1].AfterPosition : _initialPosition;
+		string san = SanParser.ToSan(currentPos, move);
+		var nextPos = MoveGenerator.ApplyMove(currentPos, move);
+		_moveHistory.Add((move, san, nextPos));
+		_currentPosition = nextPos;
+		_lastMove = move;
+		UpdateFormattedNotation();
+		StateHasChanged();
+	}
+
+	private void UndoLastMove()
+	{
+		if (_moveHistory.Count == 0) return;
+		_moveHistory.RemoveAt(_moveHistory.Count - 1);
+		if (_moveHistory.Count > 0)
+		{
+			_currentPosition = _moveHistory[^1].AfterPosition;
+			_lastMove = _moveHistory[^1].Move;
+		}
+		else
+		{
+			_currentPosition = _initialPosition.Clone();
+			_lastMove = null;
+		}
+		UpdateFormattedNotation();
+		_ = _boardRef?.UpdateBoardStateAsync(_currentPosition, _lastMove);
+		StateHasChanged();
+	}
+
+	private void ResetBoard()
+	{
+		_moveHistory.Clear();
+		_currentPosition = _initialPosition.Clone();
+		_lastMove = null;
+		UpdateFormattedNotation();
+		_ = _boardRef?.UpdateBoardStateAsync(_currentPosition, _lastMove);
+		StateHasChanged();
+	}
+
+	private void UpdateFormattedNotation()
+	{
+		if (_moveHistory.Count == 0)
+		{
+			_movesNotation = "";
+			return;
+		}
+		var sb = new StringBuilder();
+		int moveNum = _initialPosition.FullmoveNumber;
+		bool isWhite = _initialPosition.ActiveColor == PieceColor.White;
+
+		for (int i = 0; i < _moveHistory.Count; i++)
+		{
+			if (i == 0 && !isWhite)
+			{
+				sb.Append($"{moveNum}... {_moveHistory[i].San} ");
+				moveNum++;
+			}
+			else if (isWhite)
+			{
+				sb.Append($"{moveNum}. {_moveHistory[i].San} ");
+			}
+			else
+			{
+				sb.Append($"{_moveHistory[i].San} ");
+				moveNum++;
+			}
+			isWhite = !isWhite;
+		}
+		_movesNotation = sb.ToString().Trim();
+	}
+
+	private async Task SubmitSolutionAsync()
+	{
+		if (_activeTask == null || _isSubmitting) return;
+		_isSubmitting = true;
+		_errorMessage = null;
+		_successMessage = null;
+		StateHasChanged();
+
+		try
+		{
+			string answer = !string.IsNullOrWhiteSpace(_studentAnswer)
+				? _studentAnswer
+				: _movesNotation;
+
+			var result = await SkppService.SubmitHomeworkSolutionAsync(_activeTask.Id, answer, _movesNotation);
+			if (result.Success)
+			{
+				_successMessage = Loc["Homework_Solver_SuccessToast"];
+				if (result.Submission != null)
+				{
+					_activeTask.MySubmission = result.Submission;
+				}
+				else
+				{
+					_activeTask.MySubmission = new SkppSubmissionDto
+					{
+						CoachingTaskId = _activeTask.Id,
+						Status = "Submitted",
+						StudentAnswer = answer,
+						SubmittedAt = DateTime.UtcNow
+					};
+				}
+				var existing = _assignedHomeworks.FirstOrDefault(h => h.Id == _activeTask.Id);
+				if (existing != null)
+				{
+					existing.MySubmission = _activeTask.MySubmission;
+				}
+			}
+			else
+			{
+				_errorMessage = result.ErrorMessage ?? "Failed to submit solution.";
+			}
+		}
+		catch (Exception ex)
+		{
+			_errorMessage = ex.Message;
+		}
+		finally
+		{
+			_isSubmitting = false;
+			StateHasChanged();
+		}
+	}
+
+	private static HomeworkExercise CreatePreviewExercise(SkppHomeworkDto task) => new()
+	{
+		Fen = task.Fen,
+		ToMove = task.Fen.Contains(" b ") ? "black" : "white"
+	};
+
+	public void Dispose()
+	{
+		Loc.OnLanguageChanged -= StateHasChanged;
+		SkppService.OnConnectionStateChanged -= HandleSkppStateChanged;
+	}
+}

@@ -256,6 +256,30 @@ public class HomeworkTab : WorkspaceTab
     }
 }
 
+public class ClubHomeworkTab : WorkspaceTab
+{
+    public override string Title => "Club Homework";
+    public override string Icon => "📥";
+    public int? InitialTaskId { get; set; }
+
+    public ClubHomeworkTab(int? initialTaskId = null)
+    {
+        InitialTaskId = initialTaskId;
+    }
+}
+
+public class ClubMessagesTab : WorkspaceTab
+{
+    public override string Title => "Club Messages";
+    public override string Icon => "✉️";
+    public int? InitialMessageId { get; set; }
+
+    public ClubMessagesTab(int? initialMessageId = null)
+    {
+        InitialMessageId = initialMessageId;
+    }
+}
+
 public class WorkspaceState
 {
     public List<WorkspaceTab> Tabs { get; } = new();
@@ -476,6 +500,48 @@ public class WorkspaceState
         return tab;
     }
 
+    public ClubHomeworkTab CreateClubHomeworkTab(int? taskId = null)
+    {
+        var existing = Tabs.OfType<ClubHomeworkTab>().FirstOrDefault();
+        if (existing != null)
+        {
+            if (taskId.HasValue)
+            {
+                existing.InitialTaskId = taskId;
+            }
+            ActiveTab = existing;
+            NotifyStateChanged();
+            return existing;
+        }
+
+        var tab = new ClubHomeworkTab(taskId);
+        Tabs.Add(tab);
+        ActiveTab = tab;
+        NotifyStateChanged();
+        return tab;
+    }
+
+    public ClubMessagesTab CreateMessagesTab(int? messageId = null)
+    {
+        var existing = Tabs.OfType<ClubMessagesTab>().FirstOrDefault();
+        if (existing != null)
+        {
+            if (messageId.HasValue)
+            {
+                existing.InitialMessageId = messageId;
+            }
+            ActiveTab = existing;
+            NotifyStateChanged();
+            return existing;
+        }
+
+        var tab = new ClubMessagesTab(messageId);
+        Tabs.Add(tab);
+        ActiveTab = tab;
+        NotifyStateChanged();
+        return tab;
+    }
+
     public void SelectTab(Guid id)
     {
         var target = Tabs.FirstOrDefault(t => t.Id == id);
@@ -617,6 +683,24 @@ public class WorkspaceState
                         Title = hw.Title
                     });
                     break;
+
+                case ClubHomeworkTab clubHw:
+                    dto.Tabs.Add(new WorkspaceTabDto
+                    {
+                        Id = clubHw.Id,
+                        Type = "club_homework",
+                        Title = clubHw.Title
+                    });
+                    break;
+
+                case ClubMessagesTab msg:
+                    dto.Tabs.Add(new WorkspaceTabDto
+                    {
+                        Id = msg.Id,
+                        Type = "club_messages",
+                        Title = msg.Title
+                    });
+                    break;
             }
         }
 
@@ -715,6 +799,16 @@ public class WorkspaceState
                     {
                         var hwTab = new HomeworkTab { Id = tabDto.Id };
                         Tabs.Add(hwTab);
+                    }
+                    else if (tabDto.Type == "club_homework")
+                    {
+                        var clubHwTab = new ClubHomeworkTab { Id = tabDto.Id };
+                        Tabs.Add(clubHwTab);
+                    }
+                    else if (tabDto.Type == "club_messages")
+                    {
+                        var msgTab = new ClubMessagesTab { Id = tabDto.Id };
+                        Tabs.Add(msgTab);
                     }
                 }
 

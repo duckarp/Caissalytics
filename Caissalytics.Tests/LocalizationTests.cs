@@ -132,6 +132,7 @@ public class LocalizationTests
         Assert.Equal("Board Editor", loc["BoardEditor_Title"]);
         Assert.Equal("Starting Position", loc["BoardEditor_StartingPos"]);
         Assert.Equal("Move Up", loc["Common_MoveUp"]);
+        Assert.Equal("Undo", loc["Common_Undo"]);
 
         // Slovak verification
         await loc.SetLanguageAsync("sk");
@@ -139,5 +140,6 @@ public class LocalizationTests
         Assert.Equal("Editor šachovnice", loc["BoardEditor_Title"]);
         Assert.Equal("Základné postavenie", loc["BoardEditor_StartingPos"]);
         Assert.Equal("Posunúť nahor", loc["Common_MoveUp"]);
+        Assert.Equal("Vrátiť ťah", loc["Common_Undo"]);
     }
 }

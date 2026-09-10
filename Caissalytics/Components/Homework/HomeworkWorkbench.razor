@@ -122,6 +122,10 @@
 					<span class="editor-header-title">@_activeSheet.Title</span>
 				</div>
 				<div class="nav-bar-right">
+					<button type="button" class="btn-secondary btn-danger-soft" @onclick="() => PromptDeleteSheet(_activeSheet)" title="@Loc["Homework_Delete"]">
+						<span>🗑️</span>
+						<span>@Loc["Homework_Delete"]</span>
+					</button>
 					<button type="button" class="btn-secondary" @onclick="() => OpenPrintPreview(_activeSheet)">
 						<span>🖨️</span>
 						<span>@Loc["Homework_PrintPreview"]</span>
@@ -150,7 +154,7 @@
 					</div>
 					<div class="settings-form-group">
 						<label class="form-label">@Loc["Homework_ClubName"]</label>
-						<input type="text" class="form-input" placeholder="e.g. Chess Club" @bind="_activeSheet.ClubName" />
+						<input type="text" class="form-input" placeholder="e.g. ŠK Považské Podhradie" @bind="_activeSheet.ClubName" />
 					</div>
 					<div class="settings-form-group">
 						<label class="form-label">@Loc["Homework_DiagramsPerRow"]</label>
@@ -442,6 +446,7 @@
 	{
 		Loc.OnLanguageChanged += StateHasChanged;
 		HomeworkService.OnSheetsChanged += HandleSheetsChanged;
+
 		await LoadSheetsAsync();
 
 		if (!string.IsNullOrEmpty(Tab.InitialSheetId))
@@ -527,7 +532,13 @@
 	private async Task ConfirmDeleteSheetAsync()
 	{
 		if (_deletingSheet == null) return;
-		await HomeworkService.DeleteSheetAsync(_deletingSheet.Id);
+		var idToDelete = _deletingSheet.Id;
+		await HomeworkService.DeleteSheetAsync(idToDelete);
+		if (_activeSheet?.Id == idToDelete)
+		{
+			_activeSheet = null;
+			_viewMode = ViewMode.Hub;
+		}
 		_deletingSheet = null;
 	}
 

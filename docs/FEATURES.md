@@ -322,3 +322,46 @@ Caissalytics supports complete localization for English and Slovak:
 - Switch languages on the fly under **Control Center → Interface, Appearance & Sound**.
 - All menus, action cards, game annotations, evaluation statuses, and tooltips instantly update.
 - Language preference is stored locally and restored on cold boot without any visual flicker.
+
+---
+
+## 13. Web Platform Hub & Club Integration 🤝
+
+Connect Caissalytics directly to your compatible chess club or coaching portal (such as ŠK Považské Podhradie / SKPP) to bridge club coaching operations with the desktop workstation.
+
+### Club Connection Configuration
+- Configure under **Control Center → Web Platform Hub Integration**:
+  - **Portal URL**: Flexible API base URL (defaulting to the local or cloud portal address).
+  - **Account Credentials**: Securely authenticate with username/email and password to receive JWT bearer tokens.
+  - **Automatic Profile Sync**: Syncs club member information, user full name, and active coaching groups.
+  - **Quick Disconnect & Test**: Test endpoint reachability or disconnect at any time.
+
+### Online Club Homework Workbench
+- View all homework assignments assigned to your coaching groups with due dates and overdue warnings.
+- **Interactive Exercise Solver**:
+  - Solves directly on a responsive Chessground board with legal move validation.
+  - Automatic move recording generating standard SAN notation (e.g. `1. e4 e5 2. Nf3`).
+  - Board controls: undo previous moves, or reset back to starting exercise position.
+  - Answer notes textarea for providing textual explanations or alternative tactical ideas.
+  - One-click submission to the club portal with real-time status updates (*Assigned*, *Submitted*, *Reviewed*), coach feedback notes, and awarded points.
+
+---
+
+## 14. Club & Coaching Group Messaging 💬
+
+Integrated communications system keeping students and coaches connected directly within the application.
+
+### Top Navigation & Unread Alerting
+- Dedicated **Messages** button in the top navigation bar with a live unread count badge.
+- Automatic 5-minute background auto-check polling the hub API for newly received messages.
+- Red glow indicator on the header button whenever unread messages are waiting.
+
+### Messaging Workbench
+- **Two-Pane Workspace**:
+  - **Left Sidebar**: Real-time searchable inbox feed, filter pills for *All* and *Unread*, and message type badges (*Direct*, *Coaching Group*, *System*).
+  - **Right Content View**: Complete message reader with sender details, formatted body, and instant "Reply" button.
+- **Compose & Broadcast**:
+  - Send direct messages to coaches or broadcast to assigned club coaching groups.
+- **Task Deep-Linking**:
+  - Messages that reference homework assignments display an interactive reference card. Clicking **Open Referenced Task** immediately opens and switches to the Club Homework solver tab for that specific exercise.
+

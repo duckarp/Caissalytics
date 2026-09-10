@@ -283,6 +283,19 @@
   gap: 12px;
 }
 
+.btn-secondary.btn-danger-soft {
+  color: var(--accent-red, #ef5350);
+  border-color: rgba(239, 83, 80, 0.35);
+  background-color: rgba(239, 83, 80, 0.08);
+  transition: all 0.15s ease;
+}
+
+.btn-secondary.btn-danger-soft:hover {
+  color: #ff6b6b;
+  background-color: rgba(239, 83, 80, 0.18);
+  border-color: var(--accent-red, #ef5350);
+}
+
 .editor-header-title {
   font-size: 18px;
   font-weight: 700;
@@ -996,6 +1009,370 @@
   padding-top: 10px;
   margin-top: auto;
   border-top: 1px solid #ddd;
+}
+
+/* ==========================================================================
+   4.5 Hub Tabs & Student Club Homework Styling
+   ========================================================================== */
+.hub-category-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 8px;
+}
+
+.hub-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 8px 16px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.hub-tab-btn:hover {
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+}
+
+.hub-tab-btn.active {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-subtle);
+  color: var(--accent-blue, #64b5f6);
+}
+
+.hub-tab-count {
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 7px;
+  border-radius: 12px;
+  color: var(--text-muted);
+}
+
+.hub-tab-badge {
+  font-size: 11px;
+  background: #ff9800;
+  color: #000;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 12px;
+}
+
+.club-not-connected-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  text-align: center;
+  max-width: 580px;
+  margin: 32px auto;
+}
+
+.club-not-connected-card h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 8px 0;
+  color: var(--text-primary);
+}
+
+.club-not-connected-card p {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 20px 0;
+}
+
+.club-loading-state {
+  display: flex;
+  justify-content: center;
+  padding: 40px;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.club-tasks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 16px;
+}
+
+.club-task-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 18px;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.club-task-card:hover {
+  border-color: var(--border-medium);
+  transform: translateY(-2px);
+}
+
+.club-task-card.task-overdue {
+  border-left: 3px solid #ef5350;
+}
+
+.badge-assigned {
+  background: rgba(255, 152, 0, 0.15);
+  color: #ffb74d;
+  border: 1px solid rgba(255, 152, 0, 0.35);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badge-submitted {
+  background: rgba(33, 150, 243, 0.15);
+  color: #64b5f6;
+  border: 1px solid rgba(33, 150, 243, 0.35);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badge-reviewed {
+  background: rgba(76, 175, 80, 0.15);
+  color: #81c784;
+  border: 1px solid rgba(76, 175, 80, 0.35);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.club-task-footer-info {
+  margin: 12px 0 16px 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.task-due-date.overdue {
+  color: #ef5350;
+  font-weight: 600;
+}
+
+.overdue-tag {
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+/* ==========================================================================
+   Student Solver View Styling
+   ========================================================================== */
+.homework-solver-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.solver-main-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+@media (max-width: 900px) {
+  .solver-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.solver-board-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.solver-board-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.solver-board-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.solver-board-wrapper {
+  display: flex;
+  justify-content: center;
+}
+
+.solver-sidebar-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 320px;
+}
+
+.solver-instructions-card,
+.solver-submission-card,
+.solver-feedback-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 16px 20px;
+}
+
+.solver-panel-title {
+  font-size: 14px;
+  font-weight: 700;
+  margin: 0 0 10px 0;
+  color: var(--text-primary);
+}
+
+.solver-instructions-text {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0 0 12px 0;
+}
+
+.solver-instructions-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.solver-feedback-card {
+  border-color: rgba(76, 175, 80, 0.4);
+  background: rgba(76, 175, 80, 0.05);
+}
+
+.feedback-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.feedback-icon {
+  font-size: 24px;
+}
+
+.feedback-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #81c784;
+  margin: 0;
+}
+
+.feedback-date {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.feedback-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.feedback-text {
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text-primary);
+  margin: 0 0 12px 0;
+}
+
+.official-solution-code {
+  display: block;
+  background: var(--bg-surface-elevated);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: monospace;
+  color: #64b5f6;
+  font-size: 13px;
+}
+
+.solver-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.solver-moves-box {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 10px 12px;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+}
+
+.moves-empty-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.moves-recorded-text {
+  font-size: 14px;
+  font-weight: 600;
+  font-family: monospace;
+  color: var(--text-primary);
+}
+
+.solver-textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+
+.submitted-answer-view {
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+}
+
+.submitted-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #81c784;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.btn-submit-solution {
+  width: 100%;
+  justify-content: center;
+  padding: 10px 16px;
+  font-size: 14px;
 }
 
 /* ==========================================================================

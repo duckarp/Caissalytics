@@ -9,6 +9,8 @@
 @inject ITablebaseService TablebaseService
 @inject IUpdateService UpdateService
 @inject IAppearanceService AppearanceService
+@inject IChessClubService ClubService
+@inject ISkppIntegrationService SkppService
 @inject WorkspaceState Workspace
 @inject IJSRuntime JS
 @using System.Runtime.InteropServices
@@ -33,6 +35,14 @@
 					<div class="nav-item-content">
 						<span class="nav-item-title">@Loc["Settings_Nav_Profile"]</span>
 						<span class="nav-item-desc">@Loc["Settings_Nav_Profile_Desc"]</span>
+					</div>
+				</button>
+
+				<button class="@GetNavClass("club")" @onclick='() => SetCategory("club")'>
+					<span class="nav-item-icon">🏛️</span>
+					<div class="nav-item-content">
+						<span class="nav-item-title">@Loc["Settings_Nav_Club"]</span>
+						<span class="nav-item-desc">@Loc["Settings_Nav_Club_Desc"]</span>
 					</div>
 				</button>
 
@@ -175,6 +185,256 @@
 							<span class="save-status-badge">✅ Profile changes saved!</span>
 						}
 					</div>
+				</div>
+			}
+			else if (_activeCategory == "club")
+			{
+				<div class="control-section-card">
+					<div class="card-section-header">
+						<h3 class="card-section-title">🏛️ @Loc["Club_Title"]</h3>
+						<p class="card-section-desc">@Loc["Club_Desc"]</p>
+					</div>
+
+					<div class="control-form-grid">
+						<div class="form-field-block form-field-full">
+							<label class="field-label">@Loc["Club_ClubName"]</label>
+							<input class="field-input" placeholder="e.g. ŠK Považské Podhradie" @bind="_clubSettings.ClubName" @bind:event="oninput" />
+							<span class="field-hint">@Loc["Club_ClubName_Hint"]</span>
+						</div>
+
+						<div class="form-field-block form-field-full">
+							<label class="field-label">@Loc["Club_CoachInfo"]</label>
+							<div class="input-with-link-row">
+								<input class="field-input" readonly value="@(string.IsNullOrWhiteSpace(_profile.FullName) || _profile.FullName == "Anonymous Player" ? "(Not set in profile)" : _profile.FullName)" style="opacity: 0.85; background: var(--bg-surface-elevated);" />
+								<button type="button" class="btn-secondary btn-sm" @onclick='() => SetCategory("profile")' style="white-space: nowrap;">
+									<span>@Loc["Club_EditProfile"]</span>
+								</button>
+							</div>
+							<span class="field-hint">@Loc["Club_CoachInfo_Hint"]</span>
+						</div>
+					</div>
+
+					<div class="form-action-bar">
+						<button class="btn-primary" @onclick="SaveClubSettingsAsync">💾 @Loc["Club_SaveBtn"]</button>
+						@if (_clubSettingsSaved)
+						{
+							<span class="save-status-badge">✅ @Loc["Club_SaveSuccess"]</span>
+						}
+					</div>
+				</div>
+
+				<!-- Web Platform Hub Integration (ŠKPP) Card -->
+				<div class="control-section-card" style="margin-top: 20px;">
+					<div class="card-section-header">
+						<div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+							<div>
+								<h3 class="card-section-title">🌐 @Loc["Skpp_SectionTitle"]</h3>
+								<p class="card-section-desc">@Loc["Skpp_SectionDesc"]</p>
+							</div>
+							<div>
+								@if (_skppState.IsConnected)
+								{
+									<span class="save-status-badge" style="background: rgba(46, 125, 50, 0.2); color: #81c784; border: 1px solid rgba(76, 175, 80, 0.4); padding: 4px 10px; border-radius: 6px; font-weight: 600;">
+										● @Loc["Skpp_Status_Connected"]
+									</span>
+								}
+								else
+								{
+									<span class="save-status-badge" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid var(--border-subtle); padding: 4px 10px; border-radius: 6px;">
+										○ @Loc["Skpp_Status_Disconnected"]
+									</span>
+								}
+							</div>
+						</div>
+					</div>
+
+					<!-- API Base URL Input -->
+					<div class="control-form-grid">
+						<div class="form-field-block form-field-full">
+							<label class="field-label">@Loc["Skpp_ApiUrl"]</label>
+							<div class="input-with-link-row">
+								<input class="field-input" placeholder="e.g. http://localhost:5000" @bind="_skppApiUrl" @bind:event="oninput" />
+								<button type="button" class="btn-secondary btn-sm" @onclick="SaveSkppUrlAsync" style="white-space: nowrap;">
+									<span>💾 @Loc["Skpp_SaveUrl"]</span>
+								</button>
+							</div>
+							<div style="display: flex; gap: 8px; margin-top: 6px; align-items: center;">
+								<span class="field-hint">@Loc["Skpp_ApiUrl_Hint"]</span>
+								@if (_skppUrlSaved)
+								{
+									<span style="font-size: 11px; color: #81c784;">✅ URL saved!</span>
+								}
+							</div>
+						</div>
+					</div>
+
+					@if (!_skppState.IsConnected)
+					{
+						<div class="section-divider"></div>
+
+						<div class="card-section-header">
+							<h4 class="card-section-subtitle">🔐 Account Authentication</h4>
+							<p class="card-section-desc">Authenticate with your club account credentials to securely acquire session tokens.</p>
+						</div>
+
+						<div class="control-form-grid">
+							<div class="form-field-block">
+								<label class="field-label">@Loc["Skpp_UsernameOrEmail"]</label>
+								<input class="field-input" placeholder="e.g. student@skpp.sk" @bind="_skppUsername" @bind:event="oninput" />
+							</div>
+
+							<div class="form-field-block">
+								<label class="field-label">@Loc["Skpp_Password"]</label>
+								<input class="field-input" type="password" placeholder="••••••••" @bind="_skppPassword" @bind:event="oninput" />
+							</div>
+
+							<div class="form-field-block form-field-full">
+								<span class="field-hint">🔒 @Loc["Skpp_Password_Hint"]</span>
+							</div>
+						</div>
+
+						@if (!string.IsNullOrEmpty(_skppError))
+						{
+							<div class="probe-feedback-box probe-error" style="margin-top: 14px; background: rgba(239, 83, 80, 0.12); border: 1px solid rgba(239, 83, 80, 0.35); padding: 10px 14px; border-radius: 6px; color: #ef5350; font-size: 13px;">
+								<span>⚠️ @_skppError</span>
+							</div>
+						}
+
+						<div class="form-action-bar" style="margin-top: 16px;">
+							<button class="btn-primary" disabled="@(_isSkppConnecting || string.IsNullOrWhiteSpace(_skppApiUrl) || string.IsNullOrWhiteSpace(_skppUsername) || string.IsNullOrWhiteSpace(_skppPassword))" @onclick="ConnectSkppAsync">
+								@if (_isSkppConnecting)
+								{
+									<span>⏳ @Loc["Skpp_Connecting"]</span>
+								}
+								else
+								{
+									<span>🔑 @Loc["Skpp_ConnectBtn"]</span>
+								}
+							</button>
+						</div>
+					}
+					else
+					{
+						<!-- Connected User Profile Card -->
+						<div class="section-divider"></div>
+
+						@if (!string.IsNullOrEmpty(_skppSuccessMessage))
+						{
+							<div class="probe-feedback-box probe-success" style="margin-bottom: 14px; background: rgba(46, 125, 50, 0.15); border: 1px solid rgba(76, 175, 80, 0.35); padding: 10px 14px; border-radius: 6px; color: #81c784; font-size: 13px;">
+								<span>✅ @_skppSuccessMessage</span>
+							</div>
+						}
+
+						@if (!string.IsNullOrEmpty(_skppError))
+						{
+							<div class="probe-feedback-box probe-error" style="margin-bottom: 14px; background: rgba(239, 83, 80, 0.12); border: 1px solid rgba(239, 83, 80, 0.35); padding: 10px 14px; border-radius: 6px; color: #ef5350; font-size: 13px;">
+								<span>⚠️ @_skppError</span>
+							</div>
+						}
+
+						<div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+							<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+								<div style="display: flex; align-items: center; gap: 10px;">
+									<span style="font-size: 24px;">@(_skppState.User?.IsCoach == true ? "🛡️" : "🎓")</span>
+									<div>
+										<div style="font-size: 16px; font-weight: 700; color: var(--text-primary);">@_skppState.User?.FullName</div>
+										<div style="font-size: 12px; color: var(--text-muted);">@_skppState.User?.Email</div>
+									</div>
+								</div>
+								<div>
+									@if (_skppState.User?.IsCoach == true)
+									{
+										<span style="background: rgba(33, 150, 243, 0.2); color: #64b5f6; border: 1px solid rgba(33, 150, 243, 0.4); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
+											🛡️ @Loc["Skpp_RoleCoach"]
+										</span>
+									}
+									else
+									{
+										<span style="background: rgba(156, 39, 176, 0.2); color: #ce93d8; border: 1px solid rgba(156, 39, 176, 0.4); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
+											🎓 @Loc["Skpp_RoleStudent"]
+										</span>
+									}
+								</div>
+							</div>
+
+							<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; padding: 10px 0; border-top: 1px solid var(--border-subtle);">
+								<div>
+									<div style="font-size: 11px; color: var(--text-muted);">@Loc["Skpp_FideId"]</div>
+									<div style="font-weight: 600; color: var(--text-primary);">@(_skppState.User?.FideId?.ToString() ?? "—")</div>
+								</div>
+								<div>
+									<div style="font-size: 11px; color: var(--text-muted);">Classical ELO</div>
+									<div style="font-weight: 600; color: var(--text-primary);">@(_skppState.User?.CurrentClassical?.ToString() ?? "—")</div>
+								</div>
+								<div>
+									<div style="font-size: 11px; color: var(--text-muted);">Rapid ELO</div>
+									<div style="font-weight: 600; color: var(--text-primary);">@(_skppState.User?.CurrentRapid?.ToString() ?? "—")</div>
+								</div>
+							</div>
+						</div>
+
+						<!-- Coaching Groups -->
+						<div class="card-section-header" style="margin-top: 16px;">
+							<h4 class="card-section-subtitle">👥 @Loc["Skpp_CoachingGroups"] (@(_skppState.User?.Groups?.Count ?? 0))</h4>
+						</div>
+
+						@if (_skppState.User?.Groups == null || _skppState.User.Groups.Count == 0)
+						{
+							<p style="font-size: 13px; color: var(--text-muted);">@Loc["Skpp_NoGroups"]</p>
+						}
+						else
+						{
+							<div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+								@foreach (var g in _skppState.User.Groups)
+								{
+									<div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px 14px;">
+										<div style="display: flex; justify-content: space-between; align-items: center;">
+											<span style="font-weight: 700; color: var(--text-primary); font-size: 14px;">@g.Name</span>
+											@if (g.Students != null)
+											{
+												<span style="font-size: 12px; color: var(--text-muted);">@string.Format(Loc["Skpp_StudentsCount"], g.Students.Count)</span>
+											}
+										</div>
+										@if (!string.IsNullOrWhiteSpace(g.Description))
+										{
+											<p style="font-size: 12px; color: var(--text-secondary); margin: 4px 0 6px 0;">@g.Description</p>
+										}
+										<div style="display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--text-muted); margin-top: 4px;">
+											@if (!string.IsNullOrWhiteSpace(g.ScheduleInfo))
+											{
+												<span>🕒 @g.ScheduleInfo</span>
+											}
+											@if (!string.IsNullOrWhiteSpace(g.Venue))
+											{
+												<span>📍 @g.Venue</span>
+											}
+											@if (g.PrimaryCoach != null)
+											{
+												<span>👤 @Loc["Skpp_PrimaryCoach"]: @g.PrimaryCoach.FullName</span>
+											}
+										</div>
+									</div>
+								}
+							</div>
+						}
+
+						<div class="form-action-bar" style="margin-top: 16px; display: flex; gap: 12px;">
+							<button class="btn-secondary" disabled="@_isSkppVerifying" @onclick="VerifySkppAsync">
+								@if (_isSkppVerifying)
+								{
+									<span>⏳ @Loc["Skpp_Verifying"]</span>
+								}
+								else
+								{
+									<span>🔄 @Loc["Skpp_VerifyBtn"]</span>
+								}
+							</button>
+
+							<button class="btn-secondary btn-danger-soft" @onclick="DisconnectSkppAsync">
+								<span>🔌 @Loc["Skpp_DisconnectBtn"]</span>
+							</button>
+						</div>
+					}
 				</div>
 			}
 			else if (_activeCategory == "engines")
@@ -922,6 +1182,21 @@
 	private UserProfile _profile = new();
 	private bool _profileSaved = false;
 
+	// Chess Club State
+	private ChessClubSettings _clubSettings = new();
+	private bool _clubSettingsSaved = false;
+
+	// SKPP Integration State
+	private SkppConnectionState _skppState = new();
+	private string _skppApiUrl = "";
+	private string _skppUsername = "";
+	private string _skppPassword = "";
+	private bool _isSkppConnecting = false;
+	private bool _isSkppVerifying = false;
+	private string? _skppError;
+	private string? _skppSuccessMessage;
+	private bool _skppUrlSaved = false;
+
 	// Engines State
 	private List<EngineInfo> _engines = new();
 	private bool _isInstalling = false;
@@ -988,6 +1263,8 @@
 		EngineService.OnEnginesChanged += HandleEnginesChanged;
 		EngineService.OnStockfishUpdateChanged += HandleStockfishUpdateChanged;
 		ProfileService.OnProfileChanged += HandleProfileChanged;
+		ClubService.OnSettingsChanged += HandleClubSettingsChanged;
+		SkppService.OnConnectionStateChanged += HandleSkppStateChanged;
 		UpdateService.OnUpdateStateChanged += HandleUpdateChanged;
 		Loc.OnLanguageChanged += HandleLanguageChanged;
 
@@ -997,6 +1274,8 @@
 		_appearanceSettings = await AppearanceService.GetSettingsAsync();
 
 		await LoadProfileAsync();
+		await LoadClubSettingsAsync();
+		await LoadSkppStateAsync();
 		await LoadEnginesAsync();
 		await LoadSyncConfigAsync();
 		await LoadOnlineDatabaseInfoAsync();
@@ -1108,6 +1387,97 @@
 		await ProfileService.SaveProfileAsync(_profile);
 		_profileSaved = true;
 		_ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { _profileSaved = false; StateHasChanged(); }));
+	}
+
+	private async Task LoadClubSettingsAsync()
+	{
+		_clubSettings = await ClubService.GetSettingsAsync();
+	}
+
+	private async Task SaveClubSettingsAsync()
+	{
+		await ClubService.SaveSettingsAsync(_clubSettings);
+		_clubSettingsSaved = true;
+		_ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { _clubSettingsSaved = false; StateHasChanged(); }));
+	}
+
+	private async Task LoadSkppStateAsync()
+	{
+		_skppState = await SkppService.GetConnectionStateAsync();
+		_skppApiUrl = _skppState.ApiUrl;
+	}
+
+	private async Task SaveSkppUrlAsync()
+	{
+		await SkppService.SaveApiUrlAsync(_skppApiUrl);
+		_skppUrlSaved = true;
+		_ = Task.Delay(2500).ContinueWith(_ => InvokeAsync(() => { _skppUrlSaved = false; StateHasChanged(); }));
+	}
+
+	private async Task ConnectSkppAsync()
+	{
+		_isSkppConnecting = true;
+		_skppError = null;
+		_skppSuccessMessage = null;
+		StateHasChanged();
+		try
+		{
+			var (success, error) = await SkppService.ConnectAsync(_skppApiUrl, _skppUsername, _skppPassword);
+			if (success)
+			{
+				_skppPassword = "";
+				_skppSuccessMessage = Loc["Skpp_ConnectedSuccess"];
+				await LoadProfileAsync();
+				_ = Task.Delay(4000).ContinueWith(_ => InvokeAsync(() => { _skppSuccessMessage = null; StateHasChanged(); }));
+			}
+			else
+			{
+				_skppError = error;
+			}
+		}
+		finally
+		{
+			_isSkppConnecting = false;
+			await LoadSkppStateAsync();
+			StateHasChanged();
+		}
+	}
+
+	private async Task DisconnectSkppAsync()
+	{
+		await SkppService.DisconnectAsync();
+		_skppPassword = "";
+		_skppError = null;
+		_skppSuccessMessage = null;
+		await LoadSkppStateAsync();
+		StateHasChanged();
+	}
+
+	private async Task VerifySkppAsync()
+	{
+		_isSkppVerifying = true;
+		_skppError = null;
+		StateHasChanged();
+		try
+		{
+			var (success, error, profile) = await SkppService.VerifyAndRefreshProfileAsync();
+			if (!success)
+			{
+				_skppError = error;
+			}
+			else
+			{
+				_skppSuccessMessage = "Profile successfully verified and updated!";
+				await LoadProfileAsync();
+				_ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { _skppSuccessMessage = null; StateHasChanged(); }));
+			}
+		}
+		finally
+		{
+			_isSkppVerifying = false;
+			await LoadSkppStateAsync();
+			StateHasChanged();
+		}
 	}
 
 	private async Task SetActiveEngineAsync(string engineId)
@@ -1269,11 +1639,31 @@
 		});
 	}
 
+	private async void HandleClubSettingsChanged()
+	{
+		await InvokeAsync(async () =>
+		{
+			await LoadClubSettingsAsync();
+			StateHasChanged();
+		});
+	}
+
+	private async void HandleSkppStateChanged()
+	{
+		await InvokeAsync(async () =>
+		{
+			await LoadSkppStateAsync();
+			StateHasChanged();
+		});
+	}
+
 	public void Dispose()
 	{
 		EngineService.OnEnginesChanged -= HandleEnginesChanged;
 		EngineService.OnStockfishUpdateChanged -= HandleStockfishUpdateChanged;
 		ProfileService.OnProfileChanged -= HandleProfileChanged;
+		ClubService.OnSettingsChanged -= HandleClubSettingsChanged;
+		SkppService.OnConnectionStateChanged -= HandleSkppStateChanged;
 		UpdateService.OnUpdateStateChanged -= HandleUpdateChanged;
 		Loc.OnLanguageChanged -= HandleLanguageChanged;
 	}

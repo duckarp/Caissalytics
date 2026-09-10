@@ -11,6 +11,7 @@
 @using Caissalytics.Components.Dossier
 @using Caissalytics.Components.Endgames
 @using Caissalytics.Components.Homework
+@using Caissalytics.Components.Messages
 @inject WorkspaceState Workspace
 @inject IJSRuntime JS
 @implements IAsyncDisposable
@@ -101,6 +102,22 @@ else
 			bool isActive = tab == Workspace.ActiveTab;
 			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
 				<HomeworkWorkbench Tab="tab" />
+			</div>
+		}
+
+		@foreach (var tab in Workspace.Tabs.OfType<ClubHomeworkTab>())
+		{
+			bool isActive = tab == Workspace.ActiveTab;
+			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+				<ClubHomeworkWorkbench Tab="tab" />
+			</div>
+		}
+
+		@foreach (var tab in Workspace.Tabs.OfType<ClubMessagesTab>())
+		{
+			bool isActive = tab == Workspace.ActiveTab;
+			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+				<ClubMessagesWorkbench Tab="tab" />
 			</div>
 		}
 	</div>

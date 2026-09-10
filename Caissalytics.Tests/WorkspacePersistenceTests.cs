@@ -196,4 +196,91 @@ public class WorkspacePersistenceTests
         Assert.Equal("engines", tab2.InitialCategory);
         Assert.Equal(tab2, ws.ActiveTab);
     }
+
+    [Fact]
+    public void CreateClubHomeworkTab_WithInitialTaskId_SetsTaskIdAndActivates()
+    {
+        var ws = new WorkspaceState();
+        var tab = ws.CreateClubHomeworkTab(123);
+
+        Assert.Equal(123, tab.InitialTaskId);
+        Assert.Equal(tab, ws.ActiveTab);
+        Assert.Equal("Club Homework", tab.Title);
+        Assert.Equal("📥", tab.Icon);
+
+        // Re-invoking updates existing tab's initial task ID
+        var tab2 = ws.CreateClubHomeworkTab(456);
+        Assert.Same(tab, tab2);
+        Assert.Equal(456, tab2.InitialTaskId);
+        Assert.Equal(tab2, ws.ActiveTab);
+    }
+
+    [Fact]
+    public void ExportAndRestore_HomeworkAndClubHomeworkTabs()
+    {
+        var ws = new WorkspaceState();
+        var hwTab = ws.CreateHomeworkTab("sheet-1");
+        var clubTab = ws.CreateClubHomeworkTab(42);
+
+        ws.SelectTab(clubTab.Id);
+
+        string json = ws.ExportStateJson();
+        Assert.False(string.IsNullOrWhiteSpace(json));
+
+        var ws2 = new WorkspaceState();
+        bool restored = ws2.RestoreStateFromJson(json);
+
+        Assert.True(restored);
+        Assert.Equal(3, ws2.Tabs.Count); // Dashboard + Homework + ClubHomework
+
+        var restoredClub = Assert.IsType<ClubHomeworkTab>(ws2.ActiveTab);
+        Assert.Equal(clubTab.Id, restoredClub.Id);
+        Assert.Equal("Club Homework", restoredClub.Title);
+
+        var restoredHw = ws2.Tabs.OfType<HomeworkTab>().FirstOrDefault();
+        Assert.NotNull(restoredHw);
+        Assert.Equal(hwTab.Id, restoredHw.Id);
+        Assert.Equal("Homework & Diagrams", restoredHw.Title);
+    }
+
+    [Fact]
+    public void CreateClubMessagesTab_WithInitialMessageId_SetsMessageIdAndActivates()
+    {
+        var ws = new WorkspaceState();
+        var tab = ws.CreateMessagesTab(77);
+
+        Assert.Equal(77, tab.InitialMessageId);
+        Assert.Equal(tab, ws.ActiveTab);
+        Assert.Equal("Club Messages", tab.Title);
+        Assert.Equal("✉️", tab.Icon);
+
+        // Re-invoking updates existing tab's initial message ID
+        var tab2 = ws.CreateMessagesTab(88);
+        Assert.Same(tab, tab2);
+        Assert.Equal(88, tab2.InitialMessageId);
+        Assert.Equal(tab2, ws.ActiveTab);
+    }
+
+    [Fact]
+    public void ExportAndRestore_ClubMessagesTab()
+    {
+        var ws = new WorkspaceState();
+        var msgTab = ws.CreateMessagesTab(5);
+
+        ws.SelectTab(msgTab.Id);
+
+        string json = ws.ExportStateJson();
+        Assert.False(string.IsNullOrWhiteSpace(json));
+
+        var ws2 = new WorkspaceState();
+        bool restored = ws2.RestoreStateFromJson(json);
+
+        Assert.True(restored);
+        Assert.Equal(2, ws2.Tabs.Count); // Dashboard + Messages
+
+        var restoredMsg = Assert.IsType<ClubMessagesTab>(ws2.ActiveTab);
+        Assert.Equal(msgTab.Id, restoredMsg.Id);
+        Assert.Equal("Club Messages", restoredMsg.Title);
+        Assert.Equal("✉️", restoredMsg.Icon);
+    }
 }

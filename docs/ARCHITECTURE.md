@@ -353,3 +353,41 @@ graph TD
 - **Zero Flash of Unlocalized Content**: Cold boot loads persisted language preference synchronously before initial Blazor component lifecycle invocation.
 - **Hierarchical Fallback Chain**: If a string key is missing in a non-default language (e.g. Slovak), `LocalizationService` transparently falls back to English, and finally to the key identifier itself.
 - **Runtime Reactive Updates**: Invoking `SetLanguageAsync(code)` persists the setting immediately and fires `OnLanguageChanged`, updating all active tabs without application restarts.
+
+---
+
+## 11. Web Platform Hub & Club Integration Architecture
+
+Caissalytics integrates with web-based chess club coaching portals (such as ŠK Považské Podhradie / SKPP) through a secure, decoupled REST service architecture:
+
+```mermaid
+graph TD
+    Hub["Club Web Platform (SKPP / Hub API)"] <--> Service["ISkppIntegrationService / SkppIntegrationService"]
+    Service --> State[("skpp_connection.json Store")]
+    Service --> Timer["5-Minute Background Polling Timer"]
+    Timer --> Service
+    Service --> EventUnread["OnUnreadCountChanged"]
+    Service --> EventConn["OnConnectionStateChanged"]
+    EventUnread --> Header["WorkspaceTabs.razor (Unread Badge)"]
+    EventConn --> Settings["SettingsControlCenter.razor"]
+    Service <--> MsgWB["ClubMessagesWorkbench.razor"]
+    Service <--> HWWB["ClubHomeworkWorkbench.razor"]
+    HWWB --> Board["ChessgroundBoard.razor"]
+```
+
+### Core Subsystems:
+- **`ISkppIntegrationService` & `SkppIntegrationService`**:
+  - Secure credential storage and JWT bearer token injection via `HttpClient`.
+  - State persistence in `~/.local/share/Caissalytics/skpp_connection.json` (or `%LocalAppData%\Caissalytics`).
+  - Thread-safe background `Timer` checking unread messages every 5 minutes when authenticated.
+  - Event triggers `OnUnreadCountChanged` and `OnConnectionStateChanged` providing reactive UI updates.
+- **`ClubHomeworkWorkbench.razor`**:
+  - Fetches assigned tasks per coaching group (`GET /api/caissalytics/homework`).
+  - Embedded interactive solver with full SAN move sequence generator and move history undo/reset.
+  - One-click solution submission (`POST /api/caissalytics/homework/{id}/submit`).
+- **`ClubMessagesWorkbench.razor`**:
+  - Two-pane inbox with live search and unread filtering (`GET /api/caissalytics/messages`).
+  - Automatic mark-as-read upon message selection (`POST /api/caissalytics/messages/{id}/read`).
+  - Coaching group and 1:1 message composer (`POST /api/caissalytics/messages`).
+  - Deep-link dispatcher connecting coaching task notifications directly to the homework solver.
+

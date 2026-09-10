@@ -74,6 +74,30 @@ public class HomeworkTests : IDisposable
     }
 
     [Fact]
+    public async Task HomeworkService_CreateNewSheet_PrefillsCoachFromProfile_AndClubFromClubService()
+    {
+        var profileService = new UserProfileService(Path.Combine(_testDir, "user_profile.json"));
+        await profileService.SaveProfileAsync(new UserProfile
+        {
+            FirstName = "Tomas",
+            LastName = "Kovac"
+        });
+
+        var clubService = new ChessClubService(_testDir);
+        await clubService.SaveSettingsAsync(new ChessClubSettings
+        {
+            ClubName = "ŠK Slovan Bratislava"
+        });
+
+        var homeworkService = new HomeworkService(_testDir, profileService, clubService);
+        var sheet = await homeworkService.CreateNewSheetAsync("Tactics Lesson 1", 4);
+
+        Assert.NotNull(sheet);
+        Assert.Equal("Tomas Kovac", sheet.CoachName);
+        Assert.Equal("ŠK Slovan Bratislava", sheet.ClubName);
+    }
+
+    [Fact]
     public async Task HomeworkService_SaveSheet_UpdatesExistingSheet()
     {
         var service = new HomeworkService(_testDir);
