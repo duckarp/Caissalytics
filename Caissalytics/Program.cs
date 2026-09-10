@@ -3,99 +3,114 @@ using Caissalytics.Data;
 using Caissalytics.Engine;
 using Caissalytics.Localization;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using Photino.Blazor;
 
-var appBuilder = PhotinoBlazorAppBuilder.CreateDefault(args);
+namespace Caissalytics;
 
-// Register application services
-appBuilder.Services.AddLogging();
-appBuilder.Services.AddHttpClient();
-appBuilder.Services.AddSingleton<IEngineService, EngineManager>();
-appBuilder.Services.AddSingleton<IDatabaseService, DatabaseManager>();
-appBuilder.Services.AddSingleton<IGameAnalysisService, GameAnalysisService>();
-appBuilder.Services.AddSingleton<IOnlineGameSyncService, OnlineGameSyncService>();
-appBuilder.Services.AddSingleton<IUserProfileService, UserProfileService>();
-appBuilder.Services.AddSingleton<IUserAnalyticsService, UserAnalyticsService>();
-appBuilder.Services.AddSingleton<IUpdateService, UpdateService>();
-appBuilder.Services.AddSingleton<IPuzzleService, PuzzleService>();
-appBuilder.Services.AddSingleton<IRepertoireService, RepertoireService>();
-appBuilder.Services.AddSingleton<IChessClubService, ChessClubService>();
-appBuilder.Services.AddSingleton<ISkppIntegrationService, SkppIntegrationService>();
-appBuilder.Services.AddSingleton<IHomeworkService, HomeworkService>();
-appBuilder.Services.AddScoped<IAppearanceService, AppearanceService>();
-appBuilder.Services.AddScoped<ILocalizationService, LocalizationService>();
-appBuilder.Services.AddSingleton<IOpponentDossierService, OpponentDossierService>();
-appBuilder.Services.AddSingleton<IFideScoutingService, FideScoutingService>();
-appBuilder.Services.AddSingleton<IChessResultsScoutingService, ChessResultsScoutingService>();
-appBuilder.Services.AddSingleton<ITablebaseService, TablebaseService>();
-appBuilder.Services.AddSingleton<LichessExplorerClient>();
-appBuilder.Services.AddScoped<WorkspaceState>();
-
-// Configure file provider supporting both physical wwwroot and embedded resources for single-file binaries
-var physicalWwwroot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot");
-Microsoft.Extensions.FileProviders.IFileProvider fileProvider;
-try
+internal class Program
 {
-	var embeddedProvider = new Microsoft.Extensions.FileProviders.ManifestEmbeddedFileProvider(typeof(App).Assembly, "wwwroot");
-	if (Directory.Exists(physicalWwwroot))
-	{
-		fileProvider = new Microsoft.Extensions.FileProviders.CompositeFileProvider(
-			new Microsoft.Extensions.FileProviders.PhysicalFileProvider(physicalWwwroot),
-			embeddedProvider);
-	}
-	else
-	{
-		fileProvider = embeddedProvider;
-	}
+    [STAThread]
+    static void Main(string[] args)
+    {
+        var appBuilder = PhotinoBlazorAppBuilder.CreateDefault(args);
+
+        // Register application services
+        appBuilder.Services.AddLogging();
+        appBuilder.Services.AddHttpClient();
+        appBuilder.Services.AddSingleton<IEngineService, EngineManager>();
+        appBuilder.Services.AddSingleton<IDatabaseService, DatabaseManager>();
+        appBuilder.Services.AddSingleton<IGameAnalysisService, GameAnalysisService>();
+        appBuilder.Services.AddSingleton<IOnlineGameSyncService, OnlineGameSyncService>();
+        appBuilder.Services.AddSingleton<IUserProfileService, UserProfileService>();
+        appBuilder.Services.AddSingleton<IUserAnalyticsService, UserAnalyticsService>();
+        appBuilder.Services.AddSingleton<IUpdateService, UpdateService>();
+        appBuilder.Services.AddSingleton<IPuzzleService, PuzzleService>();
+        appBuilder.Services.AddSingleton<IRepertoireService, RepertoireService>();
+        appBuilder.Services.AddSingleton<IChessClubService, ChessClubService>();
+        appBuilder.Services.AddSingleton<ISkppIntegrationService, SkppIntegrationService>();
+        appBuilder.Services.AddSingleton<IHomeworkService, HomeworkService>();
+        appBuilder.Services.AddScoped<IAppearanceService, AppearanceService>();
+        appBuilder.Services.AddScoped<ILocalizationService, LocalizationService>();
+        appBuilder.Services.AddSingleton<IOpponentDossierService, OpponentDossierService>();
+        appBuilder.Services.AddSingleton<IFideScoutingService, FideScoutingService>();
+        appBuilder.Services.AddSingleton<IChessResultsScoutingService, ChessResultsScoutingService>();
+        appBuilder.Services.AddSingleton<ITablebaseService, TablebaseService>();
+        appBuilder.Services.AddSingleton<LichessExplorerClient>();
+        appBuilder.Services.AddScoped<WorkspaceState>();
+
+        // Configure file provider supporting both physical wwwroot and embedded resources for single-file binaries
+        var physicalWwwroot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot");
+        IFileProvider fileProvider;
+        try
+        {
+            var embeddedProvider = new ManifestEmbeddedFileProvider(typeof(App).Assembly, "wwwroot");
+            if (Directory.Exists(physicalWwwroot))
+            {
+                fileProvider = new CompositeFileProvider(
+                    new PhysicalFileProvider(physicalWwwroot),
+                    embeddedProvider);
+            }
+            else
+            {
+                fileProvider = embeddedProvider;
+            }
+        }
+        catch
+        {
+            if (!Directory.Exists(physicalWwwroot))
+            {
+                Directory.CreateDirectory(physicalWwwroot);
+            }
+            fileProvider = new PhysicalFileProvider(physicalWwwroot);
+        }
+
+        var existingProviderDescriptor = appBuilder.Services.FirstOrDefault(s => s.ServiceType == typeof(IFileProvider));
+        if (existingProviderDescriptor != null)
+        {
+            appBuilder.Services.Remove(existingProviderDescriptor);
+        }
+        appBuilder.Services.AddSingleton<IFileProvider>(fileProvider);
+
+        // Register root desktop component
+        appBuilder.RootComponents.Add<App>("#app");
+
+        var app = appBuilder.Build();
+
+        // Trigger non-blocking update check on launch (runs safely on ThreadPool)
+        var updateService = app.Services.GetRequiredService<IUpdateService>();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                var settings = await updateService.GetSettingsAsync();
+                if (settings.AutoCheckOnStartup)
+                {
+                    await Task.Delay(2500);
+                    await updateService.CheckForUpdatesAsync();
+                }
+            }
+            catch
+            {
+                // Silently ignore background update check failures
+            }
+        });
+
+        // Configure the native desktop window
+        app.MainWindow
+            .SetTitle("Caissalytics")
+            .SetSize(1400, 900)
+            .SetMinSize(1000, 650)
+            .SetMediaAutoplayEnabled(true)
+            .SetDevToolsEnabled(true)
+            .SetContextMenuEnabled(true)
+            .SetUseOsDefaultLocation(false);
+
+        AppDomain.CurrentDomain.UnhandledException += (sender, error) =>
+        {
+            Console.Error.WriteLine($"[Caissalytics] Unhandled exception: {error.ExceptionObject}");
+        };
+
+        app.Run();
+    }
 }
-catch
-{
-	if (!Directory.Exists(physicalWwwroot))
-	{
-		Directory.CreateDirectory(physicalWwwroot);
-	}
-	fileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(physicalWwwroot);
-}
-
-var existingProviderDescriptor = appBuilder.Services.FirstOrDefault(s => s.ServiceType == typeof(Microsoft.Extensions.FileProviders.IFileProvider));
-if (existingProviderDescriptor != null)
-{
-	appBuilder.Services.Remove(existingProviderDescriptor);
-}
-appBuilder.Services.AddSingleton<Microsoft.Extensions.FileProviders.IFileProvider>(fileProvider);
-
-// Register root desktop component
-appBuilder.RootComponents.Add<App>("div#app");
-
-var app = appBuilder.Build();
-
-// Trigger non-blocking update check on launch
-var updateService = app.Services.GetRequiredService<IUpdateService>();
-_ = Task.Run(async () =>
-{
-	try
-	{
-		var settings = await updateService.GetSettingsAsync();
-		if (settings.AutoCheckOnStartup)
-		{
-			await Task.Delay(2500);
-			await updateService.CheckForUpdatesAsync();
-		}
-	}
-	catch { }
-});
-
-// Configure the native desktop window
-app.MainWindow
-	.SetTitle("Caissalytics")
-	.SetSize(1400, 900)
-	.SetMinSize(1000, 650)
-	.SetMediaAutoplayEnabled(true)
-	.SetUseOsDefaultLocation(false);
-
-AppDomain.CurrentDomain.UnhandledException += (sender, error) =>
-{
-	Console.Error.WriteLine($"[Caissalytics] Unhandled exception: {error.ExceptionObject}");
-};
-
-app.Run();
