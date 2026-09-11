@@ -234,17 +234,34 @@
 			InvokeAsync(StateHasChanged);
 		});
 
+		// Capture locals for the background task so we don't capture 'this' state mutably
+		var databaseName = DatabaseName;
+		var token = _importCts.Token;
+
 		try
 		{
 			if (_importMode == ImportMode.Text)
 			{
-				await DatabaseService.ImportPgnTextAsync(DatabaseName, _pastedPgn, progressReporter, _importCts.Token);
+				var pgnText = _pastedPgn;
+				await Task.Run(() => DatabaseService.ImportPgnTextAsync(databaseName, pgnText, progressReporter, token), token);
 			}
 			else
 			{
-				// Allow up to 2GB files (.pgn, .zip, .7z)
-				using var stream = _selectedFile!.OpenReadStream(maxAllowedSize: 2048L * 1024 * 1024);
-				await DatabaseService.ImportPgnStreamAsync(DatabaseName, stream, _selectedFileName, progressReporter, _importCts.Token);
+				// IBrowserFile.OpenReadStream() is bound to the Blazor render context and cannot be
+				// accessed from a background thread. Copy the file into a plain MemoryStream here on
+				// the Blazor thread first, then hand the MemoryStream off to the thread pool.
+				var ms = new MemoryStream();
+				using (var browserStream = _selectedFile!.OpenReadStream(maxAllowedSize: 2048L * 1024 * 1024))
+				{
+					await browserStream.CopyToAsync(ms, token);
+				}
+				ms.Position = 0;
+				var fileName = _selectedFileName;
+				await Task.Run(async () =>
+				{
+					await using var _ = ms;
+					await DatabaseService.ImportPgnStreamAsync(databaseName, ms, fileName, progressReporter, token);
+				}, token);
 			}
 
 			_isFinished = true;
@@ -264,7 +281,7 @@
 		finally
 		{
 			_isImporting = false;
-			StateHasChanged();
+			await InvokeAsync(StateHasChanged);
 		}
 	}
 

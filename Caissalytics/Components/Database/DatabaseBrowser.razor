@@ -470,7 +470,7 @@
 	[Parameter] public DatabaseBrowserTab? Tab { get; set; }
 
 	private List<DatabaseInfo> _databases = new();
-	private string _currentDbName = "ClassicalMasters";
+	private string _currentDbName = "";
 	private string _referenceDbName = "ClassicalMasters";
 	private List<GameHeader> _games = new();
 	private int _totalCount = 0;
@@ -605,12 +605,12 @@
 		{
 			_installProgressPct = p.total > 0 ? (int)((double)p.current / p.total * 100) : p.current;
 			_installStatus = p.status;
-			StateHasChanged();
+			InvokeAsync(StateHasChanged);
 		});
 
 		try
 		{
-			await DatabaseService.InstallMasterDatabaseAsync(catalogId, progress);
+			await Task.Run(() => DatabaseService.InstallMasterDatabaseAsync(catalogId, progress));
 			await Task.Delay(300);
 			_masterCatalog = await DatabaseService.GetMasterCatalogAsync();
 			await LoadDatabasesAsync();
@@ -623,7 +623,7 @@
 		finally
 		{
 			_isInstallingMaster = false;
-			StateHasChanged();
+			await InvokeAsync(StateHasChanged);
 		}
 	}
 
