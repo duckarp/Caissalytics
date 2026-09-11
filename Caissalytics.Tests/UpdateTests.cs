@@ -147,7 +147,15 @@ public class UpdateTests
         var update = await service.CheckForUpdatesAsync(force: true);
 
         Assert.NotNull(update);
-        Assert.Equal("1.3.2", service.GetCurrentVersion());
+
+        // GetCurrentVersion() is read from the app assembly's InformationalVersion, so it tracks
+        // the real release version. Don't pin it to a specific value (it changes every release) —
+        // only check it is valid semver and older than the mocked latest (1.4.0), which drives
+        // IsUpdateAvailable to true.
+        string currentVer = service.GetCurrentVersion();
+        Assert.True(Version.TryParse(currentVer, out _), $"GetCurrentVersion() '{currentVer}' is not valid semver");
+        Assert.True(SemVerHelper.IsNewerVersion("1.4.0", currentVer), $"current version {currentVer} should be older than mocked latest 1.4.0");
+
         Assert.Equal("1.4.0", update.LatestVersion);
         Assert.True(update.IsUpdateAvailable);
         Assert.NotNull(update.AssetDownloadUrl);
