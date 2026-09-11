@@ -68,10 +68,32 @@ public class StreamingPgnImporter
         var ppMoveUci = insertPosCmd.Parameters.Add("$next_move_uci", SqliteType.Text);
         var ppResult = insertPosCmd.Parameters.Add("$result", SqliteType.Text);
 
-        var checkExistsCmd = connection.CreateCommand();
-        checkExistsCmd.Transaction = transaction;
-        checkExistsCmd.CommandText = "SELECT 1 FROM games WHERE site = $site LIMIT 1;";
-        var pCheckSite = checkExistsCmd.Parameters.Add("$site", SqliteType.Text);
+        // Two dedup strategies:
+        //  - By site, when `site` is a unique game URL (Lichess / Chess.com online games).
+        //  - By PGN identity (white+black+date+event+round), for tournament PGNs where `site`
+        //    is a venue/city string. Keying on `site` alone would collapse every game played in
+        //    the same venue down to the first one seen (e.g. the whole World Champions library
+        //    reducing to ~198 games, one per distinct venue).
+        var checkBySiteCmd = connection.CreateCommand();
+        checkBySiteCmd.Transaction = transaction;
+        checkBySiteCmd.CommandText = "SELECT 1 FROM games WHERE site = $site LIMIT 1;";
+        var pCheckSite = checkBySiteCmd.Parameters.Add("$site", SqliteType.Text);
+
+        var checkByIdentityCmd = connection.CreateCommand();
+        checkByIdentityCmd.Transaction = transaction;
+        checkByIdentityCmd.CommandText = @"
+            SELECT 1 FROM games
+            WHERE white = $white
+              AND black = $black
+              AND date = $date
+              AND COALESCE(event, '') = $event
+              AND COALESCE(round, '') = $round
+            LIMIT 1;";
+        var pCheckWhite = checkByIdentityCmd.Parameters.Add("$white", SqliteType.Text);
+        var pCheckBlack = checkByIdentityCmd.Parameters.Add("$black", SqliteType.Text);
+        var pCheckDate = checkByIdentityCmd.Parameters.Add("$date", SqliteType.Text);
+        var pCheckEvent = checkByIdentityCmd.Parameters.Add("$event", SqliteType.Text);
+        var pCheckRound = checkByIdentityCmd.Parameters.Add("$round", SqliteType.Text);
 
         var headerLines = new List<string>();
         var movetext = new StringBuilder();
@@ -179,11 +201,29 @@ public class StreamingPgnImporter
                 }
             }
 
-            // Deduplication check: skip if game URL already exists
-            if (deduplicate && !string.IsNullOrWhiteSpace(site))
+            // Deduplication check: skip if this game already exists.
+            //  - Online games carry a unique URL in `site`, so dedup by site.
+            //  - Tournament PGNs use a venue string for `site`, so dedup by the PGN identity
+            //    (white + black + date + event + round). A venue is shared by many games, so
+            //    keying on it alone would collapse them to the first one seen.
+            if (deduplicate)
             {
-                pCheckSite.Value = site;
-                var exists = await checkExistsCmd.ExecuteScalarAsync(cancellationToken);
+                object? exists = null;
+                if (site.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    pCheckSite.Value = site;
+                    exists = await checkBySiteCmd.ExecuteScalarAsync(cancellationToken);
+                }
+                else
+                {
+                    pCheckWhite.Value = headers.GetValueOrDefault("White", "White");
+                    pCheckBlack.Value = headers.GetValueOrDefault("Black", "Black");
+                    pCheckDate.Value = headers.GetValueOrDefault("Date", "????.??.??");
+                    pCheckEvent.Value = headers.GetValueOrDefault("Event", "");
+                    pCheckRound.Value = headers.GetValueOrDefault("Round", "");
+                    exists = await checkByIdentityCmd.ExecuteScalarAsync(cancellationToken);
+                }
+
                 if (exists != null && Convert.ToInt64(exists) > 0)
                 {
                     gamesSkipped++;
@@ -264,7 +304,8 @@ public class StreamingPgnImporter
                 transaction = connection.BeginTransaction();
                 insertGameCmd.Transaction = transaction;
                 insertPosCmd.Transaction = transaction;
-                checkExistsCmd.Transaction = transaction;
+                checkBySiteCmd.Transaction = transaction;
+                checkByIdentityCmd.Transaction = transaction;
 
                 progress?.Report(new PgnImportProgress
                 {

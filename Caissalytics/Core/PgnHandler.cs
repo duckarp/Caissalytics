@@ -207,8 +207,14 @@ public static class PgnHandler
             }
             else
             {
-                // Must be a move SAN
-                var move = SanParser.ParseSan(tree.CurrentNode.Position, tok);
+                // Must be a move SAN. Strip a glued leading move number first — tournament PGNs
+                // often have no space after it ("1.e4" -> "e4", "12...Nf6" -> "Nf6"); without this
+                // SanParser fails to parse the token and the move is silently dropped.
+                string san = MoveNumberPrefixRegex.Replace(tok, "");
+                if (string.IsNullOrWhiteSpace(san))
+                    continue;
+
+                var move = SanParser.ParseSan(tree.CurrentNode.Position, san);
                 if (!move.IsEmpty)
                 {
                     tree.AddMove(move);
@@ -220,6 +226,7 @@ public static class PgnHandler
     private static readonly Regex ClkRegex = new(@"\[%clk\s+([0-9:.]+)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex EvalRegex = new(@"\[%eval\s+([#+-]?[0-9.]+)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex MachineTagRegex = new(@"\[%[a-zA-Z0-9_]+(?:\s+[^\]]*)?\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex MoveNumberPrefixRegex = new(@"^\d+\.+", RegexOptions.Compiled);
 
     private static void ParseAndAttachComment(MoveNode node, string rawComment)
     {

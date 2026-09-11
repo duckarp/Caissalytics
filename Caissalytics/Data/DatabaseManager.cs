@@ -1131,6 +1131,7 @@ public class DatabaseManager : IDatabaseService
             CREATE INDEX IF NOT EXISTS idx_games_eco ON games(eco);
             CREATE INDEX IF NOT EXISTS idx_games_date ON games(date);
             CREATE INDEX IF NOT EXISTS idx_games_site ON games(site);
+            CREATE INDEX IF NOT EXISTS idx_games_identity ON games(white, black, date, event, round);
 
             CREATE TABLE IF NOT EXISTS positions (
                 game_id INTEGER NOT NULL,

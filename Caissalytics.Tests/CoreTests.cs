@@ -169,4 +169,28 @@ public class CoreTests
         Assert.Equal("8:10", nf3.FormattedClock);
         Assert.Null(nf3.Comment);
     }
+
+    [Fact]
+    public void PgnHandler_GluedMoveNumbers_ImportsAllMoves()
+    {
+        // Tournament PGNs often glue the move number to the move ("1.e4" rather than "1. e4").
+        // Before the fix the display/import path failed to parse these tokens, so stored games
+        // opened with 0–2 moves even though the PGN was complete.
+        // Italian Game: a fully legal sequence where both sides actually castle, so the
+        // castling SAN ("O-O") is exercised too.
+        string pgn = "1.e4 e5 2.Nf3 Nc6 3.Bc4 Bc5 4.c3 Nf6 5.d3 d6 6.O-O O-O";
+        var tree = PgnHandler.ImportPgn(pgn);
+
+        var sans = new List<string>();
+        var node = tree.Root;
+        while (node.Children.Count > 0)
+        {
+            node = node.Children[0];
+            sans.Add(node.San);
+        }
+
+        Assert.Equal(
+            new[] { "e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5", "c3", "Nf6", "d3", "d6", "O-O", "O-O" },
+            sans);
+    }
 }

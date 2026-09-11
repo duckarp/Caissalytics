@@ -97,6 +97,84 @@ public class DatabaseTests : IDisposable
     }
 
     [Fact]
+    public async Task StreamingPgnImporter_Dedup_SameVenueDifferentGames_KeepsBoth()
+    {
+        await _dbManager.CreateDatabaseAsync("VenueDedup");
+
+        // Two DIFFERENT games sharing one venue ("Reykjavik"). With the old site-only dedup the
+        // second game was silently dropped (the whole World Champions library collapsed to ~198
+        // games, one per venue). PGN-identity dedup must keep both.
+        string pgn =
+@"[Event ""World Championship""]
+[Site ""Reykjavik""]
+[Date ""1972.07.23""]
+[Round ""6""]
+[White ""Fischer, Robert J.""]
+[Black ""Spassky, Boris V.""]
+[Result ""1-0""]
+
+1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 1-0
+
+[Event ""World Championship""]
+[Site ""Reykjavik""]
+[Date ""1972.07.25""]
+[Round ""7""]
+[White ""Fischer, Robert J.""]
+[Black ""Spassky, Boris V.""]
+[Result ""1/2-1/2""]
+
+1. d4 d5 2. c4 e6 1/2-1/2
+";
+
+        await _dbManager.ImportPgnTextAsync("VenueDedup", pgn, deduplicate: true);
+        var (_, count) = await _dbManager.SearchGamesAsync("VenueDedup", new GameFilter());
+        Assert.Equal(2, count); // both venue games kept, not collapsed to 1
+
+        // Re-importing the identical PGN must not add duplicates (identity already present).
+        await _dbManager.ImportPgnTextAsync("VenueDedup", pgn, deduplicate: true);
+        var (_, countAfterReimport) = await _dbManager.SearchGamesAsync("VenueDedup", new GameFilter());
+        Assert.Equal(2, countAfterReimport);
+    }
+
+    [Fact]
+    public async Task StreamingPgnImporter_Dedup_OnlineGames_DedupByUrlNotIdentity()
+    {
+        await _dbManager.CreateDatabaseAsync("OnlineDedup");
+
+        // Online games carry a unique URL in `site`. Two games between the same players on the
+        // same day must BOTH survive (dedup keys on the URL, not the identity tuple — the tuple
+        // collides because online dates have no time component).
+        string pgn =
+@"[Event ""Lichess Blitz""]
+[Site ""https://lichess.org/abc123""]
+[Date ""2026.05.12""]
+[White ""duckarp""]
+[Black ""lichess AI level 8""]
+[Result ""1-0""]
+
+1. e4 e5 1-0
+
+[Event ""Lichess Blitz""]
+[Site ""https://lichess.org/def456""]
+[Date ""2026.05.12""]
+[White ""duckarp""]
+[Black ""lichess AI level 8""]
+[Result ""0-1""]
+
+1. d4 d5 0-1
+";
+
+        await _dbManager.ImportPgnTextAsync("OnlineDedup", pgn, deduplicate: true);
+        var (_, count) = await _dbManager.SearchGamesAsync("OnlineDedup", new GameFilter());
+        Assert.Equal(2, count); // both online games kept despite identical identity tuple
+
+        // Re-import: dedup now keys on the URL, so both are recognised as already present.
+        await _dbManager.ImportPgnTextAsync("OnlineDedup", pgn, deduplicate: true);
+        var (_, countAfterReimport) = await _dbManager.SearchGamesAsync("OnlineDedup", new GameFilter());
+        Assert.Equal(2, countAfterReimport);
+    }
+
+    [Fact]
     public async Task ImportPgnTextAsync_PastedPgnWithVariationsAndComments_ImportsCorrectly()
     {
         await _dbManager.CreateDatabaseAsync("PastedPgnDb");
