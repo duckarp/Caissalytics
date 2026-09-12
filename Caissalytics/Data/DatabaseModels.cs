@@ -158,6 +158,7 @@ public class GameFilter
 {
     public string? Player { get; set; }
     public string? Eco { get; set; }
+    public string? Opening { get; set; }
     public int? MinElo { get; set; }
     public int? MaxElo { get; set; }
     public string? Result { get; set; }

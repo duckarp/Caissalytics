@@ -202,6 +202,45 @@ public static class OpeningCatalog
         ["E99"] = "King's Indian: Classical, Main Line"
     };
 
+    private static readonly Dictionary<string, List<string>> EcoCodesByOpening = BuildEcoCodesByOpening();
+
+    private static Dictionary<string, List<string>> BuildEcoCodesByOpening()
+    {
+        var map = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (code, name) in EcoDictionary)
+        {
+            if (!map.TryGetValue(name, out var codes))
+            {
+                codes = new List<string>();
+                map[name] = codes;
+            }
+            codes.Add(code);
+        }
+        return map;
+    }
+
+    public static IReadOnlyList<string> GetOpeningNames()
+    {
+        return EcoCodesByOpening.Keys
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    public static IReadOnlyList<string> GetEcoCodesForOpening(string? openingName)
+    {
+        if (string.IsNullOrWhiteSpace(openingName))
+        {
+            return Array.Empty<string>();
+        }
+
+        if (EcoCodesByOpening.TryGetValue(openingName.Trim(), out var codes))
+        {
+            return codes.OrderBy(code => code, StringComparer.Ordinal).ToList();
+        }
+
+        return Array.Empty<string>();
+    }
+
     public static string ResolveOpeningName(string? eco, string? pgn = null)
     {
         // 1. Try explicit [Opening "..."] tag in PGN

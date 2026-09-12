@@ -694,6 +694,26 @@ public class DatabaseManager : IDatabaseService
             parameters.Add(new SqliteParameter("$eco", $"{filter.Eco.Trim()}%"));
         }
 
+        if (!string.IsNullOrWhiteSpace(filter.Opening))
+        {
+            var openingCodes = OpeningCatalog.GetEcoCodesForOpening(filter.Opening);
+            if (openingCodes.Count > 0)
+            {
+                var paramNames = new string[openingCodes.Count];
+                for (int i = 0; i < openingCodes.Count; i++)
+                {
+                    paramNames[i] = $"$opening{i}";
+                    parameters.Add(new SqliteParameter($"$opening{i}", openingCodes[i]));
+                }
+                whereClauses.Add($"eco IN ({string.Join(", ", paramNames)})");
+            }
+            else
+            {
+                // Unknown opening name -> match nothing, same as an invalid ECO code.
+                whereClauses.Add("0=1");
+            }
+        }
+
         if (filter.MinElo.HasValue)
         {
             whereClauses.Add("(white_elo >= $minElo OR black_elo >= $minElo)");

@@ -377,6 +377,57 @@ public class DatabaseTests : IDisposable
     }
 
     [Fact]
+    public async Task SearchGames_FilteringByOpening_MatchesAllEcoCodesForThatName()
+    {
+        await _dbManager.CreateDatabaseAsync("OpeningTest");
+
+        string pgn = @"
+[Event ""T1""]
+[White ""White One""]
+[Black ""Black One""]
+[Result ""1-0""]
+[ECO ""A02""]
+[Date ""2020.01.01""]
+
+1. f4 d5 1-0
+
+[Event ""T2""]
+[White ""White Two""]
+[Black ""Black Two""]
+[Result ""0-1""]
+[ECO ""A03""]
+[Date ""2020.02.02""]
+
+1. d4 f5 0-1
+
+[Event ""T3""]
+[White ""White Three""]
+[Black ""Black Three""]
+[Result ""1-0""]
+[ECO ""B90""]
+[Date ""2020.03.03""]
+
+1. e4 c5 2. Nf3 d6 3. d4 Nf6 1-0
+";
+
+        await _dbManager.ImportPgnTextAsync("OpeningTest", pgn);
+
+        // "Bird's Opening" spans both A02 and A03.
+        var (birdGames, birdCount) = await _dbManager.SearchGamesAsync("OpeningTest", new GameFilter { Opening = "Bird's Opening" });
+        Assert.Equal(2, birdCount);
+        Assert.Equal(new[] { "A02", "A03" }, birdGames.Select(g => g.Eco).OrderBy(e => e).ToArray());
+
+        // A more specific name maps to a single code.
+        var (najdorf, najdorfCount) = await _dbManager.SearchGamesAsync("OpeningTest", new GameFilter { Opening = "Sicilian Defense: Najdorf" });
+        Assert.Equal(1, najdorfCount);
+        Assert.Equal("B90", najdorf[0].Eco);
+
+        // An unknown opening matches nothing.
+        var (_, noneCount) = await _dbManager.SearchGamesAsync("OpeningTest", new GameFilter { Opening = "No Such Opening" });
+        Assert.Equal(0, noneCount);
+    }
+
+    [Fact]
     public async Task DeleteDatabase_RemovesFiles_AndFallsBackToAnother()
     {
         await _dbManager.CreateDatabaseAsync("ToKeep");

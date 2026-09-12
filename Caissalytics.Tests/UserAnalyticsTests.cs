@@ -80,6 +80,47 @@ public class UserAnalyticsTests
     }
 
     [Fact]
+    public void OpeningCatalog_GetEcoCodesForOpening_GroupsCodesByName()
+    {
+        var birdCodes = OpeningCatalog.GetEcoCodesForOpening("Bird's Opening");
+        Assert.Equal(2, birdCodes.Count);
+        Assert.Contains("A02", birdCodes);
+        Assert.Contains("A03", birdCodes);
+
+        var najdorfCodes = OpeningCatalog.GetEcoCodesForOpening("Sicilian Defense: Najdorf");
+        Assert.Single(najdorfCodes);
+        Assert.Equal("B90", najdorfCodes[0]);
+
+        // Lookup is case-insensitive and trims whitespace.
+        var lenient = OpeningCatalog.GetEcoCodesForOpening("  bird's opening ");
+        Assert.Equal(2, lenient.Count);
+        Assert.Contains("A02", lenient);
+        Assert.Contains("A03", lenient);
+
+        // Unknown or empty names yield no codes.
+        Assert.Empty(OpeningCatalog.GetEcoCodesForOpening("No Such Opening"));
+        Assert.Empty(OpeningCatalog.GetEcoCodesForOpening(null));
+        Assert.Empty(OpeningCatalog.GetEcoCodesForOpening(""));
+    }
+
+    [Fact]
+    public void OpeningCatalog_GetOpeningNames_ReturnsDistinctSortedNames()
+    {
+        var names = OpeningCatalog.GetOpeningNames();
+        Assert.NotEmpty(names);
+
+        // Distinct even though many codes share a name.
+        Assert.Equal(names.Count, names.Distinct(StringComparer.OrdinalIgnoreCase).Count());
+
+        // Sorted case-insensitively.
+        var sorted = names.ToList();
+        sorted.Sort(StringComparer.OrdinalIgnoreCase);
+        Assert.Equal(sorted, names);
+
+        Assert.Contains("Bird's Opening", names, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task UserAnalyticsService_CalculatesMetricsFromUserPerspective()
     {
         var fakeDb = new FakeDatabaseService();
