@@ -193,4 +193,22 @@ public class CoreTests
             new[] { "e4", "e5", "Nf3", "Nc6", "Bc4", "Bc5", "c3", "Nf6", "d3", "d6", "O-O", "O-O" },
             sans);
     }
+
+    [Fact]
+    public void ParseSan_RedundantDisambiguation_Accepted()
+    {
+        // After 1.d4 Nf6 2.c4 e6 3.Nc3 Bb4 4.e3 c5 only the g1 knight can reach
+        // e2, so the minimal SAN is "Ne2", but PGNs commonly write "Nge2"/"N1e2".
+        string fen = "rnbqk2r/pp1p1ppp/4pn2/2p5/1bPP4/2N1P3/PP3PPP/R1BQKBNR w KQkq c6 0 5";
+        var pos = FenParser.Parse(fen);
+
+        var minimal = SanParser.ParseSan(pos, "Ne2");
+        Assert.False(minimal.IsEmpty);
+
+        Assert.Equal(minimal, SanParser.ParseSan(pos, "Nge2"));
+        Assert.Equal(minimal, SanParser.ParseSan(pos, "N1e2"));
+
+        // A disambiguation pointing at the other (b1) knight must not match.
+        Assert.True(SanParser.ParseSan(pos, "Nbe2").IsEmpty);
+    }
 }

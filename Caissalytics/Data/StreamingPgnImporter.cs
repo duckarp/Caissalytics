@@ -10,6 +10,9 @@ public class StreamingPgnImporter
 {
     private const int BatchSize = 500;
 
+    // Matches the PGN convention tag "[ECO "???"]" (unknown opening) in the stored PGN header.
+    public static readonly Regex EcoUnknownTagRegex = new(@"^\[ECO\s+""\?\?\?""\]", RegexOptions.Compiled | RegexOptions.Multiline);
+
     public async Task ImportAsync(
         string connectionString,
         TextReader reader,
@@ -247,12 +250,27 @@ public class StreamingPgnImporter
             pEvent.Value = headers.GetValueOrDefault("Event", "");
             pSite.Value = site;
             pRound.Value = headers.GetValueOrDefault("Round", "");
-            pEco.Value = headers.GetValueOrDefault("ECO", "");
-            pPgn.Value = rawPgn.ToString();
 
             // Parse moves and extract positions
             var moveTokens = ExtractMainlineMoveTokens(movesStr);
             pPlyCount.Value = moveTokens.Count;
+
+            // Auto-fill a missing ECO tag (empty or the PGN "???" convention) from the move tree.
+            var ecoHeader = headers.GetValueOrDefault("ECO", "").Trim();
+            string eco = ecoHeader;
+            if (eco.Length == 0 || eco == "???")
+            {
+                eco = EcoClassifier.Classify(moveTokens) ?? eco;
+            }
+            pEco.Value = eco;
+
+            // Keep the stored PGN consistent: rewrite an "[ECO "???"]" header to the classified code.
+            string pgnText = rawPgn.ToString();
+            if (eco.Length > 0 && eco != "???")
+            {
+                pgnText = EcoUnknownTagRegex.Replace(pgnText, $"[ECO \"{eco}\"]", 1);
+            }
+            pPgn.Value = pgnText;
 
             long gameId = (long)(await insertGameCmd.ExecuteScalarAsync(cancellationToken) ?? 0L);
             gamesSaved++;

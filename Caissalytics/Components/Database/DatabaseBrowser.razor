@@ -87,6 +87,7 @@
 					<button class="btn-secondary btn-header-ref" title="Designate this database as the Master Reference for opening analysis" @onclick="() => SetAsReferenceDb(_currentDbName)">@Loc["Db_SetAsReference"]</button>
 				}
 				<button class="btn-secondary btn-master-lib" @onclick="OpenMasterLibraryModal">@Loc["Db_MasterLib"]</button>
+				<button class="btn-secondary btn-fill-eco" title="Classify games without an ECO tag from their opening moves" @onclick="PromptFillEco">@Loc["Db_FillEco"]</button>
 				@if (IsOnlineGamesDb(_currentDbName))
 				{
 					<button class="btn-secondary" @onclick="OpenOnlineSyncModal">@Loc["Db_SyncGames"]</button>
@@ -337,6 +338,55 @@
 	</div>
 }
 
+<!-- Fill Missing ECO Modal -->
+@if (_showFillEcoModal)
+{
+	<div class="modal-backdrop" @onclick="() => _showFillEcoModal = false">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<h3 class="modal-title">@Loc["Db_FillEco_Title", _currentDbName]</h3>
+				<button class="modal-close-btn" @onclick="() => _showFillEcoModal = false">✕</button>
+			</div>
+			<div class="modal-body">
+				<p class="modal-desc">@Loc["Db_FillEco_Desc"]</p>
+
+				@if (_isFillingEco)
+				{
+					<div class="reference-empty-state">
+						<span>@Loc["Db_FillEco_Running"]</span>
+					</div>
+					@if (_fillEcoTotal > 0)
+					{
+						<div class="stat-pill-sub clean-status-msg">@Loc["Db_FillEco_Progress", _fillEcoCurrent, _fillEcoTotal]</div>
+					}
+				}
+				else if (_fillEcoFinished)
+				{
+					<div class="clean-foreign-empty-state">
+						<span class="empty-state-icon">✅</span>
+						<h4>@(_fillEcoCount > 0 ? Loc["Db_FillEco_Done"] : Loc["Db_FillEco_NothingToDo"])</h4>
+						<p>@(_fillEcoCount > 0 ? Loc["Db_FillEco_Filled", _fillEcoCount, _currentDbName] : Loc["Db_FillEco_None"])</p>
+					</div>
+				}
+
+				@if (!string.IsNullOrEmpty(_fillEcoStatus))
+				{
+					<div class="stat-pill-sub clean-status-msg">@_fillEcoStatus</div>
+				}
+			</div>
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="() => _showFillEcoModal = false">
+					@(_fillEcoFinished ? Loc["Common_Close"] : Loc["Common_Cancel"])
+				</button>
+				@if (!_isFillingEco && !_fillEcoFinished)
+				{
+					<button class="btn-primary" @onclick="ExecuteFillEcoAsync">@Loc["Db_FillEco_FillBtn"]</button>
+				}
+			</div>
+		</div>
+	</div>
+}
+
 <!-- Delete Game Confirmation Modal -->
 @if (_showDeleteModal && _gameToDelete != null)
 {
@@ -504,6 +554,13 @@
 	private bool _cleanFinished = false;
 	private int _foreignGamesCount = 0;
 	private string _cleanStatus = "";
+	private bool _showFillEcoModal = false;
+	private bool _isFillingEco = false;
+	private bool _fillEcoFinished = false;
+	private int _fillEcoCount = 0;
+	private int _fillEcoCurrent = 0;
+	private int _fillEcoTotal = 0;
+	private string _fillEcoStatus = "";
 	private UserProfile _userProfile = new();
 
 	private bool _showMasterLibModal = false;
@@ -920,6 +977,56 @@
 		finally
 		{
 			_isCleaningForeign = false;
+			StateHasChanged();
+		}
+	}
+
+	private void PromptFillEco()
+	{
+		_showFillEcoModal = true;
+		_isFillingEco = false;
+		_fillEcoFinished = false;
+		_fillEcoCount = 0;
+		_fillEcoCurrent = 0;
+		_fillEcoTotal = 0;
+		_fillEcoStatus = "";
+		StateHasChanged();
+	}
+
+	private async Task ExecuteFillEcoAsync()
+	{
+		_isFillingEco = true;
+		_fillEcoCount = 0;
+		_fillEcoCurrent = 0;
+		_fillEcoTotal = 0;
+		_fillEcoStatus = "";
+		StateHasChanged();
+
+		try
+		{
+			var progress = new Progress<(int current, int total, string status)>(p =>
+			{
+				_fillEcoCurrent = p.current;
+				_fillEcoTotal = p.total;
+				StateHasChanged();
+			});
+
+			int filled = await DatabaseService.FillMissingEcoAsync(_currentDbName, progress);
+			_fillEcoCount = filled;
+			_fillEcoFinished = true;
+			_fillEcoStatus = filled > 0 ? Loc["Db_FillEco_Filled", filled, _currentDbName] : Loc["Db_FillEco_None"];
+
+			// OnDatabaseModified (fired by the service) already triggers a reload of the
+			// current database, but ensure the visible list reflects the updated ECO codes.
+			await LoadGamesAsync();
+		}
+		catch (Exception ex)
+		{
+			_fillEcoStatus = $"ECO fill error: {ex.Message}";
+		}
+		finally
+		{
+			_isFillingEco = false;
 			StateHasChanged();
 		}
 	}

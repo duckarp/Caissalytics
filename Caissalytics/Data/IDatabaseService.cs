@@ -30,4 +30,10 @@ public interface IDatabaseService
     Task ImportPgnStreamAsync(string databaseName, Stream stream, string? fileName, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false, bool allowProtectedDatabase = false)
         => ImportPgnStreamAsync(databaseName, stream, progress, cancellationToken, deduplicate, allowProtectedDatabase);
     Task ImportPgnTextAsync(string databaseName, string pgnText, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false, bool allowProtectedDatabase = false);
+
+    /// <summary>
+    /// Classifies games whose ECO tag is missing (empty, NULL or "???") from their moves
+    /// and stores the result. Returns the number of games updated.
+    /// </summary>
+    Task<int> FillMissingEcoAsync(string databaseName, IProgress<(int current, int total, string status)>? progress = null, CancellationToken cancellationToken = default);
 }

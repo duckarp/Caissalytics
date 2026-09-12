@@ -452,6 +452,18 @@ public class LocalizationService : ILocalizationService
         ["Db_CleanForeign_Irreversible"] = "Purging will remove these foreign/scouted games and keep only your personal online matches.",
         ["Db_CleanForeign_PurgeBtn"] = "Purge {0} Foreign Games",
 
+        // Fill missing ECO
+        ["Db_FillEco"] = "🔎 Fill missing ECO",
+        ["Db_FillEco_Title"] = "🔎 Fill Missing ECO in {0}",
+        ["Db_FillEco_Desc"] = "Games without an ECO tag (empty or \"???\") will be classified from their opening moves and the code stored. Games that already have an ECO are left untouched.",
+        ["Db_FillEco_Running"] = "Classifying games...",
+        ["Db_FillEco_Progress"] = "{0} of {1} games",
+        ["Db_FillEco_Filled"] = "Successfully classified {0} games in \"{1}\"!",
+        ["Db_FillEco_None"] = "All games already have an ECO code. Nothing to do.",
+        ["Db_FillEco_FillBtn"] = "Fill ECO Codes",
+        ["Db_FillEco_Done"] = "Done!",
+        ["Db_FillEco_NothingToDo"] = "Nothing to do",
+
         // Opponent Dossier
         ["Dossier_LocalDb"] = "💾 Local DB",
         ["Dossier_FideWeb"] = "🌐 FIDE & Web",
@@ -1085,6 +1097,18 @@ public class LocalizationService : ILocalizationService
         ["Db_CleanForeign_ActiveHandles"] = "Aktívne účty profilu:",
         ["Db_CleanForeign_Irreversible"] = "Vyčistenie odstráni tieto stiahnuté partie a ponechá len vaše vlastné online súboje.",
         ["Db_CleanForeign_PurgeBtn"] = "Odstrániť {0} cudzích partií",
+
+        // Fill missing ECO
+        ["Db_FillEco"] = "🔎 Doplniť chýbajúce ECO",
+        ["Db_FillEco_Title"] = "🔎 Doplniť chýbajúce ECO v {0}",
+        ["Db_FillEco_Desc"] = "Partie bez ECO značky (prázdna alebo \"???\") sa klasifikujú podľa úvodných ťahov a kód sa uloží. Partie, ktoré ECO už majú, sa nemenia.",
+        ["Db_FillEco_Running"] = "Klasifikujem partie...",
+        ["Db_FillEco_Progress"] = "{0} z {1} partií",
+        ["Db_FillEco_Filled"] = "Úspešne klasifikovaných {0} partií v \"{1}\"!",
+        ["Db_FillEco_None"] = "Všetky partie už majú ECO kód. Nie je čo robiť.",
+        ["Db_FillEco_FillBtn"] = "Doplniť ECO kódy",
+        ["Db_FillEco_Done"] = "Hotovo!",
+        ["Db_FillEco_NothingToDo"] = "Nie je čo robiť",
 
         // Opponent Dossier
         ["Dossier_LocalDb"] = "💾 Lokálna DB",

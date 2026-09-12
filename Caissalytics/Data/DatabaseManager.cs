@@ -1120,6 +1120,83 @@ public class DatabaseManager : IDatabaseService
         OnActiveDatabaseChanged?.Invoke();
     }
 
+    public async Task<int> FillMissingEcoAsync(
+        string databaseName,
+        IProgress<(int current, int total, string status)>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        string path = GetDbPath(databaseName);
+        if (!File.Exists(path))
+        {
+            return 0;
+        }
+
+        await InitializeSchemaAsync(path);
+
+        const string missingFilter = "eco IS NULL OR TRIM(COALESCE(eco, '')) IN ('', '???')";
+
+        using var conn = new SqliteConnection($"Data Source={path}");
+        await conn.OpenAsync(cancellationToken);
+        using var tx = conn.BeginTransaction();
+
+        int total;
+        using (var countCmd = conn.CreateCommand())
+        {
+            countCmd.Transaction = tx;
+            countCmd.CommandText = $"SELECT COUNT(*) FROM games WHERE {missingFilter}";
+            total = Convert.ToInt32(await countCmd.ExecuteScalarAsync(cancellationToken) ?? 0L);
+        }
+
+        if (total == 0)
+        {
+            tx.Rollback();
+            return 0;
+        }
+
+        progress?.Report((0, total, "Scanning…"));
+
+        int filled = 0;
+        using var selectCmd = conn.CreateCommand();
+        selectCmd.Transaction = tx;
+        selectCmd.CommandText = $"SELECT id, pgn FROM games WHERE {missingFilter}";
+
+        using var updateCmd = conn.CreateCommand();
+        updateCmd.Transaction = tx;
+        updateCmd.CommandText = "UPDATE games SET eco = $eco, pgn = $pgn WHERE id = $id";
+        var pEco = updateCmd.Parameters.Add("$eco", SqliteType.Text);
+        var pPgn = updateCmd.Parameters.Add("$pgn", SqliteType.Text);
+        var pId = updateCmd.Parameters.Add("$id", SqliteType.Integer);
+
+        int current = 0;
+        using var reader = await selectCmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            string pgn = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+            string? eco = EcoClassifier.Classify(StreamingPgnImporter.ExtractMainlineMoveTokens(pgn));
+            if (eco is not null)
+            {
+                // Keep the stored PGN header consistent with the classified code.
+                pEco.Value = eco;
+                pPgn.Value = StreamingPgnImporter.EcoUnknownTagRegex.Replace(pgn, $"[ECO \"{eco}\"]", 1);
+                pId.Value = reader.GetInt64(0);
+                await updateCmd.ExecuteNonQueryAsync(cancellationToken);
+                filled++;
+            }
+
+            current++;
+            if (current % 100 == 0 || current == total)
+            {
+                progress?.Report((current, total, $"Classifying… ({current}/{total})"));
+            }
+        }
+
+        await tx.CommitAsync();
+        OnDatabaseModified?.Invoke(databaseName);
+        return filled;
+    }
+
     private static async Task InitializeSchemaAsync(string dbPath)
     {
         using var conn = new SqliteConnection($"Data Source={dbPath}");

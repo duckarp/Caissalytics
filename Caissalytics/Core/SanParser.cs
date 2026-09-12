@@ -118,6 +118,51 @@ public static class SanParser
         if (san.Equals("O-O-O", StringComparison.OrdinalIgnoreCase) || san.Equals("0-0-0", StringComparison.OrdinalIgnoreCase))
             return legalMoves.FirstOrDefault(m => m.IsCastling && m.To.File() == 2);
 
+        // Some PGN sources include disambiguation even when only one piece of the
+        // type can reach the destination (e.g. "Nge2" where "Ne2" suffices).
+        if (san.Length >= 3 && char.IsUpper(san[0]))
+        {
+            PieceType? type = char.ToUpperInvariant(san[0]) switch
+            {
+                'N' => PieceType.Knight,
+                'B' => PieceType.Bishop,
+                'R' => PieceType.Rook,
+                'Q' => PieceType.Queen,
+                'K' => PieceType.King,
+                _ => null
+            };
+
+            if (type is not null &&
+                SquareExtensions.Parse(san[^2..]) is Square target &&
+                target != Square.None)
+            {
+                string mid = san[1..^2];
+                string disamb = mid.EndsWith("x") ? mid[..^1] : mid;
+
+                byte? file = null;
+                byte? rank = null;
+                foreach (var c in disamb)
+                {
+                    if (c >= 'a' && c <= 'h') file = (byte)(c - 'a');
+                    else if (c >= '1' && c <= '8') rank = (byte)(c - '1');
+                }
+
+                if (file is not null || rank is not null)
+                {
+                    foreach (var m in legalMoves)
+                    {
+                        if (pos[m.From].Type != type.Value || m.To != target)
+                            continue;
+                        if (file is not null && m.From.File() != file)
+                            continue;
+                        if (rank is not null && m.From.Rank() != rank)
+                            continue;
+                        return m;
+                    }
+                }
+            }
+        }
+
         return Move.Empty;
     }
 }
