@@ -4,6 +4,7 @@
 @inject IOnlineGameSyncService SyncService
 @inject IUserProfileService ProfileService
 @inject WorkspaceState Workspace
+@inject IJSRuntime JS
 @implements IDisposable
 
 <div class="db-browser-container">
@@ -88,6 +89,7 @@
 				}
 				<button class="btn-secondary btn-master-lib" @onclick="OpenMasterLibraryModal">@Loc["Db_MasterLib"]</button>
 				<button class="btn-secondary btn-fill-eco" title="Classify games without an ECO tag from their opening moves" @onclick="PromptFillEco">@Loc["Db_FillEco"]</button>
+				<button class="btn-secondary btn-export-pgn" title="Export games from this database to a PGN file" @onclick="OpenExportModal">@Loc["Db_ExportPgn"]</button>
 				@if (IsOnlineGamesDb(_currentDbName))
 				{
 					<button class="btn-secondary" @onclick="OpenOnlineSyncModal">@Loc["Db_SyncGames"]</button>
@@ -387,6 +389,81 @@
 	</div>
 }
 
+<!-- Export PGN Modal -->
+@if (_showExportModal)
+{
+	<div class="modal-backdrop" @onclick="CloseExportModal">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<h3 class="modal-title">@Loc["Db_Export_Title", _currentDbName]</h3>
+				<button class="modal-close-btn" @onclick="CloseExportModal">✕</button>
+			</div>
+			<div class="modal-body">
+				<p class="modal-desc">@Loc["Db_Export_Desc"]</p>
+
+				<div class="save-mode-container">
+					<span class="save-mode-title">@Loc["Db_Export_Scope"]</span>
+					<div class="save-mode-options">
+						<label class="save-mode-label">
+							<input type="radio" name="exportScope" value="all" checked="@(_exportScope == "all")" @onchange='() => _exportScope = "all"' />
+							<div class="save-mode-text-col">
+								<strong>@Loc["Db_Export_All"]</strong>
+								<span class="save-mode-desc">@Loc["Db_Export_AllDesc", _exportAllCount]</span>
+							</div>
+						</label>
+
+						<label class="save-mode-label">
+							<input type="radio" name="exportScope" value="filtered" checked="@(_exportScope == "filtered")" @onchange='() => _exportScope = "filtered"' />
+							<div class="save-mode-text-col">
+								<strong>@Loc["Db_Export_Filtered"]</strong>
+								<span class="save-mode-desc">@Loc["Db_Export_FilteredDesc", _exportFilteredCount]</span>
+							</div>
+						</label>
+					</div>
+				</div>
+
+				<div class="modal-form-group">
+					<label class="filter-label">@Loc["Db_Export_Filename"]</label>
+					<input class="modal-input" @bind="_exportFilename" @bind:event="oninput" />
+				</div>
+
+				@if (_isExporting)
+				{
+					<div class="reference-empty-state">
+						<span>@Loc["Db_Export_Running"]</span>
+					</div>
+					@if (_exportTotal > 0)
+					{
+						<div class="stat-pill-sub clean-status-msg">@Loc["Db_Export_Progress", _exportCurrent, _exportTotal]</div>
+					}
+				}
+				else if (_exportFinished)
+				{
+					<div class="clean-foreign-empty-state">
+						<span class="empty-state-icon">✅</span>
+						<h4>@Loc["Db_Export_Done"]</h4>
+						<p>@Loc["Db_Export_DoneDesc", _exportedCount, _exportFilename]</p>
+					</div>
+				}
+
+				@if (!string.IsNullOrEmpty(_exportStatus))
+				{
+					<div class="stat-pill-sub clean-status-msg">@_exportStatus</div>
+				}
+			</div>
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="CloseExportModal">
+					@(_exportFinished ? Loc["Common_Close"] : Loc["Common_Cancel"])
+				</button>
+				@if (!_isExporting && !_exportFinished)
+				{
+					<button class="btn-primary" disabled="@(_exportSelectedCount == 0 || _exportJs == null)" @onclick="ExecuteExportAsync">@Loc["Db_Export_DownloadBtn"]</button>
+				}
+			</div>
+		</div>
+	</div>
+}
+
 <!-- Delete Game Confirmation Modal -->
 @if (_showDeleteModal && _gameToDelete != null)
 {
@@ -561,6 +638,22 @@
 	private int _fillEcoCurrent = 0;
 	private int _fillEcoTotal = 0;
 	private string _fillEcoStatus = "";
+
+	private bool _showExportModal = false;
+	private string _exportScope = "all";
+	private string _exportFilename = "";
+	private bool _isExporting = false;
+	private bool _exportFinished = false;
+	private int _exportAllCount = 0;
+	private int _exportFilteredCount = 0;
+	private int _exportedCount = 0;
+	private int _exportCurrent = 0;
+	private int _exportTotal = 0;
+	private string _exportStatus = "";
+	private IJSObjectReference? _exportJs;
+
+	private int _exportSelectedCount => _exportScope == "all" ? _exportAllCount : _exportFilteredCount;
+
 	private UserProfile _userProfile = new();
 
 	private bool _showMasterLibModal = false;
@@ -1031,6 +1124,125 @@
 		}
 	}
 
+	private async Task OpenExportModal()
+	{
+		_showExportModal = true;
+		_isExporting = false;
+		_exportFinished = false;
+		_exportScope = "all";
+		_exportAllCount = 0;
+		_exportFilteredCount = 0;
+		_exportedCount = 0;
+		_exportCurrent = 0;
+		_exportTotal = 0;
+		_exportStatus = "";
+		_exportFilename = SanitizeExportFilename(_currentDbName);
+		StateHasChanged();
+
+		try
+		{
+			// Count probes: the filter total ignores paging, so PageSize = 1 keeps it cheap.
+			var (_, allCount) = await DatabaseService.SearchGamesAsync(_currentDbName, new GameFilter());
+			_exportAllCount = allCount;
+
+			var probe = _filter.Clone();
+			probe.PageSize = 1;
+			var (_, filteredCount) = await DatabaseService.SearchGamesAsync(_currentDbName, probe);
+			_exportFilteredCount = filteredCount;
+
+			_exportJs = await JS.InvokeAsync<IJSObjectReference>("import", "./js/pgnExport.js");
+		}
+		catch (Exception ex)
+		{
+			_exportJs = null;
+			_exportStatus = $"Export not available: {ex.Message}";
+		}
+
+		StateHasChanged();
+	}
+
+	private void CloseExportModal()
+	{
+		if (_isExporting)
+		{
+			return;
+		}
+
+		_showExportModal = false;
+		_exportStatus = "";
+		_ = _exportJs?.DisposeAsync();
+		_exportJs = null;
+		StateHasChanged();
+	}
+
+	private async Task ExecuteExportAsync()
+	{
+		if (_exportJs == null || _exportSelectedCount == 0)
+		{
+			return;
+		}
+
+		_isExporting = true;
+		_exportFinished = false;
+		_exportedCount = 0;
+		_exportCurrent = 0;
+		_exportTotal = 0;
+		_exportStatus = "";
+		StateHasChanged();
+
+		string filename = SanitizeExportFilename(_exportFilename);
+
+		try
+		{
+			await _exportJs.InvokeVoidAsync("reset");
+
+			var progress = new Progress<(int current, int total, string status)>(p =>
+			{
+				_exportCurrent = p.current;
+				_exportTotal = p.total;
+				InvokeAsync(StateHasChanged);
+			});
+
+			GameFilter? exportFilter = _exportScope == "filtered" ? _filter.Clone() : null;
+
+			_exportedCount = await DatabaseService.ExportGamesToPgnAsync(
+				_currentDbName,
+				exportFilter,
+				async chunk => await _exportJs.InvokeVoidAsync("addPart", chunk),
+				progress);
+
+			await _exportJs.InvokeVoidAsync("download", filename);
+			_exportFinished = true;
+		}
+		catch (Exception ex)
+		{
+			_exportStatus = $"Export error: {ex.Message}";
+		}
+		finally
+		{
+			_isExporting = false;
+			StateHasChanged();
+		}
+	}
+
+	private static string SanitizeExportFilename(string name)
+	{
+		if (string.IsNullOrWhiteSpace(name))
+		{
+			return "export.pgn";
+		}
+
+		char[] invalid = Path.GetInvalidFileNameChars();
+		char[] chars = new char[name.Length];
+		for (int i = 0; i < name.Length; i++)
+		{
+			chars[i] = Array.IndexOf(invalid, name[i]) >= 0 ? '_' : name[i];
+		}
+
+		string sanitized = new string(chars).Trim();
+		return string.IsNullOrWhiteSpace(sanitized) ? "export.pgn" : sanitized;
+	}
+
 	public void Dispose()
 	{
 		DatabaseService.OnActiveDatabaseChanged -= HandleActiveDatabaseChanged;
@@ -1038,5 +1250,6 @@
 		DatabaseService.OnDatabaseModified -= HandleDatabaseModified;
 		ProfileService.OnProfileChanged -= HandleProfileChanged;
 		Loc.OnLanguageChanged -= StateHasChanged;
+		_ = _exportJs?.DisposeAsync();
 	}
 }

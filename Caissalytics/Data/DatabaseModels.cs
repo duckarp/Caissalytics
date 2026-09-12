@@ -167,6 +167,21 @@ public class GameFilter
     public int? YearTo { get; set; }
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 50;
+
+    public GameFilter Clone() => new()
+    {
+        Player = Player,
+        Eco = Eco,
+        Opening = Opening,
+        MinElo = MinElo,
+        MaxElo = MaxElo,
+        Result = Result,
+        Event = Event,
+        YearFrom = YearFrom,
+        YearTo = YearTo,
+        PageNumber = PageNumber,
+        PageSize = PageSize
+    };
 }
 
 public class PgnImportProgress

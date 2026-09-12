@@ -36,4 +36,11 @@ public interface IDatabaseService
     /// and stores the result. Returns the number of games updated.
     /// </summary>
     Task<int> FillMissingEcoAsync(string databaseName, IProgress<(int current, int total, string status)>? progress = null, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Streams the PGN of the matching games in date-descending order in batches via <c>pgnChunk</c>.
+    /// Pass a null filter to export every game in the database.
+    /// Returns the number of games exported.
+    /// </summary>
+    Task<int> ExportGamesToPgnAsync(string databaseName, GameFilter? filter, Func<string, Task> pgnChunk, IProgress<(int current, int total, string status)>? progress = null, CancellationToken cancellationToken = default);
 }

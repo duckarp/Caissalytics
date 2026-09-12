@@ -679,8 +679,129 @@ public class DatabaseManager : IDatabaseService
         using var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly");
         await conn.OpenAsync();
 
+        string whereSql = BuildGameFilterWhereSql(filter, out var parameters);
+
+        // Count total matching
+        using (var countCmd = conn.CreateCommand())
+        {
+            countCmd.CommandText = $"SELECT COUNT(*) FROM games WHERE {whereSql};";
+            foreach (var p in parameters) countCmd.Parameters.Add(new SqliteParameter(p.ParameterName, p.Value));
+            totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
+        }
+
+        // Fetch page
+        int offset = Math.Max(0, (filter.PageNumber - 1) * filter.PageSize);
+        using (var queryCmd = conn.CreateCommand())
+        {
+            queryCmd.CommandText = $@"
+                SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn
+                FROM games
+                WHERE {whereSql}
+                ORDER BY date DESC, id DESC
+                LIMIT $limit OFFSET $offset;";
+
+            foreach (var p in parameters) queryCmd.Parameters.Add(new SqliteParameter(p.ParameterName, p.Value));
+            queryCmd.Parameters.AddWithValue("$limit", filter.PageSize);
+            queryCmd.Parameters.AddWithValue("$offset", offset);
+
+            using var reader = await queryCmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                games.Add(ReadGameHeader(reader));
+            }
+        }
+
+        return (games, totalCount);
+    }
+
+    public async Task<int> ExportGamesToPgnAsync(
+        string databaseName,
+        GameFilter? filter,
+        Func<string, Task> pgnChunk,
+        IProgress<(int current, int total, string status)>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        string path = GetDbPath(databaseName);
+        if (!File.Exists(path))
+        {
+            return 0;
+        }
+
+        await InitializeSchemaAsync(path);
+
+        string whereSql = BuildGameFilterWhereSql(filter, out var parameters);
+
+        using var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly");
+        await conn.OpenAsync(cancellationToken);
+
+        int total;
+        using (var countCmd = conn.CreateCommand())
+        {
+            countCmd.CommandText = $"SELECT COUNT(*) FROM games WHERE {whereSql};";
+            foreach (var p in parameters) countCmd.Parameters.Add(new SqliteParameter(p.ParameterName, p.Value));
+            total = Convert.ToInt32(await countCmd.ExecuteScalarAsync(cancellationToken) ?? 0L);
+        }
+
+        if (total == 0)
+        {
+            return 0;
+        }
+
+        progress?.Report((0, total, "Exporting…"));
+
+        const int chunkFlushSize = 256 * 1024;
+        var sb = new StringBuilder();
+        int exported = 0;
+
+        using var selectCmd = conn.CreateCommand();
+        selectCmd.CommandText = $"SELECT pgn FROM games WHERE {whereSql} ORDER BY date DESC, id DESC;";
+        foreach (var p in parameters) selectCmd.Parameters.Add(new SqliteParameter(p.ParameterName, p.Value));
+
+        using var reader = await selectCmd.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            string pgn = reader.IsDBNull(0) ? string.Empty : reader.GetString(0).Trim();
+            if (pgn.Length == 0)
+            {
+                continue;
+            }
+
+            // Games are separated by one blank line, per the PGN convention.
+            if (exported > 0) sb.AppendLine();
+            sb.Append(pgn).AppendLine();
+            exported++;
+
+            if (sb.Length >= chunkFlushSize)
+            {
+                await pgnChunk(sb.ToString());
+                sb.Clear();
+            }
+
+            if (exported % 100 == 0 || exported == total)
+            {
+                progress?.Report((exported, total, $"Exporting… ({exported}/{total})"));
+            }
+        }
+
+        if (sb.Length > 0)
+        {
+            await pgnChunk(sb.ToString());
+        }
+
+        return exported;
+    }
+
+    private static string BuildGameFilterWhereSql(GameFilter? filter, out List<SqliteParameter> parameters)
+    {
         var whereClauses = new List<string> { "1=1" };
-        var parameters = new List<SqliteParameter>();
+        parameters = new List<SqliteParameter>();
+
+        if (filter is null)
+        {
+            return string.Join(" AND ", whereClauses);
+        }
 
         if (!string.IsNullOrWhiteSpace(filter.Player))
         {
@@ -750,39 +871,7 @@ public class DatabaseManager : IDatabaseService
             parameters.Add(new SqliteParameter("$yearTo", filter.YearTo.Value.ToString()));
         }
 
-        string whereSql = string.Join(" AND ", whereClauses);
-
-        // Count total matching
-        using (var countCmd = conn.CreateCommand())
-        {
-            countCmd.CommandText = $"SELECT COUNT(*) FROM games WHERE {whereSql};";
-            foreach (var p in parameters) countCmd.Parameters.Add(new SqliteParameter(p.ParameterName, p.Value));
-            totalCount = Convert.ToInt32(await countCmd.ExecuteScalarAsync());
-        }
-
-        // Fetch page
-        int offset = Math.Max(0, (filter.PageNumber - 1) * filter.PageSize);
-        using (var queryCmd = conn.CreateCommand())
-        {
-            queryCmd.CommandText = $@"
-                SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn
-                FROM games
-                WHERE {whereSql}
-                ORDER BY date DESC, id DESC
-                LIMIT $limit OFFSET $offset;";
-
-            foreach (var p in parameters) queryCmd.Parameters.Add(new SqliteParameter(p.ParameterName, p.Value));
-            queryCmd.Parameters.AddWithValue("$limit", filter.PageSize);
-            queryCmd.Parameters.AddWithValue("$offset", offset);
-
-            using var reader = await queryCmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-            {
-                games.Add(ReadGameHeader(reader));
-            }
-        }
-
-        return (games, totalCount);
+        return string.Join(" AND ", whereClauses);
     }
 
     public async Task<List<GameHeader>> GetAllGameHeadersAsync(string? databaseName = null)

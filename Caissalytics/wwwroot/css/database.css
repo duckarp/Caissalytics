@@ -1448,6 +1448,17 @@
   border-color: var(--accent-blue);
 }
 
+/* --- Export PGN Controls --- */
+.btn-export-pgn {
+  color: var(--accent-primary);
+  border-color: rgba(35, 134, 54, 0.4);
+}
+
+.btn-export-pgn:hover {
+  background-color: rgba(35, 134, 54, 0.12);
+  border-color: var(--accent-primary);
+}
+
 .clean-foreign-handles-list {
   font-size: 12px;
   color: var(--text-secondary);

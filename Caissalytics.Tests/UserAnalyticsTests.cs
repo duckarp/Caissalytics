@@ -31,6 +31,7 @@ public class UserAnalyticsTests
         public Task ImportPgnStreamAsync(string databaseName, Stream stream, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false, bool allowProtectedDatabase = false) => Task.CompletedTask;
         public Task ImportPgnTextAsync(string databaseName, string pgnText, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false, bool allowProtectedDatabase = false) => Task.CompletedTask;
         public Task<int> FillMissingEcoAsync(string databaseName, IProgress<(int current, int total, string status)>? progress = null, CancellationToken cancellationToken = default) => Task.FromResult(0);
+        public Task<int> ExportGamesToPgnAsync(string databaseName, GameFilter? filter, Func<string, Task> pgnChunk, IProgress<(int current, int total, string status)>? progress = null, CancellationToken cancellationToken = default) => Task.FromResult(0);
     }
 
     private class FakeUserProfileService : IUserProfileService

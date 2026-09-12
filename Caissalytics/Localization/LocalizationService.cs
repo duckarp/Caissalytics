@@ -464,6 +464,23 @@ public class LocalizationService : ILocalizationService
         ["Db_FillEco_Done"] = "Done!",
         ["Db_FillEco_NothingToDo"] = "Nothing to do",
 
+        // Export PGN
+        ["Db_ExportPgn"] = "📤 Export PGN",
+        ["Db_Export_Title"] = "Export PGN from {0}",
+        ["Db_Export_Desc"] = "Games are exported as a standard PGN file, newest first.",
+        ["Db_Export_Scope"] = "Scope",
+        ["Db_Export_All"] = "All games",
+        ["Db_Export_AllDesc"] = "{0:N0} games in this database",
+        ["Db_Export_Filtered"] = "Filtered games",
+        ["Db_Export_FilteredDesc"] = "{0:N0} games match the current filters",
+        ["Db_Export_Filename"] = "File name",
+        ["Db_Export_Running"] = "Exporting...",
+        ["Db_Export_Progress"] = "Exported {0:N0} / {1:N0} games",
+        ["Db_Export_Done"] = "Download started",
+        ["Db_Export_DoneDesc"] = "{0:N0} games exported to {1}",
+        ["Db_Export_NoGames"] = "No games to export with this scope",
+        ["Db_Export_DownloadBtn"] = "⬇️ Download PGN",
+
         // Opponent Dossier
         ["Dossier_LocalDb"] = "💾 Local DB",
         ["Dossier_FideWeb"] = "🌐 FIDE & Web",
@@ -1109,6 +1126,23 @@ public class LocalizationService : ILocalizationService
         ["Db_FillEco_FillBtn"] = "Doplniť ECO kódy",
         ["Db_FillEco_Done"] = "Hotovo!",
         ["Db_FillEco_NothingToDo"] = "Nie je čo robiť",
+
+        // Export PGN
+        ["Db_ExportPgn"] = "📤 Exportovať PGN",
+        ["Db_Export_Title"] = "Export PGN z {0}",
+        ["Db_Export_Desc"] = "Partie sa exportujú do bežného PGN súboru, najprv najnovšie.",
+        ["Db_Export_Scope"] = "Rozsah",
+        ["Db_Export_All"] = "Všetky partie",
+        ["Db_Export_AllDesc"] = "{0:N0} partii v tejto databázi",
+        ["Db_Export_Filtered"] = "Filtrované partie",
+        ["Db_Export_FilteredDesc"] = "{0:N0} partii zodpovedá aktuálnym filtrom",
+        ["Db_Export_Filename"] = "Názov súboru",
+        ["Db_Export_Running"] = "Exportujem...",
+        ["Db_Export_Progress"] = "Exportované {0:N0} / {1:N0} partii",
+        ["Db_Export_Done"] = "Stiahnutie spustené",
+        ["Db_Export_DoneDesc"] = "Exportované {0:N0} partii do {1}",
+        ["Db_Export_NoGames"] = "Pri tomto rozsahu nie sú na export žiadne partie",
+        ["Db_Export_DownloadBtn"] = "⬇️ Stiahnuť PGN",
 
         // Opponent Dossier
         ["Dossier_LocalDb"] = "💾 Lokálna DB",
