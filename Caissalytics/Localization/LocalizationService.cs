@@ -742,6 +742,8 @@ public class LocalizationService : ILocalizationService
         ["Club_CoachInfo"] = "Coach Name",
         ["Club_CoachInfo_Hint"] = "Automatically derived from your User Profile (First Name + Last Name).",
         ["Club_EditProfile"] = "Edit in Profile 👤",
+        ["Club_CoachFeatures"] = "Coach Features",
+        ["Club_CoachFeatures_Hint"] = "Show the Printable Homework & Diagrams sheet generator on the dashboard.",
         ["Club_SaveBtn"] = "Save Club Settings",
         ["Club_SaveSuccess"] = "Chess club settings saved!",
 
@@ -1411,6 +1413,8 @@ public class LocalizationService : ILocalizationService
         ["Club_CoachInfo"] = "Meno trénera",
         ["Club_CoachInfo_Hint"] = "Automaticky preberané z vášho používateľského profilu (Meno + Priezvisko).",
         ["Club_EditProfile"] = "Upraviť v profile 👤",
+        ["Club_CoachFeatures"] = "Funkcie trénera",
+        ["Club_CoachFeatures_Hint"] = "Zobraziť generátor listov s domácimi úlohami a diagramami na úvodnom paneli.",
         ["Club_SaveBtn"] = "Uložiť nastavenia klubu",
         ["Club_SaveSuccess"] = "Nastavenia šachového klubu boli uložené!",
 

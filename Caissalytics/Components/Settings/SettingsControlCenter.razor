@@ -201,6 +201,17 @@
 							<input class="field-input" placeholder="e.g. ŠK Považské Podhradie" @bind="_clubSettings.ClubName" @bind:event="oninput" />
 							<span class="field-hint">@Loc["Club_ClubName_Hint"]</span>
 						</div>
+
+						<div class="form-field-block form-field-full">
+							<label class="field-label">@Loc["Club_CoachFeatures"]</label>
+							<div class="toggle-control-row">
+								<label class="sound-checkbox-label">
+									<input type="checkbox" class="sound-check-box"
+										   @bind="_clubSettings.CoachFeaturesEnabled" />
+									<span>@Loc["Club_CoachFeatures_Hint"]</span>
+								</label>
+							</div>
+						</div>
 					</div>
 
 					<div class="form-action-bar">

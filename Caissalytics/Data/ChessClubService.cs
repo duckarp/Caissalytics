@@ -85,6 +85,7 @@ public class ChessClubService : IChessClubService
     private static ChessClubSettings CloneSettings(ChessClubSettings s) => new()
     {
         ClubName = s.ClubName ?? "",
-        WebsiteUrl = s.WebsiteUrl ?? ""
+        WebsiteUrl = s.WebsiteUrl ?? "",
+        CoachFeaturesEnabled = s.CoachFeaturesEnabled
     };
 }

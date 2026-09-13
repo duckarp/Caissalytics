@@ -5,6 +5,8 @@
 @inject IDatabaseService DatabaseService
 @inject IUserProfileService ProfileService
 @inject IOnlineGameSyncService SyncService
+@inject IChessClubService ClubService
+@inject ISkppIntegrationService SkppService
 @implements IDisposable
 
 <div class="dashboard-container">
@@ -69,17 +71,23 @@
 			<p class="card-description">@Loc["Dash_Card_Insights_Desc"]</p>
 		</div>
 
-		<div class="action-card" @onclick="() => Workspace.CreateHomeworkTab()">
-			<div class="card-icon">📝</div>
-			<h2 class="card-title">@Loc["Dash_Card_Homework"]</h2>
-			<p class="card-description">@Loc["Dash_Card_Homework_Desc"]</p>
-		</div>
+		@if (_coachFeaturesEnabled)
+		{
+			<div class="action-card" @onclick="() => Workspace.CreateHomeworkTab()">
+				<div class="card-icon">📝</div>
+				<h2 class="card-title">@Loc["Dash_Card_Homework"]</h2>
+				<p class="card-description">@Loc["Dash_Card_Homework_Desc"]</p>
+			</div>
+		}
 
-		<div class="action-card" @onclick="() => Workspace.CreateClubHomeworkTab()">
-			<div class="card-icon">📥</div>
-			<h2 class="card-title">@Loc["Dash_Card_ClubHomework"]</h2>
-			<p class="card-description">@Loc["Dash_Card_ClubHomework_Desc"]</p>
-		</div>
+		@if (_skppState.IsConnected)
+		{
+			<div class="action-card" @onclick="() => Workspace.CreateClubHomeworkTab()">
+				<div class="card-icon">📥</div>
+				<h2 class="card-title">@Loc["Dash_Card_ClubHomework"]</h2>
+				<p class="card-description">@Loc["Dash_Card_ClubHomework_Desc"]</p>
+			</div>
+		}
 
 		<div class="action-card" @onclick="() => Workspace.CreateSettingsTab()">
 			<div class="card-icon">⚙️</div>
@@ -90,19 +98,46 @@
 </div>
 
 @code {
-	protected override void OnInitialized()
+	private bool _coachFeaturesEnabled;
+	private SkppConnectionState _skppState = new();
+
+	protected override async Task OnInitializedAsync()
 	{
 		Loc.OnLanguageChanged += HandleLanguageChanged;
+		SkppService.OnConnectionStateChanged += HandleSkppStateChanged;
+		ClubService.OnSettingsChanged += HandleClubSettingsChanged;
+		_coachFeaturesEnabled = (await ClubService.GetSettingsAsync()).CoachFeaturesEnabled;
+		_skppState = await SkppService.GetConnectionStateAsync();
 	}
 
 	public void Dispose()
 	{
 		Loc.OnLanguageChanged -= HandleLanguageChanged;
+		SkppService.OnConnectionStateChanged -= HandleSkppStateChanged;
+		ClubService.OnSettingsChanged -= HandleClubSettingsChanged;
 	}
 
 	private void HandleLanguageChanged()
 	{
 		InvokeAsync(StateHasChanged);
+	}
+
+	private void HandleSkppStateChanged()
+	{
+		InvokeAsync(async () =>
+		{
+			_skppState = await SkppService.GetConnectionStateAsync();
+			StateHasChanged();
+		});
+	}
+
+	private void HandleClubSettingsChanged()
+	{
+		InvokeAsync(async () =>
+		{
+			_coachFeaturesEnabled = (await ClubService.GetSettingsAsync()).CoachFeaturesEnabled;
+			StateHasChanged();
+		});
 	}
 
 	private async Task HandleMyOnlineGamesClicked()

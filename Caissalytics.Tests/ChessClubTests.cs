@@ -37,6 +37,7 @@ public class ChessClubTests : IDisposable
         Assert.NotNull(settings);
         Assert.Equal(string.Empty, settings.ClubName);
         Assert.Equal(string.Empty, settings.WebsiteUrl);
+        Assert.False(settings.CoachFeaturesEnabled);
     }
 
     [Fact]
@@ -46,7 +47,8 @@ public class ChessClubTests : IDisposable
         await service.SaveSettingsAsync(new ChessClubSettings
         {
             ClubName = "Bratislava Chess Academy",
-            WebsiteUrl = "https://chess-academy.example.com"
+            WebsiteUrl = "https://chess-academy.example.com",
+            CoachFeaturesEnabled = true
         });
 
         // New service instance pointing to the same storage
@@ -56,6 +58,7 @@ public class ChessClubTests : IDisposable
         Assert.NotNull(settings);
         Assert.Equal("Bratislava Chess Academy", settings.ClubName);
         Assert.Equal("https://chess-academy.example.com", settings.WebsiteUrl);
+        Assert.True(settings.CoachFeaturesEnabled);
     }
 
     [Fact]
