@@ -142,6 +142,17 @@
 			</div>
 
 			<div class="filter-group">
+				<label class="filter-label">@Loc["Db_Filter_Time"]</label>
+				<select class="filter-select" @bind="_filter.TimeClass">
+					<option value="all">@Loc["Db_Filter_All"]</option>
+					<option value="bullet">@Loc["Db_Time_Bullet"]</option>
+					<option value="blitz">@Loc["Db_Time_Blitz"]</option>
+					<option value="rapid">@Loc["Db_Time_Rapid"]</option>
+					<option value="standard">@Loc["Db_Time_Standard"]</option>
+				</select>
+			</div>
+
+			<div class="filter-group">
 				<label class="filter-label">@Loc["Db_Filter_Event"]</label>
 				<input class="filter-input" placeholder="@Loc["Db_Filter_EventPlaceholder"]" @bind="_filter.Event" @bind:event="oninput" @onkeydown="HandleFilterKeyDown" />
 			</div>

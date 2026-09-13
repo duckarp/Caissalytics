@@ -678,6 +678,7 @@ public class DatabaseManager : IDatabaseService
 
         using var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly");
         await conn.OpenAsync();
+        RegisterTimeClassFunction(conn);
 
         string whereSql = BuildGameFilterWhereSql(filter, out var parameters);
 
@@ -733,6 +734,7 @@ public class DatabaseManager : IDatabaseService
 
         using var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly");
         await conn.OpenAsync(cancellationToken);
+        RegisterTimeClassFunction(conn);
 
         int total;
         using (var countCmd = conn.CreateCommand())
@@ -853,6 +855,12 @@ public class DatabaseManager : IDatabaseService
             parameters.Add(new SqliteParameter("$result", filter.Result));
         }
 
+        if (!string.IsNullOrWhiteSpace(filter.TimeClass) && filter.TimeClass != "all")
+        {
+            whereClauses.Add("time_class(pgn) = $timeClass");
+            parameters.Add(new SqliteParameter("$timeClass", filter.TimeClass.Trim()));
+        }
+
         if (!string.IsNullOrWhiteSpace(filter.Event))
         {
             whereClauses.Add("event LIKE $event");
@@ -872,6 +880,15 @@ public class DatabaseManager : IDatabaseService
         }
 
         return string.Join(" AND ", whereClauses);
+    }
+
+    /// <summary>
+    /// Registers the "time_class(pgn)" scalar SQL function used by the time-control filter.
+    /// Must be called on every connection that runs a query built by BuildGameFilterWhereSql.
+    /// </summary>
+    private static void RegisterTimeClassFunction(SqliteConnection conn)
+    {
+        conn.CreateFunction("time_class", new Func<string, string>(TimeControlInfo.ClassifyFromPgn));
     }
 
     public async Task<List<GameHeader>> GetAllGameHeadersAsync(string? databaseName = null)

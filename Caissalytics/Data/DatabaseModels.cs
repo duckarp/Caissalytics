@@ -117,14 +117,7 @@ public class GameHeader
     /// Time-control category derived from TimeControl: "bullet", "blitz", "rapid"
     /// or "standard". Empty when there is no time-control information.
     /// </summary>
-    public string TimeClass
-    {
-        get
-        {
-            string raw = TimeControl;
-            return raw.Length == 0 ? string.Empty : TimeControlInfo.Classify(TimeControlInfo.BaseSeconds(raw));
-        }
-    }
+    public string TimeClass => TimeControlInfo.ClassifyFromPgn(Pgn);
 }
 
 public class PositionMoveStat
@@ -183,6 +176,7 @@ public class GameFilter
     public int? MaxElo { get; set; }
     public string? Result { get; set; }
     public string? Event { get; set; }
+    public string? TimeClass { get; set; }
     public int? YearFrom { get; set; }
     public int? YearTo { get; set; }
     public int PageNumber { get; set; } = 1;
@@ -197,6 +191,7 @@ public class GameFilter
         MaxElo = MaxElo,
         Result = Result,
         Event = Event,
+        TimeClass = TimeClass,
         YearFrom = YearFrom,
         YearTo = YearTo,
         PageNumber = PageNumber,

@@ -176,4 +176,104 @@ public class TimeControlInfoTests : IDisposable
         var storedPgn = (await _dbManager.GetGameByIdAsync("TimeImport", tagged.Id))!.Pgn;
         Assert.Contains("[TimeControl \"25:00+5\"]", storedPgn);
     }
+
+    [Fact]
+    public async Task SearchGames_TimeClassFilter_MatchesOnlyThatClass()
+    {
+        await _dbManager.CreateDatabaseAsync("TimeFilter");
+
+        string pgn =
+            "[Event \"T\"]\n" +
+            "[White \"BulletOne\"]\n" +
+            "[Black \"BlackOne\"]\n" +
+            "[TimeControl \"1:30\"]\n" +
+            "[Date \"2026.02.01\"]\n" +
+            "[Result \"1-0\"]\n" +
+            "\n" +
+            "1. e4 e5 1-0\n" +
+            "\n" +
+            "[Event \"T\"]\n" +
+            "[White \"BlitzOne\"]\n" +
+            "[Black \"BlackOne\"]\n" +
+            "[TimeControl \"5:00\"]\n" +
+            "[Date \"2026.02.02\"]\n" +
+            "[Result \"1-0\"]\n" +
+            "\n" +
+            "1. e4 e5 1-0\n" +
+            "\n" +
+            "[Event \"T\"]\n" +
+            "[White \"RapidOne\"]\n"
+            + "[Black \"BlackOne\"]\n" +
+            "[TimeControl \"25:00+5\"]\n" +
+            "[Date \"2026.02.03\"]\n" +
+            "[Result \"1-0\"]\n" +
+            "\n" +
+            "1. e4 e5 1-0\n" +
+            "\n" +
+            "[Event \"T\"]\n" +
+            "[White \"StandardOne\"]\n" +
+            "[Black \"BlackOne\"]\n" +
+            "[TimeControl \"1:30:00\"]\n" +
+            "[Date \"2026.02.04\"]\n" +
+            "[Result \"1-0\"]\n" +
+            "\n" +
+            "1. e4 e5 1-0\n" +
+            "\n" +
+            "[Event \"T\"]\n" +
+            "[White \"NoTimeOne\"]\n" +
+            "[Black \"BlackOne\"]\n" +
+            "[Date \"2026.02.05\"]\n" +
+            "[Result \"1-0\"]\n" +
+            "\n" +
+            "1. e4 e5 1-0\n";
+
+        await _dbManager.ImportPgnTextAsync("TimeFilter", pgn);
+
+        foreach (string expected in new[] { "bullet", "blitz", "rapid", "standard" })
+        {
+            var (games, total) = await _dbManager.SearchGamesAsync(
+                "TimeFilter", new GameFilter { TimeClass = expected });
+            Assert.Equal(1, total);
+            Assert.Equal(expected, games[0].TimeClass);
+        }
+
+        var (all, allTotal) = await _dbManager.SearchGamesAsync(
+            "TimeFilter", new GameFilter { TimeClass = "all" });
+        Assert.Equal(5, allTotal);
+    }
+
+    [Fact]
+    public async Task ExportGames_TimeClassFilter_ExportsOnlyMatching()
+    {
+        await _dbManager.CreateDatabaseAsync("TimeExport");
+
+        string pgn =
+            "[Event \"E\"]\n" +
+            "[White \"RapidOne\"]\n" +
+            "[Black \"BlackOne\"]\n" +
+            "[TimeControl \"25:00+5\"]\n" +
+            "[Date \"2026.03.01\"]\n" +
+            "[Result \"1-0\"]\n" +
+            "\n" +
+            "1. e4 e5 1-0\n" +
+            "\n" +
+            "[Event \"E\"]\n" +
+            "[White \"NoTimeOne\"]\n" +
+            "[Black \"BlackTwo\"]\n" +
+            "[Date \"2026.03.02\"]\n" +
+            "[Result \"1-0\"]\n" +
+            "\n" +
+            "1. d4 d5 1-0\n";
+
+        await _dbManager.ImportPgnTextAsync("TimeExport", pgn);
+
+        var chunks = new List<string>();
+        int exported = await _dbManager.ExportGamesToPgnAsync(
+            "TimeExport", new GameFilter { TimeClass = "rapid" }, async c => chunks.Add(c));
+
+        Assert.Equal(1, exported);
+        string joined = string.Join("", chunks);
+        Assert.Contains("RapidOne", joined);
+        Assert.DoesNotContain("BlackTwo", joined);
+    }
 }

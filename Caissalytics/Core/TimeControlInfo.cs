@@ -133,6 +133,20 @@ public static class TimeControlInfo
     }
 
     /// <summary>
+    /// Classifies the game directly from PGN text. Returns one of "bullet",
+    /// "blitz", "rapid", "standard", or "" when there is no time-control information.
+    /// </summary>
+    public static string ClassifyFromPgn(string? pgn)
+    {
+        string? raw = ExtractRaw(pgn);
+        if (string.IsNullOrEmpty(raw))
+        {
+            return string.Empty;
+        }
+        return Classify(BaseSeconds(raw));
+    }
+
+    /// <summary>
     /// Maps base/total seconds to a category key: "bullet", "blitz", "rapid" or "standard".
     /// Returns "" when the base time is unknown.
     /// </summary>
