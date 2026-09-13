@@ -184,6 +184,7 @@
 							<th class="col-result">@Loc["Db_Col_Result"]</th>
 							<th class="col-eco">@Loc["Db_Col_Eco"]</th>
 							<th class="col-date">@Loc["Db_Col_Date"]</th>
+							<th class="col-time">@Loc["Db_Col_Time"]</th>
 							<th class="col-event">@Loc["Db_Col_Event"]</th>
 							<th class="col-moves">@Loc["Db_Col_Moves"]</th>
 							<th class="col-actions"></th>
@@ -220,6 +221,16 @@
 								</td>
 								<td class="col-eco">@game.Eco</td>
 								<td class="col-date">@game.FormattedDate</td>
+								<td class="col-time" title="@(game.TimeClass.Length > 0 ? game.TimeControl : null)">
+									@if (game.TimeClass.Length > 0)
+									{
+										<span class="time-class time-class-@game.TimeClass">@TimeClassLabel(game)</span>
+									}
+									else
+									{
+										<span class="time-class-none">–</span>
+									}
+								</td>
 								<td class="col-event" title="@game.Event">@game.Event</td>
 								<td class="col-moves">@game.PlyCount</td>
 								<td class="col-actions">
@@ -674,6 +685,15 @@
 	private bool IsWhiteUser(GameHeader game) => _userProfile.MatchesPlayer(game.White);
 	private bool IsBlackUser(GameHeader game) => _userProfile.MatchesPlayer(game.Black);
 	private bool IsUserGame(GameHeader game) => IsWhiteUser(game) || IsBlackUser(game);
+
+	private string TimeClassLabel(GameHeader game) => game.TimeClass switch
+	{
+		"bullet" => Loc["Db_Time_Bullet"],
+		"blitz" => Loc["Db_Time_Blitz"],
+		"rapid" => Loc["Db_Time_Rapid"],
+		"standard" => Loc["Db_Time_Standard"],
+		_ => string.Empty
+	};
 
 	private int TotalPages => Math.Max(1, (int)Math.Ceiling(_totalCount / (double)_filter.PageSize));
 

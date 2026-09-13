@@ -105,6 +105,26 @@ public class GameHeader
             return null;
         }
     }
+
+    /// <summary>
+    /// Raw PGN TimeControl value (e.g. "180+2"), extracted from the stored PGN text.
+    /// The PGN is the single source of truth, so no separate column is needed and
+    /// all existing games are covered. Empty when the PGN has no usable TimeControl tag.
+    /// </summary>
+    public string TimeControl => TimeControlInfo.ExtractRaw(Pgn) ?? string.Empty;
+
+    /// <summary>
+    /// Time-control category derived from TimeControl: "bullet", "blitz", "rapid"
+    /// or "standard". Empty when there is no time-control information.
+    /// </summary>
+    public string TimeClass
+    {
+        get
+        {
+            string raw = TimeControl;
+            return raw.Length == 0 ? string.Empty : TimeControlInfo.Classify(TimeControlInfo.BaseSeconds(raw));
+        }
+    }
 }
 
 public class PositionMoveStat

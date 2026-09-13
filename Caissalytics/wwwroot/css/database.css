@@ -446,6 +446,50 @@
   width: 90px;
 }
 
+.col-time {
+  width: 80px;
+  min-width: 80px;
+  white-space: nowrap;
+}
+
+.time-class {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border-radius: 9px;
+  border: 1px solid;
+}
+
+.time-class-bullet {
+  background: rgba(239, 68, 68, 0.14);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.time-class-blitz {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fbbf24;
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.time-class-rapid {
+  background: rgba(59, 130, 246, 0.14);
+  color: #60a5fa;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.time-class-standard {
+  background: rgba(35, 134, 54, 0.14);
+  color: #4ade80;
+  border-color: rgba(35, 134, 54, 0.3);
+}
+
+.time-class-none {
+  color: var(--text-muted);
+}
+
 .col-event {
   color: var(--text-secondary);
   max-width: 180px;
