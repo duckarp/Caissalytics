@@ -29,6 +29,7 @@ internal class Program
         appBuilder.Services.AddSingleton<IRepertoireService, RepertoireService>();
         appBuilder.Services.AddSingleton<IChessClubService, ChessClubService>();
         appBuilder.Services.AddSingleton<ISkppIntegrationService, SkppIntegrationService>();
+        appBuilder.Services.AddSingleton<IAppWindowProvider, AppWindowProvider>();
         appBuilder.Services.AddSingleton<IHomeworkService, HomeworkService>();
         appBuilder.Services.AddScoped<IAppearanceService, AppearanceService>();
         appBuilder.Services.AddScoped<ILocalizationService, LocalizationService>();
@@ -76,6 +77,9 @@ internal class Program
         appBuilder.RootComponents.Add<App>("#app");
 
         var app = appBuilder.Build();
+
+        // Expose the native window (created during Build) to Blazor components
+        app.Services.GetRequiredService<IAppWindowProvider>().Window = app.MainWindow;
 
         // Trigger non-blocking update check on launch (runs safely on ThreadPool)
         var updateService = app.Services.GetRequiredService<IUpdateService>();

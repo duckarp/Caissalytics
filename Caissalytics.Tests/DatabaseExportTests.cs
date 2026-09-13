@@ -184,6 +184,30 @@ public class DatabaseExportTests : IDisposable
     }
 
     [Fact]
+    public async Task ExportAll_FileStreamSink_WritesCompletePgn()
+    {
+        await SeedDatabaseAsync();
+
+        string path = Path.Combine(_testDir, "export_sink.pgn");
+        await using (var fileStream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None))
+        await using (var writer = new StreamWriter(fileStream))
+        {
+            int count = await _dbManager.ExportGamesToPgnAsync("ExportDb", null,
+                async chunk => await writer.WriteAsync(chunk));
+
+            Assert.Equal(3, count);
+        }
+
+        Assert.True(File.Exists(path));
+        string pgn = await File.ReadAllTextAsync(path);
+        int idxC = pgn.IndexOf("[Event \"Export C\"]");
+        int idxB = pgn.IndexOf("[Event \"Export B\"]");
+        int idxA = pgn.IndexOf("[Event \"Export A\"]");
+        Assert.True(idxC >= 0 && idxB > idxC && idxA > idxB, "Expected newest-first order in the written file");
+        Assert.Contains("1. e4 c5 2. Nf3 Nc6 1-0", pgn);
+    }
+
+    [Fact]
     public async Task ExportAll_ReportsProgressFromZeroToTotal()
     {
         await SeedDatabaseAsync();

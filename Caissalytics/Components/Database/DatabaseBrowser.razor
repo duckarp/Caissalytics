@@ -5,6 +5,7 @@
 @inject IUserProfileService ProfileService
 @inject WorkspaceState Workspace
 @inject IJSRuntime JS
+@inject IAppWindowProvider WindowProvider
 @implements IDisposable
 
 <div class="db-browser-container">
@@ -464,7 +465,7 @@
 					<div class="clean-foreign-empty-state">
 						<span class="empty-state-icon">✅</span>
 						<h4>@Loc["Db_Export_Done"]</h4>
-						<p>@Loc["Db_Export_DoneDesc", _exportedCount, _exportFilename]</p>
+						<p>@Loc["Db_Export_DoneDesc", _exportedCount, _exportSavedPath]</p>
 					</div>
 				}
 
@@ -479,7 +480,7 @@
 				</button>
 				@if (!_isExporting && !_exportFinished)
 				{
-					<button class="btn-primary" disabled="@(_exportSelectedCount == 0 || _exportJs == null)" @onclick="ExecuteExportAsync">@Loc["Db_Export_DownloadBtn"]</button>
+					<button class="btn-primary" disabled="@(_exportSelectedCount == 0)" @onclick="ExecuteExportAsync">@Loc["Db_Export_DownloadBtn"]</button>
 				}
 			</div>
 		</div>
@@ -672,7 +673,7 @@
 	private int _exportCurrent = 0;
 	private int _exportTotal = 0;
 	private string _exportStatus = "";
-	private IJSObjectReference? _exportJs;
+	private string _exportSavedPath = "";
 
 	private int _exportSelectedCount => _exportScope == "all" ? _exportAllCount : _exportFilteredCount;
 
@@ -1168,6 +1169,7 @@
 		_exportTotal = 0;
 		_exportStatus = "";
 		_exportFilename = SanitizeExportFilename(_currentDbName);
+		_exportSavedPath = "";
 		StateHasChanged();
 
 		try
@@ -1180,12 +1182,9 @@
 			probe.PageSize = 1;
 			var (_, filteredCount) = await DatabaseService.SearchGamesAsync(_currentDbName, probe);
 			_exportFilteredCount = filteredCount;
-
-			_exportJs = await JS.InvokeAsync<IJSObjectReference>("import", "./js/pgnExport.js");
 		}
 		catch (Exception ex)
 		{
-			_exportJs = null;
 			_exportStatus = $"Export not available: {ex.Message}";
 		}
 
@@ -1201,14 +1200,12 @@
 
 		_showExportModal = false;
 		_exportStatus = "";
-		_ = _exportJs?.DisposeAsync();
-		_exportJs = null;
 		StateHasChanged();
 	}
 
 	private async Task ExecuteExportAsync()
 	{
-		if (_exportJs == null || _exportSelectedCount == 0)
+		if (_exportSelectedCount == 0)
 		{
 			return;
 		}
@@ -1222,10 +1219,38 @@
 		StateHasChanged();
 
 		string filename = SanitizeExportFilename(_exportFilename);
+		if (!filename.EndsWith(".pgn", StringComparison.OrdinalIgnoreCase))
+		{
+			filename += ".pgn";
+		}
+
+		// The Photino web view does not handle blob downloads, so the destination
+		// is picked with a native save dialog and the file is written by the app.
+		string? targetPath;
+		try
+		{
+			targetPath = await WindowProvider.Window.ShowSaveFileAsync(
+				Loc["Db_Export_SaveTitle"], filename, new[] { ("PGN files", new[] { ".pgn" }) });
+		}
+		catch (Exception ex)
+		{
+			_exportStatus = $"Export error: {ex.Message}";
+			_isExporting = false;
+			StateHasChanged();
+			return;
+		}
+
+		if (string.IsNullOrWhiteSpace(targetPath))
+		{
+			_isExporting = false;
+			StateHasChanged();
+			return;
+		}
 
 		try
 		{
-			await _exportJs.InvokeVoidAsync("reset");
+			using var fileStream = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None);
+			using var writer = new StreamWriter(fileStream);
 
 			var progress = new Progress<(int current, int total, string status)>(p =>
 			{
@@ -1239,15 +1264,26 @@
 			_exportedCount = await DatabaseService.ExportGamesToPgnAsync(
 				_currentDbName,
 				exportFilter,
-				async chunk => await _exportJs.InvokeVoidAsync("addPart", chunk),
+				async chunk => await writer.WriteAsync(chunk),
 				progress);
 
-			await _exportJs.InvokeVoidAsync("download", filename);
+			_exportSavedPath = targetPath;
 			_exportFinished = true;
 		}
 		catch (Exception ex)
 		{
 			_exportStatus = $"Export error: {ex.Message}";
+			try
+			{
+				if (File.Exists(targetPath))
+				{
+					File.Delete(targetPath);
+				}
+			}
+			catch
+			{
+				// Ignore cleanup errors for the partial file
+			}
 		}
 		finally
 		{
@@ -1281,6 +1317,5 @@
 		DatabaseService.OnDatabaseModified -= HandleDatabaseModified;
 		ProfileService.OnProfileChanged -= HandleProfileChanged;
 		Loc.OnLanguageChanged -= StateHasChanged;
-		_ = _exportJs?.DisposeAsync();
 	}
 }

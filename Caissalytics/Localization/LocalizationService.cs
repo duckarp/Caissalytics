@@ -482,10 +482,11 @@ public class LocalizationService : ILocalizationService
         ["Db_Export_Filename"] = "File name",
         ["Db_Export_Running"] = "Exporting...",
         ["Db_Export_Progress"] = "Exported {0:N0} / {1:N0} games",
-        ["Db_Export_Done"] = "Download started",
+        ["Db_Export_Done"] = "Export complete",
         ["Db_Export_DoneDesc"] = "{0:N0} games exported to {1}",
         ["Db_Export_NoGames"] = "No games to export with this scope",
-        ["Db_Export_DownloadBtn"] = "⬇️ Download PGN",
+        ["Db_Export_DownloadBtn"] = "💾 Save PGN as…",
+        ["Db_Export_SaveTitle"] = "Save PGN as",
 
         // Opponent Dossier
         ["Dossier_LocalDb"] = "💾 Local DB",
@@ -1153,10 +1154,11 @@ public class LocalizationService : ILocalizationService
         ["Db_Export_Filename"] = "Názov súboru",
         ["Db_Export_Running"] = "Exportujem...",
         ["Db_Export_Progress"] = "Exportované {0:N0} / {1:N0} partii",
-        ["Db_Export_Done"] = "Stiahnutie spustené",
+        ["Db_Export_Done"] = "Export dokončený",
         ["Db_Export_DoneDesc"] = "Exportované {0:N0} partii do {1}",
         ["Db_Export_NoGames"] = "Pri tomto rozsahu nie sú na export žiadne partie",
-        ["Db_Export_DownloadBtn"] = "⬇️ Stiahnuť PGN",
+        ["Db_Export_DownloadBtn"] = "💾 Uložiť PGN ako…",
+        ["Db_Export_SaveTitle"] = "Uložiť PGN ako",
 
         // Opponent Dossier
         ["Dossier_LocalDb"] = "💾 Lokálna DB",
