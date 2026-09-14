@@ -81,6 +81,32 @@
   align-items: center;
 }
 
+.reference-section-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-link-view-db {
+  background: transparent;
+  border: none;
+  color: var(--accent-primary, #58a6ff);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+  padding: 0 4px;
+  border-radius: 3px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: opacity var(--transition-fast);
+}
+
+.btn-link-view-db:hover {
+  opacity: 0.8;
+}
+
 .reference-table-wrapper {
   flex: 1;
   overflow-y: auto;

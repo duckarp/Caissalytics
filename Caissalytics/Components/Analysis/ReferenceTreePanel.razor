@@ -5,6 +5,7 @@
 @inject IDatabaseService DatabaseService
 @inject IUserProfileService ProfileService
 @inject IRepertoireService RepertoireService
+@inject WorkspaceState Workspace
 @implements IDisposable
 
 <div class="reference-panel">
@@ -90,7 +91,15 @@
 		</div>
 
 		<div class="reference-section-header">
-			<span>Games in Position (@(_refResult?.TopGames?.Count ?? 0))</span>
+			<div class="reference-section-title-group">
+				<span>Games in Position (@(_refResult?.TotalPositionGames ?? _refResult?.TopGames?.Count ?? 0))</span>
+				@if (_refResult != null && (_refResult.TotalPositionGames > 0 || _refResult.TopGames.Count > 0))
+				{
+					<button type="button" class="btn-link-view-db" title="@Loc["RefTree_ViewInDatabase"]" @onclick="ViewInDatabaseBrowser">
+						@Loc["RefTree_ViewInDatabase"]
+					</button>
+				}
+			</div>
 			<span>Result</span>
 		</div>
 
@@ -332,6 +341,13 @@
 		{
 			await OnOpenGame.InvokeAsync(game);
 		}
+	}
+
+	private void ViewInDatabaseBrowser()
+	{
+		if (Position == null) return;
+		string fen = FenParser.ToFen(Position);
+		Workspace.CreateDatabaseTab(_selectedDb, Position.ZobristKey, fen);
 	}
 
 	private static string GetResultClass(string result)

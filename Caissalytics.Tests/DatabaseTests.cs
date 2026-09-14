@@ -848,4 +848,115 @@ public class DatabaseTests : IDisposable
         Assert.Equal(1, count);
         Assert.Equal("TestUser", games[0].White);
     }
+
+    [Fact]
+    public async Task SearchGamesAsync_WithPositionFilter_ReturnsOnlyMatchingGames()
+    {
+        string game1 = @"[Event ""Sicilian""]
+[White ""Kasparov""]
+[Black ""Karpov""]
+[Result ""1-0""]
+
+1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 1-0";
+
+        string game2 = @"[Event ""French""]
+[White ""Fischer""]
+[Black ""Petrosian""]
+[Result ""1-0""]
+
+1. e4 e6 2. d4 d5 3. Nc3 Bb4 1-0";
+
+        await _dbManager.ImportPgnTextAsync("PositionSearchDb", game1 + "\n\n" + game2);
+
+        // Position after 1. e4 c5 2. Nf3 d6
+        var rootPos = FenParser.Parse(BoardPosition.StartFen);
+        var p1 = MoveGenerator.ApplyMove(rootPos, SanParser.ParseSan(rootPos, "e4"));
+        var p2 = MoveGenerator.ApplyMove(p1, SanParser.ParseSan(p1, "c5"));
+        var p3 = MoveGenerator.ApplyMove(p2, SanParser.ParseSan(p2, "Nf3"));
+        var p4 = MoveGenerator.ApplyMove(p3, SanParser.ParseSan(p3, "d6"));
+
+        var filter = new GameFilter
+        {
+            PositionZobristKey = p4.ZobristKey,
+            PositionFen = FenParser.ToFen(p4)
+        };
+
+        var (games, count) = await _dbManager.SearchGamesAsync("PositionSearchDb", filter);
+        Assert.Equal(1, count);
+        Assert.Single(games);
+        Assert.Equal("Kasparov", games[0].White);
+        Assert.Equal("Karpov", games[0].Black);
+    }
+
+    [Fact]
+    public async Task SearchGamesAsync_CombinedPositionAndPlayerFilter_ReturnsIntersection()
+    {
+        string game1 = @"[Event ""Sicilian 1""]
+[White ""Kasparov""]
+[Black ""Karpov""]
+[Result ""1-0""]
+
+1. e4 c5 2. Nf3 d6 1-0";
+
+        string game2 = @"[Event ""Sicilian 2""]
+[White ""Anand""]
+[Black ""Karpov""]
+[Result ""1/2-1/2""]
+
+1. e4 c5 2. Nf3 d6 1/2-1/2";
+
+        await _dbManager.ImportPgnTextAsync("PositionIntersectionDb", game1 + "\n\n" + game2);
+
+        var rootPos = FenParser.Parse(BoardPosition.StartFen);
+        var p1 = MoveGenerator.ApplyMove(rootPos, SanParser.ParseSan(rootPos, "e4"));
+        var p2 = MoveGenerator.ApplyMove(p1, SanParser.ParseSan(p1, "c5"));
+
+        // Both games reached 1. e4 c5, but only Game 1 has White = "Kasparov"
+        var filter = new GameFilter
+        {
+            PositionZobristKey = p2.ZobristKey,
+            Player = "Kasparov"
+        };
+
+        var (games, count) = await _dbManager.SearchGamesAsync("PositionIntersectionDb", filter);
+        Assert.Equal(1, count);
+        Assert.Single(games);
+        Assert.Equal("Kasparov", games[0].White);
+    }
+
+    [Fact]
+    public async Task SearchGamesAsync_PositionFilterCleared_ReturnsAllGames()
+    {
+        string game1 = @"[Event ""Game 1""]
+[White ""PlayerA""]
+[Black ""PlayerB""]
+[Result ""1-0""]
+
+1. e4 e5 1-0";
+
+        string game2 = @"[Event ""Game 2""]
+[White ""PlayerC""]
+[Black ""PlayerD""]
+[Result ""0-1""]
+
+1. d4 d5 0-1";
+
+        await _dbManager.ImportPgnTextAsync("PositionClearDb", game1 + "\n\n" + game2);
+
+        var rootPos = FenParser.Parse(BoardPosition.StartFen);
+        var e4Pos = MoveGenerator.ApplyMove(rootPos, SanParser.ParseSan(rootPos, "e4"));
+
+        var filter = new GameFilter
+        {
+            PositionZobristKey = e4Pos.ZobristKey
+        };
+
+        var (filteredGames, filteredCount) = await _dbManager.SearchGamesAsync("PositionClearDb", filter);
+        Assert.Equal(1, filteredCount);
+
+        // Clear position filter
+        filter.PositionZobristKey = null;
+        var (allGames, allCount) = await _dbManager.SearchGamesAsync("PositionClearDb", filter);
+        Assert.Equal(2, allCount);
+    }
 }

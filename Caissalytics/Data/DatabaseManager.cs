@@ -879,6 +879,13 @@ public class DatabaseManager : IDatabaseService
             parameters.Add(new SqliteParameter("$yearTo", filter.YearTo.Value.ToString()));
         }
 
+        if (filter.PositionZobristKey.HasValue)
+        {
+            long signedKey = unchecked((long)filter.PositionZobristKey.Value);
+            whereClauses.Add("id IN (SELECT game_id FROM positions WHERE zobrist_key = $zobrist)");
+            parameters.Add(new SqliteParameter("$zobrist", signedKey));
+        }
+
         return string.Join(" AND ", whereClauses);
     }
 
@@ -1348,6 +1355,7 @@ public class DatabaseManager : IDatabaseService
             );
 
             CREATE INDEX IF NOT EXISTS idx_positions_zobrist ON positions(zobrist_key, next_move_san);
+            CREATE INDEX IF NOT EXISTS idx_positions_zobrist_game ON positions(zobrist_key, game_id);
         ";
         await cmd.ExecuteNonQueryAsync();
 

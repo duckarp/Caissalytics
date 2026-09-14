@@ -165,10 +165,14 @@ public class DatabaseBrowserTab : WorkspaceTab
     public override string Title => "Database";
     public override string Icon => "🗄️";
     public string? TargetDatabase { get; set; }
+    public ulong? InitialPositionZobrist { get; set; }
+    public string? InitialPositionFen { get; set; }
 
-    public DatabaseBrowserTab(string? targetDatabase = null)
+    public DatabaseBrowserTab(string? targetDatabase = null, ulong? initialPositionZobrist = null, string? initialPositionFen = null)
     {
         TargetDatabase = targetDatabase;
+        InitialPositionZobrist = initialPositionZobrist;
+        InitialPositionFen = initialPositionFen;
     }
 }
 
@@ -332,7 +336,7 @@ public class WorkspaceState
         return tab;
     }
 
-    public DatabaseBrowserTab CreateDatabaseTab(string? databaseName = null)
+    public DatabaseBrowserTab CreateDatabaseTab(string? databaseName = null, ulong? positionZobrist = null, string? positionFen = null)
     {
         var existing = Tabs.OfType<DatabaseBrowserTab>().FirstOrDefault();
         if (existing != null)
@@ -341,12 +345,17 @@ public class WorkspaceState
             {
                 existing.TargetDatabase = databaseName;
             }
+            if (positionZobrist.HasValue)
+            {
+                existing.InitialPositionZobrist = positionZobrist;
+                existing.InitialPositionFen = positionFen;
+            }
             ActiveTab = existing;
             NotifyStateChanged();
             return existing;
         }
 
-        var tab = new DatabaseBrowserTab(databaseName);
+        var tab = new DatabaseBrowserTab(databaseName, positionZobrist, positionFen);
         Tabs.Add(tab);
         ActiveTab = tab;
         NotifyStateChanged();

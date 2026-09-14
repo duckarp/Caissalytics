@@ -1,5 +1,6 @@
 @namespace Caissalytics.Components.Database
 @using Caissalytics.Data
+@using Caissalytics.Components.Board
 @inject IDatabaseService DatabaseService
 @inject IOnlineGameSyncService SyncService
 @inject IUserProfileService ProfileService
@@ -87,17 +88,39 @@
 				{
 					<button class="btn-secondary btn-header-ref" title="Designate this database as the Master Reference for opening analysis" @onclick="() => SetAsReferenceDb(_currentDbName)">@Loc["Db_SetAsReference"]</button>
 				}
-				<button class="btn-secondary btn-fill-eco" title="Classify games without an ECO tag from their opening moves" @onclick="PromptFillEco">@Loc["Db_FillEco"]</button>
+
+				<div class="db-maintenance-container">
+					<button type="button" class="btn-secondary db-maintenance-btn @(_showMaintenanceMenu ? "active" : "")" title="Database maintenance actions" @onclick="ToggleMaintenanceMenu">
+						<span>@Loc["Db_Maintenance"]</span>
+						<span class="dropdown-caret">▾</span>
+					</button>
+					@if (_showMaintenanceMenu)
+					{
+						<div class="maintenance-dropdown-backdrop" @onclick="CloseMaintenanceMenu"></div>
+						<div class="maintenance-dropdown-menu">
+							<button type="button" class="maintenance-menu-item" @onclick="HandleMaintenanceFillEco">
+								<span>@Loc["Db_FillEco"]</span>
+							</button>
+							@if (IsOnlineGamesDb(_currentDbName))
+							{
+								<button type="button" class="maintenance-menu-item" @onclick="HandleMaintenanceCleanForeign">
+									<span>@Loc["Db_CleanForeign"]</span>
+								</button>
+							}
+						</div>
+					}
+				</div>
+
 				<button class="btn-secondary btn-export-pgn" title="Export games from this database to a PGN file" @onclick="OpenExportModal">@Loc["Db_ExportPgn"]</button>
+
 				@if (IsOnlineGamesDb(_currentDbName))
 				{
-					<button class="btn-secondary" @onclick="OpenOnlineSyncModal">@Loc["Db_SyncGames"]</button>
-					<button class="btn-secondary btn-clean-foreign" title="Scan and purge scouted/foreign games not belonging to your online handles" @onclick="PromptCleanForeignGames">@Loc["Db_CleanForeign"]</button>
+					<button class="btn-primary" @onclick="OpenOnlineSyncModal">@Loc["Db_SyncGames"]</button>
 				}
 				else
 				{
-					<button class="btn-primary" @onclick="AddNewGame">@Loc["Db_AddNewGame"]</button>
 					<button class="btn-secondary" @onclick="() => _showImportModal = true">@Loc["Db_ImportPgn"]</button>
+					<button class="btn-primary" @onclick="AddNewGame">@Loc["Db_AddNewGame"]</button>
 				}
 			</div>
 		</div>
@@ -159,8 +182,28 @@
 			<div class="filter-actions">
 				<button class="btn-primary" @onclick="SearchAsync">@Loc["Db_Filter_Search"]</button>
 				<button class="btn-secondary" @onclick="ResetFilterAsync">@Loc["Db_Filter_Reset"]</button>
+				<button type="button" class="btn-secondary btn-position-filter @(_filter.PositionZobristKey.HasValue ? "active" : "")" title="@Loc["Db_Filter_ModalTitle"]" @onclick="OpenPositionFilterModal">
+					<span>@Loc["Db_Filter_Position"]</span>
+					@if (_filter.PositionZobristKey.HasValue)
+					{
+						<span class="position-filter-dot">●</span>
+					}
+				</button>
 			</div>
 		</div>
+
+		@if (_filter.PositionZobristKey.HasValue)
+		{
+			<div class="db-active-position-bar">
+				<div class="active-position-pill">
+					<span class="pill-icon">♟️</span>
+					<span class="pill-label">@Loc["Db_Filter_PositionActive"]:</span>
+					<span class="pill-fen" title="@_filter.PositionFen">@GetShortFen(_filter.PositionFen)</span>
+					<button type="button" class="pill-btn pill-btn-edit" title="Edit Position" @onclick="OpenPositionFilterModal">✏️</button>
+					<button type="button" class="pill-btn pill-btn-clear" title="@Loc["Db_Filter_ClearPosition"]" @onclick="ClearPositionFilterAsync">✕</button>
+				</div>
+			</div>
+		}
 
 		<!-- Games Grid Table -->
 		<div class="db-grid-container">
@@ -778,6 +821,15 @@
 					   OnClose="HandleSyncDialogClosed"
 					   OnDatabaseSelected="HandleSyncDbSelectedAsync" />
 
+<!-- Position Filter Board Editor Modal -->
+@if (_showPositionFilterModal)
+{
+	<BoardEditorModal Title="@Loc["Db_Filter_ModalTitle"]"
+					  InitialFen="@(!string.IsNullOrWhiteSpace(_filter.PositionFen) ? _filter.PositionFen : BoardPosition.StartFen)"
+					  OnSave="HandlePositionFilterSavedAsync"
+					  OnClose="() => _showPositionFilterModal = false" />
+}
+
 @code {
 	[Parameter] public DatabaseBrowserTab? Tab { get; set; }
 
@@ -810,6 +862,8 @@
 	private string _createdPgnDbName = "";
 	private CancellationTokenSource? _createPgnCts;
 	private bool _showImportModal = false;
+	private bool _showMaintenanceMenu = false;
+	private bool _showPositionFilterModal = false;
 	private bool _showDeleteModal = false;
 	private GameHeader? _gameToDelete;
 
@@ -891,16 +945,41 @@
 			Tab.TargetDatabase = null;
 		}
 
+		if (Tab != null && Tab.InitialPositionZobrist.HasValue)
+		{
+			_filter.PositionZobristKey = Tab.InitialPositionZobrist;
+			_filter.PositionFen = Tab.InitialPositionFen;
+			Tab.InitialPositionZobrist = null;
+			Tab.InitialPositionFen = null;
+		}
+
 		await LoadDatabasesAsync();
 	}
 
 	protected override async Task OnParametersSetAsync()
 	{
+		bool needsReload = false;
 		if (Tab != null && !string.IsNullOrWhiteSpace(Tab.TargetDatabase))
 		{
 			string target = Tab.TargetDatabase;
 			Tab.TargetDatabase = null;
 			await SelectDatabaseAsync(target);
+			needsReload = false;
+		}
+
+		if (Tab != null && Tab.InitialPositionZobrist.HasValue)
+		{
+			_filter.PositionZobristKey = Tab.InitialPositionZobrist;
+			_filter.PositionFen = Tab.InitialPositionFen;
+			Tab.InitialPositionZobrist = null;
+			Tab.InitialPositionFen = null;
+			needsReload = true;
+		}
+
+		if (needsReload)
+		{
+			_filter.PageNumber = 1;
+			await LoadGamesAsync();
 		}
 	}
 
@@ -1166,6 +1245,7 @@
 
 	private async Task SelectDatabaseAsync(string dbName)
 	{
+		_showMaintenanceMenu = false;
 		_currentDbName = dbName;
 		await DatabaseService.SetActiveDatabaseAsync(dbName);
 		_filter.PageNumber = 1;
@@ -1204,6 +1284,43 @@
 	{
 		_filter = new GameFilter { PageSize = 50 };
 		await LoadGamesAsync();
+	}
+
+	private void OpenPositionFilterModal()
+	{
+		_showPositionFilterModal = true;
+	}
+
+	private async Task HandlePositionFilterSavedAsync(string fen)
+	{
+		_showPositionFilterModal = false;
+		try
+		{
+			var pos = FenParser.Parse(fen);
+			_filter.PositionZobristKey = pos.ZobristKey;
+			_filter.PositionFen = fen;
+			_filter.PageNumber = 1;
+			await LoadGamesAsync();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[DatabaseBrowser] Failed to parse position filter FEN: {ex.Message}");
+		}
+	}
+
+	private async Task ClearPositionFilterAsync()
+	{
+		_filter.PositionZobristKey = null;
+		_filter.PositionFen = null;
+		_filter.PageNumber = 1;
+		await LoadGamesAsync();
+	}
+
+	private static string GetShortFen(string? fen)
+	{
+		if (string.IsNullOrWhiteSpace(fen)) return "";
+		var parts = fen.Trim().Split(' ');
+		return parts.Length > 0 ? parts[0] : fen;
 	}
 
 	private async Task HandleFilterKeyDown(KeyboardEventArgs e)
@@ -1437,6 +1554,21 @@
 			_isCleaningForeign = false;
 			StateHasChanged();
 		}
+	}
+
+	private void ToggleMaintenanceMenu() => _showMaintenanceMenu = !_showMaintenanceMenu;
+	private void CloseMaintenanceMenu() => _showMaintenanceMenu = false;
+
+	private void HandleMaintenanceFillEco()
+	{
+		_showMaintenanceMenu = false;
+		PromptFillEco();
+	}
+
+	private async Task HandleMaintenanceCleanForeign()
+	{
+		_showMaintenanceMenu = false;
+		await PromptCleanForeignGames();
 	}
 
 	private void PromptFillEco()

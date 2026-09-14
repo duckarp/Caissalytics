@@ -179,6 +179,8 @@ public class GameFilter
     public string? TimeClass { get; set; }
     public int? YearFrom { get; set; }
     public int? YearTo { get; set; }
+    public ulong? PositionZobristKey { get; set; }
+    public string? PositionFen { get; set; }
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 50;
 
@@ -194,6 +196,8 @@ public class GameFilter
         TimeClass = TimeClass,
         YearFrom = YearFrom,
         YearTo = YearTo,
+        PositionZobristKey = PositionZobristKey,
+        PositionFen = PositionFen,
         PageNumber = PageNumber,
         PageSize = PageSize
     };
