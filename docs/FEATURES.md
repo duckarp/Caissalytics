@@ -42,22 +42,33 @@ The Analysis Workbench is your central station for exploring positions, preparin
 The Database Explorer provides high-performance storage and searching for personal and master-level chess games.
 
 ### Database Operations
-- **Active Database Switcher**: Switch between databases using the dropdown menu.
-- **Create New Database**: Create clean, independent SQLite databases for specific tournaments, study topics, or historical archives.
-- **Drag-and-Drop PGN Import**: Drag any `.pgn` file onto the window to automatically parse and index all games.
+- **Active Database Switcher**: Switch between databases using the sidebar list.
+- **Unified New Database Dialog**: Create clean, independent SQLite databases via a tabbed modal:
+  - *New Database*: Create a blank database by name.
+  - *Download*: 1-click install curated master libraries (e.g. World Champions, Grandmaster Classics, Candidates Matches, TWIC).
+  - *Import PGN*: Initialize a database directly from pasted PGN text or `.pgn` / `.zip` / `.7z` file archives.
+- **Drag-and-Drop PGN Import**: Drag any `.pgn`, `.zip`, or `.7z` file onto the window to automatically parse, index, and classify all games off the UI thread.
 - **Duplicate Detection**: The importer inspects players, date, event, and moves to prevent identical games from clogging your database.
-
-### 1-Click Database Installers
-From the **Database Hub**, download and install pre-compiled databases with a single click:
-- **Czech & Slovak Extraliga & Leagues** (140,000+ games): Master and league matches from Slovakia and the Czech Republic from 1990 to the present.
-- **The Week In Chess (TWIC) Aggregation**: Hundreds of thousands of top contemporary grandmaster games.
+- **Native PGN Export**: Export all games, currently filtered games, or the active page directly to a `.pgn` file using the OS native save dialog.
 
 ### Searching & Filtering
-Filter master databases instantly by:
+Filter master and personal databases instantly across multiple dimensions:
+- **Board Position Search ("Find in Database")**:
+  - Filter games reaching an exact board position using the interactive **Board Editor Modal** (`♟️ Position` button) or by pasting/editing FEN.
+  - 1-click **"View in Database ↗"** from the Analysis Workbench Reference Tree jumps directly to the Database tab with that board position pre-filtered.
+  - Interactive active position chip with FEN snippet, edit (✏️), and clear (✕) actions.
+- **Searchable Opening Names**: Select or search standard opening names (e.g., *Sicilian Defense, Najdorf Variation*), mapping automatically to all associated ECO codes via `OpeningCatalog`.
+- **ECO Codes**: Filter by prefix or exact ECO opening code (e.g., `B90`).
+- **Time Controls**: Filter by category (`Bullet`, `Blitz`, `Rapid`, `Standard`) with visual category badges rendered in the games table.
 - **Player Names**: White or Black player name search (supports partial matching).
 - **Date & Years**: Narrow games by year ranges (e.g. `2020 - 2026`).
-- **ECO Codes**: Filter by ECO opening code (e.g., `B90` for Sicilian Najdorf).
 - **Game Result**: Filter by White wins (`1-0`), Draws (`1/2-1/2`), or Black wins (`0-1`).
+- **Minimum & Maximum Elo**: Filter by rating thresholds.
+
+### Maintenance Actions
+Consolidated under the **`🛠️ Maintenance ▾`** dropdown:
+- **Fill Missing ECO**: Scans games without an ECO code, classifies them from their opening moves, and persists the resolved ECO tag.
+- **Clean Foreign Games**: For online synced databases, purges scouted or non-user games not matching your configured online handles.
 
 ---
 

@@ -150,29 +150,32 @@ CREATE TABLE games (
     pgn TEXT NOT NULL
 );
 
--- Position Lookups for Opening Tree & Candidate Stats
+-- 64-bit Zobrist Position Index for Opening Tree & Position Searches
 CREATE TABLE positions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    fen TEXT NOT NULL,
     game_id INTEGER NOT NULL REFERENCES games(id) ON DELETE CASCADE,
-    move_san TEXT NOT NULL,
-    move_uci TEXT NOT NULL,
-    move_number INTEGER NOT NULL,
-    color TEXT NOT NULL
+    ply INTEGER NOT NULL,
+    zobrist_key INTEGER NOT NULL,
+    next_move_san TEXT NOT NULL,
+    next_move_uci TEXT,
+    result TEXT NOT NULL,
+    PRIMARY KEY (game_id, ply)
 );
 
-CREATE INDEX idx_positions_fen ON positions(fen);
-CREATE INDEX idx_games_players ON games(white, black);
+CREATE INDEX idx_positions_zobrist ON positions(zobrist_key, next_move_san);
+CREATE INDEX idx_positions_zobrist_game ON positions(zobrist_key, game_id);
+CREATE INDEX idx_games_white ON games(white);
+CREATE INDEX idx_games_black ON games(black);
+CREATE INDEX idx_games_eco ON games(eco);
 CREATE INDEX idx_games_date ON games(date);
+CREATE INDEX idx_games_site ON games(site);
+CREATE INDEX idx_games_identity ON games(white, black, date, event, round);
 ```
 
-### Dynamic Aggregations
-Position candidate lookups join `positions` with `games` to calculate in a single query:
-- Total games reaching the position
-- Move distribution percentage
-- White win / draw / Black win percentages
-- Average player Elo rating
-- Earliest and latest year the move was recorded
+### High-Speed Dynamic Aggregations & Position Filtering
+- **Opening Candidate Aggregations**: Candidate move lookups query `WHERE p.zobrist_key = $zobrist` grouped by `next_move_san` to calculate move distribution percentages, win/draw/loss rates, average ratings, and year spans.
+- **Position-Based Game Search**: Searching games by board position leverages `id IN (SELECT game_id FROM positions WHERE zobrist_key = $zobrist)`, executing via index-only scans on `idx_positions_zobrist_game`.
+- **Custom SQLite Functions**: Caissalytics registers custom scalar functions on SQLite connections:
+  - `time_class(pgn)`: Inspects PGN headers and clock increments to classify games into `bullet`, `blitz`, `rapid`, or `standard`.
 
 ### Online Opening Explorer Integration (`LichessExplorerClient.cs`)
 - Communicates with Lichess Explorer API endpoints (`/masters` and `/lichess`).
