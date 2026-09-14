@@ -117,20 +117,20 @@ public class UpdateTests
     {
         string fakeJson = """
         {
-            "tag_name": "v1.4.0",
-            "name": "Caissalytics 1.4.0",
+            "tag_name": "v99.0.0",
+            "name": "Caissalytics 99.0.0",
             "body": "New features release",
-            "html_url": "https://github.com/duckarp/Caissalytics/releases/tag/v1.4.0",
+            "html_url": "https://github.com/duckarp/Caissalytics/releases/tag/v99.0.0",
             "published_at": "2026-09-08T18:00:00Z",
             "assets": [
                 {
                     "name": "Caissalytics-linux-x64.tar.gz",
-                    "browser_download_url": "https://github.com/duckarp/Caissalytics/releases/download/v1.4.0/Caissalytics-linux-x64.tar.gz",
+                    "browser_download_url": "https://github.com/duckarp/Caissalytics/releases/download/v99.0.0/Caissalytics-linux-x64.tar.gz",
                     "size": 50000000
                 },
                 {
                     "name": "Caissalytics-win-x64.zip",
-                    "browser_download_url": "https://github.com/duckarp/Caissalytics/releases/download/v1.4.0/Caissalytics-win-x64.zip",
+                    "browser_download_url": "https://github.com/duckarp/Caissalytics/releases/download/v99.0.0/Caissalytics-win-x64.zip",
                     "size": 52000000
                 }
             ]
@@ -150,13 +150,13 @@ public class UpdateTests
 
         // GetCurrentVersion() is read from the app assembly's InformationalVersion, so it tracks
         // the real release version. Don't pin it to a specific value (it changes every release) —
-        // only check it is valid semver and older than the mocked latest (1.4.0), which drives
+        // only check it is valid semver and older than the mocked latest (99.0.0), which drives
         // IsUpdateAvailable to true.
         string currentVer = service.GetCurrentVersion();
         Assert.True(Version.TryParse(currentVer, out _), $"GetCurrentVersion() '{currentVer}' is not valid semver");
-        Assert.True(SemVerHelper.IsNewerVersion("1.4.0", currentVer), $"current version {currentVer} should be older than mocked latest 1.4.0");
+        Assert.True(SemVerHelper.IsNewerVersion("99.0.0", currentVer), $"current version {currentVer} should be older than mocked latest 99.0.0");
 
-        Assert.Equal("1.4.0", update.LatestVersion);
+        Assert.Equal("99.0.0", update.LatestVersion);
         Assert.True(update.IsUpdateAvailable);
         Assert.NotNull(update.AssetDownloadUrl);
         Assert.NotEmpty(update.AssetDownloadUrl!);
