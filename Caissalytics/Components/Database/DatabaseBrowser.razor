@@ -16,7 +16,7 @@
 				<span>🗄️</span>
 				<span>@Loc["Db_Databases"]</span>
 			</div>
-			<button class="btn-secondary" @onclick="() => _showNewDbModal = true">@Loc["Db_NewDb"]</button>
+			<button class="btn-secondary" @onclick="() => OpenNewDbModal(NewDbMode.Create)">@Loc["Db_NewDb"]</button>
 		</div>
 
 		<div class="db-list-wrapper">
@@ -62,7 +62,6 @@
 		</div>
 
 		<div class="db-sidebar-footer">
-			<button class="btn-secondary btn-master-lib" @onclick="OpenMasterLibraryModal">@Loc["Db_MasterLib"]</button>
 			@if (!IsOnlineGamesDb(_currentDbName))
 			{
 				<button class="btn-primary" @onclick="AddNewGame">@Loc["Db_AddNewGame"]</button>
@@ -88,7 +87,6 @@
 				{
 					<button class="btn-secondary btn-header-ref" title="Designate this database as the Master Reference for opening analysis" @onclick="() => SetAsReferenceDb(_currentDbName)">@Loc["Db_SetAsReference"]</button>
 				}
-				<button class="btn-secondary btn-master-lib" @onclick="OpenMasterLibraryModal">@Loc["Db_MasterLib"]</button>
 				<button class="btn-secondary btn-fill-eco" title="Classify games without an ECO tag from their opening moves" @onclick="PromptFillEco">@Loc["Db_FillEco"]</button>
 				<button class="btn-secondary btn-export-pgn" title="Export games from this database to a PGN file" @onclick="OpenExportModal">@Loc["Db_ExportPgn"]</button>
 				@if (IsOnlineGamesDb(_currentDbName))
@@ -273,24 +271,253 @@
 	</div>
 </div>
 
-<!-- New Database Modal -->
+<!-- New Database Modal (blank / download / import PGN) -->
 @if (_showNewDbModal)
 {
-	<div class="modal-backdrop" @onclick="() => _showNewDbModal = false">
-		<div class="modal-dialog" @onclick:stopPropagation="true">
+	<div class="modal-backdrop" @onclick="CloseNewDbModal">
+		<div class="modal-dialog @NewDbModalDialogClass" @onclick:stopPropagation="true">
 			<div class="modal-header">
-				<h3 class="modal-title">@Loc["Db_CreateDb_Title"]</h3>
-				<button class="modal-close-btn" @onclick="() => _showNewDbModal = false">✕</button>
-			</div>
-			<div class="modal-body">
-				<div class="modal-form-group">
-					<label class="filter-label">@Loc["Db_CreateDb_Name"]</label>
-					<input class="modal-input" placeholder="@Loc["Db_CreateDb_Placeholder"]" @bind="_newDbName" />
+				<div class="master-lib-header-info">
+					<span class="modal-icon">@NewDbModalIcon</span>
+					<div>
+						<h3 class="modal-title">@NewDbModalTitle</h3>
+						@if (!string.IsNullOrEmpty(NewDbModalSubtitle))
+						{
+							<p class="modal-subtitle">@NewDbModalSubtitle</p>
+						}
+					</div>
 				</div>
+				<button class="modal-close-btn" @onclick="CloseNewDbModal" disabled="@(_isInstallingMaster || _isCreatingFromPgn)">✕</button>
+			</div>
+			<div class="modal-body @(_newDbMode == NewDbMode.Remote ? "master-lib-body" : "")">
+				<div class="import-mode-selector">
+					<button type="button"
+							class="import-mode-btn @(_newDbMode == NewDbMode.Create ? "active" : "")"
+							disabled="@(_isInstallingMaster || _isCreatingFromPgn)"
+							@onclick="() => SetNewDbMode(NewDbMode.Create)">
+						@Loc["Db_NewDb_Tab_Create"]
+					</button>
+					<button type="button"
+							class="import-mode-btn @(_newDbMode == NewDbMode.Remote ? "active" : "")"
+							disabled="@(_isInstallingMaster || _isCreatingFromPgn)"
+							@onclick="() => SetNewDbMode(NewDbMode.Remote)">
+						@Loc["Db_NewDb_Tab_Remote"]
+					</button>
+					<button type="button"
+							class="import-mode-btn @(_newDbMode == NewDbMode.PgnImport ? "active" : "")"
+							disabled="@(_isInstallingMaster || _isCreatingFromPgn)"
+							@onclick="() => SetNewDbMode(NewDbMode.PgnImport)">
+						@Loc["Db_NewDb_Tab_Import"]
+					</button>
+				</div>
+
+				@if (_newDbMode == NewDbMode.Create)
+				{
+					<div class="modal-form-group">
+						<label class="filter-label">@Loc["Db_CreateDb_Name"]</label>
+						<input class="modal-input" placeholder="@Loc["Db_CreateDb_Placeholder"]" @bind="_newDbName" />
+					</div>
+				}
+				else if (_newDbMode == NewDbMode.Remote)
+				{
+					@if (_isInstallingMaster)
+					{
+						<div class="master-install-progress-card">
+							<div class="master-install-spinner"></div>
+							<div class="master-install-status-text">@_installStatus</div>
+							<div class="install-progress-track">
+								<div class="install-progress-bar @($"prog-w-{(int)Math.Round(_installProgressPct / 10.0) * 10}")"></div>
+							</div>
+							<span class="install-progress-pct">@_installProgressPct%</span>
+						</div>
+					}
+					else
+					{
+						<div class="master-catalog-grid">
+							@foreach (var item in _masterCatalog)
+							{
+								<div class="master-card @(item.IsInstalled ? "master-card-installed" : "")">
+									<div class="master-card-top-row">
+										<span class="master-tag master-tag-@item.Tag.ToLowerInvariant()">@item.Tag</span>
+										<span class="master-era">@item.Era</span>
+									</div>
+									<h4 class="master-card-title">@item.Title</h4>
+									<p class="master-card-desc">@item.Description</p>
+									<div class="master-card-footer">
+										<span class="master-games-count">@item.EstimatedGameCount.ToString("N0") games</span>
+										@if (item.IsInstalled)
+										{
+											<div class="master-installed-actions">
+												<span class="master-installed-badge">✓ Installed</span>
+												@if (!string.Equals(item.DatabaseName, _referenceDbName, StringComparison.OrdinalIgnoreCase))
+												{
+													<button class="btn-xs-reference" title="Designate as primary reference database" @onclick="() => SetAsReferenceDb(item.DatabaseName)">Set as Ref</button>
+												}
+											</div>
+										}
+										else
+										{
+											<button class="btn-install-master" @onclick="() => InstallMasterCollection(item.Id)">Install Collection</button>
+										}
+									</div>
+								</div>
+							}
+						</div>
+
+						<div class="master-external-tip">
+							<span class="tip-icon">💡</span>
+							<div class="tip-content">
+								<span class="tip-title">Community Mega-Databases:</span>
+								<span>Looking for millions of games? Download <strong>Lumbra's GigaBase</strong> (e.g. <em>OTB Elite 2400+</em>) or weekly <strong>TWIC</strong> updates and drag &amp; drop the <code>.7z</code> or <code>.zip</code> file directly into <strong>Import Games</strong>.</span>
+							</div>
+						</div>
+					}
+				}
+				else
+				{
+					@if (_isCreatingFromPgn)
+					{
+						<div class="progress-container">
+							<div class="progress-bar-track">
+								<div class="progress-bar-fill @($"bar-w-{_createPgnProgress.PercentComplete}")"></div>
+							</div>
+
+							<div class="progress-stats-grid">
+								<div>Status: @_createPgnProgress.CurrentStage</div>
+								<div>Progress: @_createPgnProgress.PercentComplete%</div>
+								<div>Games Saved: @_createPgnProgress.GamesSaved</div>
+								<div>Elapsed: @_createPgnProgress.Elapsed.ToString(@"mm\:ss")</div>
+							</div>
+						</div>
+					}
+					else if (_createPgnFinished)
+					{
+						<div class="reference-empty-state">
+							@if (_createPgnProgress.GamesSaved > 0)
+							{
+								<span class="empty-state-icon">✅</span>
+								<h4>Database Created!</h4>
+								<p>"@_createdPgnDbName" was created with @_createPgnProgress.GamesSaved @(_createPgnProgress.GamesSaved == 1 ? "game" : "games") in @_createPgnProgress.Elapsed.ToString(@"mm\:ss").</p>
+							}
+							else
+							{
+								<span class="empty-state-icon">⚠️</span>
+								<h4>No Games Imported</h4>
+								<p>"@_createdPgnDbName" was created, but no valid chess games could be parsed from the provided input. Please check the PGN format and try again.</p>
+							}
+						</div>
+					}
+					else
+					{
+						<div class="modal-form-group">
+							<label class="filter-label">@Loc["Db_CreateDb_Name"]</label>
+							<input class="modal-input" placeholder="@Loc["Db_CreateDb_Placeholder"]" @bind="_newDbName" />
+						</div>
+
+						<div class="import-mode-selector">
+							<button type="button"
+									class="import-mode-btn @(_newDbPgnSource == PgnSource.Text ? "active" : "")"
+									@onclick="() => SetNewDbPgnSource(PgnSource.Text)">
+								📝 Paste PGN
+							</button>
+							<button type="button"
+									class="import-mode-btn @(_newDbPgnSource == PgnSource.File ? "active" : "")"
+									@onclick="() => SetNewDbPgnSource(PgnSource.File)">
+								📁 Upload File
+							</button>
+						</div>
+
+						@if (_newDbPgnSource == PgnSource.Text)
+						{
+							<div class="modal-form-group">
+								<div class="import-textarea-header">
+									<label class="filter-label">Paste PGN Content</label>
+									@if (!string.IsNullOrWhiteSpace(_newDbPgnText))
+									{
+										<span class="import-char-counter">@_newDbPgnText.Length.ToString("N0") characters</span>
+									}
+								</div>
+								<textarea class="modal-textarea"
+										  placeholder="Paste one or more PGN games here..."
+										  @bind="_newDbPgnText"
+										  @bind:event="oninput"
+										  spellcheck="false"
+										  rows="9"></textarea>
+								<div class="import-textarea-hint">
+									<span>Supports single or multiple games. Tags, variations, and comments are preserved.</span>
+									@if (!string.IsNullOrWhiteSpace(_newDbPgnText))
+									{
+										<button type="button" class="btn-clear-link" @onclick="ClearNewDbPgnText">Clear text</button>
+									}
+								</div>
+							</div>
+						}
+						else
+						{
+							<div class="modal-form-group">
+								<label class="filter-label">Select or Drop Chess File to Import</label>
+								<label class="dropzone-box @(_newDbPgnDragOver ? "drag-active" : "")"
+									   @ondragenter="HandleNewDbPgnDragEnter"
+									   @ondragleave="HandleNewDbPgnDragLeave"
+									   @ondrop="HandleNewDbPgnDrop">
+									<div class="dropzone-icon">📥</div>
+									<div class="dropzone-text">Click or drag &amp; drop chess file here</div>
+									<div class="dropzone-subtext">Supports PGN files (.pgn), Zip archives (.zip), and 7-Zip archives (.7z)</div>
+									<div class="import-format-badges">
+										<span class="format-badge">.pgn</span>
+										<span class="format-badge">.zip (TWIC, Chess.cz)</span>
+										<span class="format-badge">.7z (Lumbra's GigaBase)</span>
+									</div>
+									<InputFile OnChange="HandleNewDbPgnFileSelected" class="hidden-file-input" accept=".pgn,.zip,.7z" />
+								</label>
+							</div>
+
+							@if (!string.IsNullOrEmpty(_newDbPgnFileName))
+							{
+								<div class="filter-group">
+									<span class="filter-label">Selected File:</span>
+									<span class="score-cell">@_newDbPgnFileName (@((_newDbPgnFileSize / 1024.0 / 1024.0).ToString("0.2")) MB)</span>
+								</div>
+							}
+						}
+
+						@if (!string.IsNullOrEmpty(_newDbPgnError))
+						{
+							<div class="ref-result-black">@_newDbPgnError</div>
+						}
+					}
+				}
 			</div>
 			<div class="modal-footer">
-				<button class="btn-secondary" @onclick="() => _showNewDbModal = false">@Loc["Common_Cancel"]</button>
-				<button class="btn-primary" disabled="@string.IsNullOrWhiteSpace(_newDbName)" @onclick="CreateDatabaseAsync">@Loc["Db_CreateDb_Btn"]</button>
+				@if (_newDbMode == NewDbMode.Create)
+				{
+					<button class="btn-secondary" @onclick="CloseNewDbModal">@Loc["Common_Cancel"]</button>
+					<button class="btn-primary" disabled="@string.IsNullOrWhiteSpace(_newDbName)" @onclick="CreateDatabaseAsync">@Loc["Db_CreateDb_Btn"]</button>
+				}
+				else if (_newDbMode == NewDbMode.Remote)
+				{
+					<button class="btn-secondary" @onclick="CloseNewDbModal" disabled="@_isInstallingMaster">Close</button>
+				}
+				else
+				{
+					@if (_isCreatingFromPgn)
+					{
+						<button class="btn-secondary" @onclick="CancelCreateDbFromPgn">Cancel</button>
+					}
+					else if (_createPgnFinished)
+					{
+						@if (_createPgnProgress.GamesSaved == 0)
+						{
+							<button class="btn-secondary" @onclick="() => _createPgnFinished = false">Try Again</button>
+						}
+						<button class="btn-primary" @onclick="CloseNewDbModal">Done</button>
+					}
+					else
+					{
+						<button class="btn-secondary" @onclick="CloseNewDbModal">Cancel</button>
+						<button class="btn-primary" disabled="@(!CanStartCreateDbFromPgn)" @onclick="CreateDbFromPgnAsync">Create &amp; Import</button>
+					}
+				}
 			</div>
 		</div>
 	</div>
@@ -546,82 +773,6 @@
 	</div>
 }
 
-<!-- Master Reference Library Modal -->
-@if (_showMasterLibModal)
-{
-	<div class="modal-backdrop" @onclick="CloseMasterLibraryModal">
-		<div class="modal-dialog master-lib-modal" @onclick:stopPropagation="true">
-			<div class="modal-header">
-				<div class="master-lib-header-info">
-					<span class="modal-icon">📚</span>
-					<div>
-						<h3 class="modal-title">Master Reference Library</h3>
-						<p class="modal-subtitle">Curated Grandmaster collections to power your Opening Explorer and game study.</p>
-					</div>
-				</div>
-				<button class="modal-close-btn" @onclick="CloseMasterLibraryModal" disabled="@_isInstallingMaster">✕</button>
-			</div>
-			<div class="modal-body master-lib-body">
-				@if (_isInstallingMaster)
-				{
-					<div class="master-install-progress-card">
-						<div class="master-install-spinner"></div>
-						<div class="master-install-status-text">@_installStatus</div>
-						<div class="install-progress-track">
-							<div class="install-progress-bar @($"prog-w-{(int)Math.Round(_installProgressPct / 10.0) * 10}")"></div>
-						</div>
-						<span class="install-progress-pct">@_installProgressPct%</span>
-					</div>
-				}
-				else
-				{
-					<div class="master-catalog-grid">
-						@foreach (var item in _masterCatalog)
-						{
-							<div class="master-card @(item.IsInstalled ? "master-card-installed" : "")">
-								<div class="master-card-top-row">
-									<span class="master-tag master-tag-@item.Tag.ToLowerInvariant()">@item.Tag</span>
-									<span class="master-era">@item.Era</span>
-								</div>
-								<h4 class="master-card-title">@item.Title</h4>
-								<p class="master-card-desc">@item.Description</p>
-								<div class="master-card-footer">
-									<span class="master-games-count">@item.EstimatedGameCount.ToString("N0") games</span>
-									@if (item.IsInstalled)
-									{
-										<div class="master-installed-actions">
-											<span class="master-installed-badge">✓ Installed</span>
-											@if (!string.Equals(item.DatabaseName, _referenceDbName, StringComparison.OrdinalIgnoreCase))
-											{
-												<button class="btn-xs-reference" title="Designate as primary reference database" @onclick="() => SetAsReferenceDb(item.DatabaseName)">Set as Ref</button>
-											}
-										</div>
-									}
-									else
-									{
-										<button class="btn-install-master" @onclick="() => InstallMasterCollection(item.Id)">Install Collection</button>
-									}
-								</div>
-							</div>
-						}
-					</div>
-
-					<div class="master-external-tip">
-						<span class="tip-icon">💡</span>
-						<div class="tip-content">
-							<span class="tip-title">Community Mega-Databases:</span>
-							<span>Looking for millions of games? Download <strong>Lumbra's GigaBase</strong> (e.g. <em>OTB Elite 2400+</em>) or weekly <strong>TWIC</strong> updates and drag &amp; drop the <code>.7z</code> or <code>.zip</code> file directly into <strong>Import Games</strong>.</span>
-						</div>
-					</div>
-				}
-			</div>
-			<div class="modal-footer">
-				<button class="btn-secondary" @onclick="CloseMasterLibraryModal" disabled="@_isInstallingMaster">Close</button>
-			</div>
-		</div>
-	</div>
-}
-
 <!-- Online Games Sync Dialog -->
 <OnlineGamesSyncDialog IsOpen="_showOnlineSyncModal"
 					   OnClose="HandleSyncDialogClosed"
@@ -639,8 +790,25 @@
 	private GameFilter _filter = new() { PageSize = 50 };
 	private readonly IReadOnlyList<string> _openingNames = OpeningCatalog.GetOpeningNames();
 
+	private enum NewDbMode { Create, Remote, PgnImport }
+
+	private enum PgnSource { Text, File }
+
 	private bool _showNewDbModal = false;
+	private NewDbMode _newDbMode = NewDbMode.Create;
 	private string _newDbName = "";
+	private PgnSource _newDbPgnSource = PgnSource.Text;
+	private string _newDbPgnText = "";
+	private IBrowserFile? _newDbPgnFile;
+	private string _newDbPgnFileName = "";
+	private long _newDbPgnFileSize = 0;
+	private bool _newDbPgnDragOver = false;
+	private string _newDbPgnError = "";
+	private bool _isCreatingFromPgn = false;
+	private bool _createPgnFinished = false;
+	private PgnImportProgress _createPgnProgress = new();
+	private string _createdPgnDbName = "";
+	private CancellationTokenSource? _createPgnCts;
 	private bool _showImportModal = false;
 	private bool _showDeleteModal = false;
 	private GameHeader? _gameToDelete;
@@ -679,7 +847,6 @@
 
 	private UserProfile _userProfile = new();
 
-	private bool _showMasterLibModal = false;
 	private bool _isInstallingMaster = false;
 	private string _installStatus = "";
 	private int _installProgressPct = 0;
@@ -773,19 +940,185 @@
 		await LoadDatabasesAsync();
 	}
 
-	private async Task OpenMasterLibraryModal()
+	private async Task OpenNewDbModal(NewDbMode mode)
 	{
-		_showMasterLibModal = true;
+		_newDbMode = mode;
+		_newDbName = "";
+		_newDbPgnSource = PgnSource.Text;
+		_newDbPgnText = "";
+		_newDbPgnFile = null;
+		_newDbPgnFileName = "";
+		_newDbPgnFileSize = 0;
+		_newDbPgnDragOver = false;
+		_newDbPgnError = "";
+		_isCreatingFromPgn = false;
+		_createPgnFinished = false;
+		_createPgnProgress = new PgnImportProgress();
+		_createdPgnDbName = "";
+		_showNewDbModal = true;
 		_isInstallingMaster = false;
+		_installStatus = "";
+		_installProgressPct = 0;
+
+		// The catalog is a local lookup whose "installed" flags come from on-disk
+		// databases, so it is loaded for every mode to keep the Download tab current.
 		_masterCatalog = await DatabaseService.GetMasterCatalogAsync();
 	}
 
-	private void CloseMasterLibraryModal()
+	private void SetNewDbMode(NewDbMode mode)
 	{
-		if (!_isInstallingMaster)
+		if (_isInstallingMaster || _isCreatingFromPgn)
 		{
-			_showMasterLibModal = false;
+			return;
 		}
+		_newDbMode = mode;
+		_newDbPgnError = "";
+	}
+
+	private void CloseNewDbModal()
+	{
+		if (!_isInstallingMaster && !_isCreatingFromPgn)
+		{
+			_showNewDbModal = false;
+		}
+	}
+
+	private string NewDbModalTitle => _newDbMode switch
+	{
+		NewDbMode.Remote => "Master Reference Library",
+		NewDbMode.PgnImport => "Import PGN to New Database",
+		_ => Loc["Db_CreateDb_Title"]
+	};
+
+	private string NewDbModalSubtitle => _newDbMode switch
+	{
+		NewDbMode.Remote => "Curated Grandmaster collections to power your Opening Explorer and game study.",
+		NewDbMode.PgnImport => "Create a new database from pasted PGN or a .pgn / .zip / .7z file.",
+		_ => ""
+	};
+
+	private string NewDbModalIcon => _newDbMode switch
+	{
+		NewDbMode.Remote => "📚",
+		NewDbMode.PgnImport => "📥",
+		_ => "🗄️"
+	};
+
+	private string NewDbModalDialogClass => _newDbMode switch
+	{
+		NewDbMode.Remote => "master-lib-modal",
+		NewDbMode.PgnImport => "modal-dialog-large",
+		_ => ""
+	};
+
+	private bool CanStartCreateDbFromPgn =>
+		!string.IsNullOrWhiteSpace(_newDbName) &&
+		(_newDbPgnSource == PgnSource.Text
+			? !string.IsNullOrWhiteSpace(_newDbPgnText)
+			: _newDbPgnFile != null);
+
+	private void SetNewDbPgnSource(PgnSource source)
+	{
+		if (_isCreatingFromPgn)
+		{
+			return;
+		}
+		_newDbPgnSource = source;
+		_newDbPgnError = "";
+	}
+
+	private void ClearNewDbPgnText()
+	{
+		_newDbPgnText = string.Empty;
+	}
+
+	private void HandleNewDbPgnDragEnter() => _newDbPgnDragOver = true;
+	private void HandleNewDbPgnDragLeave() => _newDbPgnDragOver = false;
+	private void HandleNewDbPgnDrop() => _newDbPgnDragOver = false;
+
+	private void HandleNewDbPgnFileSelected(InputFileChangeEventArgs e)
+	{
+		_newDbPgnDragOver = false;
+		_newDbPgnFile = e.File;
+		_newDbPgnFileName = e.File.Name;
+		_newDbPgnFileSize = e.File.Size;
+		_newDbPgnError = "";
+	}
+
+	private async Task CreateDbFromPgnAsync()
+	{
+		if (_isCreatingFromPgn || !CanStartCreateDbFromPgn)
+		{
+			return;
+		}
+
+		string name = _newDbName.Trim();
+		_isCreatingFromPgn = true;
+		_createPgnFinished = false;
+		_newDbPgnError = "";
+		_createPgnProgress = new PgnImportProgress();
+		_createPgnCts = new CancellationTokenSource();
+
+		var progressReporter = new Progress<PgnImportProgress>(p =>
+		{
+			_createPgnProgress = p;
+			InvokeAsync(StateHasChanged);
+		});
+
+		// Capture locals for the background task so we don't capture 'this' state mutably
+		var token = _createPgnCts.Token;
+
+		try
+		{
+			var db = await DatabaseService.CreateDatabaseAsync(name);
+			_createdPgnDbName = db.Name;
+
+			if (_newDbPgnSource == PgnSource.Text)
+			{
+				var pgnText = _newDbPgnText;
+				await Task.Run(() => DatabaseService.ImportPgnTextAsync(db.Name, pgnText, progressReporter, token), token);
+			}
+			else
+			{
+				// IBrowserFile.OpenReadStream() is bound to the Blazor render context and cannot be
+				// accessed from a background thread. Copy the file into a plain MemoryStream here on
+				// the Blazor thread first, then hand the MemoryStream off to the thread pool.
+				var ms = new MemoryStream();
+				using (var browserStream = _newDbPgnFile!.OpenReadStream(maxAllowedSize: 2048L * 1024 * 1024))
+				{
+					await browserStream.CopyToAsync(ms, token);
+				}
+				ms.Position = 0;
+				var fileName = _newDbPgnFileName;
+				await Task.Run(async () =>
+				{
+					await using var _ = ms;
+					await DatabaseService.ImportPgnStreamAsync(db.Name, ms, fileName, progressReporter, token);
+				}, token);
+			}
+
+			_createPgnFinished = true;
+			_currentDbName = db.Name;
+			await LoadDatabasesAsync();
+		}
+		catch (OperationCanceledException)
+		{
+			_newDbPgnError = "Import was cancelled.";
+		}
+		catch (Exception ex)
+		{
+			_newDbPgnError = $"Import error: {ex.Message}";
+		}
+		finally
+		{
+			_isCreatingFromPgn = false;
+			await InvokeAsync(StateHasChanged);
+		}
+	}
+
+	private void CancelCreateDbFromPgn()
+	{
+		_createPgnCts?.Cancel();
 	}
 
 	private async Task InstallMasterCollection(string catalogId)
@@ -808,7 +1141,7 @@
 			await Task.Delay(300);
 			_masterCatalog = await DatabaseService.GetMasterCatalogAsync();
 			await LoadDatabasesAsync();
-			_showMasterLibModal = false;
+			_showNewDbModal = false;
 		}
 		catch (Exception ex)
 		{

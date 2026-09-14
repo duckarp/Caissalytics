@@ -10,3 +10,4 @@ riderModule.iml
 TestResults/
 dist/
 publish/
+.qwen/
