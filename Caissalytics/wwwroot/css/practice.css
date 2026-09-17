@@ -665,3 +665,130 @@
 	color: var(--text-muted);
 	word-break: break-all;
 }
+
+/* Practice Engine Switcher & Maia Styles */
+.practice-engine-toggle-row {
+	display: flex;
+	gap: 0.5rem;
+	margin-bottom: 0.6rem;
+}
+
+.practice-engine-chip {
+	flex: 1;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.4rem;
+	padding: 0.55rem 0.75rem;
+	border-radius: 8px;
+	border: 1px solid rgba(255, 255, 255, 0.14);
+	background-color: var(--bg-tertiary, #21262d);
+	color: var(--text-secondary);
+	font-size: 0.85rem;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.2s ease;
+}
+
+.practice-engine-chip:hover:not(:disabled) {
+	background-color: var(--bg-hover, #2b323c);
+	border-color: rgba(255, 255, 255, 0.25);
+	color: var(--text-primary);
+}
+
+.practice-engine-chip.chip-active {
+	background: linear-gradient(135deg, rgba(88, 101, 242, 0.2), rgba(88, 101, 242, 0.08));
+	border-color: #5865f2;
+	color: #fff;
+	box-shadow: 0 0 10px rgba(88, 101, 242, 0.25);
+}
+
+.practice-engine-chip:disabled {
+	opacity: 0.45;
+	cursor: not-allowed;
+}
+
+.maia-presets-grid {
+	display: grid;
+	grid-template-columns: repeat(3, 1fr);
+	gap: 0.45rem;
+	margin-top: 0.4rem;
+}
+
+.elo-preset-chip.chip-downloaded {
+	border-color: rgba(46, 204, 113, 0.35);
+}
+
+.elo-preset-chip.chip-undownloaded {
+	border-style: dashed;
+	opacity: 0.85;
+}
+
+.maia-download-prompt {
+	margin-top: 0.6rem;
+	display: flex;
+	flex-direction: column;
+}
+
+.maia-download-btn {
+	width: 100%;
+	padding: 0.5rem 0.8rem;
+	background: linear-gradient(135deg, #2ecc71, #27ae60);
+	color: #fff;
+	border: none;
+	border-radius: 6px;
+	font-weight: 600;
+	font-size: 0.82rem;
+	cursor: pointer;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 0.4rem;
+	transition: all 0.2s ease;
+}
+
+.maia-download-btn:hover:not(:disabled) {
+	filter: brightness(1.1);
+	box-shadow: 0 2px 8px rgba(46, 204, 113, 0.35);
+}
+
+.maia-download-btn:disabled {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
+
+.maia-lc0-warning {
+	margin-top: 0.6rem;
+	padding: 0.55rem 0.75rem;
+	border-radius: 6px;
+	background-color: rgba(241, 196, 15, 0.12);
+	border: 1px solid rgba(241, 196, 15, 0.3);
+	color: #f1c40f;
+	font-size: 0.78rem;
+	line-height: 1.35;
+}
+
+/* Unavailable chip state (lc0 not installed) */
+.practice-engine-chip.chip-unavailable {
+	opacity: 0.5;
+	border-style: dashed;
+	position: relative;
+}
+
+.chip-unavailable-badge {
+	font-size: 0.75rem;
+	color: #f59e0b;
+	line-height: 1;
+}
+
+/* Blocking notice when Maia tab is selected but lc0 is missing */
+.maia-lc0-blocking-notice {
+	margin-top: 0.5rem;
+	padding: 0.65rem 0.8rem;
+	border-radius: 6px;
+	background-color: rgba(239, 68, 68, 0.08);
+	border: 1px solid rgba(239, 68, 68, 0.3);
+	color: var(--accent-red, #ef4444);
+	font-size: 0.8rem;
+	line-height: 1.45;
+}

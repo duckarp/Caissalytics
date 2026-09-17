@@ -13,6 +13,7 @@
 @inject ISkppIntegrationService SkppService
 @inject WorkspaceState Workspace
 @inject IJSRuntime JS
+@inject IMaiaModelService MaiaService
 @using System.Runtime.InteropServices
 @implements IDisposable
 
@@ -703,6 +704,125 @@
 						}
 					</div>
 				</div>
+
+				<!-- Maia Chess Neural Networks Card -->
+				<div class="control-section-card">
+					<div class="card-section-header">
+						<h3 class="card-section-title">🧠 @Loc["Settings_Maia_Title"]</h3>
+						<p class="card-section-desc">@Loc["Settings_Maia_Desc"]</p>
+					</div>
+
+					<div class="maia-settings-card">
+						<!-- Lc0 Status & Path -->
+						<div class="maia-lc0-status-row">
+							<div class="lc0-status-info">
+								<span class="status-dot @(MaiaService.IsLc0Available ? "dot-ready" : "dot-warning")"></span>
+								<span class="lc0-status-label">
+									<strong>@Loc["Settings_Maia_Lc0Status"]:</strong>
+									@(MaiaService.IsLc0Available ? $" {string.Format(Loc["Settings_Maia_Lc0Detected"], MaiaService.FindLc0Executable())}" : $" {Loc["Settings_Maia_Lc0NotFound"]}")
+								</span>
+							</div>
+							@if (!MaiaService.IsLc0Available)
+							{
+								<button class="btn-secondary btn-sm" disabled="@_isInstallingLc0" @onclick="EnsureLc0Async">
+									@if (_isInstallingLc0)
+									{
+										<span>⏳ @_lc0InstallPhase (@_lc0InstallProgress%)</span>
+									}
+									else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+									{
+										<span>⬇ @Loc["Settings_Maia_Lc0Download"]</span>
+									}
+									else
+									{
+										<span>🔨 @Loc["Settings_Maia_Lc0Build"]</span>
+									}
+								</button>
+							}
+						</div>
+
+						@if (_lc0InstallError != null)
+						{
+							<div class="maia-install-error">
+								⚠️ @_lc0InstallError
+							</div>
+						}
+
+						<div class="control-form-grid">
+							<div class="form-field-block form-field-full">
+								<label class="field-label">@Loc["Settings_Maia_CustomLc0Path"]</label>
+								<div class="input-with-action-row">
+									<input class="field-input"
+										   placeholder="@Loc["Settings_Maia_CustomLc0Placeholder"]"
+										   @bind="_customLc0Path"
+										   @bind:event="oninput" />
+									<button class="btn-primary" @onclick="SaveCustomLc0PathAsync">💾 @Loc["Common_Save"]</button>
+								</div>
+								<span class="field-hint">@Loc["Settings_Maia_CustomLc0Hint"]</span>
+								@if (_lc0PathSaved)
+								{
+									<span class="save-status-badge">✓ @Loc["Settings_Maia_Lc0PathSaved"]</span>
+								}
+							</div>
+						</div>
+
+						<div class="section-divider"></div>
+
+						<!-- Maia Models List & Download All -->
+						<div class="maia-models-header-row">
+							<div>
+								<h4 class="card-section-subtitle">@Loc["Settings_Maia_ModelsTitle"]</h4>
+								<span class="field-hint">@Loc["Settings_Maia_ModelsDesc"]</span>
+							</div>
+							<div class="maia-bulk-actions">
+								<button class="btn-secondary btn-sm" disabled="@(_isDownloadingAnyMaia || !MaiaService.IsLc0Available)" @onclick="DownloadAllMaiaModelsAsync">
+									@if (_isDownloadingAnyMaia && _downloadingAllMaia)
+									{
+										<span>@string.Format(Loc["Settings_Maia_DownloadAllProgress"], _downloadAllProgress)</span>
+									}
+									else
+									{
+										<span>⬇ @Loc["Settings_Maia_DownloadAll"]</span>
+									}
+								</button>
+							</div>
+						</div>
+
+						@if (!MaiaService.IsLc0Available)
+						{
+							<div class="maia-lc0-required-notice">
+								⚠️ @Loc["Settings_Maia_Lc0Required"]
+							</div>
+						}
+
+						<div class="maia-models-grid @(!MaiaService.IsLc0Available ? "maia-grid-disabled" : "")">
+							@foreach (var m in MaiaService.Models)
+							{
+								bool isDownloadingThis = _downloadingMaiaRating == m.Rating;
+								<div class="maia-model-card @(m.IsDownloaded ? "model-downloaded" : "")">
+									<div class="maia-model-info">
+										<span class="maia-model-name">@m.Name</span>
+										<span class="maia-model-rating">Elo @m.Rating</span>
+									</div>
+									<div class="maia-model-action">
+										@if (m.IsDownloaded)
+										{
+											<span class="badge-installed">✓ @Loc["Settings_Maia_Installed"]</span>
+										}
+										else
+										{
+											<button class="btn-secondary-small"
+													disabled="@(_isDownloadingAnyMaia || !MaiaService.IsLc0Available)"
+													@onclick="() => DownloadSingleMaiaAsync(m.Rating)">
+												@(isDownloadingThis ? $"{_singleMaiaProgress}%" : $"⬇ {Loc["Settings_Maia_Download"]}")
+											</button>
+										}
+									</div>
+								</div>
+							}
+						</div>
+					</div>
+				</div>
 			}
 			else if (_activeCategory == "tablebases")
 			{
@@ -1248,6 +1368,20 @@
 	private TablebaseResult? _testTbResult;
 	private bool _syzygyPathSaved = false;
 
+	// Maia State
+	private string? _customLc0Path;
+	private bool _lc0PathSaved = false;
+	private bool _isDownloadingAnyMaia = false;
+	private bool _downloadingAllMaia = false;
+	private int _downloadAllProgress = 0;
+	private int? _downloadingMaiaRating;
+	private int _singleMaiaProgress = 0;
+	// Cross-platform lc0 install state
+	private bool _isInstallingLc0 = false;
+	private string _lc0InstallPhase = "";
+	private int _lc0InstallProgress = 0;
+	private string? _lc0InstallError;
+
 	private string FormattedLastSync => _syncConfig.LastSyncUtc.HasValue
 		? _syncConfig.LastSyncUtc.Value.ToLocalTime().ToString("dd.MM.yyyy HH:mm")
 		: "Never";
@@ -1267,6 +1401,7 @@
 		SkppService.OnConnectionStateChanged += HandleSkppStateChanged;
 		UpdateService.OnUpdateStateChanged += HandleUpdateChanged;
 		Loc.OnLanguageChanged += HandleLanguageChanged;
+		MaiaService.OnModelsChanged += HandleMaiaModelsChanged;
 
 		_currentVersion = UpdateService.GetCurrentVersion();
 		_latestUpdate = UpdateService.CachedUpdate;
@@ -1288,6 +1423,7 @@
 
 		_localSyzygyPath = TablebaseService.LocalSyzygyPath ?? EngineService.SyzygyPath;
 		_onlineTbEnabled = TablebaseService.IsOnlineProbeEnabled;
+		_customLc0Path = MaiaService.CustomLc0Path;
 	}
 
 	protected override void OnParametersSet()
@@ -1666,6 +1802,103 @@
 		SkppService.OnConnectionStateChanged -= HandleSkppStateChanged;
 		UpdateService.OnUpdateStateChanged -= HandleUpdateChanged;
 		Loc.OnLanguageChanged -= HandleLanguageChanged;
+		MaiaService.OnModelsChanged -= HandleMaiaModelsChanged;
+	}
+
+	private void HandleMaiaModelsChanged()
+	{
+		InvokeAsync(StateHasChanged);
+	}
+
+	private void SaveCustomLc0PathAsync()
+	{
+		MaiaService.CustomLc0Path = string.IsNullOrWhiteSpace(_customLc0Path) ? null : _customLc0Path.Trim();
+		MaiaService.SaveConfig();
+		_lc0PathSaved = true;
+		_ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { _lc0PathSaved = false; StateHasChanged(); }));
+	}
+
+	private async Task DownloadSingleMaiaAsync(int rating)
+	{
+		if (_isDownloadingAnyMaia) return;
+		_isDownloadingAnyMaia = true;
+		_downloadingMaiaRating = rating;
+		_singleMaiaProgress = 0;
+		StateHasChanged();
+
+		try
+		{
+			var progress = new Progress<int>(p =>
+			{
+				_singleMaiaProgress = p;
+				StateHasChanged();
+			});
+
+			await MaiaService.DownloadModelAsync(rating, progress);
+		}
+		finally
+		{
+			_isDownloadingAnyMaia = false;
+			_downloadingMaiaRating = null;
+			StateHasChanged();
+		}
+	}
+
+	private async Task DownloadAllMaiaModelsAsync()
+	{
+		if (_isDownloadingAnyMaia) return;
+		_isDownloadingAnyMaia = true;
+		_downloadingAllMaia = true;
+		_downloadAllProgress = 0;
+		StateHasChanged();
+
+		try
+		{
+			var progress = new Progress<int>(p =>
+			{
+				_downloadAllProgress = p;
+				StateHasChanged();
+			});
+
+			await MaiaService.DownloadAllModelsAsync(progress);
+		}
+		finally
+		{
+			_isDownloadingAnyMaia = false;
+			_downloadingAllMaia = false;
+			StateHasChanged();
+		}
+	}
+
+	private async Task EnsureLc0Async()
+	{
+		if (_isInstallingLc0) return;
+		_isInstallingLc0 = true;
+		_lc0InstallError = null;
+		_lc0InstallPhase = "Starting...";
+		_lc0InstallProgress = 0;
+		StateHasChanged();
+
+		try
+		{
+			var progress = new Progress<(string phase, int pct)>(p =>
+			{
+				_lc0InstallPhase = p.phase;
+				_lc0InstallProgress = p.pct;
+				InvokeAsync(StateHasChanged);
+			});
+
+			bool ok = await MaiaService.EnsureLc0Async(progress);
+			if (!ok)
+			{
+				_lc0InstallError = MaiaService.LastInstallError ?? "lc0 installation failed.";
+			}
+		}
+		finally
+		{
+			_isInstallingLc0 = false;
+			StateHasChanged();
+		}
 	}
 
 	private void HandleLanguageChanged()

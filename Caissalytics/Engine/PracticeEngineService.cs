@@ -5,17 +5,22 @@ namespace Caissalytics.Engine;
 public class PracticeEngineService : IPracticeEngineService
 {
     private readonly IEngineService _engineService;
+    private readonly IMaiaModelService? _maiaService;
     private UciProcessClient? _client;
+    private UciProcessClient? _lc0Client;
     private readonly SemaphoreSlim _gate = new(1, 1);
     private string? _currentLoadedEnginePath;
+    private string? _currentLoadedLc0Path;
+    private string? _currentLoadedWeightsPath;
     private bool _isDisposed;
 
-    public PracticeEngineService(IEngineService engineService)
+    public PracticeEngineService(IEngineService engineService, IMaiaModelService? maiaService = null)
     {
         _engineService = engineService;
+        _maiaService = maiaService;
     }
 
-    public async Task<Move?> GetBotMoveAsync(string fen, int elo, CancellationToken ct = default)
+    public async Task<Move?> GetBotMoveAsync(string fen, int elo, PracticeBotType botType = PracticeBotType.Stockfish, CancellationToken ct = default)
     {
         await _gate.WaitAsync(ct);
         try
@@ -25,6 +30,16 @@ public class PracticeEngineService : IPracticeEngineService
             var pos = FenParser.Parse(fen);
             var legalMoves = MoveGenerator.GenerateLegalMoves(pos);
             if (legalMoves.Count == 0) return null;
+
+            if (botType == PracticeBotType.Maia && _maiaService != null)
+            {
+                var maiaMove = await GetMaiaBotMoveAsync(fen, elo, legalMoves, ct);
+                if (maiaMove.HasValue && !maiaMove.Value.IsEmpty)
+                {
+                    return maiaMove;
+                }
+                // Fallback to Stockfish if Maia was unavailable or unconfigured
+            }
 
             bool clientReady = await EnsureClientAsync(ct);
             if (!clientReady || _client == null)
@@ -175,12 +190,97 @@ public class PracticeEngineService : IPracticeEngineService
             {
                 await _client.StopAnalysisAsync();
             }
+            if (_lc0Client != null && _lc0Client.IsRunning)
+            {
+                await _lc0Client.StopAnalysisAsync();
+            }
         }
         catch { }
         finally
         {
             _gate.Release();
         }
+    }
+
+    private async Task<Move?> GetMaiaBotMoveAsync(string fen, int elo, IReadOnlyList<Move> legalMoves, CancellationToken ct)
+    {
+        if (_maiaService == null) return null;
+
+        var model = _maiaService.GetClosestModel(elo);
+        if (model == null || !model.IsDownloaded || string.IsNullOrEmpty(model.FilePath))
+        {
+            return null;
+        }
+
+        string? lc0Path = _maiaService.FindLc0Executable();
+        if (string.IsNullOrEmpty(lc0Path) || !File.Exists(lc0Path))
+        {
+            return null;
+        }
+
+        bool ready = await EnsureLc0ClientAsync(lc0Path, model.FilePath, ct);
+        if (!ready || _lc0Client == null)
+        {
+            return null;
+        }
+
+        var (bestMoveUci, lines) = await _lc0Client.SearchPositionAsync(
+            fen,
+            movetimeMs: 0,
+            maxDepth: 0,
+            multiPv: 1,
+            nodes: 1,
+            ct: ct
+        );
+
+        int delayMs = Random.Shared.Next(400, 800);
+        await Task.Delay(delayMs, ct);
+
+        string? chosenUci = bestMoveUci;
+        if (string.IsNullOrEmpty(chosenUci) && lines.Count > 0 && lines[0].PvMoves.Count > 0)
+        {
+            chosenUci = lines[0].PvMoves[0];
+        }
+
+        if (!string.IsNullOrEmpty(chosenUci))
+        {
+            var matched = legalMoves.FirstOrDefault(m => m.ToUci().Equals(chosenUci, StringComparison.OrdinalIgnoreCase));
+            if (!matched.IsEmpty)
+            {
+                return matched;
+            }
+        }
+
+        return null;
+    }
+
+    private async Task<bool> EnsureLc0ClientAsync(string lc0Path, string weightsPath, CancellationToken ct)
+    {
+        if (_lc0Client != null && _lc0Client.IsRunning && _currentLoadedLc0Path == lc0Path)
+        {
+            if (_currentLoadedWeightsPath != weightsPath)
+            {
+                await _lc0Client.SetOptionAsync("WeightsFile", weightsPath);
+                _currentLoadedWeightsPath = weightsPath;
+            }
+            return true;
+        }
+
+        _lc0Client?.Dispose();
+        _lc0Client = new UciProcessClient();
+        bool started = await _lc0Client.StartEngineAsync(lc0Path);
+        if (started)
+        {
+            _currentLoadedLc0Path = lc0Path;
+            await _lc0Client.SetOptionAsync("WeightsFile", weightsPath);
+            await _lc0Client.SetOptionAsync("MoveOverheadMs", "50");
+            _currentLoadedWeightsPath = weightsPath;
+            return true;
+        }
+
+        _lc0Client.Dispose();
+        _lc0Client = null;
+        return false;
     }
 
     private async Task<bool> EnsureClientAsync(CancellationToken ct)
@@ -311,6 +411,8 @@ public class PracticeEngineService : IPracticeEngineService
         _isDisposed = true;
         _client?.Dispose();
         _client = null;
+        _lc0Client?.Dispose();
+        _lc0Client = null;
         _gate.Dispose();
     }
 }

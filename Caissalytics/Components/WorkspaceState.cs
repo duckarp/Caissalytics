@@ -286,8 +286,8 @@ public class ClubMessagesTab : WorkspaceTab
 
 public class PracticeTab : WorkspaceTab
 {
-    public override string Title => $"Practice ({OpponentElo})";
-    public override string Icon => "🤖";
+    public override string Title => BotType == PracticeBotType.Maia ? $"Maia ({OpponentElo})" : $"Practice ({OpponentElo})";
+    public override string Icon => BotType == PracticeBotType.Maia ? "🧠" : "🤖";
 
     public event Action? OnTabChanged;
 
@@ -312,15 +312,17 @@ public class PracticeTab : WorkspaceTab
 
     public PieceColor PlayerColor { get; set; } = PieceColor.White;
     public int OpponentElo { get; set; } = 1500;
+    public PracticeBotType BotType { get; set; } = PracticeBotType.Stockfish;
     public string Orientation => PlayerColor == PieceColor.Black ? "black" : "white";
     public bool ShowEval { get; set; } = false;
     public string? StartFen { get; set; }
 
-    public PracticeTab(string? startFen = null, PieceColor playerColor = PieceColor.White, int opponentElo = 1500, GameTree? existingTree = null)
+    public PracticeTab(string? startFen = null, PieceColor playerColor = PieceColor.White, int opponentElo = 1500, GameTree? existingTree = null, PracticeBotType botType = PracticeBotType.Stockfish)
     {
         PlayerColor = playerColor;
         OpponentElo = opponentElo;
         StartFen = startFen;
+        BotType = botType;
 
         if (existingTree != null)
         {
@@ -340,19 +342,20 @@ public class PracticeTab : WorkspaceTab
             Tree = new GameTree(startFen);
         }
 
+        string botName = botType == PracticeBotType.Maia ? $"Maia {opponentElo}" : $"Stockfish Bot ({opponentElo})";
         if (playerColor == PieceColor.White)
         {
             Tree.Headers["White"] = "Player";
-            Tree.Headers["Black"] = $"Stockfish Bot ({opponentElo})";
+            Tree.Headers["Black"] = botName;
             Tree.Headers["BlackElo"] = opponentElo.ToString();
         }
         else
         {
-            Tree.Headers["White"] = $"Stockfish Bot ({opponentElo})";
+            Tree.Headers["White"] = botName;
             Tree.Headers["WhiteElo"] = opponentElo.ToString();
             Tree.Headers["Black"] = "Player";
         }
-        Tree.Headers["Event"] = "Practice vs Computer";
+        Tree.Headers["Event"] = botType == PracticeBotType.Maia ? "Practice vs Maia" : "Practice vs Computer";
     }
 
     private void HandlePositionChanged() => NotifyTabChanged();
@@ -634,9 +637,9 @@ public class WorkspaceState
         return tab;
     }
 
-    public PracticeTab CreatePracticeTab(string? startFen = null, PieceColor playerColor = PieceColor.White, int opponentElo = 1500, GameTree? existingTree = null)
+    public PracticeTab CreatePracticeTab(string? startFen = null, PieceColor playerColor = PieceColor.White, int opponentElo = 1500, GameTree? existingTree = null, PracticeBotType botType = PracticeBotType.Stockfish)
     {
-        var tab = new PracticeTab(startFen, playerColor, opponentElo, existingTree);
+        var tab = new PracticeTab(startFen, playerColor, opponentElo, existingTree, botType);
         RegisterTab(tab);
         Tabs.Add(tab);
         ActiveTab = tab;
@@ -815,7 +818,8 @@ public class WorkspaceState
                         Orientation = practice.Orientation,
                         OpponentElo = practice.OpponentElo,
                         PlayerColor = practice.PlayerColor.ToString(),
-                        StartFen = practice.StartFen
+                        StartFen = practice.StartFen,
+                        BotType = practice.BotType.ToString()
                     });
                     break;
             }
@@ -931,7 +935,8 @@ public class WorkspaceState
                     {
                         var color = Enum.TryParse<PieceColor>(tabDto.PlayerColor, out var c) ? c : PieceColor.White;
                         var elo = tabDto.OpponentElo ?? 1500;
-                        var practiceTab = new PracticeTab(tabDto.StartFen, color, elo)
+                        var botType = Enum.TryParse<PracticeBotType>(tabDto.BotType, out var bt) ? bt : PracticeBotType.Stockfish;
+                        var practiceTab = new PracticeTab(tabDto.StartFen, color, elo, botType: botType)
                         {
                             Id = tabDto.Id
                         };

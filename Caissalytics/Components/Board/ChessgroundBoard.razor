@@ -125,6 +125,17 @@
 				<path d="M16 16h5v5"/>
 			</svg>
 		</button>
+		@if (ResultInfo.HasResult)
+		{
+			<div class="control-divider"></div>
+			<div class="board-result-pill @ResultInfo.ResultClass" title="@ResultInfo.Tooltip" @onclick="OnLast">
+				<span class="board-result-score">@ResultInfo.DisplayScore</span>
+				@if (!string.IsNullOrEmpty(ResultInfo.Description))
+				{
+					<span class="board-result-desc">@ResultInfo.Description</span>
+				}
+			</div>
+		}
 	</div>
 </div>
 
@@ -147,6 +158,7 @@
 	[Parameter] public RenderFragment? SideGauge { get; set; }
 
 	private BoardClockState ClockState => GameClockHelper.GetClockState(Tree);
+	private GameResultInfo ResultInfo => GameResultHelper.GetResult(Tree, Position);
 
 	private string WhiteName => Tree?.Headers.GetValueOrDefault("White", "White") ?? "White";
 	private string BlackName => Tree?.Headers.GetValueOrDefault("Black", "Black") ?? "Black";

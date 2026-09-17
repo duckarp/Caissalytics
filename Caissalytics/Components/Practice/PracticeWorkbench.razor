@@ -9,6 +9,7 @@
 @inject IAppearanceService AppearanceService
 @inject IUserProfileService ProfileService
 @inject WorkspaceState Workspace
+@inject IMaiaModelService MaiaService
 @implements IDisposable
 
 <div class="practice-workbench-container">
@@ -16,9 +17,9 @@
 	<div class="practice-board-area">
 		<div class="practice-header-bar">
 			<div class="practice-header-left">
-				<span class="practice-bot-avatar">🤖</span>
-				<span class="practice-bot-title">@Loc["Practice_Opponent"]</span>
-				<span class="practice-elo-chip">⚡ @Tab.OpponentElo</span>
+				<span class="practice-bot-avatar">@(Tab.BotType == PracticeBotType.Maia ? "🧠" : "🤖")</span>
+				<span class="practice-bot-title">@(Tab.BotType == PracticeBotType.Maia ? $"Maia {Tab.OpponentElo}" : Loc["Practice_Opponent"])</span>
+				<span class="practice-elo-chip">@(Tab.BotType == PracticeBotType.Maia ? "🧠" : "⚡") @Tab.OpponentElo</span>
 				@if (_isComputerThinking)
 				{
 					<span class="practice-thinking-indicator">
@@ -126,7 +127,7 @@
 					<span class="btn-icon">🤝</span>
 					<span>@Loc["Practice_Draw"]</span>
 				</button>
-				<button class="practice-action-btn practice-btn-danger"
+				<button class="practice-action-btn btn-danger-action"
 						disabled="@(_isGameOver)"
 						@onclick="HandleResign"
 						title="Resign game">
@@ -150,17 +151,36 @@
 		<!-- Bot Calibration & Strength Card -->
 		<div class="practice-card practice-calibration-card">
 			<div class="practice-card-header">
-				<h4 class="practice-card-title">🤖 @Loc["Practice_StrengthTitle"]</h4>
+				<h4 class="practice-card-title">@(Tab.BotType == PracticeBotType.Maia ? "🧠" : "🤖") @Loc["Practice_StrengthTitle"]</h4>
 				@if (IsDifficultyLocked)
 				{
 					<span class="calibration-live-badge badge-locked" title="@Loc["Practice_DifficultyLockedDesc"]">
-						🔒 @Tab.OpponentElo
+						🔒 @(Tab.BotType == PracticeBotType.Maia ? $"Maia {Tab.OpponentElo}" : Tab.OpponentElo.ToString())
 					</span>
 				}
 				else
 				{
-					<span class="calibration-live-badge">⚡ @Tab.OpponentElo</span>
+					<span class="calibration-live-badge">@(Tab.BotType == PracticeBotType.Maia ? "🧠 Maia" : "⚡") @Tab.OpponentElo</span>
 				}
+			</div>
+
+			<!-- Engine Selection Chips (Stockfish vs Maia) -->
+			<div class="practice-engine-toggle-row">
+				<button type="button" class="practice-engine-chip @(Tab.BotType == PracticeBotType.Stockfish ? "chip-active" : "")"
+						disabled="@IsDifficultyLocked"
+						@onclick="() => SwitchBotType(PracticeBotType.Stockfish)">
+					⚡ @Loc["Practice_Engine_Stockfish"]
+				</button>
+				<button type="button" class="practice-engine-chip @(Tab.BotType == PracticeBotType.Maia ? "chip-active" : "") @(!MaiaService.IsLc0Available ? "chip-unavailable" : "")"
+						disabled="@(IsDifficultyLocked || !MaiaService.IsLc0Available)"
+						title="@(!MaiaService.IsLc0Available ? Loc["Practice_Maia_Lc0Missing_Tooltip"] : "")"
+						@onclick="() => SwitchBotType(PracticeBotType.Maia)">
+					🧠 @Loc["Practice_Engine_Maia"]
+					@if (!MaiaService.IsLc0Available)
+					{
+						<span class="chip-unavailable-badge">⚠</span>
+					}
+				</button>
 			</div>
 
 			@if (IsDifficultyLocked)
@@ -172,33 +192,82 @@
 			}
 			else
 			{
-				<p class="calibration-desc-text">@Loc["Practice_StrengthDesc"]</p>
+				<p class="calibration-desc-text">@(Tab.BotType == PracticeBotType.Maia ? Loc["Practice_Maia_Desc"] : Loc["Practice_StrengthDesc"])</p>
 			}
 
-			<div class="calibration-slider-box @(IsDifficultyLocked ? "box-locked" : "")">
-				<div class="calibration-slider-header">
-					<span class="calibration-tier-pill">@GetEloTierName(Tab.OpponentElo)</span>
-					<span class="calibration-range-hint">800 - 2800</span>
+			@if (Tab.BotType == PracticeBotType.Stockfish)
+			{
+				<div class="calibration-slider-box @(IsDifficultyLocked ? "box-locked" : "")">
+					<div class="calibration-slider-header">
+						<span class="calibration-tier-pill">@GetEloTierName(Tab.OpponentElo)</span>
+						<span class="calibration-range-hint">800 - 2800</span>
+					</div>
+					<input type="range"
+						   class="elo-slider"
+						   min="800"
+						   max="2800"
+						   step="50"
+						   value="@Tab.OpponentElo"
+						   disabled="@IsDifficultyLocked"
+						   @oninput="HandleEloSliderInput" />
 				</div>
-				<input type="range"
-					   class="elo-slider"
-					   min="800"
-					   max="2800"
-					   step="50"
-					   value="@Tab.OpponentElo"
-					   disabled="@IsDifficultyLocked"
-					   @oninput="HandleEloSliderInput" />
-			</div>
 
-			<!-- Presets -->
-			<div class="elo-presets-grid @(IsDifficultyLocked ? "grid-locked" : "")">
-				<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 1000 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(1000)">@Loc["PlayVsPc_Preset_Beginner"]</button>
-				<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 1300 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(1300)">@Loc["PlayVsPc_Preset_Casual"]</button>
-				<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 1600 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(1600)">@Loc["PlayVsPc_Preset_Intermediate"]</button>
-				<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 1900 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(1900)">@Loc["PlayVsPc_Preset_Club"]</button>
-				<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 2200 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(2200)">@Loc["PlayVsPc_Preset_Master"]</button>
-				<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 2500 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(2500)">@Loc["PlayVsPc_Preset_Grandmaster"]</button>
-			</div>
+				<!-- Presets -->
+				<div class="elo-presets-grid @(IsDifficultyLocked ? "grid-locked" : "")">
+					<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 1000 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(1000)">@Loc["PlayVsPc_Preset_Beginner"]</button>
+					<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 1300 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(1300)">@Loc["PlayVsPc_Preset_Casual"]</button>
+					<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 1600 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(1600)">@Loc["PlayVsPc_Preset_Intermediate"]</button>
+					<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 1900 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(1900)">@Loc["PlayVsPc_Preset_Club"]</button>
+					<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 2200 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(2200)">@Loc["PlayVsPc_Preset_Master"]</button>
+					<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 2500 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(2500)">@Loc["PlayVsPc_Preset_Grandmaster"]</button>
+				</div>
+			}
+			else
+			{
+				@if (!MaiaService.IsLc0Available)
+				{
+					<!-- Maia selected but lc0 not installed — show blocking notice -->
+					<div class="maia-lc0-blocking-notice">
+						<span>⚠️ @Loc["Practice_Maia_Lc0Missing"]</span>
+					</div>
+				}
+				else
+				{
+					<!-- Maia Presets (1100 to 1900) -->
+					<div class="elo-presets-grid maia-presets-grid @(IsDifficultyLocked ? "grid-locked" : "")">
+						@foreach (int r in new[] { 1100, 1200, 1300, 1400, 1500, 1600, 1700, 1800, 1900 })
+						{
+							var model = MaiaService.GetModel(r);
+							bool downloaded = model != null && model.IsDownloaded;
+							<button type="button"
+									class="elo-preset-chip @(Tab.OpponentElo == r ? "chip-active" : "") @(downloaded ? "chip-downloaded" : "chip-undownloaded")"
+									disabled="@IsDifficultyLocked"
+									@onclick="() => SetOpponentElo(r)">
+								Maia @r @(downloaded ? "✓" : "⬇")
+							</button>
+						}
+					</div>
+
+					@if (MaiaService.GetModel(Tab.OpponentElo) is { IsDownloaded: false })
+					{
+						<div class="maia-download-prompt">
+							<button type="button"
+									class="btn-primary-small maia-download-btn"
+									disabled="@_isDownloadingMaia"
+									@onclick="() => DownloadCurrentMaiaAsync(Tab.OpponentElo)">
+								@if (_isDownloadingMaia)
+								{
+									<span>@Loc["Practice_Maia_Downloading", Tab.OpponentElo, _maiaDownloadProgress]</span>
+								}
+								else
+								{
+									<span>⬇ @Loc["Practice_Maia_DownloadBtn", Tab.OpponentElo]</span>
+								}
+							</button>
+						</div>
+					}
+				}
+			}
 
 			<!-- Quick Side Switcher / New Match -->
 			<div class="calibration-side-box @(IsDifficultyLocked ? "box-locked" : "")">
@@ -265,6 +334,8 @@
 	private EngineEvaluationLine? _currentEval;
 	private CancellationTokenSource? _cts;
 	private bool _isDisposed;
+	private bool _isDownloadingMaia;
+	private int _maiaDownloadProgress;
 
 	private record MovePlyItem(MoveNode Node, string San, bool IsActive);
 	private List<MovePlyItem> _plies = new();
@@ -312,7 +383,7 @@
 		try
 		{
 			string fen = FenParser.ToFen(Tab.Tree.CurrentNode.Position);
-			var botMove = await PracticeEngine.GetBotMoveAsync(fen, Tab.OpponentElo, _cts?.Token ?? CancellationToken.None);
+			var botMove = await PracticeEngine.GetBotMoveAsync(fen, Tab.OpponentElo, Tab.BotType, _cts?.Token ?? CancellationToken.None);
 
 			if (_isDisposed) return;
 
@@ -456,19 +527,83 @@
 		}
 	}
 
-	private void SetOpponentElo(int newElo)
+	private void SwitchBotType(PracticeBotType newType)
 	{
 		if (IsDifficultyLocked) return;
-		Tab.OpponentElo = Math.Clamp(newElo, 800, 2800);
-		if (Tab.PlayerColor == PieceColor.White)
+		// Prevent switching to Maia if lc0 is not available
+		if (newType == PracticeBotType.Maia && !MaiaService.IsLc0Available) return;
+		Tab.BotType = newType;
+		if (newType == PracticeBotType.Maia)
 		{
-			Tab.Tree.Headers["Black"] = $"Stockfish Bot ({Tab.OpponentElo})";
-			Tab.Tree.Headers["BlackElo"] = Tab.OpponentElo.ToString();
+			int clamped = Math.Clamp(Tab.OpponentElo, 1100, 1900);
+			clamped = (int)Math.Round(clamped / 100.0) * 100;
+			SetOpponentElo(clamped);
 		}
 		else
 		{
-			Tab.Tree.Headers["White"] = $"Stockfish Bot ({Tab.OpponentElo})";
-			Tab.Tree.Headers["WhiteElo"] = Tab.OpponentElo.ToString();
+			SetOpponentElo(Tab.OpponentElo);
+		}
+	}
+
+	private async Task DownloadCurrentMaiaAsync(int rating)
+	{
+		if (_isDownloadingMaia) return;
+		_isDownloadingMaia = true;
+		_maiaDownloadProgress = 0;
+		StateHasChanged();
+
+		try
+		{
+			var progress = new Progress<int>(p =>
+			{
+				_maiaDownloadProgress = p;
+				StateHasChanged();
+			});
+
+			await MaiaService.DownloadModelAsync(rating, progress, _cts?.Token ?? CancellationToken.None);
+		}
+		catch
+		{
+			// Ignore or log error
+		}
+		finally
+		{
+			_isDownloadingMaia = false;
+			StateHasChanged();
+		}
+	}
+
+	private void SetOpponentElo(int newElo)
+	{
+		if (IsDifficultyLocked) return;
+		if (Tab.BotType == PracticeBotType.Maia)
+		{
+			Tab.OpponentElo = Math.Clamp(newElo, 1100, 1900);
+			string botName = $"Maia {Tab.OpponentElo}";
+			if (Tab.PlayerColor == PieceColor.White)
+			{
+				Tab.Tree.Headers["Black"] = botName;
+				Tab.Tree.Headers["BlackElo"] = Tab.OpponentElo.ToString();
+			}
+			else
+			{
+				Tab.Tree.Headers["White"] = botName;
+				Tab.Tree.Headers["WhiteElo"] = Tab.OpponentElo.ToString();
+			}
+		}
+		else
+		{
+			Tab.OpponentElo = Math.Clamp(newElo, 800, 2800);
+			if (Tab.PlayerColor == PieceColor.White)
+			{
+				Tab.Tree.Headers["Black"] = $"Stockfish Bot ({Tab.OpponentElo})";
+				Tab.Tree.Headers["BlackElo"] = Tab.OpponentElo.ToString();
+			}
+			else
+			{
+				Tab.Tree.Headers["White"] = $"Stockfish Bot ({Tab.OpponentElo})";
+				Tab.Tree.Headers["WhiteElo"] = Tab.OpponentElo.ToString();
+			}
 		}
 		Tab.NotifyTabChanged();
 		StateHasChanged();
@@ -492,19 +627,23 @@
 		Tab.PlayerColor = chosenColor;
 		Tab.Tree = new GameTree(Tab.StartFen);
 
+		string opponentName = Tab.BotType == PracticeBotType.Maia
+			? $"Maia {Tab.OpponentElo}"
+			: $"Stockfish Bot ({Tab.OpponentElo})";
+
 		if (chosenColor == PieceColor.White)
 		{
 			Tab.Tree.Headers["White"] = "Player";
-			Tab.Tree.Headers["Black"] = $"Stockfish Bot ({Tab.OpponentElo})";
+			Tab.Tree.Headers["Black"] = opponentName;
 			Tab.Tree.Headers["BlackElo"] = Tab.OpponentElo.ToString();
 		}
 		else
 		{
-			Tab.Tree.Headers["White"] = $"Stockfish Bot ({Tab.OpponentElo})";
+			Tab.Tree.Headers["White"] = opponentName;
 			Tab.Tree.Headers["WhiteElo"] = Tab.OpponentElo.ToString();
 			Tab.Tree.Headers["Black"] = "Player";
 		}
-		Tab.Tree.Headers["Event"] = "Practice vs Computer";
+		Tab.Tree.Headers["Event"] = Tab.BotType == PracticeBotType.Maia ? "Practice vs Maia" : "Practice vs Computer";
 
 		_isGameOver = false;
 		_isVictory = false;

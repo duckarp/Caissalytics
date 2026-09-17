@@ -132,11 +132,20 @@ public class UciProcessClient : IDisposable
         }
     }
 
+    public Task<(string? BestMove, List<EngineEvaluationLine> Lines)> SearchPositionAsync(
+        string fen,
+        int movetimeMs,
+        int maxDepth,
+        int multiPv,
+        CancellationToken ct)
+        => SearchPositionAsync(fen, movetimeMs, maxDepth, multiPv, nodes: 0, ct: ct);
+
     public async Task<(string? BestMove, List<EngineEvaluationLine> Lines)> SearchPositionAsync(
         string fen,
         int movetimeMs,
         int maxDepth,
         int multiPv = 1,
+        int nodes = 0,
         CancellationToken ct = default)
     {
         if (_process == null || _process.HasExited || _stdin == null)
@@ -165,9 +174,23 @@ public class UciProcessClient : IDisposable
         await SendCommandAsync($"setoption name MultiPV value {Math.Max(1, Math.Min(5, multiPv))}");
         await SendCommandAsync($"position fen {fen}");
 
-        string goCommand = (maxDepth > 0 && movetimeMs > 0)
-            ? $"go depth {maxDepth} movetime {movetimeMs}"
-            : (movetimeMs > 0 ? $"go movetime {movetimeMs}" : $"go depth {maxDepth}");
+        string goCommand;
+        if (nodes > 0)
+        {
+            goCommand = $"go nodes {nodes}";
+        }
+        else if (maxDepth > 0 && movetimeMs > 0)
+        {
+            goCommand = $"go depth {maxDepth} movetime {movetimeMs}";
+        }
+        else if (movetimeMs > 0)
+        {
+            goCommand = $"go movetime {movetimeMs}";
+        }
+        else
+        {
+            goCommand = $"go depth {maxDepth}";
+        }
 
         await SendCommandAsync(goCommand);
 

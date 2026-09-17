@@ -19,6 +19,7 @@ internal class Program
         appBuilder.Services.AddLogging();
         appBuilder.Services.AddHttpClient();
         appBuilder.Services.AddSingleton<IEngineService, EngineManager>();
+        appBuilder.Services.AddSingleton<IMaiaModelService, MaiaModelService>();
         appBuilder.Services.AddSingleton<IPracticeEngineService, PracticeEngineService>();
         appBuilder.Services.AddSingleton<IDatabaseService, DatabaseManager>();
         appBuilder.Services.AddSingleton<IGameAnalysisService, GameAnalysisService>();

@@ -117,10 +117,17 @@ public class EngineProbeResult
     public string? ErrorMessage { get; set; }
 }
 
+public enum PracticeBotType
+{
+    Stockfish,
+    Maia
+}
+
 public class EnginesConfigFile
 {
     public string ActiveEngineId { get; set; } = "stockfish-17";
     public string? SyzygyPath { get; set; }
+    public string? CustomLc0Path { get; set; }
     public List<EngineInfo> Engines { get; set; } = new();
 }
 

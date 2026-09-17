@@ -2,14 +2,27 @@
 @using Caissalytics.Core
 
 <div class="notation-panel-container">
-	@if (HasClocks)
+	@if (HasClocks || ResultInfo.HasResult)
 	{
 		<div class="notation-toolbar-row">
-			<button class="notation-toggle-btn @(_showClocks ? "active" : "")"
-					title="Toggle clock times display"
-					@onclick="() => _showClocks = !_showClocks">
-				⏱ Clocks @(_showClocks ? "On" : "Off")
-			</button>
+			@if (ResultInfo.HasResult)
+			{
+				<div class="notation-toolbar-result @ResultInfo.ResultClass" title="@ResultInfo.Tooltip" @onclick="SelectLastMove">
+					<span class="toolbar-result-badge">@ResultInfo.DisplayScore</span>
+					@if (!string.IsNullOrEmpty(ResultInfo.Description))
+					{
+						<span class="toolbar-result-desc">@ResultInfo.Description</span>
+					}
+				</div>
+			}
+			@if (HasClocks)
+			{
+				<button class="notation-toggle-btn @(_showClocks ? "active" : "")"
+						title="Toggle clock times display"
+						@onclick="() => _showClocks = !_showClocks">
+					⏱ Clocks @(_showClocks ? "On" : "Off")
+				</button>
+			}
 		</div>
 	}
 	<div class="notation-tree-scrollable">
@@ -23,6 +36,16 @@
 		{
 			<div class="move-list-flow">
 				@RenderNodeChildren(Tree.Root, isMainline: true)
+				@if (ResultInfo.HasResult)
+				{
+					<div class="notation-result-flow-box @ResultInfo.ResultClass" title="@ResultInfo.Tooltip" @onclick="SelectLastMove">
+						<span class="notation-result-score-highlight">@ResultInfo.DisplayScore</span>
+						@if (!string.IsNullOrEmpty(ResultInfo.Description))
+						{
+							<span class="notation-result-flow-desc">@ResultInfo.Description</span>
+						}
+					</div>
+				}
 			</div>
 		}
 	</div>
@@ -33,6 +56,21 @@
 	[Parameter] public EventCallback<MoveNode> OnSelectNode { get; set; }
 
 	private bool _showClocks = true;
+	private GameResultInfo ResultInfo => GameResultHelper.GetResult(Tree, Tree?.CurrentNode?.Position);
+
+	private void SelectLastMove()
+	{
+		if (Tree?.Root == null) return;
+		var leaf = Tree.Root;
+		while (leaf.Children.Count > 0)
+		{
+			leaf = leaf.Children[0];
+		}
+		if (leaf != Tree.Root)
+		{
+			OnSelectNode.InvokeAsync(leaf);
+		}
+	}
 
 	private bool HasClocks
 	{

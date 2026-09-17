@@ -119,10 +119,125 @@
 
 .notation-toolbar-row {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: space-between;
   padding: 4px 8px;
   border-bottom: 1px solid var(--border-subtle);
   background-color: var(--bg-surface-elevated);
+  min-height: 28px;
+  gap: 8px;
+}
+
+/* Result in Notation Toolbar */
+.notation-toolbar-result {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+  border-radius: 4px;
+  padding: 1px 4px;
+  transition: all var(--transition-fast);
+}
+
+.notation-toolbar-result:hover {
+  filter: brightness(1.15);
+}
+
+.toolbar-result-badge {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+}
+
+.toolbar-result-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.notation-toolbar-result.result-white-win .toolbar-result-badge {
+  background-color: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.notation-toolbar-result.result-black-win .toolbar-result-badge {
+  background-color: rgba(0, 0, 0, 0.5);
+  color: #f0f6fc;
+  border: 1px solid rgba(139, 148, 158, 0.4);
+}
+
+.notation-toolbar-result.result-draw .toolbar-result-badge {
+  background-color: rgba(210, 153, 34, 0.2);
+  color: #f2cc60;
+  border: 1px solid rgba(210, 153, 34, 0.45);
+}
+
+/* Result Box at End of Move List */
+.notation-result-flow-box {
+  display: block;
+  margin-top: 14px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  transition: all var(--transition-fast);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface-elevated);
+  text-align: center;
+}
+
+.notation-result-flow-box:hover {
+  filter: brightness(1.1);
+  border-color: var(--border-focus);
+}
+
+.notation-result-score-highlight {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  display: block;
+}
+
+.notation-result-flow-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  display: block;
+}
+
+.notation-result-flow-box.result-white-win {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03));
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.notation-result-flow-box.result-white-win .notation-result-score-highlight {
+  color: #ffffff;
+}
+
+.notation-result-flow-box.result-black-win {
+  background: linear-gradient(135deg, rgba(20, 20, 20, 0.8), rgba(10, 10, 10, 0.6));
+  border-color: rgba(139, 148, 158, 0.35);
+}
+
+.notation-result-flow-box.result-black-win .notation-result-score-highlight {
+  color: #f0f6fc;
+}
+
+.notation-result-flow-box.result-draw {
+  background: linear-gradient(135deg, rgba(210, 153, 34, 0.15), rgba(210, 153, 34, 0.04));
+  border-color: rgba(210, 153, 34, 0.4);
+}
+
+.notation-result-flow-box.result-draw .notation-result-score-highlight {
+  color: #f2cc60;
 }
 
 .notation-toggle-btn {
@@ -138,6 +253,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  margin-left: auto;
 }
 
 .notation-toggle-btn:hover {

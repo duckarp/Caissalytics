@@ -27,4 +27,5 @@ public class WorkspaceTabDto
     public int? OpponentElo { get; set; }
     public string? PlayerColor { get; set; }
     public string? StartFen { get; set; }
+    public string? BotType { get; set; }
 }

@@ -50,6 +50,23 @@ public class GameTree
         CurrentNode.Children.Add(newNode);
         CurrentNode = newNode;
 
+        if (MoveGenerator.IsCheckmate(nextPos))
+        {
+            if (!Headers.ContainsKey("Result") || Headers["Result"] == "*")
+            {
+                Headers["Result"] = nextPos.ActiveColor == PieceColor.Black ? "1-0" : "0-1";
+                Headers["Termination"] = "Checkmate";
+            }
+        }
+        else if (MoveGenerator.IsStalemate(nextPos))
+        {
+            if (!Headers.ContainsKey("Result") || Headers["Result"] == "*")
+            {
+                Headers["Result"] = "1/2-1/2";
+                Headers["Termination"] = "Stalemate";
+            }
+        }
+
         PositionChanged?.Invoke();
         return newNode;
     }
