@@ -59,14 +59,25 @@ public static class NativeAudioPlayer
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "Caissalytics", "sounds");
             string extractedPath = Path.Combine(userSoundsDir, fileName);
-            if (File.Exists(extractedPath))
-            {
-                return extractedPath;
-            }
-
             var asm = typeof(NativeAudioPlayer).Assembly;
             string? resName = asm.GetManifestResourceNames()
                 .FirstOrDefault(n => n.EndsWith($"sounds.{fileName}", StringComparison.OrdinalIgnoreCase));
+
+            if (File.Exists(extractedPath))
+            {
+                if (resName != null)
+                {
+                    using var stream = asm.GetManifestResourceStream(resName);
+                    if (stream != null && stream.Length != new FileInfo(extractedPath).Length)
+                    {
+                        Directory.CreateDirectory(userSoundsDir);
+                        using var fileStream = File.Create(extractedPath);
+                        stream.CopyTo(fileStream);
+                    }
+                }
+                return extractedPath;
+            }
+
             if (resName != null)
             {
                 using var stream = asm.GetManifestResourceStream(resName);

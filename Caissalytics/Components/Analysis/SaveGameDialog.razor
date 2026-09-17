@@ -89,15 +89,39 @@
 					</div>
 				</div>
 
-				<!-- Event & ECO Row -->
+				<!-- Event Row -->
+				<div class="modal-form-group">
+					<label class="filter-label">Event</label>
+					<input class="modal-input" placeholder="e.g. FIDE World Championship" @bind="_event" />
+				</div>
+
+				<!-- Round # & Board # Row -->
 				<div class="modal-form-row">
 					<div class="modal-form-group">
-						<label class="filter-label">Event</label>
-						<input class="modal-input" placeholder="e.g. FIDE World Championship" @bind="_event" />
+						<label class="filter-label">Round #</label>
+						<input class="modal-input" placeholder="e.g. 1" @bind="_round" />
+					</div>
+					<div class="modal-form-group">
+						<label class="filter-label">Board #</label>
+						<input class="modal-input" placeholder="e.g. 1" @bind="_board" />
+					</div>
+				</div>
+
+				<!-- Time Control & ECO Row -->
+				<div class="modal-form-row">
+					<div class="modal-form-group">
+						<label class="filter-label">Time Control</label>
+						<select class="modal-input" @bind="_selectedTimeClass">
+							<option value="">(Unspecified)</option>
+							<option value="bullet">Bullet (&lt; 3 min)</option>
+							<option value="blitz">Blitz (3 - 10 min)</option>
+							<option value="rapid">Rapid (10 - 60 min)</option>
+							<option value="standard">Standard / Classical (60+ min)</option>
+						</select>
 					</div>
 					<div class="modal-form-group">
 						<label class="filter-label">ECO Code</label>
-						<input class="modal-input" placeholder="e.g. B90, C33" @bind="_eco" />
+						<input class="modal-input" placeholder="e.g. B90" readonly value="@_eco" />
 					</div>
 				</div>
 
@@ -147,6 +171,10 @@
 	private string _date = "";
 	private string _event = "Casual Game";
 	private string _eco = "";
+	private string _round = "";
+	private string _board = "";
+	private string _selectedTimeClass = "";
+	private string _timeControlRaw = "";
 	private string _errorMessage = "";
 	private bool _isSaving = false;
 
@@ -175,7 +203,27 @@
 			_result = Tree.Headers.GetValueOrDefault("Result", "*");
 			_date = DateHelper.Format(Tree.Headers.GetValueOrDefault("Date", DateTime.UtcNow.ToString("dd.MM.yyyy")));
 			_event = Tree.Headers.GetValueOrDefault("Event", "Casual Game");
-			_eco = Tree.Headers.GetValueOrDefault("ECO", "");
+
+			// Pre-fill ECO based on mainline moves on the board, fallback to existing header
+			var mainlineMoves = new List<string>();
+			var cur = Tree.Root;
+			while (cur.Children.Count > 0)
+			{
+				cur = cur.Children[0];
+				if (!string.IsNullOrEmpty(cur.San))
+				{
+					mainlineMoves.Add(cur.San);
+				}
+			}
+			string? classifiedEco = EcoClassifier.Classify(mainlineMoves);
+			_eco = classifiedEco ?? Tree.Headers.GetValueOrDefault("ECO", "");
+
+			_round = Tree.Headers.GetValueOrDefault("Round", "");
+			if (_round == "?" || _round == "-") _round = "";
+			_board = Tree.Headers.GetValueOrDefault("Board", "");
+			if (_board == "?" || _board == "-") _board = "";
+			_timeControlRaw = Tree.Headers.GetValueOrDefault("TimeControl", "");
+			_selectedTimeClass = TimeControlInfo.ClassifyFromRaw(_timeControlRaw);
 
 			if (int.TryParse(Tree.Headers.GetValueOrDefault("WhiteElo", ""), out int we)) _whiteElo = we;
 			else _whiteElo = null;
@@ -219,8 +267,36 @@
 			Tree.Headers["Date"] = pgnDate;
 			Tree.Headers["Event"] = _event;
 			if (_whiteElo.HasValue) Tree.Headers["WhiteElo"] = _whiteElo.Value.ToString();
+			else Tree.Headers.Remove("WhiteElo");
+
 			if (_blackElo.HasValue) Tree.Headers["BlackElo"] = _blackElo.Value.ToString();
-			if (!string.IsNullOrEmpty(_eco)) Tree.Headers["ECO"] = _eco;
+			else Tree.Headers.Remove("BlackElo");
+
+			if (!string.IsNullOrWhiteSpace(_eco)) Tree.Headers["ECO"] = _eco.Trim();
+			else Tree.Headers.Remove("ECO");
+
+			if (!string.IsNullOrWhiteSpace(_round)) Tree.Headers["Round"] = _round.Trim();
+			else Tree.Headers.Remove("Round");
+
+			if (!string.IsNullOrWhiteSpace(_board)) Tree.Headers["Board"] = _board.Trim();
+			else Tree.Headers.Remove("Board");
+
+			if (!string.IsNullOrEmpty(_selectedTimeClass))
+			{
+				if (!string.IsNullOrEmpty(_timeControlRaw) &&
+				    TimeControlInfo.ClassifyFromRaw(_timeControlRaw) == _selectedTimeClass)
+				{
+					Tree.Headers["TimeControl"] = _timeControlRaw;
+				}
+				else
+				{
+					Tree.Headers["TimeControl"] = _selectedTimeClass;
+				}
+			}
+			else
+			{
+				Tree.Headers.Remove("TimeControl");
+			}
 
 			string pgn = PgnHandler.ExportPgn(Tree);
 
@@ -239,7 +315,7 @@
 				Date = pgnDate,
 				Event = _event,
 				Site = Tree.Headers.GetValueOrDefault("Site", ""),
-				Round = Tree.Headers.GetValueOrDefault("Round", ""),
+				Round = _round.Trim(),
 				Eco = _eco,
 				Pgn = pgn
 			};

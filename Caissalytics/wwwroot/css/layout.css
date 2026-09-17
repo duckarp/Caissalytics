@@ -121,8 +121,9 @@
 
 .headers-grid {
   display: grid;
-  grid-template-columns: 80px 1fr;
-  gap: 6px;
+  grid-template-columns: max-content 1fr;
+  column-gap: 12px;
+  row-gap: 5px;
   font-size: 13px;
 }
 
@@ -170,9 +171,43 @@
   margin-bottom: 4px;
 }
 
-.pgn-export-area {
+.tools-fen-input {
+  flex: 0 0 auto;
+  height: 32px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 0 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tools-fen-input:focus {
+  border-color: var(--border-focus);
+}
+
+.tools-pgn-textarea {
+  flex: 1;
+  min-height: 120px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 8px 10px;
+  border-radius: 4px;
   font-family: var(--font-mono);
   font-size: 11px;
+  line-height: 1.4;
+  resize: vertical;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.tools-pgn-textarea:focus {
+  border-color: var(--border-focus);
 }
 
 .panel-bottom-section {
@@ -191,5 +226,84 @@
     height: 180px;
     min-height: 150px;
   }
+}
+
+.tools-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.pgn-dialog-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.load-file-label {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.loaded-file-indicator {
+  font-size: 12px;
+  color: var(--accent-blue);
+  font-weight: 500;
+}
+
+.pgn-load-textarea {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.4;
+  height: 200px;
+  min-height: 120px;
+  resize: vertical;
+}
+
+.pgn-detected-box {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.detected-label {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.detected-value {
+  color: var(--accent-blue);
+  font-weight: 500;
+}
+
+.pgn-error-banner {
+  padding: 8px 12px;
+  border-radius: 6px;
+  background-color: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  font-size: 12px;
+}
+
+.pgn-dialog-options {
+  margin-top: 4px;
+}
+
+.pgn-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
 }
 

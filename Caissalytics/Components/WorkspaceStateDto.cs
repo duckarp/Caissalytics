@@ -24,4 +24,7 @@ public class WorkspaceTabDto
     public string? DatabaseScope { get; set; }
     public string? Player { get; set; }
     public string? PositionId { get; set; }
+    public int? OpponentElo { get; set; }
+    public string? PlayerColor { get; set; }
+    public string? StartFen { get; set; }
 }

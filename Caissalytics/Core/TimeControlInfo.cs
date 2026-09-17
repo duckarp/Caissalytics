@@ -139,10 +139,29 @@ public static class TimeControlInfo
     public static string ClassifyFromPgn(string? pgn)
     {
         string? raw = ExtractRaw(pgn);
-        if (string.IsNullOrEmpty(raw))
+        return ClassifyFromRaw(raw);
+    }
+
+    /// <summary>
+    /// Classifies a raw TimeControl string into a category key: "bullet", "blitz", "rapid", or "standard".
+    /// </summary>
+    public static string ClassifyFromRaw(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
         {
             return string.Empty;
         }
+
+        string lower = raw.Trim().ToLowerInvariant();
+        if (lower is "bullet" or "blitz" or "rapid" or "standard")
+        {
+            return lower;
+        }
+        if (lower is "classical")
+        {
+            return "standard";
+        }
+
         return Classify(BaseSeconds(raw));
     }
 

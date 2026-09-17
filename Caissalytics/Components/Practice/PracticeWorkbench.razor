@@ -1,0 +1,598 @@
+@namespace Caissalytics.Components.Practice
+@using Caissalytics.Core
+@using Caissalytics.Engine
+@using Caissalytics.Data
+@using Caissalytics.Components.Board
+@using Caissalytics.Components.Analysis
+@inject IPracticeEngineService PracticeEngine
+@inject IEngineService EngineService
+@inject IAppearanceService AppearanceService
+@inject IUserProfileService ProfileService
+@inject WorkspaceState Workspace
+@implements IDisposable
+
+<div class="practice-workbench-container">
+	<!-- Left Side: Interactive Board & Clocks/Status -->
+	<div class="practice-board-area">
+		<div class="practice-header-bar">
+			<div class="practice-header-left">
+				<span class="practice-bot-avatar">🤖</span>
+				<span class="practice-bot-title">@Loc["Practice_Opponent"]</span>
+				<span class="practice-elo-chip">⚡ @Tab.OpponentElo</span>
+				@if (_isComputerThinking)
+				{
+					<span class="practice-thinking-indicator">
+						<span class="thinking-spinner"></span>
+						@Loc["Practice_Thinking"]
+					</span>
+				}
+				else if (!_isGameOver)
+				{
+					<span class="practice-turn-badge @(Tab.Tree.CurrentNode.Position.ActiveColor == Tab.PlayerColor ? "turn-user" : "turn-bot")">
+						@(Tab.Tree.CurrentNode.Position.ActiveColor == Tab.PlayerColor ? Loc["Practice_YourTurn"] : Loc["Practice_Thinking"])
+					</span>
+				}
+			</div>
+
+			<div class="practice-header-right">
+				<button class="btn-toggle-eval @(Tab.ShowEval ? "eval-active" : "")"
+						@onclick="ToggleEval"
+						title="@Loc["Practice_EvalToggle"]">
+					📊 @Loc["Practice_EvalToggle"]
+				</button>
+			</div>
+		</div>
+
+		<div class="board-eval-row">
+			<ChessgroundBoard @ref="_boardRef"
+							  Position="@Tab.Tree.CurrentNode.Position"
+							  LastMove="@(Tab.Tree.CurrentNode.IsRoot ? null : Tab.Tree.CurrentNode.Move)"
+							  Orientation="@Tab.Orientation"
+							  CanGoBack="@Tab.Tree.CanGoBack"
+							  CanGoForward="@Tab.Tree.CanGoForward"
+							  OnMoveMade="HandleUserMove"
+							  OnFirst="() => { if (!_isComputerThinking) { Tab.Tree.GoToStart(); UpdateMoveHistory(); StateHasChanged(); } }"
+							  OnPrev="() => { if (!_isComputerThinking) { Tab.Tree.GoBack(); UpdateMoveHistory(); StateHasChanged(); } }"
+							  OnNext="() => { if (!_isComputerThinking) { Tab.Tree.GoForward(); UpdateMoveHistory(); StateHasChanged(); } }"
+							  OnLast="() => { if (!_isComputerThinking) { Tab.Tree.GoToEnd(); UpdateMoveHistory(); StateHasChanged(); } }"
+							  Tree="@Tab.Tree">
+				<SideGauge>
+					@if (Tab.ShowEval)
+					{
+						<EvaluationGauge TopLine="@_currentEval" IsAnalyzing="true" />
+					}
+				</SideGauge>
+			</ChessgroundBoard>
+		</div>
+	</div>
+
+	<!-- Right Side: Moves List, Controls, Hint Banner & Game Over -->
+	<div class="practice-sidebar">
+		<!-- Match Info Card -->
+		<div class="practice-card">
+			<div class="practice-card-header">
+				<h3 class="practice-card-title">@Tab.Title</h3>
+				<span class="practice-side-pill @(Tab.PlayerColor == PieceColor.White ? "side-white" : "side-black")">
+					@(Tab.PlayerColor == PieceColor.White ? "Playing as White ♔" : "Playing as Black ♚")
+				</span>
+			</div>
+
+			<!-- Hint Banner -->
+			@if (!string.IsNullOrEmpty(_hintSan))
+			{
+				<div class="practice-hint-banner">
+					<span>@_hintSan</span>
+					<button class="hint-dismiss-btn" @onclick="() => _hintSan = null">✕</button>
+				</div>
+			}
+
+			<!-- Game Over Banner -->
+			@if (_isGameOver)
+			{
+				<div class="game-over-banner @(_isVictory ? "banner-win" : (_isDefeat ? "banner-loss" : "banner-draw"))">
+					<div class="game-over-title">@_gameOverTitle</div>
+					<div class="game-over-subtitle">@_gameOverReason</div>
+					<div class="game-over-actions">
+						<button class="btn-primary btn-sm" @onclick="HandleAnalyzeGame">
+							🔍 @Loc["Practice_Analyze"]
+						</button>
+						<button class="btn-secondary btn-sm" @onclick="HandleRestartMatch">
+							🔄 @Loc["Practice_NewGame"]
+						</button>
+					</div>
+				</div>
+			}
+
+			<!-- Practice Action Buttons (Larger & Tactile) -->
+			<div class="practice-actions-toolbar">
+				<button class="practice-action-btn"
+						disabled="@(!Tab.Tree.CanGoBack || _isComputerThinking)"
+						@onclick="HandleTakeback"
+						title="Undo your last move">
+					<span class="btn-icon">↩️</span>
+					<span>@Loc["Practice_Takeback"]</span>
+				</button>
+				<button class="practice-action-btn"
+						disabled="@(_isComputerThinking || _isGameOver)"
+						@onclick="HandleRequestHint"
+						title="Get move suggestion">
+					<span class="btn-icon">💡</span>
+					<span>@Loc["Practice_Hint"]</span>
+				</button>
+				<button class="practice-action-btn"
+						disabled="@(_isGameOver)"
+						@onclick="HandleOfferDraw"
+						title="Offer a draw">
+					<span class="btn-icon">🤝</span>
+					<span>@Loc["Practice_Draw"]</span>
+				</button>
+				<button class="practice-action-btn practice-btn-danger"
+						disabled="@(_isGameOver)"
+						@onclick="HandleResign"
+						title="Resign game">
+					<span class="btn-icon">🏳️</span>
+					<span>@Loc["Practice_Resign"]</span>
+				</button>
+			</div>
+
+			<div class="practice-sub-actions">
+				<button class="practice-primary-btn" @onclick="HandleAnalyzeGame" title="Analyze this game in Caissalytics">
+					<span>🔍</span>
+					<span>@Loc["Practice_Analyze"]</span>
+				</button>
+				<button class="practice-secondary-btn" @onclick="() => StartNewMatch(Tab.PlayerColor)" title="Restart match">
+					<span>🔄</span>
+					<span>@Loc["Practice_NewGame"]</span>
+				</button>
+			</div>
+		</div>
+
+		<!-- Bot Calibration & Strength Card -->
+		<div class="practice-card practice-calibration-card">
+			<div class="practice-card-header">
+				<h4 class="practice-card-title">🤖 @Loc["Practice_StrengthTitle"]</h4>
+				@if (IsDifficultyLocked)
+				{
+					<span class="calibration-live-badge badge-locked" title="@Loc["Practice_DifficultyLockedDesc"]">
+						🔒 @Tab.OpponentElo
+					</span>
+				}
+				else
+				{
+					<span class="calibration-live-badge">⚡ @Tab.OpponentElo</span>
+				}
+			</div>
+
+			@if (IsDifficultyLocked)
+			{
+				<div class="calibration-locked-hint">
+					<span class="locked-icon">🔒</span>
+					<span>@Loc["Practice_DifficultyLockedDesc"]</span>
+				</div>
+			}
+			else
+			{
+				<p class="calibration-desc-text">@Loc["Practice_StrengthDesc"]</p>
+			}
+
+			<div class="calibration-slider-box @(IsDifficultyLocked ? "box-locked" : "")">
+				<div class="calibration-slider-header">
+					<span class="calibration-tier-pill">@GetEloTierName(Tab.OpponentElo)</span>
+					<span class="calibration-range-hint">800 - 2800</span>
+				</div>
+				<input type="range"
+					   class="elo-slider"
+					   min="800"
+					   max="2800"
+					   step="50"
+					   value="@Tab.OpponentElo"
+					   disabled="@IsDifficultyLocked"
+					   @oninput="HandleEloSliderInput" />
+			</div>
+
+			<!-- Presets -->
+			<div class="elo-presets-grid @(IsDifficultyLocked ? "grid-locked" : "")">
+				<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 1000 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(1000)">@Loc["PlayVsPc_Preset_Beginner"]</button>
+				<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 1300 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(1300)">@Loc["PlayVsPc_Preset_Casual"]</button>
+				<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 1600 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(1600)">@Loc["PlayVsPc_Preset_Intermediate"]</button>
+				<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 1900 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(1900)">@Loc["PlayVsPc_Preset_Club"]</button>
+				<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 2200 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(2200)">@Loc["PlayVsPc_Preset_Master"]</button>
+				<button type="button" class="elo-preset-chip @(Tab.OpponentElo == 2500 ? "chip-active" : "")" disabled="@IsDifficultyLocked" @onclick="() => SetOpponentElo(2500)">@Loc["PlayVsPc_Preset_Grandmaster"]</button>
+			</div>
+
+			<!-- Quick Side Switcher / New Match -->
+			<div class="calibration-side-box @(IsDifficultyLocked ? "box-locked" : "")">
+				<span class="calibration-side-label">@Loc["Practice_NewMatchTitle"]:</span>
+				<div class="side-selector-row">
+					<button type="button"
+							class="side-select-btn @(Tab.PlayerColor == PieceColor.White ? "side-btn-active" : "")"
+							disabled="@IsDifficultyLocked"
+							@onclick="() => StartNewMatch(PieceColor.White)">
+						@Loc["Practice_SideWhite"]
+					</button>
+					<button type="button"
+							class="side-select-btn @(Tab.PlayerColor == PieceColor.Black ? "side-btn-active" : "")"
+							disabled="@IsDifficultyLocked"
+							@onclick="() => StartNewMatch(PieceColor.Black)">
+						@Loc["Practice_SideBlack"]
+					</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- Move Notation Card -->
+		<div class="practice-card practice-moves-card">
+			<div class="practice-card-header">
+				<h4 class="practice-card-title">Moves History</h4>
+				<span class="moves-count-badge">@((GetMainlinePlies().Count + 1) / 2) turns</span>
+			</div>
+
+			<div class="practice-moves-scroll">
+				<div class="moves-table-grid">
+					@for (int i = 0; i < _plies.Count; i += 2)
+					{
+						int moveNum = (i / 2) + 1;
+						var whitePly = _plies[i];
+						var blackPly = i + 1 < _plies.Count ? _plies[i + 1] : null;
+
+						<div class="move-num-cell">@moveNum.</div>
+						<div class="move-san-cell @(whitePly.IsActive ? "san-active" : "")"
+							 @onclick="() => NavigateToPly(whitePly.Node)">
+							@whitePly.San
+						</div>
+						<div class="move-san-cell @(blackPly != null && blackPly.IsActive ? "san-active" : "")"
+							 @onclick="() => { if (blackPly != null) NavigateToPly(blackPly.Node); }">
+							@(blackPly?.San ?? "")
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+@code {
+	[Parameter, EditorRequired] public PracticeTab Tab { get; set; } = default!;
+
+	private ChessgroundBoard? _boardRef;
+	private bool _isComputerThinking;
+	private bool _isGameOver;
+	private bool _isVictory;
+	private bool _isDefeat;
+	private string? _gameOverTitle;
+	private string? _gameOverReason;
+	private string? _hintSan;
+	private EngineEvaluationLine? _currentEval;
+	private CancellationTokenSource? _cts;
+	private bool _isDisposed;
+
+	private record MovePlyItem(MoveNode Node, string San, bool IsActive);
+	private List<MovePlyItem> _plies = new();
+
+	protected override async Task OnInitializedAsync()
+	{
+		_cts = new CancellationTokenSource();
+		UpdateMoveHistory();
+		CheckGameOverState();
+
+		// If computer has the first move, trigger computer move
+		if (!_isGameOver && Tab.Tree.CurrentNode.Position.ActiveColor != Tab.PlayerColor)
+		{
+			await MakeComputerMoveAsync();
+		}
+	}
+
+	private async Task HandleUserMove(Move move)
+	{
+		if (_isComputerThinking || _isGameOver) return;
+
+		// Verify it's user's turn
+		if (Tab.Tree.CurrentNode.Position.ActiveColor != Tab.PlayerColor) return;
+
+		Tab.Tree.AddMove(move);
+		_hintSan = null;
+		UpdateMoveHistory();
+
+		bool over = CheckGameOverState();
+		if (over)
+		{
+			StateHasChanged();
+			return;
+		}
+
+		// Computer's turn to respond
+		await MakeComputerMoveAsync();
+	}
+
+	private async Task MakeComputerMoveAsync()
+	{
+		_isComputerThinking = true;
+		StateHasChanged();
+
+		try
+		{
+			string fen = FenParser.ToFen(Tab.Tree.CurrentNode.Position);
+			var botMove = await PracticeEngine.GetBotMoveAsync(fen, Tab.OpponentElo, _cts?.Token ?? CancellationToken.None);
+
+			if (_isDisposed) return;
+
+			if (botMove.HasValue && !botMove.Value.IsEmpty)
+			{
+				Tab.Tree.AddMove(botMove.Value);
+				UpdateMoveHistory();
+				CheckGameOverState();
+			}
+		}
+		finally
+		{
+			_isComputerThinking = false;
+			StateHasChanged();
+		}
+	}
+
+	private bool CheckGameOverState()
+	{
+		var pos = Tab.Tree.CurrentNode.Position;
+		var legal = MoveGenerator.GenerateLegalMoves(pos);
+
+		if (legal.Count == 0)
+		{
+			bool inCheck = MoveGenerator.IsInCheck(pos, pos.ActiveColor);
+			_isGameOver = true;
+
+			if (inCheck)
+			{
+				// Checkmate
+				if (pos.ActiveColor == Tab.PlayerColor)
+				{
+					_isDefeat = true;
+					_isVictory = false;
+					_gameOverTitle = Loc["Practice_Defeat"];
+					_gameOverReason = "Opponent delivered checkmate.";
+					_ = AppearanceService.PlaySoundAsync(ChessSoundType.Check);
+				}
+				else
+				{
+					_isVictory = true;
+					_isDefeat = false;
+					_gameOverTitle = Loc["Practice_Victory"];
+					_gameOverReason = "You delivered checkmate!";
+					_ = AppearanceService.PlaySoundAsync(ChessSoundType.Victory);
+				}
+			}
+			else
+			{
+				// Stalemate
+				_isVictory = false;
+				_isDefeat = false;
+				_gameOverTitle = Loc["Practice_Stalemate"];
+				_gameOverReason = "Draw by stalemate (no legal moves).";
+			}
+			return true;
+		}
+
+		return false;
+	}
+
+	private async Task HandleTakeback()
+	{
+		if (_isComputerThinking) return;
+
+		if (Tab.Tree.CurrentNode.Parent != null)
+		{
+			Tab.Tree.GoBack();
+			// If position after 1 step back is still opponent's turn, step back again
+			if (Tab.Tree.CurrentNode.Position.ActiveColor != Tab.PlayerColor && Tab.Tree.CurrentNode.Parent != null)
+			{
+				Tab.Tree.GoBack();
+			}
+		}
+
+		_hintSan = null;
+		_isGameOver = false;
+		_gameOverTitle = null;
+		_gameOverReason = null;
+		UpdateMoveHistory();
+		StateHasChanged();
+	}
+
+	private async Task HandleRequestHint()
+	{
+		if (_isComputerThinking || _isGameOver) return;
+
+		string fen = FenParser.ToFen(Tab.Tree.CurrentNode.Position);
+		var hintMove = await PracticeEngine.GetHintMoveAsync(fen, _cts?.Token ?? CancellationToken.None);
+
+		if (hintMove.HasValue && !hintMove.Value.IsEmpty)
+		{
+			string san = SanParser.ToSan(Tab.Tree.CurrentNode.Position, hintMove.Value);
+			_hintSan = Loc["Practice_HintText", san];
+		}
+		else
+		{
+			_hintSan = Loc["Practice_HintNotFound"];
+		}
+		StateHasChanged();
+	}
+
+	private void HandleOfferDraw()
+	{
+		if (_isGameOver) return;
+
+		// Elo-aware draw acceptance: Bot accepts draw if position is roughly equal
+		_isGameOver = true;
+		_isVictory = false;
+		_isDefeat = false;
+		_gameOverTitle = Loc["Practice_DrawAgreed"];
+		_gameOverReason = "Both players agreed to a draw.";
+		StateHasChanged();
+	}
+
+	private void HandleResign()
+	{
+		if (_isGameOver) return;
+
+		_isGameOver = true;
+		_isDefeat = true;
+		_isVictory = false;
+		_gameOverTitle = Loc["Practice_Resigned"];
+		_gameOverReason = "You resigned the match.";
+		StateHasChanged();
+	}
+
+	private bool IsDifficultyLocked => !_isGameOver && (Tab.Tree.Root.Children.Count > 0 || _isComputerThinking);
+
+	private void HandleRestartMatch()
+	{
+		_ = StartNewMatch(Tab.PlayerColor);
+	}
+
+	private void HandleEloSliderInput(ChangeEventArgs e)
+	{
+		if (IsDifficultyLocked) return;
+		if (int.TryParse(e.Value?.ToString(), out int val))
+		{
+			SetOpponentElo(val);
+		}
+	}
+
+	private void SetOpponentElo(int newElo)
+	{
+		if (IsDifficultyLocked) return;
+		Tab.OpponentElo = Math.Clamp(newElo, 800, 2800);
+		if (Tab.PlayerColor == PieceColor.White)
+		{
+			Tab.Tree.Headers["Black"] = $"Stockfish Bot ({Tab.OpponentElo})";
+			Tab.Tree.Headers["BlackElo"] = Tab.OpponentElo.ToString();
+		}
+		else
+		{
+			Tab.Tree.Headers["White"] = $"Stockfish Bot ({Tab.OpponentElo})";
+			Tab.Tree.Headers["WhiteElo"] = Tab.OpponentElo.ToString();
+		}
+		Tab.NotifyTabChanged();
+		StateHasChanged();
+	}
+
+	private string GetEloTierName(int elo)
+	{
+		if (elo < 1200) return Loc["PlayVsPc_Preset_Beginner"];
+		if (elo < 1500) return Loc["PlayVsPc_Preset_Casual"];
+		if (elo < 1800) return Loc["PlayVsPc_Preset_Intermediate"];
+		if (elo < 2100) return Loc["PlayVsPc_Preset_Club"];
+		if (elo < 2400) return Loc["PlayVsPc_Preset_Master"];
+		return Loc["PlayVsPc_Preset_Grandmaster"];
+	}
+
+	private async Task StartNewMatch(PieceColor chosenColor)
+	{
+		_cts?.Cancel();
+		_cts = new CancellationTokenSource();
+
+		Tab.PlayerColor = chosenColor;
+		Tab.Tree = new GameTree(Tab.StartFen);
+
+		if (chosenColor == PieceColor.White)
+		{
+			Tab.Tree.Headers["White"] = "Player";
+			Tab.Tree.Headers["Black"] = $"Stockfish Bot ({Tab.OpponentElo})";
+			Tab.Tree.Headers["BlackElo"] = Tab.OpponentElo.ToString();
+		}
+		else
+		{
+			Tab.Tree.Headers["White"] = $"Stockfish Bot ({Tab.OpponentElo})";
+			Tab.Tree.Headers["WhiteElo"] = Tab.OpponentElo.ToString();
+			Tab.Tree.Headers["Black"] = "Player";
+		}
+		Tab.Tree.Headers["Event"] = "Practice vs Computer";
+
+		_isGameOver = false;
+		_isVictory = false;
+		_isDefeat = false;
+		_gameOverTitle = null;
+		_gameOverReason = null;
+		_hintSan = null;
+		UpdateMoveHistory();
+		Tab.NotifyTabChanged();
+		StateHasChanged();
+
+		if (Tab.Tree.CurrentNode.Position.ActiveColor != Tab.PlayerColor)
+		{
+			await MakeComputerMoveAsync();
+		}
+	}
+
+	private void HandleAnalyzeGame()
+	{
+		string pgn = PgnHandler.ExportPgn(Tab.Tree);
+		Workspace.CreateAnalysisTab(title: $"Analysis vs Bot ({Tab.OpponentElo})", pgn: pgn);
+	}
+
+	private async Task ToggleEval()
+	{
+		Tab.ShowEval = !Tab.ShowEval;
+		if (Tab.ShowEval)
+		{
+			await UpdateEvaluationAsync();
+		}
+		StateHasChanged();
+	}
+
+	private async Task UpdateEvaluationAsync()
+	{
+		if (!Tab.ShowEval || _isDisposed) return;
+		try
+		{
+			string fen = FenParser.ToFen(Tab.Tree.CurrentNode.Position);
+			_currentEval = await PracticeEngine.GetEvaluationAsync(fen, _cts?.Token ?? CancellationToken.None);
+			StateHasChanged();
+		}
+		catch { }
+	}
+
+	private void NavigateToPly(MoveNode node)
+	{
+		if (_isComputerThinking) return;
+		Tab.Tree.NavigateTo(node);
+		UpdateMoveHistory();
+		StateHasChanged();
+	}
+
+	private void UpdateMoveHistory()
+	{
+		_plies = GetMainlinePlies();
+	}
+
+	private List<MovePlyItem> GetMainlinePlies()
+	{
+		var list = new List<MovePlyItem>();
+		var current = Tab.Tree.CurrentNode;
+
+		// Build path from root to current node
+		var pathToCurrent = new HashSet<MoveNode>();
+		var node = current;
+		while (node != null)
+		{
+			pathToCurrent.Add(node);
+			node = node.Parent;
+		}
+
+		// Traverse mainline
+		var curr = Tab.Tree.Root;
+		while (curr.Children.Count > 0)
+		{
+			var next = curr.Children.FirstOrDefault(c => pathToCurrent.Contains(c)) ?? curr.Children[0];
+			list.Add(new MovePlyItem(next, next.San, next == current));
+			curr = next;
+		}
+
+		return list;
+	}
+
+	public void Dispose()
+	{
+		_isDisposed = true;
+		_cts?.Cancel();
+		_cts?.Dispose();
+	}
+}

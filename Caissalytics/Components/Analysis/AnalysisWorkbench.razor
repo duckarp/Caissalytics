@@ -49,6 +49,8 @@
 			<button class="panel-tab-btn @(_activeRightTab == "tools" ? "tab-active" : "")" 
 					@onclick="@(() => _activeRightTab = "tools")">@Loc["Analysis_Tab_Tools"]</button>
 			<div class="workbench-header-actions">
+				<button class="btn-secondary-small" title="Play vs PC from current position" @onclick="() => _showPlayVsPcModal = true">🤖 @Loc["Analysis_PlayVsPc"]</button>
+				<button class="btn-secondary-small" title="Load PGN" @onclick="() => _showLoadModal = true">📂 @Loc["Analysis_LoadPgnShort"]</button>
 				<button class="btn-primary-small" title="Save game to database" @onclick="() => _showSaveModal = true">@Loc["Analysis_SaveToDb"]</button>
 			</div>
 		</div>
@@ -89,20 +91,34 @@
 			else
 			{
 				<div class="panel-top-section tools-panel-body">
-					<div class="modal-form-group">
-						<button class="btn-primary" @onclick="() => _showSaveModal = true">@Loc["Analysis_SaveGameToDb"]</button>
-					</div>
-
 					<h3 class="section-title">@Loc["Analysis_GameHeaders"]</h3>
 					<div class="headers-grid">
 						<span class="header-key">@Loc["Analysis_White"]</span>
-						<span class="header-value">@(Tab.Tree.Headers.GetValueOrDefault("White", "White"))</span>
+						<span class="header-value">@GetWhiteHeader()</span>
+
 						<span class="header-key">@Loc["Analysis_Black"]</span>
-						<span class="header-value">@(Tab.Tree.Headers.GetValueOrDefault("Black", "Black"))</span>
+						<span class="header-value">@GetBlackHeader()</span>
+
 						<span class="header-key">@Loc["Analysis_Event"]</span>
 						<span class="header-value">@(Tab.Tree.Headers.GetValueOrDefault("Event", Loc["Analysis_CasualAnalysis"]))</span>
+
+						<span class="header-key">@Loc["Analysis_Date"]</span>
+						<span class="header-value">@GetDateHeader()</span>
+
+						<span class="header-key">@Loc["Analysis_Round"]</span>
+						<span class="header-value">@GetHeaderOrDash("Round")</span>
+
+						<span class="header-key">@Loc["Analysis_Board"]</span>
+						<span class="header-value">@GetHeaderOrDash("Board")</span>
+
 						<span class="header-key">@Loc["Analysis_Result"]</span>
 						<span class="header-value">@(Tab.Tree.Headers.GetValueOrDefault("Result", "*"))</span>
+
+						<span class="header-key">@Loc["Analysis_Eco"]</span>
+						<span class="header-value">@GetEcoHeader()</span>
+
+						<span class="header-key">@Loc["Analysis_TimeControl"]</span>
+						<span class="header-value">@GetTimeControlHeader()</span>
 					</div>
 
 					<div class="tools-header-row">
@@ -111,7 +127,7 @@
 							@(_fenCopied ? Loc["Analysis_Copied"] : Loc["Analysis_CopyFen"])
 						</button>
 					</div>
-					<input class="comment-input-field" readonly value="@FenParser.ToFen(Tab.Tree.CurrentNode.Position)" />
+					<input class="tools-fen-input" readonly value="@FenParser.ToFen(Tab.Tree.CurrentNode.Position)" />
 
 					<div class="tools-header-row">
 						<h3 class="tools-subheading">@Loc["Analysis_PgnExport"]</h3>
@@ -119,7 +135,7 @@
 							@(_pgnCopied ? Loc["Analysis_Copied"] : Loc["Analysis_CopyPgn"])
 						</button>
 					</div>
-					<textarea class="comment-input-field pgn-export-area" rows="6" readonly>@PgnHandler.ExportPgn(Tab.Tree)</textarea>
+					<textarea class="tools-pgn-textarea" rows="6" readonly>@PgnHandler.ExportPgn(Tab.Tree)</textarea>
 				</div>
 			}
 
@@ -146,6 +162,15 @@
 				OnGameSaved="HandleGameSaved"
 				OnClose="() => _showSaveModal = false" />
 
+<LoadPgnDialog IsOpen="_showLoadModal"
+			   OnPgnLoaded="HandlePgnLoaded"
+			   OnClose="() => _showLoadModal = false" />
+
+<PlayFromPositionModal IsOpen="_showPlayVsPcModal"
+					   Position="@Tab.Tree.CurrentNode.Position"
+					   Tree="@Tab.Tree"
+					   OnClose="() => _showPlayVsPcModal = false" />
+
 @code {
 	[Parameter, EditorRequired] public AnalysisTab Tab { get; set; } = default!;
 
@@ -154,6 +179,8 @@
 	private CancellationTokenSource? _engineCts;
 	private bool _isDisposed = false;
 	private bool _showSaveModal = false;
+	private bool _showLoadModal = false;
+	private bool _showPlayVsPcModal = false;
 	private bool _fenCopied = false;
 	private bool _pgnCopied = false;
 
@@ -189,6 +216,62 @@
 		}
 	}
 
+	private string GetWhiteHeader()
+	{
+		string w = Tab.Tree.Headers.GetValueOrDefault("White", "White");
+		string elo = Tab.Tree.Headers.GetValueOrDefault("WhiteElo", "");
+		return !string.IsNullOrWhiteSpace(elo) && elo != "?" ? $"{w} ({elo})" : w;
+	}
+
+	private string GetBlackHeader()
+	{
+		string b = Tab.Tree.Headers.GetValueOrDefault("Black", "Black");
+		string elo = Tab.Tree.Headers.GetValueOrDefault("BlackElo", "");
+		return !string.IsNullOrWhiteSpace(elo) && elo != "?" ? $"{b} ({elo})" : b;
+	}
+
+	private string GetDateHeader()
+	{
+		string d = Tab.Tree.Headers.GetValueOrDefault("Date", "");
+		string formatted = DateHelper.Format(d);
+		return !string.IsNullOrWhiteSpace(formatted) ? formatted : "-";
+	}
+
+	private string GetHeaderOrDash(string key)
+	{
+		string val = Tab.Tree.Headers.GetValueOrDefault(key, "");
+		return !string.IsNullOrWhiteSpace(val) && val != "?" ? val : "-";
+	}
+
+	private string GetEcoHeader()
+	{
+		string eco = Tab.Tree.Headers.GetValueOrDefault("ECO", "");
+		if (!string.IsNullOrWhiteSpace(eco) && eco != "?") return eco;
+
+		var mainline = new List<string>();
+		var cur = Tab.Tree.Root;
+		while (cur.Children.Count > 0)
+		{
+			cur = cur.Children[0];
+			if (!string.IsNullOrEmpty(cur.San)) mainline.Add(cur.San);
+		}
+		string? classified = EcoClassifier.Classify(mainline);
+		return !string.IsNullOrEmpty(classified) ? classified : "-";
+	}
+
+	private string GetTimeControlHeader()
+	{
+		string tc = Tab.Tree.Headers.GetValueOrDefault("TimeControl", "");
+		if (string.IsNullOrWhiteSpace(tc) || tc == "?") return "-";
+		string cls = TimeControlInfo.ClassifyFromRaw(tc);
+		if (!string.IsNullOrEmpty(cls) && !string.Equals(cls, tc, StringComparison.OrdinalIgnoreCase))
+		{
+			string cap = char.ToUpperInvariant(cls[0]) + cls[1..];
+			return $"{tc} ({cap})";
+		}
+		return char.ToUpperInvariant(tc[0]) + tc[1..];
+	}
+
 	private void HandleGameSaved(long gameId)
 	{
 		Tab.DatabaseGameId = gameId;
@@ -199,6 +282,61 @@
 		Tab.SetTitle($"{white} vs {black}{dateSuffix}");
 		_showSaveModal = false;
 		StateHasChanged();
+	}
+
+	private async Task HandlePgnLoaded(LoadPgnDialog.LoadPgnResult result)
+	{
+		if (string.IsNullOrWhiteSpace(result.Pgn)) return;
+
+		try
+		{
+			if (result.OpenInNewTab)
+			{
+				var tempTree = PgnHandler.ImportPgn(result.Pgn);
+				string white = tempTree.Headers.GetValueOrDefault("White", "");
+				string black = tempTree.Headers.GetValueOrDefault("Black", "");
+				string dateStr = DateHelper.Format(tempTree.Headers.GetValueOrDefault("Date", ""));
+				string dateSuffix = string.IsNullOrEmpty(dateStr) ? "" : $" ({dateStr})";
+				string title = (!string.IsNullOrWhiteSpace(white) && !string.IsNullOrWhiteSpace(black) && white != "?" && black != "?")
+					? $"{white} vs {black}{dateSuffix}"
+					: "Analysis Board";
+				Workspace.CreateAnalysisTab(title: title, pgn: result.Pgn);
+				_showLoadModal = false;
+				return;
+			}
+
+			_engineCts?.Cancel();
+			await EngineService.StopAnalysisAsync();
+			Tab.CurrentEvalLines.Clear();
+
+			var newTree = PgnHandler.ImportPgn(result.Pgn);
+
+			Tab.Tree.PositionChanged -= OnPositionChanged;
+			Tab.Tree = newTree;
+			Tab.Tree.PositionChanged += OnPositionChanged;
+
+			Tab.DatabaseGameId = null;
+			Tab.AnalysisReport = null;
+
+			string w = Tab.Tree.Headers.GetValueOrDefault("White", "");
+			string b = Tab.Tree.Headers.GetValueOrDefault("Black", "");
+			string d = DateHelper.Format(Tab.Tree.Headers.GetValueOrDefault("Date", ""));
+			string dSuffix = string.IsNullOrEmpty(d) ? "" : $" ({d})";
+			if (!string.IsNullOrWhiteSpace(w) && !string.IsNullOrWhiteSpace(b) && w != "?" && b != "?")
+			{
+				Tab.SetTitle($"{w} vs {b}{dSuffix}");
+			}
+
+			_showLoadModal = false;
+			_activeRightTab = "moves";
+
+			await SyncBoardAndEngineAsync();
+			StateHasChanged();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[AnalysisWorkbench] Failed to load PGN: {ex.Message}");
+		}
 	}
 
 	protected override void OnInitialized()

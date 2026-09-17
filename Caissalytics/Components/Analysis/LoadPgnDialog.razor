@@ -1,0 +1,245 @@
+@namespace Caissalytics.Components.Analysis
+@using System.Text.RegularExpressions
+@using Caissalytics.Core
+@inject IJSRuntime JS
+
+@if (IsOpen)
+{
+	<div class="modal-backdrop" @onclick="CloseDialog">
+		<div class="modal-dialog modal-dialog-large" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<h3 class="modal-title">@Loc["Analysis_LoadPgn_Title"]</h3>
+				<button class="modal-close-btn" @onclick="CloseDialog">✕</button>
+			</div>
+
+			<div class="modal-body">
+				<p class="dialog-subtitle">@Loc["Analysis_LoadPgn_Desc"]</p>
+
+				<!-- Toolbar for file selection, clipboard, and clear -->
+				<div class="pgn-dialog-toolbar">
+					<label class="btn-secondary-small load-file-label">
+						<span>📁 @Loc["Analysis_LoadPgn_FileBtn"]</span>
+						<InputFile OnChange="HandleFileSelected" class="hidden-file-input" accept=".pgn" />
+					</label>
+
+					<button type="button" class="btn-secondary-small" @onclick="PasteFromClipboardAsync" title="Paste from clipboard">
+						@Loc["Analysis_LoadPgn_PasteClipboard"]
+					</button>
+
+					@if (!string.IsNullOrWhiteSpace(_pgnText))
+					{
+						<button type="button" class="btn-clear-link" @onclick="ClearText">
+							@Loc["Analysis_LoadPgn_Clear"]
+						</button>
+					}
+
+					@if (!string.IsNullOrEmpty(_selectedFileName))
+					{
+						<span class="loaded-file-indicator">📄 @_selectedFileName</span>
+					}
+				</div>
+
+				<!-- Text area for PGN -->
+				<div class="modal-form-group">
+					<textarea class="modal-input pgn-load-textarea"
+							  rows="9"
+							  placeholder="[Event &quot;Casual Game&quot;]&#10;[White &quot;White&quot;]&#10;[Black &quot;Black&quot;]&#10;[Result &quot;*&quot;]&#10;&#10;1. e4 e5 2. Nf3 Nc6..."
+							  value="@_pgnText"
+							  @oninput="HandleTextInput"></textarea>
+				</div>
+
+				<!-- Detected game info badge -->
+				@if (!string.IsNullOrEmpty(_detectedPreview))
+				{
+					<div class="pgn-detected-box">
+						<span class="detected-label">@Loc["Analysis_LoadPgn_Preview"]:</span>
+						<span class="detected-value">@_detectedPreview</span>
+					</div>
+				}
+
+				@if (!string.IsNullOrEmpty(_errorMessage))
+				{
+					<div class="ref-result-black pgn-error-banner">@_errorMessage</div>
+				}
+
+				<!-- Option: Open in new tab -->
+				<div class="pgn-dialog-options">
+					<label class="pgn-checkbox-label">
+						<input type="checkbox" @bind="_openInNewTab" />
+						<span>@Loc["Analysis_LoadPgn_OpenNewTab"]</span>
+					</label>
+				</div>
+			</div>
+
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="CloseDialog">Cancel</button>
+				<button class="btn-primary" disabled="@(string.IsNullOrWhiteSpace(_pgnText) || _isParsing)" @onclick="OpenGameAsync">
+					@Loc["Analysis_LoadPgn_Open"]
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	[Parameter] public bool IsOpen { get; set; }
+	[Parameter] public EventCallback<LoadPgnResult> OnPgnLoaded { get; set; }
+	[Parameter] public EventCallback OnClose { get; set; }
+
+	public class LoadPgnResult
+	{
+		public string Pgn { get; set; } = string.Empty;
+		public bool OpenInNewTab { get; set; }
+	}
+
+	private string _pgnText = "";
+	private string? _selectedFileName;
+	private bool _openInNewTab = false;
+	private string? _errorMessage;
+	private string? _detectedPreview;
+	private bool _isParsing = false;
+
+	protected override void OnParametersSet()
+	{
+		if (IsOpen && string.IsNullOrEmpty(_pgnText))
+		{
+			_errorMessage = null;
+			_detectedPreview = null;
+			_selectedFileName = null;
+		}
+	}
+
+	private async Task HandleFileSelected(InputFileChangeEventArgs e)
+	{
+		_errorMessage = null;
+		try
+		{
+			using var stream = e.File.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+			using var reader = new StreamReader(stream);
+			_pgnText = await reader.ReadToEndAsync();
+			_selectedFileName = e.File.Name;
+			UpdatePreview();
+		}
+		catch (Exception ex)
+		{
+			_errorMessage = $"Failed to read file: {ex.Message}";
+		}
+	}
+
+	private async Task PasteFromClipboardAsync()
+	{
+		try
+		{
+			string text = await JS.InvokeAsync<string>("navigator.clipboard.readText");
+			if (!string.IsNullOrWhiteSpace(text))
+			{
+				_pgnText = text;
+				_errorMessage = null;
+				UpdatePreview();
+				StateHasChanged();
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[LoadPgnDialog] Clipboard paste failed: {ex.Message}");
+		}
+	}
+
+	private void HandleTextInput(ChangeEventArgs e)
+	{
+		_pgnText = e.Value?.ToString() ?? "";
+		_errorMessage = null;
+		UpdatePreview();
+	}
+
+	private void ClearText()
+	{
+		_pgnText = "";
+		_selectedFileName = null;
+		_errorMessage = null;
+		_detectedPreview = null;
+	}
+
+	private void UpdatePreview()
+	{
+		if (string.IsNullOrWhiteSpace(_pgnText))
+		{
+			_detectedPreview = null;
+			return;
+		}
+
+		try
+		{
+			string white = ExtractTag(_pgnText, "White") ?? "White";
+			string black = ExtractTag(_pgnText, "Black") ?? "Black";
+			string result = ExtractTag(_pgnText, "Result") ?? "*";
+			string ev = ExtractTag(_pgnText, "Event") ?? "";
+			string date = ExtractTag(_pgnText, "Date") ?? "";
+
+			var parts = new List<string> { $"{white} vs {black} ({result})" };
+			if (!string.IsNullOrEmpty(ev) && ev != "?") parts.Add(ev);
+			if (!string.IsNullOrEmpty(date) && date != "????.??.??") parts.Add(date);
+
+			_detectedPreview = string.Join(" • ", parts);
+		}
+		catch
+		{
+			_detectedPreview = null;
+		}
+	}
+
+	private static string? ExtractTag(string text, string tagName)
+	{
+		var m = Regex.Match(text, $@"\[{tagName}\s+""([^""]*)""\]", RegexOptions.IgnoreCase);
+		return m.Success ? m.Groups[1].Value : null;
+	}
+
+	private async Task OpenGameAsync()
+	{
+		if (string.IsNullOrWhiteSpace(_pgnText))
+		{
+			_errorMessage = Loc["Analysis_LoadPgn_Invalid"];
+			return;
+		}
+
+		_isParsing = true;
+		StateHasChanged();
+
+		try
+		{
+			var tree = PgnHandler.ImportPgn(_pgnText);
+			if (tree.Root.Children.Count == 0 && tree.Headers.Count == 0)
+			{
+				_errorMessage = Loc["Analysis_LoadPgn_Invalid"];
+				_isParsing = false;
+				return;
+			}
+
+			var result = new LoadPgnResult
+			{
+				Pgn = _pgnText,
+				OpenInNewTab = _openInNewTab
+			};
+
+			_errorMessage = null;
+			await OnPgnLoaded.InvokeAsync(result);
+			_pgnText = "";
+			_selectedFileName = null;
+			_detectedPreview = null;
+		}
+		catch (Exception ex)
+		{
+			_errorMessage = $"{Loc["Analysis_LoadPgn_Invalid"]} ({ex.Message})";
+		}
+		finally
+		{
+			_isParsing = false;
+		}
+	}
+
+	private async Task CloseDialog()
+	{
+		_errorMessage = null;
+		await OnClose.InvokeAsync();
+	}
+}

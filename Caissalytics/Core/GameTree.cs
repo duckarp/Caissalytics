@@ -20,7 +20,6 @@ public class GameTree
         Headers["Event"] = "Casual Analysis";
         Headers["Site"] = "Caissalytics";
         Headers["Date"] = DateTime.UtcNow.ToString("yyyy.MM.dd");
-        Headers["Round"] = "1";
         Headers["White"] = "White";
         Headers["Black"] = "Black";
         Headers["Result"] = "*";

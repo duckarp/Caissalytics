@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Caissalytics.Core;
 
 namespace Caissalytics.Data;
@@ -118,6 +119,22 @@ public class GameHeader
     /// or "standard". Empty when there is no time-control information.
     /// </summary>
     public string TimeClass => TimeControlInfo.ClassifyFromPgn(Pgn);
+
+    private static readonly Regex BoardTagRegex =
+        new(@"^\[Board\s+""([^""]*)""\]", RegexOptions.Compiled | RegexOptions.Multiline);
+
+    /// <summary>
+    /// Board number extracted from PGN [Board "..."] tag.
+    /// </summary>
+    public string Board
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(Pgn)) return string.Empty;
+            var match = BoardTagRegex.Match(Pgn);
+            return match.Success ? match.Groups[1].Value.Trim() : string.Empty;
+        }
+    }
 }
 
 public class PositionMoveStat

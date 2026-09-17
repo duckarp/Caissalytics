@@ -3,26 +3,65 @@
 
 <div class="eval-chart-wrapper">
 	<div class="eval-chart-title-bar">
-		<span>Advantage Graph</span>
-		@if (DisplayPly != null)
-		{
-			<span>
-				@(DisplayPly.MoveNumber)@(DisplayPly.IsWhiteMove ? "." : "...") @DisplayPly.MoveSan 
-				(@DisplayPly.FormattedScoreAfter) — @DisplayPly.Classification
-			</span>
-		}
-		else
-		{
-			<span>Click markers to navigate</span>
-		}
+		<span class="eval-chart-title-label">Advantage Graph</span>
+		<div class="eval-chart-title-info">
+			@if (DisplayPly != null)
+			{
+				<span class="eval-title-move">
+					@(DisplayPly.MoveNumber)@(DisplayPly.IsWhiteMove ? "." : "...") @DisplayPly.MoveSan
+				</span>
+				<span class="eval-title-score">(@DisplayPly.FormattedScoreAfter)</span>
+				<span class="eval-title-badge badge-@DisplayPly.Classification.ToString().ToLowerInvariant()">
+					@DisplayPly.Classification
+				</span>
+			}
+			else
+			{
+				<span class="eval-title-hint">Hover or click markers to inspect</span>
+			}
+		</div>
 	</div>
 
-	<svg class="eval-chart-svg" viewBox="0 0 800 130" preserveAspectRatio="none">
-		<!-- Zero baseline (50% win rate) -->
-		<line class="eval-chart-zero-line" x1="0" y1="65" x2="800" y2="65" />
+	<svg class="eval-chart-svg" viewBox="0 0 800 175" preserveAspectRatio="none">
+		<defs>
+			<linearGradient id="evalAreaGradient" x1="0" y1="0" x2="0" y2="1">
+				<stop offset="0%" stop-color="#ffffff" stop-opacity="0.25" />
+				<stop offset="45%" stop-color="#ffffff" stop-opacity="0.08" />
+				<stop offset="55%" stop-color="#000000" stop-opacity="0.10" />
+				<stop offset="100%" stop-color="#000000" stop-opacity="0.45" />
+			</linearGradient>
+		</defs>
+
+		<!-- Y-Axis Grid Lines -->
+		<line class="eval-chart-grid-line" x1="@PadLeft" y1="49" x2="@PadRight" y2="49" />
+		<line class="eval-chart-zero-line" x1="@PadLeft" y1="@ZeroY" x2="@PadRight" y2="@ZeroY" />
+		<line class="eval-chart-grid-line" x1="@PadLeft" y1="111" x2="@PadRight" y2="111" />
+
+		<!-- Vertical Grid Lines & Move Numbers for X-Axis -->
+		@foreach (var tick in GetMoveTicks())
+		{
+			<line class="eval-chart-grid-line" x1="@tick.X.ToString("F1")" y1="@TopY" x2="@tick.X.ToString("F1")" y2="@BottomY" />
+			<line class="eval-chart-axis-tick" x1="@tick.X.ToString("F1")" y1="@BottomY" x2="@tick.X.ToString("F1")" y2="@(BottomY + 4)" />
+			@SvgText(tick.X, 160, tick.MoveNumber.ToString(), "middle", "eval-axis-text")
+		}
+
+		<!-- Axis Border Lines -->
+		<line class="eval-chart-axis-line" x1="@PadLeft" y1="@TopY" x2="@PadLeft" y2="@BottomY" />
+		<line class="eval-chart-axis-line" x1="@PadLeft" y1="@BottomY" x2="@PadRight" y2="@BottomY" />
+
+		<!-- Y-Axis Numerical Labels -->
+		@SvgText(36, 23, "+5", "end", "eval-axis-text eval-axis-white")
+		@SvgText(36, 53, "+3", "end", "eval-axis-text")
+		@SvgText(36, 84, "0.0", "end", "eval-axis-text eval-axis-zero")
+		@SvgText(36, 115, "-3", "end", "eval-axis-text")
+		@SvgText(36, 146, "-5", "end", "eval-axis-text eval-axis-black")
+
+		<!-- Axis Header Indicators -->
+		@SvgText(PadLeft + 2, 12, "Eval ♔", null, "eval-axis-label")
+		@SvgText(PadRight - 2, 160, "Moves →", "end", "eval-axis-label")
 
 		<!-- Shaded advantage area -->
-		<path class="eval-chart-area-white" d="@BuildAreaPath()" />
+		<path class="eval-chart-area" fill="url(#evalAreaGradient)" d="@BuildAreaPath()" />
 
 		<!-- Advantage curve -->
 		<path class="eval-chart-curve" d="@BuildCurvePath()" />
@@ -31,10 +70,12 @@
 		@if (ActivePly.HasValue && ActivePly.Value >= 0 && ActivePly.Value < Plies.Count)
 		{
 			double curX = GetX(ActivePly.Value, Plies.Count);
-			<line class="eval-chart-cursor" x1="@curX" y1="0" x2="@curX" y2="130" />
+			double curY = GetY(Plies[ActivePly.Value].WinRateAfter);
+			<line class="eval-chart-cursor" x1="@curX.ToString("F1")" y1="@TopY" x2="@curX.ToString("F1")" y2="@BottomY" />
+			<circle cx="@curX.ToString("F1")" cy="@curY.ToString("F1")" r="4" class="eval-chart-active-dot" />
 		}
 
-		<!-- Interactive Blunder / Mistake / Inaccuracy dots -->
+		<!-- Interactive Blunder / Mistake / Inaccuracy dots with Hitboxes -->
 		@for (int i = 0; i < Plies.Count; i++)
 		{
 			var p = Plies[i];
@@ -52,15 +93,19 @@
 					_ => "eval-chart-marker eval-marker-inaccuracy"
 				};
 
-				<circle class="@markerClass"
-						cx="@cx"
-						cy="@cy"
-						r="4.5"
-						@onclick="() => OnSelectPly.InvokeAsync(plyIdx)"
-						@onmouseenter="() => _hoveredPly = plyIdx"
-						@onmouseleave="() => _hoveredPly = null">
-					<title>@($"{p.MoveNumber}{(p.IsWhiteMove ? "." : "...")} {p.MoveSan} ({p.FormattedScoreAfter}) - {p.Classification}")</title>
-				</circle>
+				<g class="eval-marker-group"
+				   @onclick="() => OnSelectPly.InvokeAsync(plyIdx)"
+				   @onmouseenter="() => _hoveredPly = plyIdx"
+				   @onmouseleave="() => _hoveredPly = null">
+					<!-- Invisible larger hit area to ensure smooth hovering without jitter -->
+					<circle cx="@cx.ToString("F1")" cy="@cy.ToString("F1")" r="11" fill="transparent" class="eval-marker-hitbox" />
+					<circle class="@markerClass"
+							cx="@cx.ToString("F1")"
+							cy="@cy.ToString("F1")"
+							r="4.5">
+						<title>@($"{p.MoveNumber}{(p.IsWhiteMove ? "." : "...")} {p.MoveSan} ({p.FormattedScoreAfter}) - {p.Classification}")</title>
+					</circle>
+				</g>
 			}
 		}
 	</svg>
@@ -74,20 +119,23 @@
 	private int? _hoveredPly;
 
 	private const double SvgWidth = 800.0;
-	private const double SvgHeight = 130.0;
-	private const double ZeroY = 65.0;
-	private const double PadX = 20.0;
+	private const double SvgHeight = 175.0;
+	private const double PadLeft = 42.0;
+	private const double PadRight = 780.0;
+	private const double TopY = 18.0;
+	private const double BottomY = 142.0;
+	private const double ZeroY = 80.0;
 
 	private double GetX(int index, int total)
 	{
-		if (total <= 1) return SvgWidth / 2.0;
-		return PadX + (index / (double)(total - 1)) * (SvgWidth - 2 * PadX);
+		if (total <= 1) return (PadLeft + PadRight) / 2.0;
+		return PadLeft + (index / (double)(total - 1)) * (PadRight - PadLeft);
 	}
 
 	private double GetY(double winRate)
 	{
 		double clamped = Math.Clamp(winRate, 0.0, 100.0);
-		return 125.0 - (clamped / 100.0) * 120.0;
+		return BottomY - (clamped / 100.0) * (BottomY - TopY);
 	}
 
 	private string BuildCurvePath()
@@ -121,8 +169,56 @@
 		return sb.ToString();
 	}
 
+	private record MoveTick(int MoveNumber, double X);
+
+	private List<MoveTick> GetMoveTicks()
+	{
+		var ticks = new List<MoveTick>();
+		if (Plies.Count == 0) return ticks;
+
+		int totalMoves = (Plies.Count + 1) / 2;
+		int step = totalMoves switch
+		{
+			<= 12 => 2,
+			<= 25 => 5,
+			<= 50 => 10,
+			<= 80 => 15,
+			_ => 20
+		};
+
+		ticks.Add(new MoveTick(1, GetX(0, Plies.Count)));
+
+		for (int m = step; m <= totalMoves; m += step)
+		{
+			int plyIdx = Math.Min((m - 1) * 2, Plies.Count - 1);
+			double x = GetX(plyIdx, Plies.Count);
+			if (x - ticks[^1].X > 32.0)
+			{
+				ticks.Add(new MoveTick(m, x));
+			}
+		}
+
+		if (totalMoves > 1)
+		{
+			double lastX = GetX(Plies.Count - 1, Plies.Count);
+			if (lastX - ticks[^1].X > 36.0)
+			{
+				ticks.Add(new MoveTick(totalMoves, lastX));
+			}
+		}
+
+		return ticks;
+	}
+
 	private PlyAnalysis? DisplayPly =>
 		_hoveredPly.HasValue && _hoveredPly.Value >= 0 && _hoveredPly.Value < Plies.Count
 			? Plies[_hoveredPly.Value]
 			: (ActivePly.HasValue && ActivePly.Value >= 0 && ActivePly.Value < Plies.Count ? Plies[ActivePly.Value] : null);
+
+	private static MarkupString SvgText(double x, double y, string text, string? anchor = null, string? cssClass = null)
+	{
+		string anchorAttr = string.IsNullOrEmpty(anchor) ? "" : $" text-anchor=\"{anchor}\"";
+		string classAttr = string.IsNullOrEmpty(cssClass) ? "" : $" class=\"{cssClass}\"";
+		return (MarkupString)$"<text x=\"{x:F1}\" y=\"{y:F1}\"{anchorAttr}{classAttr}>{text}</text>";
+	}
 }

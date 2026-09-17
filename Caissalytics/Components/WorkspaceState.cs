@@ -284,6 +284,81 @@ public class ClubMessagesTab : WorkspaceTab
     }
 }
 
+public class PracticeTab : WorkspaceTab
+{
+    public override string Title => $"Practice ({OpponentElo})";
+    public override string Icon => "🤖";
+
+    public event Action? OnTabChanged;
+
+    private GameTree _tree = default!;
+    public GameTree Tree
+    {
+        get => _tree;
+        set
+        {
+            if (_tree != null)
+            {
+                _tree.PositionChanged -= HandlePositionChanged;
+            }
+            _tree = value;
+            if (_tree != null)
+            {
+                _tree.PositionChanged += HandlePositionChanged;
+            }
+            NotifyTabChanged();
+        }
+    }
+
+    public PieceColor PlayerColor { get; set; } = PieceColor.White;
+    public int OpponentElo { get; set; } = 1500;
+    public string Orientation => PlayerColor == PieceColor.Black ? "black" : "white";
+    public bool ShowEval { get; set; } = false;
+    public string? StartFen { get; set; }
+
+    public PracticeTab(string? startFen = null, PieceColor playerColor = PieceColor.White, int opponentElo = 1500, GameTree? existingTree = null)
+    {
+        PlayerColor = playerColor;
+        OpponentElo = opponentElo;
+        StartFen = startFen;
+
+        if (existingTree != null)
+        {
+            Tree = PgnHandler.ImportPgn(PgnHandler.ExportPgn(existingTree));
+            var currentPath = existingTree.GetCurrentNodePath();
+            if (currentPath.Count > 0)
+            {
+                Tree.NavigatePath(currentPath);
+            }
+            else
+            {
+                Tree.GoToEnd();
+            }
+        }
+        else
+        {
+            Tree = new GameTree(startFen);
+        }
+
+        if (playerColor == PieceColor.White)
+        {
+            Tree.Headers["White"] = "Player";
+            Tree.Headers["Black"] = $"Stockfish Bot ({opponentElo})";
+            Tree.Headers["BlackElo"] = opponentElo.ToString();
+        }
+        else
+        {
+            Tree.Headers["White"] = $"Stockfish Bot ({opponentElo})";
+            Tree.Headers["WhiteElo"] = opponentElo.ToString();
+            Tree.Headers["Black"] = "Player";
+        }
+        Tree.Headers["Event"] = "Practice vs Computer";
+    }
+
+    private void HandlePositionChanged() => NotifyTabChanged();
+    public void NotifyTabChanged() => OnTabChanged?.Invoke();
+}
+
 public class WorkspaceState
 {
     public List<WorkspaceTab> Tabs { get; } = new();
@@ -305,6 +380,10 @@ public class WorkspaceState
         {
             analysis.OnTabChanged += OnTabStateChanged;
         }
+        else if (tab is PracticeTab practice)
+        {
+            practice.OnTabChanged += OnTabStateChanged;
+        }
     }
 
     private void UnregisterTab(WorkspaceTab tab)
@@ -312,6 +391,10 @@ public class WorkspaceState
         if (tab is AnalysisTab analysis)
         {
             analysis.OnTabChanged -= OnTabStateChanged;
+        }
+        else if (tab is PracticeTab practice)
+        {
+            practice.OnTabChanged -= OnTabStateChanged;
         }
     }
 
@@ -551,6 +634,16 @@ public class WorkspaceState
         return tab;
     }
 
+    public PracticeTab CreatePracticeTab(string? startFen = null, PieceColor playerColor = PieceColor.White, int opponentElo = 1500, GameTree? existingTree = null)
+    {
+        var tab = new PracticeTab(startFen, playerColor, opponentElo, existingTree);
+        RegisterTab(tab);
+        Tabs.Add(tab);
+        ActiveTab = tab;
+        NotifyStateChanged();
+        return tab;
+    }
+
     public void SelectTab(Guid id)
     {
         var target = Tabs.FirstOrDefault(t => t.Id == id);
@@ -710,6 +803,21 @@ public class WorkspaceState
                         Title = msg.Title
                     });
                     break;
+
+                case PracticeTab practice:
+                    dto.Tabs.Add(new WorkspaceTabDto
+                    {
+                        Id = practice.Id,
+                        Type = "practice",
+                        Title = practice.Title,
+                        Pgn = PgnHandler.ExportPgn(practice.Tree),
+                        CurrentNodePath = practice.Tree.GetCurrentNodePath(),
+                        Orientation = practice.Orientation,
+                        OpponentElo = practice.OpponentElo,
+                        PlayerColor = practice.PlayerColor.ToString(),
+                        StartFen = practice.StartFen
+                    });
+                    break;
             }
         }
 
@@ -818,6 +926,29 @@ public class WorkspaceState
                     {
                         var msgTab = new ClubMessagesTab { Id = tabDto.Id };
                         Tabs.Add(msgTab);
+                    }
+                    else if (tabDto.Type == "practice")
+                    {
+                        var color = Enum.TryParse<PieceColor>(tabDto.PlayerColor, out var c) ? c : PieceColor.White;
+                        var elo = tabDto.OpponentElo ?? 1500;
+                        var practiceTab = new PracticeTab(tabDto.StartFen, color, elo)
+                        {
+                            Id = tabDto.Id
+                        };
+                        if (!string.IsNullOrWhiteSpace(tabDto.Pgn))
+                        {
+                            practiceTab.Tree = PgnHandler.ImportPgn(tabDto.Pgn);
+                            if (tabDto.CurrentNodePath != null && tabDto.CurrentNodePath.Count > 0)
+                            {
+                                practiceTab.Tree.NavigatePath(tabDto.CurrentNodePath);
+                            }
+                            else
+                            {
+                                practiceTab.Tree.GoToEnd();
+                            }
+                        }
+                        RegisterTab(practiceTab);
+                        Tabs.Add(practiceTab);
                     }
                 }
 

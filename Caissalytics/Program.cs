@@ -19,6 +19,7 @@ internal class Program
         appBuilder.Services.AddLogging();
         appBuilder.Services.AddHttpClient();
         appBuilder.Services.AddSingleton<IEngineService, EngineManager>();
+        appBuilder.Services.AddSingleton<IPracticeEngineService, PracticeEngineService>();
         appBuilder.Services.AddSingleton<IDatabaseService, DatabaseManager>();
         appBuilder.Services.AddSingleton<IGameAnalysisService, GameAnalysisService>();
         appBuilder.Services.AddSingleton<IOnlineGameSyncService, OnlineGameSyncService>();
@@ -106,8 +107,6 @@ internal class Program
             .SetSize(1400, 900)
             .SetMinSize(1000, 650)
             .SetMediaAutoplayEnabled(true)
-            .SetDevToolsEnabled(true)
-            .SetContextMenuEnabled(true)
             .SetUseOsDefaultLocation(false);
 
         AppDomain.CurrentDomain.UnhandledException += (sender, error) =>

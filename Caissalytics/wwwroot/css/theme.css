@@ -12,6 +12,14 @@
   --border-muted: #21262d;
   --border-focus: #58a6ff;
 
+  /* Theme Aliases */
+  --border-color: #30363d;
+  --bg-primary: #0e1117;
+  --bg-secondary: #161b22;
+  --bg-tertiary: #21262d;
+  --bg-hover: #2b323c;
+  --accent-color: #1f6feb;
+
   --text-primary: #f0f6fc;
   --text-secondary: #8b949e;
   --text-muted: #6e7681;

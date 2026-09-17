@@ -21,6 +21,7 @@
 - **⚡ Blazing-Fast Desktop Performance**: Powered by .NET 10 and Photino native OS webviews. Consumes a fraction of the RAM of Electron apps (~60-120 MB vs 600+ MB) and boots instantaneously.
 - **💻 Stockfish UCI Analysis & Engine Management**: Multi-PV deep line calculation, real-time evaluation charts, blunder and mistake classification, threat arrows, 1-click automatic engine installer, and custom UCI engine removal.
 - **🏆 Syzygy Endgame Tablebases**: Instant, cached probing for all positions with $\le 7$ pieces via Lichess 7-Piece Tablebase API with exact WDL and DTZ/DTM metrics. Also supports local `.rtbw`/`.rtbz` tablebase folders for Stockfish search via `SyzygyPath`.
+- **🤖 Practice vs Computer (Noctie-style Elo Calibration)**: Spar against a human-like Stockfish bot calibrated from 800 to 2800 Elo. Simulates realistic candidate move selection and natural human response delays without robotic blunders. Features live on-page difficulty calibration, takebacks, coaching hints, and "Play against PC from this position" directly from the Analysis board.
 - **👑 Classical Endgame Trainer**: Master theoretical endgames (Lucena bridge, Philidor defense, Vancura active checks, Trebuchet mutual zugzwang, Bishop & Knight mate) against an optimal tablebase-driven sparring opponent with instant blunder warnings.
 - **📝 Printable Homework & Diagram Sheet Generator**: Purpose-built for chess coaches and club trainers. Create high-resolution worksheets (2-8 diagrams per page), customize student headers, exercise prompts, and print directly to A4 or export to PDF with auto-generated Teacher Answer Keys.
 - **🤝 Web Platform Hub & Club Integration**: Connect seamlessly to club coaching portals (such as ŠK Považské Podhradie) for student coaching groups, synchronized homework tasks, interactive position solving, and submission tracking.
@@ -32,7 +33,7 @@
 - **🕵️‍♂️ Opponent Preparation & Scouting Dossier**: Complete pre-game scouting reports on tournament opponents. Analyzes White & Black opening repertoires, highlights weakest lines, pinpoints tactical vulnerabilities, and classifies playing styles (<30 vs 50+ moves).
 - **🎯 Tactics & Personal Blunder Trainer**: Solve curated master puzzles or practice mistakes directly mined from your real online games. Features spaced repetition and tactical explanations.
 - **🌐 Online Accounts Sync & Career Analytics**: 1-click historical game sync with Lichess and Chess.com. Interactive rating progress charts, win/draw/loss distributions, and performance breakdown by opening.
-- **🎨 Audio Engine & Vector Board Themes**: Real-time synthesized Web Audio acoustic feedback (zero-latency piece thuds, captures, checks, and victory chimes) paired with 6 crisp SVG chessboard themes.
+- **🎨 Audio Engine & Vector Board Themes**: Pristine 44.1 kHz 16-bit acoustic feedback (Lichess wooden move & capture strikes, check, and victory chimes) paired with 6 crisp SVG chessboard themes.
 - **🚀 Self-Contained & Auto-Updating**: Clean, independent desktop deployment with integrated GitHub Releases update checker and installer.
 
 ---
@@ -41,7 +42,8 @@
 
 | Module | Description | Key Capabilities |
 |---|---|---|
-| **Analysis Workbench** | Master-level game review & position deep-dive | Multi-PV Stockfish, dynamic evaluation graph, threat arrows, live reference tree, blunder annotations, Syzygy tablebase panel, 1-click "View in Database ↗" |
+| **Analysis Workbench** | Master-level game review & position deep-dive | Multi-PV Stockfish, dynamic evaluation graph with axes, threat arrows, live reference tree, blunder annotations, Syzygy tablebase panel, PGN loader, 1-click "Play vs PC" |
+| **Practice vs Computer** | Realistic Elo-calibrated sparring matches | Noctie-style human move sampling (800–2800 Elo), natural response delays, takeback & hint coaching, play from any FEN or Analysis position, post-game review |
 | **Homework & Diagrams** | Coaching worksheet & diagram sheet generator | A4 print layout, 2 or 3 columns, student grading header, ruled handwriting lines, Teacher Answer Key, 1-click import from Analysis |
 | **Club Homework** | Online club assignments & interactive position solver | Fetch assigned club exercises, interactive board move validation, SAN move recording, answer submission, status & scoring tracking |
 | **Club Messages** | Club & coaching group communication center | 5-minute background inbox auto-polling, unread header badge, two-pane view, direct & group messaging, task deep-linking |

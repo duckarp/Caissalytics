@@ -1,0 +1,103 @@
+@namespace Caissalytics.Components.Analysis
+@using Caissalytics.Core
+@inject WorkspaceState Workspace
+
+@if (IsOpen)
+{
+	<div class="modal-backdrop" @onclick="CloseDialog">
+		<div class="modal-dialog play-pc-modal" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<h3 class="modal-title">🤖 @Loc["PlayVsPc_Title"]</h3>
+				<button class="modal-close-btn" @onclick="CloseDialog">✕</button>
+			</div>
+
+			<div class="modal-body">
+				<p class="dialog-subtitle">@Loc["PlayVsPc_Desc"]</p>
+
+				<!-- Side Selection -->
+				<div class="modal-form-group">
+					<label class="filter-label">@Loc["PlayVsPc_Side"]</label>
+					<div class="side-selector-row">
+						<button type="button"
+								class="side-select-btn @(_selectedColor == PieceColor.White ? "side-btn-active" : "")"
+								@onclick="() => _selectedColor = PieceColor.White">
+							♔ @Loc["PlayVsPc_White"]
+						</button>
+						<button type="button"
+								class="side-select-btn @(_selectedColor == PieceColor.Black ? "side-btn-active" : "")"
+								@onclick="() => _selectedColor = PieceColor.Black">
+							♚ @Loc["PlayVsPc_Black"]
+						</button>
+					</div>
+				</div>
+
+				<!-- Opponent Elo Selection -->
+				<div class="modal-form-group">
+					<div class="elo-label-row">
+						<label class="filter-label">@Loc["PlayVsPc_OpponentElo", _opponentElo]</label>
+						<span class="elo-badge-display">⚡ @_opponentElo</span>
+					</div>
+
+					<input type="range"
+						   class="elo-slider"
+						   min="800"
+						   max="2800"
+						   step="50"
+						   @bind="_opponentElo"
+						   @bind:event="oninput" />
+
+					<div class="elo-presets-grid">
+						<button type="button" class="elo-preset-chip @(_opponentElo == 1000 ? "chip-active" : "")" @onclick="() => _opponentElo = 1000">@Loc["PlayVsPc_Preset_Beginner"]</button>
+						<button type="button" class="elo-preset-chip @(_opponentElo == 1300 ? "chip-active" : "")" @onclick="() => _opponentElo = 1300">@Loc["PlayVsPc_Preset_Casual"]</button>
+						<button type="button" class="elo-preset-chip @(_opponentElo == 1600 ? "chip-active" : "")" @onclick="() => _opponentElo = 1600">@Loc["PlayVsPc_Preset_Intermediate"]</button>
+						<button type="button" class="elo-preset-chip @(_opponentElo == 1900 ? "chip-active" : "")" @onclick="() => _opponentElo = 1900">@Loc["PlayVsPc_Preset_Club"]</button>
+						<button type="button" class="elo-preset-chip @(_opponentElo == 2200 ? "chip-active" : "")" @onclick="() => _opponentElo = 2200">@Loc["PlayVsPc_Preset_Master"]</button>
+						<button type="button" class="elo-preset-chip @(_opponentElo == 2500 ? "chip-active" : "")" @onclick="() => _opponentElo = 2500">@Loc["PlayVsPc_Preset_Grandmaster"]</button>
+					</div>
+				</div>
+
+				<!-- Position Summary -->
+				<div class="position-preview-info">
+					<span class="pos-info-pill">♟️ @(Position.ActiveColor == PieceColor.White ? Loc["PlayVsPc_White"] : Loc["PlayVsPc_Black"]) to move</span>
+					<span class="pos-info-fen">FEN: @FenParser.ToFen(Position, false)</span>
+				</div>
+			</div>
+
+			<div class="modal-footer">
+				<button type="button" class="btn-secondary" @onclick="CloseDialog">@Loc["PlayVsPc_Cancel"]</button>
+				<button type="button" class="btn-primary" @onclick="StartGame">🚀 @Loc["PlayVsPc_Start"]</button>
+			</div>
+		</div>
+	</div>
+}
+
+@code {
+	[Parameter] public bool IsOpen { get; set; }
+	[Parameter] public BoardPosition Position { get; set; } = default!;
+	[Parameter] public GameTree Tree { get; set; } = default!;
+	[Parameter] public EventCallback OnClose { get; set; }
+
+	private PieceColor _selectedColor = PieceColor.White;
+	private int _opponentElo = 1500;
+
+	protected override void OnParametersSet()
+	{
+		if (Position != null)
+		{
+			// Default player's color to the current active turn
+			_selectedColor = Position.ActiveColor;
+		}
+	}
+
+	private void CloseDialog()
+	{
+		OnClose.InvokeAsync();
+	}
+
+	private void StartGame()
+	{
+		string fen = FenParser.ToFen(Position);
+		Workspace.CreatePracticeTab(startFen: fen, playerColor: _selectedColor, opponentElo: _opponentElo, existingTree: Tree);
+		CloseDialog();
+	}
+}

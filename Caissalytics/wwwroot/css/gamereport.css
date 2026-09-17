@@ -314,56 +314,157 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px;
-  font-size: 11px;
+  padding: 6px 12px;
+  font-size: 11.5px;
   font-weight: 600;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-subtle);
   background-color: var(--bg-surface);
+  white-space: nowrap;
+  min-height: 32px;
+  box-sizing: border-box;
+}
+
+.eval-chart-title-label {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.eval-chart-title-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.eval-title-hint {
+  color: var(--text-muted);
+  font-weight: 400;
+  font-size: 11px;
+}
+
+.eval-title-move {
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-mono, monospace);
+}
+
+.eval-title-score {
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-family: var(--font-mono, monospace);
+}
+
+.eval-title-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .eval-chart-svg {
   width: 100%;
-  height: 110px;
+  height: 165px;
   display: block;
-  cursor: crosshair;
 }
 
 .eval-chart-zero-line {
-  stroke: var(--border-subtle);
+  stroke: rgba(255, 255, 255, 0.28);
   stroke-dasharray: 4 4;
   stroke-width: 1;
 }
 
-.eval-chart-area-white {
-  fill: rgba(255, 255, 255, 0.12);
+.eval-chart-grid-line {
+  stroke: rgba(255, 255, 255, 0.07);
+  stroke-dasharray: 2 4;
+  stroke-width: 1;
 }
 
-.eval-chart-area-black {
-  fill: rgba(0, 0, 0, 0.35);
+.eval-chart-axis-line {
+  stroke: var(--border-subtle, #30363d);
+  stroke-width: 1;
+}
+
+.eval-chart-axis-tick {
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 1;
+}
+
+.eval-axis-text {
+  fill: var(--text-muted, #8b949e);
+  font-size: 10px;
+  font-family: var(--font-mono, monospace);
+  user-select: none;
+}
+
+.eval-axis-white {
+  fill: #e6edf3;
+  font-weight: 600;
+}
+
+.eval-axis-black {
+  fill: #8b949e;
+  font-weight: 600;
+}
+
+.eval-axis-zero {
+  fill: var(--text-secondary, #8b949e);
+  font-weight: 500;
+}
+
+.eval-axis-label {
+  fill: var(--text-muted, #6e7681);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  user-select: none;
+}
+
+.eval-chart-area {
+  stroke: none;
 }
 
 .eval-chart-curve {
   fill: none;
-  stroke: var(--accent-blue);
-  stroke-width: 2;
+  stroke: var(--accent-blue, #388bfd);
+  stroke-width: 2.2;
   stroke-linejoin: round;
   stroke-linecap: round;
 }
 
 .eval-chart-cursor {
-  stroke: rgba(255, 255, 255, 0.5);
+  stroke: rgba(255, 255, 255, 0.7);
   stroke-width: 1;
   stroke-dasharray: 2 2;
 }
 
-.eval-chart-marker {
-  cursor: pointer;
-  transition: transform 0.15s ease;
+.eval-chart-active-dot {
+  fill: #58a6ff;
+  stroke: #ffffff;
+  stroke-width: 1.5;
 }
 
-.eval-chart-marker:hover {
-  transform: scale(1.4);
+.eval-marker-group {
+  cursor: pointer;
+}
+
+.eval-marker-hitbox {
+  pointer-events: all;
+  cursor: pointer;
+}
+
+.eval-chart-marker {
+  pointer-events: none;
+  transition: r 0.15s ease, stroke-width 0.15s ease;
+}
+
+.eval-marker-group:hover .eval-chart-marker {
+  r: 6.5;
+  stroke-width: 2.5;
 }
 
 .eval-marker-blunder {

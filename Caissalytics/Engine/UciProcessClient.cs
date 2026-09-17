@@ -13,6 +13,7 @@ public class UciProcessClient : IDisposable
     private Action<List<EngineEvaluationLine>>? _onUpdate;
     private PieceColor _sideToMove = PieceColor.White;
     private TaskCompletionSource<EngineEvaluationLine?>? _evalTcs;
+    private TaskCompletionSource<(string? BestMove, List<EngineEvaluationLine> Lines)>? _searchTcs;
 
     public bool IsRunning => _process != null && !_process.HasExited;
 
@@ -131,6 +132,63 @@ public class UciProcessClient : IDisposable
         }
     }
 
+    public async Task<(string? BestMove, List<EngineEvaluationLine> Lines)> SearchPositionAsync(
+        string fen,
+        int movetimeMs,
+        int maxDepth,
+        int multiPv = 1,
+        CancellationToken ct = default)
+    {
+        if (_process == null || _process.HasExited || _stdin == null)
+            return (null, new List<EngineEvaluationLine>());
+
+        var tcs = new TaskCompletionSource<(string? BestMove, List<EngineEvaluationLine> Lines)>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using var reg = ct.Register(() =>
+        {
+            _ = SendCommandAsync("stop");
+            tcs.TrySetCanceled(ct);
+        });
+
+        lock (_lock)
+        {
+            _currentLines.Clear();
+            _searchTcs = tcs;
+        }
+
+        var parts = fen.Trim().Split(' ');
+        _sideToMove = parts.Length > 1 && parts[1].Equals("b", StringComparison.OrdinalIgnoreCase)
+            ? PieceColor.Black
+            : PieceColor.White;
+
+        await SendCommandAsync("stop");
+        await SendCommandAsync($"setoption name MultiPV value {Math.Max(1, Math.Min(5, multiPv))}");
+        await SendCommandAsync($"position fen {fen}");
+
+        string goCommand = (maxDepth > 0 && movetimeMs > 0)
+            ? $"go depth {maxDepth} movetime {movetimeMs}"
+            : (movetimeMs > 0 ? $"go movetime {movetimeMs}" : $"go depth {maxDepth}");
+
+        await SendCommandAsync(goCommand);
+
+        try
+        {
+            return await tcs.Task;
+        }
+        catch (OperationCanceledException)
+        {
+            await SendCommandAsync("stop");
+            throw;
+        }
+        finally
+        {
+            lock (_lock)
+            {
+                if (_searchTcs == tcs) _searchTcs = null;
+            }
+        }
+    }
+
     public async Task SetOptionAsync(string name, string value)
     {
         await SendCommandAsync($"setoption name {name} value {value}");
@@ -171,13 +229,31 @@ public class UciProcessClient : IDisposable
         }
         else if (line.StartsWith("bestmove"))
         {
+            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            string? bm = parts.Length > 1 && parts[1] != "(none)" ? parts[1] : null;
+
             lock (_lock)
             {
                 if (_evalTcs != null)
                 {
                     _currentLines.TryGetValue(1, out var top);
+                    if (top == null && !string.IsNullOrEmpty(bm))
+                    {
+                        top = new EngineEvaluationLine
+                        {
+                            MultiPvIndex = 1,
+                            PvMoves = new List<string> { bm }
+                        };
+                    }
                     _evalTcs.TrySetResult(top);
                     _evalTcs = null;
+                }
+
+                if (_searchTcs != null)
+                {
+                    var lines = _currentLines.Values.OrderBy(l => l.MultiPvIndex).ToList();
+                    _searchTcs.TrySetResult((bm, lines));
+                    _searchTcs = null;
                 }
             }
         }

@@ -778,6 +778,13 @@
   border-color: var(--border-focus);
 }
 
+.modal-input[readonly] {
+  opacity: 0.8;
+  cursor: default;
+  background-color: var(--bg-surface);
+  border-color: var(--border-subtle);
+}
+
 .dropzone-box {
   position: relative;
   border: 2px dashed var(--border-subtle);

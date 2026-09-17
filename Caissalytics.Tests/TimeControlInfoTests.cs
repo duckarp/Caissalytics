@@ -276,4 +276,34 @@ public class TimeControlInfoTests : IDisposable
         Assert.Contains("RapidOne", joined);
         Assert.DoesNotContain("BlackTwo", joined);
     }
+
+    [Theory]
+    [InlineData("bullet", "bullet")]
+    [InlineData("blitz", "blitz")]
+    [InlineData("rapid", "rapid")]
+    [InlineData("standard", "standard")]
+    [InlineData("classical", "standard")]
+    [InlineData("Classical", "standard")]
+    [InlineData("180+2", "blitz")]
+    [InlineData("60+0", "bullet")]
+    [InlineData("900+10", "rapid")]
+    [InlineData("5400+30", "standard")]
+    [InlineData("", "")]
+    [InlineData(null, "")]
+    public void ClassifyFromRaw_Handles_Named_And_Clock_Controls(string? raw, string expected)
+    {
+        Assert.Equal(expected, TimeControlInfo.ClassifyFromRaw(raw));
+    }
+
+    [Fact]
+    public void GameHeader_Board_ExtractsFromPgn()
+    {
+        var game = new GameHeader
+        {
+            Pgn = "[Event \"Team Cup\"]\n[Round \"3\"]\n[Board \"2\"]\n\n1. e4 e5 1-0"
+        };
+
+        Assert.Equal("2", game.Board);
+    }
 }
+
