@@ -198,18 +198,71 @@
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 16px 20px;
-  background: linear-gradient(135deg, rgba(14, 17, 23, 0.6) 0%, rgba(22, 27, 34, 0.7) 100%);
-  border: 1px solid rgba(6, 182, 212, 0.2);
-  border-radius: 10px;
+  padding: 18px 22px;
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 41, 59, 0.7) 100%);
+  border: 1px solid rgba(6, 182, 212, 0.25);
+  border-radius: 12px;
   margin-bottom: 20px;
 }
 
-.about-brand-logo {
+.about-brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.about-brand-emblem-wrap {
+  position: relative;
+  width: 52px;
   height: 52px;
-  max-width: 280px;
-  width: auto;
-  filter: drop-shadow(0 2px 8px rgba(6, 182, 212, 0.25));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.about-brand-emblem {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 10px rgba(6, 182, 212, 0.35));
+}
+
+.about-brand-emblem-glow {
+  position: absolute;
+  inset: -4px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.25) 0%, transparent 70%);
+  pointer-events: none;
+  border-radius: 50%;
+}
+
+.about-brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.about-brand-title {
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+}
+
+.about-brand-caissa {
+  font-weight: 900;
+  color: #f0f6fc;
+}
+
+.about-brand-lytics {
+  font-weight: 300;
+  color: var(--brand-sky, #0ea5e9);
+}
+
+.about-brand-tagline {
+  font-size: 10px;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 2px;
 }
 
 .card-section-title {
