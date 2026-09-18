@@ -109,28 +109,44 @@ internal class Program
         });
 
         // Configure the native desktop window
-        var iconFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "icon-256.png");
-        if (!File.Exists(iconFile))
-        {
-            iconFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "icon.png");
-        }
-        if (!File.Exists(iconFile))
-        {
-            iconFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "favicon.png");
-        }
+        var iconFile = EnsureIconOnDisk(fileProvider);
 
         app.MainWindow
             .SetTitle("Caissalytics")
-            .SetIconFile(File.Exists(iconFile) ? iconFile : "wwwroot/icon-256.png")
             .SetSize(1400, 900)
             .SetMinSize(1000, 650)
             .SetMediaAutoplayEnabled(true)
             .SetUseOsDefaultLocation(false);
 
+        if (!string.IsNullOrEmpty(iconFile) && File.Exists(iconFile))
+        {
+            try
+            {
+                app.MainWindow.SetIconFile(iconFile);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[Caissalytics] Could not set window icon: {ex.Message}");
+            }
+        }
+
         AppDomain.CurrentDomain.UnhandledException += (sender, error) =>
         {
             Console.Error.WriteLine($"[Caissalytics] Unhandled exception: {error.ExceptionObject}");
         };
+
+        // Complete Linux desktop integration after fileProvider is ready
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            try
+            {
+                EnsureLinuxDesktopIntegration(fileProvider);
+            }
+            catch
+            {
+                // Non-fatal
+            }
+        }
 
         app.Run();
     }
@@ -147,19 +163,66 @@ internal class Program
             {
                 // Non-fatal if libglib is not available
             }
-
-            try
-            {
-                EnsureLinuxDesktopIntegration();
-            }
-            catch
-            {
-                // Non-fatal if user desktop directories cannot be written
-            }
         }
     }
 
-    private static void EnsureLinuxDesktopIntegration()
+    private static string? EnsureIconOnDisk(IFileProvider fileProvider)
+    {
+        try
+        {
+            // 1. Check physical file paths next to binary or current working directory
+            string[] physicalCandidates = [
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "icon-256.png"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "icon.png"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "favicon.png"),
+                Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "icon-256.png"),
+                Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "favicon.png"),
+            ];
+
+            foreach (var c in physicalCandidates)
+            {
+                if (File.Exists(c) && new FileInfo(c).Length > 0)
+                {
+                    return c;
+                }
+            }
+
+            // 2. Extract embedded icon into persistent application data or temp directory
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var targetDir = !string.IsNullOrEmpty(appData)
+                ? Path.Combine(appData, "Caissalytics")
+                : Path.Combine(Path.GetTempPath(), "caissalytics");
+
+            Directory.CreateDirectory(targetDir);
+            var targetPng = Path.Combine(targetDir, "icon-256.png");
+
+            if (File.Exists(targetPng) && new FileInfo(targetPng).Length > 0)
+            {
+                return targetPng;
+            }
+
+            string[] embeddedNames = ["icon-256.png", "icon.png", "favicon.png"];
+            foreach (var name in embeddedNames)
+            {
+                var fileInfo = fileProvider.GetFileInfo(name);
+                if (fileInfo.Exists)
+                {
+                    using var src = fileInfo.CreateReadStream();
+                    using var dst = File.Create(targetPng);
+                    src.CopyTo(dst);
+                    return targetPng;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Caissalytics] Could not extract icon to disk: {ex.Message}");
+        }
+
+        return null;
+    }
+
+    private static void EnsureLinuxDesktopIntegration(IFileProvider fileProvider)
     {
         try
         {
@@ -174,21 +237,38 @@ internal class Program
             Directory.CreateDirectory(icon256Dir);
             Directory.CreateDirectory(iconSvgDir);
 
-            var wwwroot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot");
-            var srcPng = Path.Combine(wwwroot, "icon-256.png");
-            if (!File.Exists(srcPng)) srcPng = Path.Combine(wwwroot, "icon.png");
-
-            if (File.Exists(srcPng))
+            // Copy/extract 256x256 icon
+            var targetPng = Path.Combine(icon256Dir, "caissalytics.png");
+            if (!File.Exists(targetPng) || new FileInfo(targetPng).Length == 0)
             {
-                File.Copy(srcPng, Path.Combine(icon256Dir, "caissalytics.png"), true);
-                File.Copy(srcPng, Path.Combine(icon256Dir, "Caissalytics.png"), true);
+                var pngInfo = fileProvider.GetFileInfo("icon-256.png");
+                if (!pngInfo.Exists) pngInfo = fileProvider.GetFileInfo("icon.png");
+                if (!pngInfo.Exists) pngInfo = fileProvider.GetFileInfo("favicon.png");
+
+                if (pngInfo.Exists)
+                {
+                    using var src = pngInfo.CreateReadStream();
+                    using var dst = File.Create(targetPng);
+                    src.CopyTo(dst);
+                    File.Copy(targetPng, Path.Combine(icon256Dir, "Caissalytics.png"), true);
+                }
             }
 
-            var srcSvg = Path.Combine(wwwroot, "images", "icon.svg");
-            if (File.Exists(srcSvg))
+            // Copy/extract scalable SVG icon
+            var targetSvg = Path.Combine(iconSvgDir, "caissalytics.svg");
+            if (!File.Exists(targetSvg) || new FileInfo(targetSvg).Length == 0)
             {
-                File.Copy(srcSvg, Path.Combine(iconSvgDir, "caissalytics.svg"), true);
-                File.Copy(srcSvg, Path.Combine(iconSvgDir, "Caissalytics.svg"), true);
+                var svgInfo = fileProvider.GetFileInfo("images/icon.svg");
+                if (!svgInfo.Exists) svgInfo = fileProvider.GetFileInfo("icon.svg");
+                if (!svgInfo.Exists) svgInfo = fileProvider.GetFileInfo("favicon.svg");
+
+                if (svgInfo.Exists)
+                {
+                    using var src = svgInfo.CreateReadStream();
+                    using var dst = File.Create(targetSvg);
+                    src.CopyTo(dst);
+                    File.Copy(targetSvg, Path.Combine(iconSvgDir, "Caissalytics.svg"), true);
+                }
             }
 
             var desktopFile = Path.Combine(appsDir, "caissalytics.desktop");
