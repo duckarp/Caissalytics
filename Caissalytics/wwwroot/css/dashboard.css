@@ -152,9 +152,208 @@
   box-shadow: 0 4px 16px rgba(6, 182, 212, 0.12);
 }
 
-.card-icon {
-  font-size: 32px;
+.card-icon-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
   margin-bottom: 16px;
+  transition: all var(--transition-fast);
+}
+
+.card-icon-badge svg {
+  width: 24px;
+  height: 24px;
+  transition: transform var(--transition-fast);
+}
+
+.action-card:hover .card-icon-badge svg {
+  transform: scale(1.08);
+}
+
+/* Feature Accent Themes */
+.card-icon-analysis {
+  background: rgba(6, 182, 212, 0.12);
+  border: 1px solid rgba(6, 182, 212, 0.28);
+  color: #22d3ee;
+}
+.action-card.card-theme-analysis:hover {
+  border-color: #06b6d4;
+  box-shadow: 0 4px 20px rgba(6, 182, 212, 0.16);
+}
+.action-card.card-theme-analysis:hover .card-icon-badge {
+  background: rgba(6, 182, 212, 0.22);
+  box-shadow: 0 0 14px rgba(6, 182, 212, 0.35);
+}
+
+.card-icon-databases {
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  color: #818cf8;
+}
+.action-card.card-theme-databases:hover {
+  border-color: #6366f1;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.16);
+}
+.action-card.card-theme-databases:hover .card-icon-badge {
+  background: rgba(99, 102, 241, 0.22);
+  box-shadow: 0 0 14px rgba(99, 102, 241, 0.35);
+}
+
+.card-icon-open-pgn {
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  color: #34d399;
+}
+.action-card.card-theme-open-pgn:hover {
+  border-color: #10b981;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.16);
+}
+.action-card.card-theme-open-pgn:hover .card-icon-badge {
+  background: rgba(16, 185, 129, 0.22);
+  box-shadow: 0 0 14px rgba(16, 185, 129, 0.35);
+}
+
+.card-icon-online-games {
+  background: rgba(14, 165, 233, 0.12);
+  border: 1px solid rgba(14, 165, 233, 0.28);
+  color: #38bdf8;
+}
+.action-card.card-theme-online-games:hover {
+  border-color: #0ea5e9;
+  box-shadow: 0 4px 20px rgba(14, 165, 233, 0.16);
+}
+.action-card.card-theme-online-games:hover .card-icon-badge {
+  background: rgba(14, 165, 233, 0.22);
+  box-shadow: 0 0 14px rgba(14, 165, 233, 0.35);
+}
+
+.card-icon-puzzles {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  color: #fbbf24;
+}
+.action-card.card-theme-puzzles:hover {
+  border-color: #f59e0b;
+  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.16);
+}
+.action-card.card-theme-puzzles:hover .card-icon-badge {
+  background: rgba(245, 158, 11, 0.22);
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.35);
+}
+
+.card-icon-repertoire {
+  background: rgba(244, 63, 94, 0.12);
+  border: 1px solid rgba(244, 63, 94, 0.28);
+  color: #fb7185;
+}
+.action-card.card-theme-repertoire:hover {
+  border-color: #f43f5e;
+  box-shadow: 0 4px 20px rgba(244, 63, 94, 0.16);
+}
+.action-card.card-theme-repertoire:hover .card-icon-badge {
+  background: rgba(244, 63, 94, 0.22);
+  box-shadow: 0 0 14px rgba(244, 63, 94, 0.35);
+}
+
+.card-icon-dossier {
+  background: rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.28);
+  color: #c084fc;
+}
+.action-card.card-theme-dossier:hover {
+  border-color: #a855f7;
+  box-shadow: 0 4px 20px rgba(168, 85, 247, 0.16);
+}
+.action-card.card-theme-dossier:hover .card-icon-badge {
+  background: rgba(168, 85, 247, 0.22);
+  box-shadow: 0 0 14px rgba(168, 85, 247, 0.35);
+}
+
+.card-icon-endgames {
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.28);
+  color: #facc15;
+}
+.action-card.card-theme-endgames:hover {
+  border-color: #eab308;
+  box-shadow: 0 4px 20px rgba(234, 179, 8, 0.16);
+}
+.action-card.card-theme-endgames:hover .card-icon-badge {
+  background: rgba(234, 179, 8, 0.22);
+  box-shadow: 0 0 14px rgba(234, 179, 8, 0.35);
+}
+
+.card-icon-practice {
+  background: rgba(132, 204, 22, 0.12);
+  border: 1px solid rgba(132, 204, 22, 0.28);
+  color: #a3e635;
+}
+.action-card.card-theme-practice:hover {
+  border-color: #84cc16;
+  box-shadow: 0 4px 20px rgba(132, 204, 22, 0.16);
+}
+.action-card.card-theme-practice:hover .card-icon-badge {
+  background: rgba(132, 204, 22, 0.22);
+  box-shadow: 0 0 14px rgba(132, 204, 22, 0.35);
+}
+
+.card-icon-analytics {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  color: #60a5fa;
+}
+.action-card.card-theme-analytics:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.16);
+}
+.action-card.card-theme-analytics:hover .card-icon-badge {
+  background: rgba(59, 130, 246, 0.22);
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.35);
+}
+
+.card-icon-homework {
+  background: rgba(20, 184, 166, 0.12);
+  border: 1px solid rgba(20, 184, 166, 0.28);
+  color: #2dd4bf;
+}
+.action-card.card-theme-homework:hover {
+  border-color: #14b8a6;
+  box-shadow: 0 4px 20px rgba(20, 184, 166, 0.16);
+}
+.action-card.card-theme-homework:hover .card-icon-badge {
+  background: rgba(20, 184, 166, 0.22);
+  box-shadow: 0 0 14px rgba(20, 184, 166, 0.35);
+}
+
+.card-icon-club-homework {
+  background: rgba(13, 148, 136, 0.12);
+  border: 1px solid rgba(13, 148, 136, 0.28);
+  color: #5eead4;
+}
+.action-card.card-theme-club-homework:hover {
+  border-color: #0d9488;
+  box-shadow: 0 4px 20px rgba(13, 148, 136, 0.16);
+}
+.action-card.card-theme-club-homework:hover .card-icon-badge {
+  background: rgba(13, 148, 136, 0.22);
+  box-shadow: 0 0 14px rgba(13, 148, 136, 0.35);
+}
+
+.card-icon-settings {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  color: #cbd5e1;
+}
+.action-card.card-theme-settings:hover {
+  border-color: #94a3b8;
+  box-shadow: 0 4px 20px rgba(148, 163, 184, 0.16);
+}
+.action-card.card-theme-settings:hover .card-icon-badge {
+  background: rgba(148, 163, 184, 0.22);
+  box-shadow: 0 0 14px rgba(148, 163, 184, 0.35);
 }
 
 .card-title {
