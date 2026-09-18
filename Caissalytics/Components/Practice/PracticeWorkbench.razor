@@ -52,10 +52,10 @@
 							  CanGoBack="@Tab.Tree.CanGoBack"
 							  CanGoForward="@Tab.Tree.CanGoForward"
 							  OnMoveMade="HandleUserMove"
-							  OnFirst="() => { if (!_isComputerThinking) { Tab.Tree.GoToStart(); UpdateMoveHistory(); StateHasChanged(); } }"
-							  OnPrev="() => { if (!_isComputerThinking) { Tab.Tree.GoBack(); UpdateMoveHistory(); StateHasChanged(); } }"
-							  OnNext="() => { if (!_isComputerThinking) { Tab.Tree.GoForward(); UpdateMoveHistory(); StateHasChanged(); } }"
-							  OnLast="() => { if (!_isComputerThinking) { Tab.Tree.GoToEnd(); UpdateMoveHistory(); StateHasChanged(); } }"
+							  OnFirst="async () => { if (!_isComputerThinking) { Tab.Tree.GoToStart(); UpdateMoveHistory(); StateHasChanged(); await UpdateEvaluationAsync(); } }"
+							  OnPrev="async () => { if (!_isComputerThinking) { Tab.Tree.GoBack(); UpdateMoveHistory(); StateHasChanged(); await UpdateEvaluationAsync(); } }"
+							  OnNext="async () => { if (!_isComputerThinking) { Tab.Tree.GoForward(); UpdateMoveHistory(); StateHasChanged(); await UpdateEvaluationAsync(); } }"
+							  OnLast="async () => { if (!_isComputerThinking) { Tab.Tree.GoToEnd(); UpdateMoveHistory(); StateHasChanged(); await UpdateEvaluationAsync(); } }"
 							  Tree="@Tab.Tree">
 				<SideGauge>
 					@if (Tab.ShowEval)
@@ -398,6 +398,7 @@
 		{
 			_isComputerThinking = false;
 			StateHasChanged();
+			_ = UpdateEvaluationAsync();
 		}
 	}
 
@@ -465,6 +466,7 @@
 		_gameOverReason = null;
 		UpdateMoveHistory();
 		StateHasChanged();
+		await UpdateEvaluationAsync();
 	}
 
 	private async Task HandleRequestHint()
@@ -680,14 +682,25 @@
 	private async Task UpdateEvaluationAsync()
 	{
 		if (!Tab.ShowEval || _isDisposed) return;
+
+		// Cancel any previous in-flight eval
+		_evalCts?.Cancel();
+		_evalCts?.Dispose();
+		_evalCts = new CancellationTokenSource();
+		var ct = _evalCts.Token;
+
 		try
 		{
 			string fen = FenParser.ToFen(Tab.Tree.CurrentNode.Position);
-			_currentEval = await PracticeEngine.GetEvaluationAsync(fen, _cts?.Token ?? CancellationToken.None);
-			StateHasChanged();
+			_currentEval = await PracticeEngine.GetEvaluationAsync(fen, ct);
+			if (!ct.IsCancellationRequested)
+				StateHasChanged();
 		}
+		catch (OperationCanceledException) { }
 		catch { }
 	}
+
+	private CancellationTokenSource? _evalCts;
 
 	private void NavigateToPly(MoveNode node)
 	{
@@ -695,6 +708,7 @@
 		Tab.Tree.NavigateTo(node);
 		UpdateMoveHistory();
 		StateHasChanged();
+		_ = UpdateEvaluationAsync();
 	}
 
 	private void UpdateMoveHistory()
@@ -733,5 +747,7 @@
 		_isDisposed = true;
 		_cts?.Cancel();
 		_cts?.Dispose();
+		_evalCts?.Cancel();
+		_evalCts?.Dispose();
 	}
 }
