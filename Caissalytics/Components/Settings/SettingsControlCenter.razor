@@ -94,7 +94,10 @@
 			{
 				<div class="control-section-card">
 					<div class="card-section-header">
-						<h3 class="card-section-title">👤 User Profile & Accounts</h3>
+						<h3 class="card-section-title">
+							<span class="card-title-badge badge-theme-profile"><AppIcon Name="profile" Size="18" /></span>
+							<span>User Profile &amp; Accounts</span>
+						</h3>
 						<p class="card-section-desc">Personalize your identity and connect your online chess playing accounts.</p>
 					</div>
 
@@ -116,7 +119,8 @@
 								@if (_profile.HasFideId)
 								{
 									<a class="external-profile-link" href="@_profile.FideProfileUrl" target="_blank" rel="noopener noreferrer">
-										<span>🌐 View FIDE Card</span>
+										<AppIcon Name="globe" Size="14" />
+										<span>View FIDE Card</span>
 									</a>
 								}
 							</div>
@@ -127,14 +131,17 @@
 					<div class="section-divider"></div>
 
 					<div class="card-section-header">
-						<h4 class="card-section-subtitle">Connected Online Accounts</h4>
+						<h4 class="card-section-subtitle">
+							<span class="card-subtitle-badge badge-theme-sync"><AppIcon Name="sync" Size="14" /></span>
+							<span>Connected Online Accounts</span>
+						</h4>
 						<p class="card-section-desc">Used to automatically synchronize your online games into "My online games" (MoG).</p>
 					</div>
 
 					<div class="control-form-grid">
 						<div class="form-field-block">
 							<div class="field-label-group">
-								<span class="platform-badge platform-badge-lichess">♞ Lichess</span>
+								<span class="platform-badge platform-badge-lichess"><AppIcon Name="knight" Size="13" Class="btn-inline-icon" /> Lichess</span>
 								<label class="field-label">Username</label>
 							</div>
 							<div class="input-with-link-row">
@@ -142,7 +149,8 @@
 								@if (_profile.HasLichess)
 								{
 									<a class="external-profile-link" href="@_profile.LichessProfileUrl" target="_blank" rel="noopener noreferrer">
-										<span>🌐 Open</span>
+										<AppIcon Name="external-link" Size="14" />
+										<span>Open</span>
 									</a>
 								}
 							</div>
@@ -150,7 +158,7 @@
 
 						<div class="form-field-block">
 							<div class="field-label-group">
-								<span class="platform-badge platform-badge-chesscom">♟️ Chess.com</span>
+								<span class="platform-badge platform-badge-chesscom"><AppIcon Name="analysis" Size="13" Class="btn-inline-icon" /> Chess.com</span>
 								<label class="field-label">Username</label>
 							</div>
 							<div class="input-with-link-row">
@@ -158,7 +166,8 @@
 								@if (_profile.HasChessCom)
 								{
 									<a class="external-profile-link" href="@_profile.ChessComProfileUrl" target="_blank" rel="noopener noreferrer">
-										<span>🌐 Open</span>
+										<AppIcon Name="external-link" Size="14" />
+										<span>Open</span>
 									</a>
 								}
 							</div>
@@ -166,13 +175,14 @@
 
 						<div class="form-field-block form-field-full">
 							<div class="field-label-group">
-								<span class="platform-badge platform-badge-lichess">🔑 Lichess API Token</span>
+								<span class="platform-badge platform-badge-lichess"><AppIcon Name="key" Size="13" Class="btn-inline-icon" /> Lichess API Token</span>
 								<label class="field-label">Personal Access Token (Free)</label>
 							</div>
 							<div class="input-with-link-row">
 								<input class="field-input" type="password" placeholder="lip_..." @bind="_profile.LichessApiToken" @bind:event="oninput" />
 								<a class="external-profile-link" href="https://lichess.org/account/oauth/token" target="_blank" rel="noopener noreferrer">
-									<span>🔗 Generate Token ↗</span>
+									<AppIcon Name="key" Size="14" />
+									<span>Generate Token ↗</span>
 								</a>
 							</div>
 							<span class="field-hint">Required by Lichess to query the Online Opening Explorer (Masters &amp; Community). Free to generate on Lichess without any special permissions.</span>
@@ -180,10 +190,16 @@
 					</div>
 
 					<div class="form-action-bar">
-						<button class="btn-primary" @onclick="SaveProfileAsync">💾 Save Profile Changes</button>
+						<button class="btn-primary" @onclick="SaveProfileAsync">
+							<AppIcon Name="save" Size="15" Class="btn-inline-icon" />
+							<span>Save Profile Changes</span>
+						</button>
 						@if (_profileSaved)
 						{
-							<span class="save-status-badge">✅ Profile changes saved!</span>
+							<span class="save-status-badge">
+								<AppIcon Name="check-circle" Size="14" Class="btn-inline-icon" />
+								<span>Profile changes saved!</span>
+							</span>
 						}
 					</div>
 				</div>
@@ -192,7 +208,10 @@
 			{
 				<div class="control-section-card">
 					<div class="card-section-header">
-						<h3 class="card-section-title">🏛️ @Loc["Club_Title"]</h3>
+						<h3 class="card-section-title">
+							<span class="card-title-badge badge-theme-club"><AppIcon Name="club" Size="18" /></span>
+							<span>@Loc["Club_Title"]</span>
+						</h3>
 						<p class="card-section-desc">@Loc["Club_Desc"]</p>
 					</div>
 
@@ -216,10 +235,16 @@
 					</div>
 
 					<div class="form-action-bar">
-						<button class="btn-primary" @onclick="SaveClubSettingsAsync">💾 @Loc["Club_SaveBtn"]</button>
+						<button class="btn-primary" @onclick="SaveClubSettingsAsync">
+							<AppIcon Name="save" Size="15" Class="btn-inline-icon" />
+							<span>@Loc["Club_SaveBtn"]</span>
+						</button>
 						@if (_clubSettingsSaved)
 						{
-							<span class="save-status-badge">✅ @Loc["Club_SaveSuccess"]</span>
+							<span class="save-status-badge">
+								<AppIcon Name="check-circle" Size="14" Class="btn-inline-icon" />
+								<span>@Loc["Club_SaveSuccess"]</span>
+							</span>
 						}
 					</div>
 				</div>
@@ -229,20 +254,24 @@
 					<div class="card-section-header">
 						<div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
 							<div>
-								<h3 class="card-section-title">🌐 @Loc["Skpp_SectionTitle"]</h3>
+								<h3 class="card-section-title">
+									<span class="card-title-badge badge-theme-sync"><AppIcon Name="globe" Size="18" /></span>
+									<span>@Loc["Skpp_SectionTitle"]</span>
+								</h3>
 								<p class="card-section-desc">@Loc["Skpp_SectionDesc"]</p>
 							</div>
 							<div>
 								@if (_skppState.IsConnected)
 								{
 									<span class="save-status-badge" style="background: rgba(46, 125, 50, 0.2); color: #81c784; border: 1px solid rgba(76, 175, 80, 0.4); padding: 4px 10px; border-radius: 6px; font-weight: 600;">
-										● @Loc["Skpp_Status_Connected"]
+										<AppIcon Name="check" Size="12" Class="btn-inline-icon" />
+										<span>@Loc["Skpp_Status_Connected"]</span>
 									</span>
 								}
 								else
 								{
 									<span class="save-status-badge" style="background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid var(--border-subtle); padding: 4px 10px; border-radius: 6px;">
-										○ @Loc["Skpp_Status_Disconnected"]
+										<span>○ @Loc["Skpp_Status_Disconnected"]</span>
 									</span>
 								}
 							</div>
@@ -256,14 +285,18 @@
 							<div class="input-with-link-row">
 								<input class="field-input" placeholder="e.g. http://localhost:5000" @bind="_skppApiUrl" @bind:event="oninput" />
 								<button type="button" class="btn-secondary btn-sm" @onclick="SaveSkppUrlAsync" style="white-space: nowrap;">
-									<span>💾 @Loc["Skpp_SaveUrl"]</span>
+									<AppIcon Name="save" Size="13" Class="btn-inline-icon" />
+									<span>@Loc["Skpp_SaveUrl"]</span>
 								</button>
 							</div>
 							<div style="display: flex; gap: 8px; margin-top: 6px; align-items: center;">
 								<span class="field-hint">@Loc["Skpp_ApiUrl_Hint"]</span>
 								@if (_skppUrlSaved)
 								{
-									<span style="font-size: 11px; color: #81c784;">✅ URL saved!</span>
+									<span style="font-size: 11px; color: #81c784;">
+										<AppIcon Name="check-circle" Size="12" Class="btn-inline-icon" />
+										<span>URL saved!</span>
+									</span>
 								}
 							</div>
 						</div>
@@ -274,7 +307,10 @@
 						<div class="section-divider"></div>
 
 						<div class="card-section-header">
-							<h4 class="card-section-subtitle">🔐 Account Authentication</h4>
+							<h4 class="card-section-subtitle">
+								<span class="card-subtitle-badge badge-theme-amber"><AppIcon Name="lock" Size="14" /></span>
+								<span>Account Authentication</span>
+							</h4>
 							<p class="card-section-desc">Authenticate with your club account credentials to securely acquire session tokens.</p>
 						</div>
 
@@ -290,14 +326,18 @@
 							</div>
 
 							<div class="form-field-block form-field-full">
-								<span class="field-hint">🔒 @Loc["Skpp_Password_Hint"]</span>
+								<span class="field-hint">
+									<AppIcon Name="lock" Size="12" Class="btn-inline-icon" />
+									<span>@Loc["Skpp_Password_Hint"]</span>
+								</span>
 							</div>
 						</div>
 
 						@if (!string.IsNullOrEmpty(_skppError))
 						{
 							<div class="probe-feedback-box probe-error" style="margin-top: 14px; background: rgba(239, 83, 80, 0.12); border: 1px solid rgba(239, 83, 80, 0.35); padding: 10px 14px; border-radius: 6px; color: #ef5350; font-size: 13px;">
-								<span>⚠️ @_skppError</span>
+								<AppIcon Name="warning" Size="14" Class="alert-inline-icon" />
+								<span>@_skppError</span>
 							</div>
 						}
 
@@ -305,11 +345,13 @@
 							<button class="btn-primary" disabled="@(_isSkppConnecting || string.IsNullOrWhiteSpace(_skppApiUrl) || string.IsNullOrWhiteSpace(_skppUsername) || string.IsNullOrWhiteSpace(_skppPassword))" @onclick="ConnectSkppAsync">
 								@if (_isSkppConnecting)
 								{
-									<span>⏳ @Loc["Skpp_Connecting"]</span>
+									<AppIcon Name="refresh" Size="14" Class="btn-inline-icon" />
+									<span>@Loc["Skpp_Connecting"]</span>
 								}
 								else
 								{
-									<span>🔑 @Loc["Skpp_ConnectBtn"]</span>
+									<AppIcon Name="key" Size="14" Class="btn-inline-icon" />
+									<span>@Loc["Skpp_ConnectBtn"]</span>
 								}
 							</button>
 						</div>
@@ -322,21 +364,25 @@
 						@if (!string.IsNullOrEmpty(_skppSuccessMessage))
 						{
 							<div class="probe-feedback-box probe-success" style="margin-bottom: 14px; background: rgba(46, 125, 50, 0.15); border: 1px solid rgba(76, 175, 80, 0.35); padding: 10px 14px; border-radius: 6px; color: #81c784; font-size: 13px;">
-								<span>✅ @_skppSuccessMessage</span>
+								<AppIcon Name="check-circle" Size="14" Class="alert-inline-icon" />
+								<span>@_skppSuccessMessage</span>
 							</div>
 						}
 
 						@if (!string.IsNullOrEmpty(_skppError))
 						{
 							<div class="probe-feedback-box probe-error" style="margin-bottom: 14px; background: rgba(239, 83, 80, 0.12); border: 1px solid rgba(239, 83, 80, 0.35); padding: 10px 14px; border-radius: 6px; color: #ef5350; font-size: 13px;">
-								<span>⚠️ @_skppError</span>
+								<AppIcon Name="warning" Size="14" Class="alert-inline-icon" />
+								<span>@_skppError</span>
 							</div>
 						}
 
 						<div style="background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
 							<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
 								<div style="display: flex; align-items: center; gap: 10px;">
-									<span style="font-size: 24px;">@(_skppState.User?.IsCoach == true ? "🛡️" : "🎓")</span>
+									<span class="card-title-badge @(_skppState.User?.IsCoach == true ? "badge-theme-blue" : "badge-theme-purple")" style="width: 36px; height: 36px;">
+										<AppIcon Name="@(_skppState.User?.IsCoach == true ? "shield" : "graduation")" Size="20" />
+									</span>
 									<div>
 										<div style="font-size: 16px; font-weight: 700; color: var(--text-primary);">@_skppState.User?.FullName</div>
 										<div style="font-size: 12px; color: var(--text-muted);">@_skppState.User?.Email</div>
@@ -345,14 +391,16 @@
 								<div>
 									@if (_skppState.User?.IsCoach == true)
 									{
-										<span style="background: rgba(33, 150, 243, 0.2); color: #64b5f6; border: 1px solid rgba(33, 150, 243, 0.4); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
-											🛡️ @Loc["Skpp_RoleCoach"]
+										<span style="background: rgba(33, 150, 243, 0.2); color: #64b5f6; border: 1px solid rgba(33, 150, 243, 0.4); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+											<AppIcon Name="shield" Size="13" />
+											<span>@Loc["Skpp_RoleCoach"]</span>
 										</span>
 									}
 									else
 									{
-										<span style="background: rgba(156, 39, 176, 0.2); color: #ce93d8; border: 1px solid rgba(156, 39, 176, 0.4); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;">
-											🎓 @Loc["Skpp_RoleStudent"]
+										<span style="background: rgba(156, 39, 176, 0.2); color: #ce93d8; border: 1px solid rgba(156, 39, 176, 0.4); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px;">
+											<AppIcon Name="graduation" Size="13" />
+											<span>@Loc["Skpp_RoleStudent"]</span>
 										</span>
 									}
 								</div>
@@ -376,7 +424,10 @@
 
 						<!-- Coaching Groups -->
 						<div class="card-section-header" style="margin-top: 16px;">
-							<h4 class="card-section-subtitle">👥 @Loc["Skpp_CoachingGroups"] (@(_skppState.User?.Groups?.Count ?? 0))</h4>
+							<h4 class="card-section-subtitle">
+								<span class="card-subtitle-badge badge-theme-blue"><AppIcon Name="profile" Size="14" /></span>
+								<span>@Loc["Skpp_CoachingGroups"] (@(_skppState.User?.Groups?.Count ?? 0))</span>
+							</h4>
 						</div>
 
 						@if (_skppState.User?.Groups == null || _skppState.User.Groups.Count == 0)
@@ -403,15 +454,15 @@
 										<div style="display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: var(--text-muted); margin-top: 4px;">
 											@if (!string.IsNullOrWhiteSpace(g.ScheduleInfo))
 											{
-												<span>🕒 @g.ScheduleInfo</span>
+												<span><AppIcon Name="clock" Size="12" Class="btn-inline-icon" /> @g.ScheduleInfo</span>
 											}
 											@if (!string.IsNullOrWhiteSpace(g.Venue))
 											{
-												<span>📍 @g.Venue</span>
+												<span><AppIcon Name="map-pin" Size="12" Class="btn-inline-icon" /> @g.Venue</span>
 											}
 											@if (g.PrimaryCoach != null)
 											{
-												<span>👤 @Loc["Skpp_PrimaryCoach"]: @g.PrimaryCoach.FullName</span>
+												<span><AppIcon Name="profile" Size="12" Class="btn-inline-icon" /> @Loc["Skpp_PrimaryCoach"]: @g.PrimaryCoach.FullName</span>
 											}
 										</div>
 									</div>
@@ -423,16 +474,19 @@
 							<button class="btn-secondary" disabled="@_isSkppVerifying" @onclick="VerifySkppAsync">
 								@if (_isSkppVerifying)
 								{
-									<span>⏳ @Loc["Skpp_Verifying"]</span>
+									<AppIcon Name="refresh" Size="14" Class="btn-inline-icon icon-spin" />
+									<span>@Loc["Skpp_Verifying"]</span>
 								}
 								else
 								{
-									<span>🔄 @Loc["Skpp_VerifyBtn"]</span>
+									<AppIcon Name="refresh" Size="14" Class="btn-inline-icon" />
+									<span>@Loc["Skpp_VerifyBtn"]</span>
 								}
 							</button>
 
 							<button class="btn-secondary btn-danger-soft" @onclick="DisconnectSkppAsync">
-								<span>🔌 @Loc["Skpp_DisconnectBtn"]</span>
+								<AppIcon Name="unlink" Size="14" Class="btn-inline-icon" />
+								<span>@Loc["Skpp_DisconnectBtn"]</span>
 							</button>
 						</div>
 					}
@@ -442,7 +496,10 @@
 			{
 				<div class="control-section-card">
 					<div class="card-section-header">
-						<h3 class="card-section-title">⚙️ Chess Engines (UCI)</h3>
+						<h3 class="card-section-title">
+							<span class="card-title-badge badge-theme-engines"><AppIcon Name="engines" Size="18" /></span>
+							<span>Chess Engines (UCI)</span>
+						</h3>
 						<p class="card-section-desc">Manage installed engines, select the active engine for live analysis and game reports, or add custom binaries.</p>
 					</div>
 
@@ -450,7 +507,7 @@
 					<div class="stockfish-spotlight-card">
 						<div class="stockfish-spotlight-header">
 							<div class="stockfish-spotlight-title-group">
-								<span class="stockfish-logo-icon">🐟</span>
+								<span class="card-title-badge badge-theme-engines" style="width: 32px; height: 32px;"><AppIcon Name="fish" Size="18" /></span>
 								<div>
 									<h4 class="stockfish-spotlight-title">Official Stockfish Engine</h4>
 									<p class="stockfish-spotlight-subtitle">The world's strongest open-source chess evaluation engine.</p>
@@ -458,7 +515,16 @@
 							</div>
 							<div class="stockfish-spotlight-actions">
 								<button class="btn-secondary btn-sm" disabled="@_isCheckingSfUpdate" @onclick="CheckStockfishUpdateNowAsync">
-									@(_isCheckingSfUpdate ? "Checking..." : "🔍 Check for Stockfish Update")
+									@if (_isCheckingSfUpdate)
+									{
+										<AppIcon Name="refresh" Size="13" Class="btn-inline-icon" />
+										<span>Checking...</span>
+									}
+									else
+									{
+										<AppIcon Name="search" Size="13" Class="btn-inline-icon" />
+										<span>Check for Stockfish Update</span>
+									}
 								</button>
 							</div>
 						</div>
@@ -468,7 +534,10 @@
 							<div class="stockfish-update-banner update-ready">
 								<div class="stockfish-update-content">
 									<div class="stockfish-update-info">
-										<span class="stockfish-update-title">🌟 New Version Available: @_sfUpdate.LatestVersion</span>
+										<span class="stockfish-update-title">
+											<AppIcon Name="updates" Size="14" Class="btn-inline-icon" />
+											<span>New Version Available: @_sfUpdate.LatestVersion</span>
+										</span>
 										<span class="stockfish-update-desc">
 											Current: @_sfUpdate.CurrentVersion. Upgrade to official universal binary with upgraded neural network architecture and strength gains.
 											@if (!string.IsNullOrEmpty(_sfUpdate.FormattedAssetSize))
@@ -479,7 +548,15 @@
 									</div>
 									<div class="stockfish-update-actions">
 										<button class="btn-primary" disabled="@_isUpdatingSf" @onclick="UpdateStockfishNowAsync">
-											@(_isUpdatingSf ? $"Updating ({_sfUpdateProgress}%)..." : $"🚀 1-Click Update to {_sfUpdate.LatestVersion}")
+											@if (_isUpdatingSf)
+											{
+												<span>Updating (@_sfUpdateProgress%)...</span>
+											}
+											else
+											{
+												<AppIcon Name="updates" Size="14" Class="btn-inline-icon" />
+												<span>1-Click Update to @_sfUpdate.LatestVersion</span>
+											}
 										</button>
 									</div>
 								</div>
@@ -509,7 +586,8 @@
 						else if (_sfUpdateSuccess)
 						{
 							<div class="probe-feedback-box probe-success">
-								<span>✅ Stockfish updated successfully! Activated for live analysis and game evaluations.</span>
+								<AppIcon Name="check-circle" Size="14" Class="alert-inline-icon" />
+								<span>Stockfish updated successfully! Activated for live analysis and game evaluations.</span>
 							</div>
 						}
 						else if (_sfUpdate != null && !_sfUpdate.IsChecking && !string.IsNullOrEmpty(_sfUpdate.StatusMessage))
@@ -561,11 +639,17 @@
 									<div class="engine-entry-details">
 										@if (eng.IsInstalled)
 										{
-											<span class="engine-path-text" title="@eng.ExecutablePath">📁 @eng.ExecutablePath</span>
+											<span class="engine-path-text" title="@eng.ExecutablePath">
+												<AppIcon Name="folder" Size="12" Class="btn-inline-icon" />
+												<span>@eng.ExecutablePath</span>
+											</span>
 										}
 										else
 										{
-											<span class="engine-path-missing">⚠️ Not installed yet</span>
+											<span class="engine-path-missing">
+												<AppIcon Name="warning" Size="12" Class="btn-inline-icon" />
+												<span>Not installed yet</span>
+											</span>
 										}
 									</div>
 								</div>
@@ -574,7 +658,15 @@
 									@if (hasSfUpdate)
 									{
 										<button class="btn-primary btn-sm" disabled="@_isUpdatingSf" @onclick="UpdateStockfishNowAsync">
-											@(_isUpdatingSf ? "Updating..." : "⚡ Update")
+											@if (_isUpdatingSf)
+											{
+												<span>Updating...</span>
+											}
+											else
+											{
+												<AppIcon Name="zap" Size="12" Class="btn-inline-icon" />
+												<span>Update</span>
+											}
 										</button>
 									}
 
@@ -584,18 +676,32 @@
 										{
 											<button class="btn-secondary btn-sm" @onclick="() => SetActiveEngineAsync(eng.Id)">Set as Active</button>
 										}
-										<button class="btn-secondary btn-sm" @onclick="() => TestEngineHandshakeAsync(eng)" title="Verify UCI communication">⚡ Test</button>
+										<button class="btn-secondary btn-sm" @onclick="() => TestEngineHandshakeAsync(eng)" title="Verify UCI communication">
+											<AppIcon Name="zap" Size="12" Class="btn-inline-icon" />
+											<span>Test</span>
+										</button>
 									}
 									else if (!string.IsNullOrEmpty(eng.DownloadUrl))
 									{
 										<button class="btn-primary btn-sm" disabled="@_isInstalling" @onclick="() => InstallEngineAsync(eng.Id)">
-											@(_isInstalling && _installingEngineId == eng.Id ? $"Installing ({_installProgress}%)..." : "⚡ 1-Click Install")
+											@if (_isInstalling && _installingEngineId == eng.Id)
+											{
+												<span>Installing (@_installProgress%)...</span>
+											}
+											else
+											{
+												<AppIcon Name="zap" Size="12" Class="btn-inline-icon" />
+												<span>1-Click Install</span>
+											}
 										</button>
 									}
 
 									@if (eng.Id != "stockfish-17")
 									{
-										<button class="btn-danger-outline btn-sm" @onclick="() => PromptRemoveEngine(eng)" title="Remove this engine">🗑️ Remove</button>
+										<button class="btn-danger-outline btn-sm" @onclick="() => PromptRemoveEngine(eng)" title="Remove this engine">
+											<AppIcon Name="trash" Size="12" Class="btn-inline-icon" />
+											<span>Remove</span>
+										</button>
 									}
 								</div>
 							</div>
@@ -607,7 +713,10 @@
 					{
 						<div class="probe-feedback-box @(_handshakeResult.Success ? "probe-success" : "probe-error")">
 							<div class="probe-header">
-								<span>@(_handshakeResult.Success ? "✅ UCI Handshake Succeeded" : "❌ UCI Handshake Failed")</span>
+								<span>
+									<AppIcon Name="@(_handshakeResult.Success ? "check-circle" : "warning")" Size="14" Class="alert-inline-icon" />
+									<span>@(_handshakeResult.Success ? "UCI Handshake Succeeded" : "UCI Handshake Failed")</span>
+								</span>
 								<button class="btn-close-probe" @onclick="() => _handshakeResult = null">✕</button>
 							</div>
 							@if (_handshakeResult.Success)
@@ -633,13 +742,22 @@
 					<!-- Add new engine block -->
 					<div class="add-engine-container">
 						<div class="card-section-header">
-							<h4 class="card-section-subtitle">➕ Add New Engine</h4>
+							<h4 class="card-section-subtitle">
+								<span class="card-subtitle-badge badge-theme-engines"><AppIcon Name="plus" Size="14" /></span>
+								<span>Add New Engine</span>
+							</h4>
 							<p class="card-section-desc">Register a local UCI executable binary or auto-scan your operating system.</p>
 						</div>
 
 						<div class="add-engine-modes-row">
-							<button class="@GetAddModeClass("local")" @onclick='() => _addEngineMode = "local"'>📁 Local File</button>
-							<button class="@GetAddModeClass("scan")" @onclick='() => _addEngineMode = "scan"'>🔍 Auto-Scan System</button>
+							<button class="@GetAddModeClass("local")" @onclick='() => _addEngineMode = "local"'>
+								<AppIcon Name="folder" Size="13" Class="btn-inline-icon" />
+								<span>Local File</span>
+							</button>
+							<button class="@GetAddModeClass("scan")" @onclick='() => _addEngineMode = "scan"'>
+								<AppIcon Name="search" Size="13" Class="btn-inline-icon" />
+								<span>Auto-Scan System</span>
+							</button>
 						</div>
 
 						@if (_addEngineMode == "local")
@@ -655,7 +773,15 @@
 										<button class="btn-primary"
 												disabled="@(string.IsNullOrWhiteSpace(_customExecutablePath) || _isProbing)"
 												@onclick="AddLocalEngineAsync">
-											@(_isProbing ? "Probing..." : "🔍 Probe & Register")
+											@if (_isProbing)
+											{
+												<span>Probing...</span>
+											}
+											else
+											{
+												<AppIcon Name="search" Size="14" Class="btn-inline-icon" />
+												<span>Probe &amp; Register</span>
+											}
 										</button>
 									</div>
 									<span class="field-hint">Path to an executable file on your computer supporting the standard Universal Chess Interface (UCI).</span>
@@ -669,13 +795,15 @@
 								@if (!string.IsNullOrEmpty(_customAddError))
 								{
 									<div class="probe-feedback-box probe-error">
-										<span>⚠️ @_customAddError</span>
+										<AppIcon Name="warning" Size="14" Class="alert-inline-icon" />
+										<span>@_customAddError</span>
 									</div>
 								}
 								@if (!string.IsNullOrEmpty(_customAddSuccess))
 								{
 									<div class="probe-feedback-box probe-success">
-										<span>✅ @_customAddSuccess</span>
+										<AppIcon Name="check-circle" Size="14" Class="alert-inline-icon" />
+										<span>@_customAddSuccess</span>
 									</div>
 								}
 							</div>
@@ -690,7 +818,16 @@
 
 								<div class="scan-action-row">
 									<button class="btn-primary" disabled="@_isScanning" @onclick="ScanSystemEnginesAsync">
-										@(_isScanning ? "Scanning System Directories..." : "🔍 Scan System for Engines")
+										@if (_isScanning)
+										{
+											<AppIcon Name="refresh" Size="14" Class="btn-inline-icon" />
+											<span>Scanning System Directories...</span>
+										}
+										else
+										{
+											<AppIcon Name="search" Size="14" Class="btn-inline-icon" />
+											<span>Scan System for Engines</span>
+										}
 									</button>
 								</div>
 
@@ -708,7 +845,12 @@
 				<!-- Maia Chess Neural Networks Card -->
 				<div class="control-section-card">
 					<div class="card-section-header">
-						<h3 class="card-section-title">🧠 @Loc["Settings_Maia_Title"]</h3>
+						<h3 class="card-section-title">
+							<span class="card-title-badge badge-theme-maia">
+								<AppIcon Name="brain" Size="16" />
+							</span>
+							@Loc["Settings_Maia_Title"]
+						</h3>
 						<p class="card-section-desc">@Loc["Settings_Maia_Desc"]</p>
 					</div>
 
@@ -727,15 +869,18 @@
 								<button class="btn-secondary btn-sm" disabled="@_isInstallingLc0" @onclick="EnsureLc0Async">
 									@if (_isInstallingLc0)
 									{
-										<span>⏳ @_lc0InstallPhase (@_lc0InstallProgress%)</span>
+										<AppIcon Name="refresh" Size="13" Class="btn-inline-icon icon-spin" />
+										<span>@_lc0InstallPhase (@_lc0InstallProgress%)</span>
 									}
 									else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 									{
-										<span>⬇ @Loc["Settings_Maia_Lc0Download"]</span>
+										<AppIcon Name="download" Size="13" Class="btn-inline-icon" />
+										<span>@Loc["Settings_Maia_Lc0Download"]</span>
 									}
 									else
 									{
-										<span>🔨 @Loc["Settings_Maia_Lc0Build"]</span>
+										<AppIcon Name="wrench" Size="13" Class="btn-inline-icon" />
+										<span>@Loc["Settings_Maia_Lc0Build"]</span>
 									}
 								</button>
 							}
@@ -744,7 +889,8 @@
 						@if (_lc0InstallError != null)
 						{
 							<div class="maia-install-error">
-								⚠️ @_lc0InstallError
+								<AppIcon Name="warning" Size="14" Class="alert-inline-icon" />
+								<span>@_lc0InstallError</span>
 							</div>
 						}
 
@@ -756,12 +902,18 @@
 										   placeholder="@Loc["Settings_Maia_CustomLc0Placeholder"]"
 										   @bind="_customLc0Path"
 										   @bind:event="oninput" />
-									<button class="btn-primary" @onclick="SaveCustomLc0PathAsync">💾 @Loc["Common_Save"]</button>
+									<button class="btn-primary" @onclick="SaveCustomLc0PathAsync">
+										<AppIcon Name="save" Size="14" Class="btn-inline-icon" />
+										<span>@Loc["Common_Save"]</span>
+									</button>
 								</div>
 								<span class="field-hint">@Loc["Settings_Maia_CustomLc0Hint"]</span>
 								@if (_lc0PathSaved)
 								{
-									<span class="save-status-badge">✓ @Loc["Settings_Maia_Lc0PathSaved"]</span>
+									<span class="save-status-badge">
+										<AppIcon Name="check" Size="13" Class="btn-inline-icon" />
+										@Loc["Settings_Maia_Lc0PathSaved"]
+									</span>
 								}
 							</div>
 						</div>
@@ -778,11 +930,13 @@
 								<button class="btn-secondary btn-sm" disabled="@(_isDownloadingAnyMaia || !MaiaService.IsLc0Available)" @onclick="DownloadAllMaiaModelsAsync">
 									@if (_isDownloadingAnyMaia && _downloadingAllMaia)
 									{
+										<AppIcon Name="refresh" Size="13" Class="btn-inline-icon icon-spin" />
 										<span>@string.Format(Loc["Settings_Maia_DownloadAllProgress"], _downloadAllProgress)</span>
 									}
 									else
 									{
-										<span>⬇ @Loc["Settings_Maia_DownloadAll"]</span>
+										<AppIcon Name="download" Size="13" Class="btn-inline-icon" />
+										<span>@Loc["Settings_Maia_DownloadAll"]</span>
 									}
 								</button>
 							</div>
@@ -791,7 +945,8 @@
 						@if (!MaiaService.IsLc0Available)
 						{
 							<div class="maia-lc0-required-notice">
-								⚠️ @Loc["Settings_Maia_Lc0Required"]
+								<AppIcon Name="warning" Size="14" Class="alert-inline-icon" />
+								<span>@Loc["Settings_Maia_Lc0Required"]</span>
 							</div>
 						}
 
@@ -807,14 +962,26 @@
 									<div class="maia-model-action">
 										@if (m.IsDownloaded)
 										{
-											<span class="badge-installed">✓ @Loc["Settings_Maia_Installed"]</span>
+											<span class="badge-installed">
+												<AppIcon Name="check" Size="12" Class="btn-inline-icon" />
+												@Loc["Settings_Maia_Installed"]
+											</span>
 										}
 										else
 										{
 											<button class="btn-secondary-small"
 													disabled="@(_isDownloadingAnyMaia || !MaiaService.IsLc0Available)"
 													@onclick="() => DownloadSingleMaiaAsync(m.Rating)">
-												@(isDownloadingThis ? $"{_singleMaiaProgress}%" : $"⬇ {Loc["Settings_Maia_Download"]}")
+												@if (isDownloadingThis)
+												{
+													<AppIcon Name="refresh" Size="11" Class="btn-inline-icon icon-spin" />
+													<span>@_singleMaiaProgress%</span>
+												}
+												else
+												{
+													<AppIcon Name="download" Size="11" Class="btn-inline-icon" />
+													<span>@Loc["Settings_Maia_Download"]</span>
+												}
 											</button>
 										}
 									</div>
@@ -828,7 +995,12 @@
 			{
 				<div class="control-section-card">
 					<div class="card-section-header">
-						<h3 class="card-section-title">🏆 Syzygy Endgame Tablebases</h3>
+						<h3 class="card-section-title">
+							<span class="card-title-badge badge-theme-tablebases">
+								<AppIcon Name="tablebases" Size="16" />
+							</span>
+							Syzygy Endgame Tablebases
+						</h3>
 						<p class="card-section-desc">Evaluate 3-4-5-6-7 piece endgames with mathematical precision for exact Win/Draw/Loss and DTZ/DTM conversion metrics.</p>
 					</div>
 
@@ -852,24 +1024,44 @@
 									   placeholder="e.g. /home/user/chess/syzygy or C:\Chess\Syzygy"
 									   @bind="_localSyzygyPath"
 									   @bind:event="oninput" />
-								<button class="btn-primary" @onclick="SaveSyzygyPathAsync">💾 Save Path</button>
+								<button class="btn-primary" @onclick="SaveSyzygyPathAsync">
+									<AppIcon Name="save" Size="14" Class="btn-inline-icon" />
+									<span>Save Path</span>
+								</button>
 							</div>
 							<span class="field-hint">Folder containing local <code>.rtbw</code> and <code>.rtbz</code> tablebase files. Automatically configured for Stockfish UCI via <code>setoption name SyzygyPath</code>.</span>
 							@if (_syzygyPathSaved)
 							{
-								<span class="save-status-badge">✓ Syzygy path saved and applied to engine!</span>
+								<span class="save-status-badge">
+									<AppIcon Name="check" Size="13" Class="btn-inline-icon" />
+									Syzygy path saved and applied to engine!
+								</span>
 							}
 						</div>
 
 						<div class="form-field-block form-field-full">
-							<h4 class="card-section-subtitle">🔍 Test Tablebase Position</h4>
+							<h4 class="card-section-subtitle">
+								<span class="card-subtitle-badge badge-theme-blue">
+									<AppIcon Name="search" Size="13" />
+								</span>
+								Test Tablebase Position
+							</h4>
 							<div class="input-with-action-row">
 								<input class="field-input"
 									   placeholder="Enter endgame FEN (&le; 7 pieces)..."
 									   @bind="_testTbFen"
 									   @bind:event="oninput" />
 								<button class="btn-secondary" disabled="@_isProbingTb" @onclick="TestProbeFenAsync">
-									@(_isProbingTb ? "Probing..." : "⚡ Probe FEN")
+									@if (_isProbingTb)
+									{
+										<AppIcon Name="refresh" Size="14" Class="btn-inline-icon icon-spin" />
+										<span>Probing...</span>
+									}
+									else
+									{
+										<AppIcon Name="zap" Size="14" Class="btn-inline-icon" />
+										<span>Probe FEN</span>
+									}
 								</button>
 							</div>
 
@@ -906,7 +1098,12 @@
 			{
 				<div class="control-section-card">
 					<div class="card-section-header">
-						<h3 class="card-section-title">🌐 Online Games Sync Settings</h3>
+						<h3 class="card-section-title">
+							<span class="card-title-badge badge-theme-sync">
+								<AppIcon Name="sync" Size="16" />
+							</span>
+							Online Games Sync Settings
+						</h3>
 						<p class="card-section-desc">Manage game download limits and inspect synchronization history.</p>
 					</div>
 
@@ -953,11 +1150,17 @@
 						<div class="summary-label">Configured Handles:</div>
 						<div class="summary-handles-row">
 							<div class="summary-handle-item">
-								<span class="platform-badge platform-badge-lichess">♞ Lichess</span>
+								<span class="platform-badge platform-badge-lichess">
+									<AppIcon Name="knight" Size="13" Class="btn-inline-icon" />
+									Lichess
+								</span>
 								<span class="handle-name">@(!string.IsNullOrEmpty(_profile.LichessUsername) ? _profile.LichessUsername : "Not configured")</span>
 							</div>
 							<div class="summary-handle-item">
-								<span class="platform-badge platform-badge-chesscom">♟️ Chess.com</span>
+								<span class="platform-badge platform-badge-chesscom">
+									<AppIcon Name="pawn" Size="13" Class="btn-inline-icon" />
+									Chess.com
+								</span>
 								<span class="handle-name">@(!string.IsNullOrEmpty(_profile.ChessComUsername) ? _profile.ChessComUsername : "Not configured")</span>
 							</div>
 							<button class="btn-link" @onclick='() => SetCategory("profile")'>Edit in Profile ➔</button>
@@ -967,17 +1170,29 @@
 					@if (!_profile.HasLichess && !_profile.HasChessCom)
 					{
 						<div class="probe-feedback-box probe-error">
-							<span>⚠️ No online player handles configured yet. Please configure your Lichess or Chess.com username to enable game synchronization.</span>
+							<span>
+								<AppIcon Name="warning" Size="14" Class="alert-inline-icon" />
+								No online player handles configured yet. Please configure your Lichess or Chess.com username to enable game synchronization.
+							</span>
 							<button class="btn-secondary" @onclick='() => SetCategory("profile")'>Configure Handles ➔</button>
 						</div>
 					}
 
 					<div class="form-action-bar">
-						<button class="btn-secondary" @onclick="SaveSyncPreferencesAsync">Save Sync Preferences</button>
-						<button class="btn-primary" @onclick="() => _showSyncModal = true">🔄 Sync Online Games Now</button>
+						<button class="btn-secondary" @onclick="SaveSyncPreferencesAsync">
+							<AppIcon Name="save" Size="14" Class="btn-inline-icon" />
+							<span>Save Sync Preferences</span>
+						</button>
+						<button class="btn-primary" @onclick="() => _showSyncModal = true">
+							<AppIcon Name="refresh" Size="14" Class="btn-inline-icon" />
+							<span>Sync Online Games Now</span>
+						</button>
 						@if (_syncConfigSaved)
 						{
-							<span class="save-status-badge">✅ Preferences saved!</span>
+							<span class="save-status-badge">
+								<AppIcon Name="check-circle" Size="14" Class="btn-inline-icon" />
+								<span>Preferences saved!</span>
+							</span>
 						}
 					</div>
 				</div>
@@ -990,7 +1205,12 @@
 						<div class="about-brand-banner">
 							<img src="images/caissalytics-logo.svg" alt="Caissalytics" class="about-brand-logo" />
 						</div>
-						<h3 class="card-section-title">🚀 Application Updates &amp; About</h3>
+						<h3 class="card-section-title">
+							<span class="card-title-badge badge-theme-updates">
+								<AppIcon Name="updates" Size="16" />
+							</span>
+							Application Updates &amp; About
+						</h3>
 						<p class="card-section-desc">Manage desktop software updates, check GitHub releases, and view release notes.</p>
 					</div>
 
@@ -1040,19 +1260,32 @@
 
 					<div class="form-action-bar">
 						<button class="btn-primary" disabled="@_isCheckingUpdates" @onclick="CheckForUpdatesNowAsync">
-							@(_isCheckingUpdates ? "Checking..." : "🔍 Check for Updates Now")
+							@if (_isCheckingUpdates)
+							{
+								<AppIcon Name="refresh" Size="14" Class="btn-inline-icon icon-spin" />
+								<span>Checking...</span>
+							}
+							else
+							{
+								<AppIcon Name="search" Size="14" Class="btn-inline-icon" />
+								<span>Check for Updates Now</span>
+							}
 						</button>
 
 						@if (_latestUpdate != null && _latestUpdate.IsUpdateAvailable)
 						{
 							<button class="btn-primary" @onclick="() => _showUpdateDialogFromSettings = true">
-								🚀 View Release &amp; Install Update
+								<AppIcon Name="updates" Size="14" Class="btn-inline-icon" />
+								<span>View Release &amp; Install Update</span>
 							</button>
 						}
 
 						@if (_updateSettingsSaved)
 						{
-							<span class="save-status-badge">✅ Settings saved!</span>
+							<span class="save-status-badge">
+								<AppIcon Name="check-circle" Size="14" Class="btn-inline-icon" />
+								<span>Settings saved!</span>
+							</span>
 						}
 					</div>
 
@@ -1069,7 +1302,12 @@
 					<div class="section-divider"></div>
 
 					<div class="card-section-header">
-						<h4 class="card-section-subtitle">⚖️ License &amp; Project Info</h4>
+						<h4 class="card-section-subtitle">
+							<span class="card-subtitle-badge badge-theme-purple">
+								<AppIcon Name="scale" Size="13" />
+							</span>
+							License &amp; Project Info
+						</h4>
 						<p class="card-section-desc">
 							Caissalytics is free and open-source software licensed under the <strong>GNU General Public License v3.0 (GPLv3)</strong>.
 							Developed through an iterative pair-programming collaboration between human engineering and AI assistance.
@@ -1082,7 +1320,12 @@
 			{
 				<div class="control-section-card">
 					<div class="card-section-header">
-						<h3 class="card-section-title">🌐 @Loc["Settings_Lang_Title"]</h3>
+						<h3 class="card-section-title">
+							<span class="card-title-badge badge-theme-profile">
+								<AppIcon Name="globe" Size="16" />
+							</span>
+							@Loc["Settings_Lang_Title"]
+						</h3>
 						<p class="card-section-desc">@Loc["Settings_Lang_Desc"]</p>
 					</div>
 
@@ -1107,7 +1350,12 @@
 					<div class="section-divider"></div>
 
 					<div class="card-section-header">
-						<h3 class="card-section-title">🎨 @Loc["Settings_BoardThemes_Title"]</h3>
+						<h3 class="card-section-title">
+							<span class="card-title-badge badge-theme-appearance">
+								<AppIcon Name="appearance" Size="16" />
+							</span>
+							@Loc["Settings_BoardThemes_Title"]
+						</h3>
 						<p class="card-section-desc">@Loc["Settings_BoardThemes_Desc"]</p>
 					</div>
 
@@ -1137,7 +1385,12 @@
 					<div class="section-divider"></div>
 
 					<div class="card-section-header">
-						<h3 class="card-section-title">🔊 @Loc["Settings_SoundEngine_Title"]</h3>
+						<h3 class="card-section-title">
+							<span class="card-title-badge badge-theme-amber">
+								<AppIcon Name="sound" Size="16" />
+							</span>
+							@Loc["Settings_SoundEngine_Title"]
+						</h3>
 						<p class="card-section-desc">@Loc["Settings_SoundEngine_Desc"]</p>
 					</div>
 
@@ -1163,11 +1416,15 @@
 									<span class="volume-value-badge">@_appearanceSettings.Volume%</span>
 								</div>
 								<div class="volume-slider-row">
-									<span class="volume-icon">🔈</span>
+									<span class="volume-icon">
+										<AppIcon Name="sound-low" Size="16" />
+									</span>
 									<input type="range" class="volume-slider-input" min="0" max="100" step="5"
 										   value="@_appearanceSettings.Volume"
 										   @oninput="HandleVolumeChanged" />
-									<span class="volume-icon">🔊</span>
+									<span class="volume-icon">
+										<AppIcon Name="sound" Size="16" />
+									</span>
 								</div>
 							</div>
 
@@ -1182,7 +1439,8 @@
 											<span>@Loc["Settings_Sound_Move"]</span>
 										</label>
 										<button class="sound-test-btn" @onclick='() => TestSound(ChessSoundType.Move)' title="Test Move Sound">
-											<span>▶ @Loc["Settings_Sound_Test"]</span>
+											<AppIcon Name="play" Size="11" Class="btn-inline-icon" />
+											<span>@Loc["Settings_Sound_Test"]</span>
 										</button>
 									</div>
 
@@ -1194,7 +1452,8 @@
 											<span>@Loc["Settings_Sound_Capture"]</span>
 										</label>
 										<button class="sound-test-btn" @onclick='() => TestSound(ChessSoundType.Capture)' title="Test Capture Sound">
-											<span>▶ @Loc["Settings_Sound_Test"]</span>
+											<AppIcon Name="play" Size="11" Class="btn-inline-icon" />
+											<span>@Loc["Settings_Sound_Test"]</span>
 										</button>
 									</div>
 
@@ -1206,7 +1465,8 @@
 											<span>@Loc["Settings_Sound_Check"]</span>
 										</label>
 										<button class="sound-test-btn" @onclick='() => TestSound(ChessSoundType.Check)' title="Test Check Sound">
-											<span>▶ @Loc["Settings_Sound_Test"]</span>
+											<AppIcon Name="play" Size="11" Class="btn-inline-icon" />
+											<span>@Loc["Settings_Sound_Test"]</span>
 										</button>
 									</div>
 
@@ -1218,7 +1478,8 @@
 											<span>@Loc["Settings_Sound_Victory"]</span>
 										</label>
 										<button class="sound-test-btn" @onclick='() => TestSound(ChessSoundType.Victory)' title="Test Victory Sound">
-											<span>▶ @Loc["Settings_Sound_Test"]</span>
+											<AppIcon Name="play" Size="11" Class="btn-inline-icon" />
+											<span>@Loc["Settings_Sound_Test"]</span>
 										</button>
 									</div>
 
@@ -1230,7 +1491,8 @@
 											<span>@Loc["Settings_Sound_LowTime"]</span>
 										</label>
 										<button class="sound-test-btn" @onclick='() => TestSound(ChessSoundType.LowTime)' title="Test Low Time Sound">
-											<span>▶ @Loc["Settings_Sound_Test"]</span>
+											<AppIcon Name="play" Size="11" Class="btn-inline-icon" />
+											<span>@Loc["Settings_Sound_Test"]</span>
 										</button>
 									</div>
 								</div>
@@ -1239,11 +1501,15 @@
 
 						<div class="form-action-row">
 							<button class="btn btn-primary" @onclick="SaveAppearanceSettingsAsync">
-								💾 @Loc["Common_Save"]
+								<AppIcon Name="save" Size="14" Class="btn-inline-icon" />
+								<span>@Loc["Common_Save"]</span>
 							</button>
 							@if (_appearanceSettingsSaved)
 							{
-								<span class="save-status-badge">@Loc["Common_PreferencesSaved"]</span>
+								<span class="save-status-badge">
+									<AppIcon Name="check" Size="13" Class="btn-inline-icon" />
+									<span>@Loc["Common_PreferencesSaved"]</span>
+								</span>
 							}
 						</div>
 					</div>
@@ -1271,13 +1537,22 @@
 			</div>
 			<div class="modal-body">
 				<div class="modal-warning-box">
-					<div class="modal-warning-title">⚠️ @Loc["Engine_RemoveConfirm_Warning"]</div>
+					<div class="modal-warning-title">
+						<AppIcon Name="warning" Size="16" Class="alert-inline-icon" />
+						<span>@Loc["Engine_RemoveConfirm_Warning"]</span>
+					</div>
 					<div>@Loc["Engine_RemoveConfirm_Question", _engineToRemove.Name]</div>
 					<div class="modal-game-summary">
-						<span>⚙️ @_engineToRemove.Name @(!string.IsNullOrEmpty(_engineToRemove.Version) ? $"v{_engineToRemove.Version}" : "")</span>
+						<span>
+							<AppIcon Name="engines" Size="14" Class="btn-inline-icon" />
+							@_engineToRemove.Name @(!string.IsNullOrEmpty(_engineToRemove.Version) ? $"v{_engineToRemove.Version}" : "")
+						</span>
 						@if (!string.IsNullOrEmpty(_engineToRemove.ExecutablePath))
 						{
-							<span class="engine-path-truncate" title="@_engineToRemove.ExecutablePath">📁 @_engineToRemove.ExecutablePath</span>
+							<span class="engine-path-truncate" title="@_engineToRemove.ExecutablePath">
+								<AppIcon Name="folder" Size="14" Class="btn-inline-icon" />
+								@_engineToRemove.ExecutablePath
+							</span>
 						}
 					</div>
 					@if (_engineToRemove.IsActive)
@@ -1290,7 +1565,10 @@
 			</div>
 			<div class="modal-footer">
 				<button class="btn-secondary" @onclick="CancelRemoveEngine">@Loc["Common_Cancel"]</button>
-				<button class="btn-danger" @onclick="ConfirmRemoveEngineAsync">🗑️ @Loc["Engine_RemoveConfirm_Btn"]</button>
+				<button class="btn-danger" @onclick="ConfirmRemoveEngineAsync">
+					<AppIcon Name="trash" Size="14" Class="btn-inline-icon" />
+					<span>@Loc["Engine_RemoveConfirm_Btn"]</span>
+				</button>
 			</div>
 		</div>
 	</div>

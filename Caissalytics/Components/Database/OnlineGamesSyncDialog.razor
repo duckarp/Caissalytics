@@ -1,5 +1,6 @@
 @namespace Caissalytics.Components.Database
 @using Caissalytics.Data
+@using Caissalytics.Components.Icons
 @inject IOnlineGameSyncService SyncService
 @inject IDatabaseService DatabaseService
 
@@ -9,7 +10,9 @@
 		<div class="modal-dialog modal-dialog-large" @onclick:stopPropagation="true">
 			<div class="modal-header">
 				<div class="sync-modal-title-group">
-					<span class="sync-modal-icon">🌐</span>
+					<span class="sync-modal-icon">
+						<AppIcon Name="sync" Size="20" />
+					</span>
 					<h3 class="modal-title">Sync My Online Games</h3>
 				</div>
 				<button class="modal-close-btn" @onclick="CloseDialog">✕</button>
@@ -40,17 +43,19 @@
 					<div class="reference-empty-state">
 						@if (_result.Success)
 						{
-							<span class="empty-state-icon">✅</span>
+							<span class="empty-state-icon" style="color: #22c55e;">
+								<AppIcon Name="check-circle" Size="36" />
+							</span>
 							<h4>Sync Completed!</h4>
 							<p>Successfully synced online games into <strong>@SyncService.OnlineGamesDatabaseName</strong> in @_result.Duration.ToString(@"mm\:ss").</p>
 
 							<div class="sync-breakdown-card">
 								<div class="sync-breakdown-row">
-									<span>♞ Lichess Games Added:</span>
+									<span><AppIcon Name="knight" Size="13" Class="btn-inline-icon" /> Lichess Games Added:</span>
 									<span class="sync-stat-number">@_result.TotalLichessGames</span>
 								</div>
 								<div class="sync-breakdown-row">
-									<span>♟️ Chess.com Games Added:</span>
+									<span><AppIcon Name="pawn" Size="13" Class="btn-inline-icon" /> Chess.com Games Added:</span>
 									<span class="sync-stat-number">@_result.TotalChessComGames</span>
 								</div>
 								<div class="sync-breakdown-row sync-breakdown-total">
@@ -61,7 +66,9 @@
 						}
 						else
 						{
-							<span class="empty-state-icon">⚠️</span>
+							<span class="empty-state-icon" style="color: #f59e0b;">
+								<AppIcon Name="warning" Size="36" />
+							</span>
 							<h4>Sync Finished with Issues</h4>
 						}
 
@@ -70,7 +77,10 @@
 							<div class="sync-error-list">
 								@foreach (var err in _result.Errors)
 								{
-									<div class="sync-error-item">⚠️ @err</div>
+									<div class="sync-error-item">
+										<AppIcon Name="warning" Size="14" Class="alert-inline-icon" />
+										@err
+									</div>
 								}
 							</div>
 						}
@@ -79,7 +89,9 @@
 				else
 				{
 					<div class="sync-target-info-card">
-						<div class="sync-target-icon">📁</div>
+						<div class="sync-target-icon">
+							<AppIcon Name="database" Size="20" />
+						</div>
 						<div class="sync-target-details">
 							<div class="sync-target-title">Target Database: <strong>@SyncService.OnlineGamesDatabaseName</strong></div>
 							<div class="sync-target-subtitle">
@@ -98,7 +110,10 @@
 					<div class="modal-form-group">
 						<div class="platform-input-header">
 							<div class="platform-label-group">
-								<span class="platform-badge platform-badge-lichess">♞ Lichess</span>
+								<span class="platform-badge platform-badge-lichess">
+									<AppIcon Name="knight" Size="13" Class="btn-inline-icon" />
+									Lichess
+								</span>
 								<span class="filter-label">Username</span>
 							</div>
 						</div>
@@ -111,7 +126,10 @@
 					<div class="modal-form-group">
 						<div class="platform-input-header">
 							<div class="platform-label-group">
-								<span class="platform-badge platform-badge-chesscom">♟️ Chess.com</span>
+								<span class="platform-badge platform-badge-chesscom">
+									<AppIcon Name="pawn" Size="13" Class="btn-inline-icon" />
+									Chess.com
+								</span>
 								<span class="filter-label">Username</span>
 							</div>
 						</div>
@@ -132,7 +150,9 @@
 					</div>
 
 					<div class="sync-notice-box">
-						<span class="sync-notice-icon">💡</span>
+						<span class="sync-notice-icon">
+							<AppIcon Name="lightbulb" Size="14" />
+						</span>
 						<span class="sync-notice-text">
 							Games are automatically deduplicated by URL. Subsequent syncs will quickly skip existing games and only import newly played games.
 						</span>
@@ -158,7 +178,10 @@
 				else
 				{
 					<button class="btn-secondary" @onclick="CloseDialog">Cancel</button>
-					<button class="btn-primary" disabled="@(!CanSync)" @onclick="StartSyncAsync">Sync Now</button>
+					<button class="btn-primary" disabled="@(!CanSync)" @onclick="StartSyncAsync">
+						<AppIcon Name="refresh" Size="14" Class="btn-inline-icon" />
+						<span>Sync Now</span>
+					</button>
 				}
 			</div>
 		</div>

@@ -1,5 +1,6 @@
 @namespace Caissalytics.Components.Settings
 @using Caissalytics.Data
+@using Caissalytics.Components.Icons
 @inject IUpdateService UpdateService
 
 @if (IsOpen && Update != null)
@@ -8,7 +9,9 @@
 		<div class="modal-dialog update-dialog-modal" @onclick:stopPropagation="true">
 			<div class="modal-header">
 				<div class="update-header-info">
-					<span class="update-header-icon">🚀</span>
+					<span class="update-header-icon">
+						<AppIcon Name="updates" Size="20" />
+					</span>
 					<div>
 						<h3 class="modal-title">Caissalytics Update Available</h3>
 						<p class="modal-subtitle">A newer version of Caissalytics is ready for download.</p>
@@ -78,7 +81,9 @@
 				@if (_isDownloaded)
 				{
 					<div class="update-ready-banner">
-						<span class="ready-icon">✅</span>
+						<span class="ready-icon">
+							<AppIcon Name="check-circle" Size="20" />
+						</span>
 						<div class="ready-content">
 							<span class="ready-title">Update Ready to Apply!</span>
 							<span class="ready-desc">Clicking "Restart &amp; Update" will close Caissalytics, apply the new version, and relaunch automatically.</span>
@@ -89,7 +94,8 @@
 				@if (!string.IsNullOrEmpty(_errorMessage))
 				{
 					<div class="update-error-banner">
-						<span>⚠️ @_errorMessage</span>
+						<AppIcon Name="warning" Size="16" Class="alert-inline-icon" />
+						<span>@_errorMessage</span>
 					</div>
 				}
 			</div>
@@ -101,7 +107,10 @@
 
 				@if (_isDownloaded)
 				{
-					<button class="btn-primary" @onclick="ApplyAndRestart">Restart &amp; Update Now</button>
+					<button class="btn-primary" @onclick="ApplyAndRestart">
+						<AppIcon Name="refresh" Size="14" Class="btn-inline-icon" />
+						<span>Restart &amp; Update Now</span>
+					</button>
 				}
 				else if (_isDownloading)
 				{
@@ -109,7 +118,10 @@
 				}
 				else
 				{
-					<button class="btn-primary" @onclick="StartDownloadAsync">Download &amp; Install</button>
+					<button class="btn-primary" @onclick="StartDownloadAsync">
+						<AppIcon Name="download" Size="14" Class="btn-inline-icon" />
+						<span>Download &amp; Install</span>
+					</button>
 				}
 			</div>
 		</div>
