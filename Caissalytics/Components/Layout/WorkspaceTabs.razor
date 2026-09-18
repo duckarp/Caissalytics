@@ -21,7 +21,7 @@
 			<button class="header-update-pill"
 					title="New version v@(_availableUpdate.LatestVersion) is available! Click to update."
 					@onclick="() => _showUpdateDialog = true">
-				<span class="update-pill-icon">🚀</span>
+				<span class="update-pill-icon"><AppIcon Name="updates" Size="14" /></span>
 				<span class="update-pill-text">@Loc["Nav_Update", _availableUpdate.LatestVersion]</span>
 			</button>
 		}
@@ -30,7 +30,7 @@
 			<button class="btn-secondary header-db-btn"
 					title="Active Database: @_activeDb.Name (@_activeDb.GameCount.ToString("N0") games, @_activeDb.FormattedSize) - Click to explore"
 					@onclick="() => Workspace.CreateDatabaseTab()">
-				<span class="header-db-icon">🗄️</span>
+				<span class="header-db-icon"><AppIcon Name="databases" Size="15" /></span>
 				<span class="header-db-name">@_activeDb.Name</span>
 				<span class="header-db-details">(@_activeDb.GameCount.ToString("N0") games, @_activeDb.FormattedSize)</span>
 			</button>
@@ -40,17 +40,14 @@
 			<button class="btn-secondary header-db-btn"
 					title="Open Database"
 					@onclick="() => Workspace.CreateDatabaseTab()">
-				<span class="header-db-icon">🗄️</span>
+				<span class="header-db-icon"><AppIcon Name="databases" Size="15" /></span>
 				<span class="header-db-name">@Loc["Nav_Database"]</span>
 			</button>
 		}
 		<button class="btn-secondary header-messages-btn @(_unreadMessagesCount > 0 ? "has-unread" : "")"
 				title="@Loc["Nav_Messages_Tooltip"]"
 				@onclick="() => Workspace.CreateMessagesTab()">
-			<svg class="header-btn-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-				<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-				<polyline points="22,6 12,13 2,6"/>
-			</svg>
+			<AppIcon Name="messages" Size="16" Class="header-btn-icon" />
 			<span class="header-messages-label">@Loc["Nav_Messages"]</span>
 			@if (_unreadMessagesCount > 0)
 			{
@@ -60,10 +57,13 @@
 		<button class="btn-secondary header-control-btn"
 				title="Open Settings & Control Center (User profile, engine management, sync accounts)"
 				@onclick="() => Workspace.CreateSettingsTab()">
-			<span>⚙️</span>
+			<span class="header-control-icon"><AppIcon Name="settings" Size="15" /></span>
 			<span class="header-control-label">@Loc["Nav_ControlCenter"]</span>
 		</button>
-		<button class="btn-primary" @onclick="() => Workspace.CreateAnalysisTab()">@Loc["Nav_NewBoard"]</button>
+		<button class="btn-primary" @onclick="() => Workspace.CreateAnalysisTab()">
+			<AppIcon Name="plus" Size="14" Class="btn-icon-plus" />
+			<span>@Loc["Nav_NewBoard"]</span>
+		</button>
 	</div>
 </header>
 
@@ -75,26 +75,8 @@
 			string tabClass = isActive ? "workspace-tab tab-active" : "workspace-tab";
 
 			<button class="@tabClass" @onclick="() => Workspace.SelectTab(tab.Id)">
-				<span class="tab-icon">
-					@if (tab is ClubMessagesTab)
-					{
-						<svg class="tab-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 2px;">
-							<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-							<polyline points="22,6 12,13 2,6"/>
-						</svg>
-					}
-					else if (tab is ClubHomeworkTab)
-					{
-						<svg class="tab-svg-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 2px;">
-							<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-							<polyline points="8 13 12 17 16 13"/>
-							<line x1="12" y1="9" x2="12" y2="17"/>
-						</svg>
-					}
-					else
-					{
-						@tab.Icon
-					}
+				<span class="tab-icon @GetTabColorClass(tab)">
+					<AppIcon Name="@GetTabIconName(tab)" Size="14" />
 				</span>
 				<span>@GetTabTitle(tab)</span>
 				@if (tab.CanClose)
@@ -210,6 +192,42 @@
 			Workspace.SelectTab(dash.Id);
 		}
 	}
+
+	private static string GetTabIconName(WorkspaceTab tab) => tab switch
+	{
+		DashboardTab => "home",
+		AnalysisTab => "analysis",
+		DatabaseBrowserTab => "databases",
+		SettingsTab => "settings",
+		AnalyticsTab => "analytics",
+		PuzzleTrainerTab => "puzzles",
+		RepertoireExplorerTab => "repertoire",
+		OpponentDossierTab => "dossier",
+		EndgameTrainerTab => "endgames",
+		PracticeTab => "practice",
+		HomeworkTab => "homework",
+		ClubHomeworkTab => "club-homework",
+		ClubMessagesTab => "messages",
+		_ => "analysis"
+	};
+
+	private static string GetTabColorClass(WorkspaceTab tab) => tab switch
+	{
+		DashboardTab => "tab-icon-home",
+		AnalysisTab => "tab-icon-analysis",
+		DatabaseBrowserTab => "tab-icon-databases",
+		SettingsTab => "tab-icon-settings",
+		AnalyticsTab => "tab-icon-analytics",
+		PuzzleTrainerTab => "tab-icon-puzzles",
+		RepertoireExplorerTab => "tab-icon-repertoire",
+		OpponentDossierTab => "tab-icon-dossier",
+		EndgameTrainerTab => "tab-icon-endgames",
+		PracticeTab => "tab-icon-practice",
+		HomeworkTab => "tab-icon-homework",
+		ClubHomeworkTab => "tab-icon-club-homework",
+		ClubMessagesTab => "tab-icon-messages",
+		_ => ""
+	};
 
 	public void Dispose()
 	{

@@ -242,9 +242,56 @@
 }
 
 .tab-icon {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  opacity: 0.8;
+  justify-content: center;
+  margin-right: 2px;
+}
+
+.workspace-tab.tab-active .tab-icon {
+  opacity: 1;
+  filter: drop-shadow(0 0 6px currentColor);
+}
+
+.workspace-tab:not(.tab-active) .tab-icon {
+  opacity: 0.75;
+}
+
+/* Vibrant Tab Icon Colors */
+.tab-icon-home { color: #38bdf8; }
+.tab-icon-analysis { color: #22d3ee; }
+.tab-icon-databases { color: #818cf8; }
+.tab-icon-settings { color: #cbd5e1; }
+.tab-icon-analytics { color: #60a5fa; }
+.tab-icon-puzzles { color: #fbbf24; }
+.tab-icon-repertoire { color: #fb7185; }
+.tab-icon-dossier { color: #c084fc; }
+.tab-icon-endgames { color: #facc15; }
+.tab-icon-practice { color: #a3e635; }
+.tab-icon-homework { color: #2dd4bf; }
+.tab-icon-club-homework { color: #5eead4; }
+.tab-icon-messages { color: #38bdf8; }
+
+.header-db-icon {
+  display: inline-flex;
+  align-items: center;
+  color: #818cf8;
+}
+
+.header-control-icon {
+  display: inline-flex;
+  align-items: center;
+  color: #cbd5e1;
+}
+
+.update-pill-icon {
+  display: inline-flex;
+  align-items: center;
+  color: #22d3ee;
+}
+
+.btn-icon-plus {
+  margin-right: 4px;
 }
 
 .tab-close-btn {

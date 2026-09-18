@@ -20,7 +20,7 @@
 <div class="control-center-container">
 	<div class="control-center-header">
 		<div class="control-title-group">
-			<span class="control-header-icon">⚙️</span>
+			<span class="control-header-icon"><AppIcon Name="settings" Size="22" /></span>
 			<div>
 				<h2 class="control-heading">@Loc["Settings_Title"]</h2>
 				<p class="control-subtitle">@Loc["Settings_Subtitle"]</p>
@@ -32,7 +32,7 @@
 		<aside class="control-sidebar">
 			<nav class="control-nav-menu">
 				<button class="@GetNavClass("profile")" @onclick='() => SetCategory("profile")'>
-					<span class="nav-item-icon">👤</span>
+					<span class="nav-item-icon nav-icon-profile"><AppIcon Name="profile" Size="18" /></span>
 					<div class="nav-item-content">
 						<span class="nav-item-title">@Loc["Settings_Nav_Profile"]</span>
 						<span class="nav-item-desc">@Loc["Settings_Nav_Profile_Desc"]</span>
@@ -40,7 +40,7 @@
 				</button>
 
 				<button class="@GetNavClass("club")" @onclick='() => SetCategory("club")'>
-					<span class="nav-item-icon">🏛️</span>
+					<span class="nav-item-icon nav-icon-club"><AppIcon Name="club" Size="18" /></span>
 					<div class="nav-item-content">
 						<span class="nav-item-title">@Loc["Settings_Nav_Club"]</span>
 						<span class="nav-item-desc">@Loc["Settings_Nav_Club_Desc"]</span>
@@ -48,7 +48,7 @@
 				</button>
 
 				<button class="@GetNavClass("appearance")" @onclick='() => SetCategory("appearance")'>
-					<span class="nav-item-icon">🎨</span>
+					<span class="nav-item-icon nav-icon-appearance"><AppIcon Name="appearance" Size="18" /></span>
 					<div class="nav-item-content">
 						<span class="nav-item-title">@Loc["Settings_Nav_Appearance"]</span>
 						<span class="nav-item-desc">@Loc["Settings_Nav_Appearance_Desc"]</span>
@@ -56,7 +56,7 @@
 				</button>
 
 				<button class="@GetNavClass("engines")" @onclick='() => SetCategory("engines")'>
-					<span class="nav-item-icon">⚙️</span>
+					<span class="nav-item-icon nav-icon-engines"><AppIcon Name="engines" Size="18" /></span>
 					<div class="nav-item-content">
 						<span class="nav-item-title">@Loc["Settings_Nav_Engines"]</span>
 						<span class="nav-item-desc">@Loc["Settings_Nav_Engines_Desc"]</span>
@@ -64,7 +64,7 @@
 				</button>
 
 				<button class="@GetNavClass("tablebases")" @onclick='() => SetCategory("tablebases")'>
-					<span class="nav-item-icon">🏆</span>
+					<span class="nav-item-icon nav-icon-tablebases"><AppIcon Name="tablebases" Size="18" /></span>
 					<div class="nav-item-content">
 						<span class="nav-item-title">@Loc["Settings_Nav_Tablebases"]</span>
 						<span class="nav-item-desc">@Loc["Settings_Nav_Tablebases_Desc"]</span>
@@ -72,7 +72,7 @@
 				</button>
 
 				<button class="@GetNavClass("sync")" @onclick='() => SetCategory("sync")'>
-					<span class="nav-item-icon">🌐</span>
+					<span class="nav-item-icon nav-icon-sync"><AppIcon Name="sync" Size="18" /></span>
 					<div class="nav-item-content">
 						<span class="nav-item-title">@Loc["Settings_Nav_Sync"]</span>
 						<span class="nav-item-desc">@Loc["Settings_Nav_Sync_Desc"]</span>
@@ -80,7 +80,7 @@
 				</button>
 
 				<button class="@GetNavClass("updates")" @onclick='() => SetCategory("updates")'>
-					<span class="nav-item-icon">🚀</span>
+					<span class="nav-item-icon nav-icon-updates"><AppIcon Name="updates" Size="18" /></span>
 					<div class="nav-item-content">
 						<span class="nav-item-title">@Loc["Settings_Nav_Updates"]</span>
 						<span class="nav-item-desc">@Loc["Settings_Nav_Updates_Desc"]</span>
