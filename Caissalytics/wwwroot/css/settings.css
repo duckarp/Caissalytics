@@ -134,6 +134,24 @@
   margin-bottom: 20px;
 }
 
+.about-brand-banner {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, rgba(14, 17, 23, 0.6) 0%, rgba(22, 27, 34, 0.7) 100%);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.about-brand-logo {
+  height: 52px;
+  max-width: 280px;
+  width: auto;
+  filter: drop-shadow(0 2px 8px rgba(6, 182, 212, 0.25));
+}
+
 .card-section-title {
   font-size: 16px;
   font-weight: 700;

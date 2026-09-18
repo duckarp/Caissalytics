@@ -7,19 +7,52 @@
   border-bottom: 1px solid var(--border-subtle);
   padding: 0 16px;
   user-select: none;
+  gap: 12px;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .app-brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  cursor: pointer;
+  user-select: none;
+  flex-shrink: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.app-brand:hover {
+  opacity: 0.92;
+}
+
+.brand-logo-icon {
+  width: 22px;
+  height: 26px;
+  object-fit: contain;
+  filter: drop-shadow(0 1px 4px rgba(6, 182, 212, 0.35));
+  flex-shrink: 0;
 }
 
 .brand-title {
+  display: inline-flex;
+  align-items: baseline;
   font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.brand-caissa {
+  font-weight: 800;
+  letter-spacing: -0.01em;
   color: var(--text-primary);
+}
+
+.brand-lytics {
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  color: var(--brand-sky);
+  margin-left: 1px;
 }
 
 .brand-badge {
@@ -32,12 +65,20 @@
   color: var(--text-secondary);
   border: 1px solid var(--border-subtle);
   font-family: var(--font-mono);
+  white-space: nowrap;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.header-actions button {
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Header Active Database Badge Button */
@@ -45,13 +86,14 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 14px;
+  padding: 6px 12px;
   background-color: var(--bg-surface-elevated);
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
+  max-width: 340px;
   transition: all var(--transition-fast);
 }
 
@@ -63,12 +105,13 @@
 .header-db-icon {
   font-size: 14px;
   line-height: 1;
+  flex-shrink: 0;
 }
 
 .header-db-name {
   font-weight: 600;
   color: var(--text-primary);
-  max-width: 180px;
+  max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -79,12 +122,6 @@
   font-family: var(--font-mono);
   color: var(--text-muted);
   white-space: nowrap;
-}
-
-@media (max-width: 768px) {
-  .header-db-details {
-    display: none;
-  }
 }
 
 /* Header Control Center Button */
@@ -112,9 +149,49 @@
   font-size: 13px;
 }
 
-@media (max-width: 640px) {
+/* Responsive collapse rules for smaller window widths */
+@media (max-width: 1300px) {
+  .header-db-details {
+    display: none;
+  }
+}
+
+@media (max-width: 1200px) {
+  .header-messages-label {
+    display: none;
+  }
+  .header-db-name {
+    max-width: 110px;
+  }
+}
+
+@media (max-width: 1100px) {
   .header-control-label {
     display: none;
+  }
+  .update-pill-text {
+    display: none;
+  }
+  .header-actions {
+    gap: 6px;
+  }
+  .header-db-btn,
+  .header-control-btn,
+  .header-messages-btn {
+    padding: 6px 9px;
+  }
+}
+
+@media (max-width: 1020px) {
+  .brand-badge {
+    display: none;
+  }
+  .header-db-name {
+    max-width: 85px;
+  }
+  .app-header {
+    padding: 0 10px;
+    gap: 8px;
   }
 }
 

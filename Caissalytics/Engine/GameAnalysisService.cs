@@ -23,6 +23,19 @@ public class GameAnalysisService : IGameAnalysisService
             throw new InvalidOperationException("Stockfish engine is not installed or available. Please install it from the Dashboard.");
         }
 
+        // If the current mainline is shorter than another branch in the tree (e.g. from takebacks or variations),
+        // promote the deepest branch to mainline so the full game is analyzed.
+        var deepestLeaf = tree.FindDeepestLeaf();
+        if (deepestLeaf != null && !deepestLeaf.IsMainline && GameTree.GetDepth(deepestLeaf) > tree.GetMainlineDepth())
+        {
+            tree.PromoteVariation(deepestLeaf);
+        }
+        else if (tree.CurrentNode != null && !tree.CurrentNode.IsRoot && !tree.CurrentNode.IsMainline)
+        {
+            // Or if user actively navigated to a variation, promote it to mainline for analysis
+            tree.PromoteVariation(tree.CurrentNode);
+        }
+
         // Collect mainline nodes
         var mainlineNodes = new List<MoveNode>();
         var curr = tree.Root;

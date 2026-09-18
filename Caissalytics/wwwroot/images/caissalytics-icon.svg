@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="100%" height="100%" fill="none">
+  <defs>
+    <!-- Brand Cyan-to-Sky Gradient -->
+    <linearGradient id="iconGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22d3ee" />
+      <stop offset="50%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+
+    <!-- Arrow Highlight Gradient -->
+    <linearGradient id="iconTrend" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+  </defs>
+
+  <!-- Knight Head & Mane -->
+  <path d="M 125,24
+           C 120,24 114,29 113,37
+           C 112,43 114,50 111,56
+           C 108,62 96,68 83,76
+           L 68,87
+           C 61,93 61,102 66,108
+           L 78,124
+           C 82,129 89,131 94,127
+           L 106,118
+           C 110,115 113,118 113,123
+           C 110,146 102,168 87,188
+           L 173,188
+           C 178,165 183,134 181,106
+           C 179,72 164,42 142,29
+           C 137,25 131,24 125,24 Z"
+        fill="url(#iconGradient)" />
+
+  <!-- Forehead highlight curve -->
+  <path d="M 110,38
+           C 109,43 112,48 108,54
+           C 104,61 93,67 80,74
+           L 73,79
+           C 68,83 67,89 71,93
+           L 81,104
+           C 83,106 86,106 88,104
+           L 100,94
+           C 104,90 110,93 109,99
+           C 107,115 103,135 93,153
+           L 113,153
+           C 121,135 125,115 125,98
+           C 125,73 119,51 110,38 Z"
+        fill="#ffffff"
+        opacity="0.25" />
+
+  <!-- Eye cutout -->
+  <polygon points="89,80 102,75 98,84" fill="#090d16" />
+
+  <!-- Pedestal Collar -->
+  <path d="M 74,188
+           L 186,188
+           C 191,188 194,192 193,197
+           L 190,206
+           C 188,210 184,213 180,213
+           L 80,213
+           C 76,213 72,210 70,206
+           L 67,197
+           C 66,192 69,188 74,188 Z"
+        fill="url(#iconGradient)" />
+
+  <!-- Pedestal Chessboard Grid -->
+  <path d="M 72,216
+           L 188,216
+           C 192,216 195,219 193,224
+           L 183,246
+           C 181,250 177,253 172,253
+           L 88,253
+           C 83,253 79,250 77,246
+           L 67,224
+           C 65,219 68,216 72,216 Z"
+        fill="url(#iconGradient)" />
+
+  <!-- Grid lines -->
+  <line x1="68" y1="234" x2="192" y2="234" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.85" />
+  <line x1="94" y1="216" x2="92" y2="253" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.85" />
+  <line x1="118" y1="216" x2="117" y2="253" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.85" />
+  <line x1="142" y1="216" x2="143" y2="253" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.85" />
+  <line x1="166" y1="216" x2="168" y2="253" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.85" />
+
+  <!-- Trendline Polyline with Stroke Cutout -->
+  <polyline points="90,192 142,136 176,156 238,76"
+            stroke="#090d16"
+            stroke-width="14"
+            stroke-linecap="round"
+            stroke-linejoin="round" />
+  <polyline points="90,192 142,136 176,156 238,76"
+            stroke="url(#iconTrend)"
+            stroke-width="9"
+            stroke-linecap="round"
+            stroke-linejoin="round" />
+
+  <!-- Nodes -->
+  <circle cx="142" cy="136" r="8" fill="#090d16" />
+  <circle cx="142" cy="136" r="5" fill="#22d3ee" />
+  <circle cx="142" cy="136" r="2" fill="#ffffff" />
+
+  <circle cx="176" cy="156" r="8" fill="#090d16" />
+  <circle cx="176" cy="156" r="5" fill="#22d3ee" />
+  <circle cx="176" cy="156" r="2" fill="#ffffff" />
+
+  <!-- Arrowhead -->
+  <polygon points="244,66 216,74 229,87" fill="#090d16" />
+  <polygon points="248,60 210,70 230,90" fill="url(#iconTrend)" />
+</svg>

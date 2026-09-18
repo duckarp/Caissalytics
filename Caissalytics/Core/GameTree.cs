@@ -123,14 +123,73 @@ public class GameTree
 
     public void PromoteVariation(MoveNode node)
     {
-        if (node.Parent == null) return;
-        int idx = node.Parent.Children.IndexOf(node);
-        if (idx > 0)
+        var curr = node;
+        bool changed = false;
+        while (curr.Parent != null)
         {
-            node.Parent.Children.RemoveAt(idx);
-            node.Parent.Children.Insert(0, node);
+            int idx = curr.Parent.Children.IndexOf(curr);
+            if (idx > 0)
+            {
+                curr.Parent.Children.RemoveAt(idx);
+                curr.Parent.Children.Insert(0, curr);
+                changed = true;
+            }
+            curr = curr.Parent;
+        }
+        if (changed)
+        {
             PositionChanged?.Invoke();
         }
+    }
+
+    public MoveNode? FindDeepestLeaf()
+    {
+        return FindDeepestLeaf(Root);
+    }
+
+    private static MoveNode? FindDeepestLeaf(MoveNode node)
+    {
+        if (node.Children.Count == 0) return node.IsRoot ? null : node;
+        MoveNode? best = null;
+        int bestDepth = -1;
+        foreach (var child in node.Children)
+        {
+            var leaf = FindDeepestLeaf(child);
+            if (leaf != null)
+            {
+                int depth = GetDepth(leaf);
+                if (depth > bestDepth)
+                {
+                    bestDepth = depth;
+                    best = leaf;
+                }
+            }
+        }
+        return best;
+    }
+
+    public int GetMainlineDepth()
+    {
+        int depth = 0;
+        var curr = Root;
+        while (curr.Children.Count > 0)
+        {
+            depth++;
+            curr = curr.Children[0];
+        }
+        return depth;
+    }
+
+    public static int GetDepth(MoveNode node)
+    {
+        int depth = 0;
+        var curr = node;
+        while (curr.Parent != null)
+        {
+            depth++;
+            curr = curr.Parent;
+        }
+        return depth;
     }
 
     public void DeleteSubtree(MoveNode node)

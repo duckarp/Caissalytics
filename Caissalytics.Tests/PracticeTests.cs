@@ -124,4 +124,46 @@ public class PracticeTests
         Assert.NotEmpty(tab.Tree.Root.Children);
         Assert.Single(tab.Tree.Root.Children);
     }
+
+    [Fact]
+    public void PracticeTab_Takeback_RemovesUndoneSubtreeLeavingCleanMainline()
+    {
+        var tab = new PracticeTab(playerColor: PieceColor.White);
+        // Player plays e4
+        var e4 = tab.Tree.AddMoveSan("e4");
+        // Bot plays e5
+        var e5 = tab.Tree.AddMoveSan("e5");
+
+        Assert.Equal(2, tab.Tree.GetMainlineDepth());
+        Assert.Single(tab.Tree.Root.Children);
+
+        // Simulate takeback: rewind to player's turn and delete branch
+        MoveNode? branchToDelete = null;
+        var node = tab.Tree.CurrentNode;
+        while (node.Parent != null)
+        {
+            branchToDelete = node;
+            node = node.Parent;
+            if (node.Position.ActiveColor == tab.PlayerColor)
+            {
+                break;
+            }
+        }
+
+        Assert.NotNull(branchToDelete);
+        Assert.Equal(e4, branchToDelete);
+        tab.Tree.NavigateTo(branchToDelete.Parent!);
+        tab.Tree.DeleteSubtree(branchToDelete);
+
+        // Root should now have 0 children!
+        Assert.Empty(tab.Tree.Root.Children);
+        Assert.Equal(tab.Tree.Root, tab.Tree.CurrentNode);
+        Assert.Equal(PieceColor.White, tab.Tree.CurrentNode.Position.ActiveColor);
+
+        // Player now plays d4 -> it is Children[0], clean mainline!
+        var d4 = tab.Tree.AddMoveSan("d4");
+        Assert.Single(tab.Tree.Root.Children);
+        Assert.Equal(d4, tab.Tree.Root.Children[0]);
+        Assert.True(d4!.IsMainline);
+    }
 }

@@ -360,6 +360,20 @@
 		// Verify it's user's turn
 		if (Tab.Tree.CurrentNode.Position.ActiveColor != Tab.PlayerColor) return;
 
+		// If user plays a different move from an earlier position in a practice match,
+		// prune any abandoned future moves so the game tree stays a clean single match.
+		var existing = Tab.Tree.CurrentNode.Children.FirstOrDefault(c =>
+			c.Move.From == move.From && c.Move.To == move.To && c.Move.Promotion == move.Promotion);
+
+		if (existing == null && Tab.Tree.CurrentNode.Children.Count > 0)
+		{
+			var oldChildren = Tab.Tree.CurrentNode.Children.ToList();
+			foreach (var child in oldChildren)
+			{
+				Tab.Tree.DeleteSubtree(child);
+			}
+		}
+
 		Tab.Tree.AddMove(move);
 		_hintSan = null;
 		UpdateMoveHistory();
@@ -450,14 +464,24 @@
 	{
 		if (_isComputerThinking) return;
 
-		if (Tab.Tree.CurrentNode.Parent != null)
+		// Rewind until it is user's turn again, and delete the undone moves
+		MoveNode? branchToDelete = null;
+		var node = Tab.Tree.CurrentNode;
+		while (node.Parent != null)
 		{
-			Tab.Tree.GoBack();
-			// If position after 1 step back is still opponent's turn, step back again
-			if (Tab.Tree.CurrentNode.Position.ActiveColor != Tab.PlayerColor && Tab.Tree.CurrentNode.Parent != null)
+			branchToDelete = node;
+			node = node.Parent;
+			if (node.Position.ActiveColor == Tab.PlayerColor)
 			{
-				Tab.Tree.GoBack();
+				break;
 			}
+		}
+
+		if (branchToDelete != null && branchToDelete.Parent != null)
+		{
+			var targetNode = branchToDelete.Parent;
+			Tab.Tree.NavigateTo(targetNode);
+			Tab.Tree.DeleteSubtree(branchToDelete);
 		}
 
 		_hintSan = null;
@@ -665,8 +689,20 @@
 
 	private void HandleAnalyzeGame()
 	{
+		// Ensure the active game branch is promoted to mainline
+		var node = Tab.Tree.CurrentNode;
+		while (node != null && node.Parent != null)
+		{
+			Tab.Tree.PromoteVariation(node);
+			node = node.Parent;
+		}
+
 		string pgn = PgnHandler.ExportPgn(Tab.Tree);
-		Workspace.CreateAnalysisTab(title: $"Analysis vs Bot ({Tab.OpponentElo})", pgn: pgn);
+		var analysisTab = Workspace.CreateAnalysisTab(title: $"Analysis vs Bot ({Tab.OpponentElo})", pgn: pgn);
+		if (analysisTab != null)
+		{
+			analysisTab.Orientation = Tab.Orientation;
+		}
 	}
 
 	private async Task ToggleEval()

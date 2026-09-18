@@ -1,0 +1,146 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 220" width="100%" height="100%" fill="none">
+  <defs>
+    <!-- Brand Gradient -->
+    <linearGradient id="logoGrad" x1="10%" y1="10%" x2="90%" y2="90%">
+      <stop offset="0%" stop-color="#22d3ee" />
+      <stop offset="45%" stop-color="#06b6d4" />
+      <stop offset="80%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#1e3a8a" />
+    </linearGradient>
+
+    <!-- Arrow Gradient -->
+    <linearGradient id="logoTrend" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#38bdf8" />
+    </linearGradient>
+
+    <!-- Shield Border Gradient -->
+    <linearGradient id="logoShield" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7" />
+      <stop offset="50%" stop-color="#06b6d4" />
+      <stop offset="100%" stop-color="#0369a1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Scaled Shield Mark on Left (centered in 200x200 box) -->
+  <g transform="translate(10, 10) scale(0.44)">
+    <!-- Outer Shield Outline -->
+    <path d="M 200,28
+             C 255,28 315,35 344,52
+             C 348,54 350,58 350,63
+             L 350,210
+             C 350,295 285,370 200,418
+             C 115,370 50,295 50,210
+             L 50,63
+             C 50,58 52,54 56,52
+             C 85,35 145,28 200,28 Z"
+          stroke="url(#logoShield)"
+          stroke-width="15"
+          stroke-linejoin="round"
+          stroke-linecap="round"
+          fill="none" />
+
+    <!-- Knight Group -->
+    <g id="logo-knight">
+      <path d="M 195,78
+               C 188,78 181,85 180,95
+               C 179,102 181,110 178,118
+               C 174,126 160,132 144,142
+               L 126,155
+               C 118,162 118,172 124,180
+               L 138,198
+               C 142,204 150,206 156,202
+               L 170,192
+               C 174,189 178,192 178,198
+               C 175,224 165,250 148,272
+               L 252,272
+               C 258,245 264,208 262,175
+               C 260,135 242,100 216,84
+               C 210,80 202,78 195,78 Z"
+            fill="url(#logoGrad)" />
+
+      <!-- Knight Forehead Highlight -->
+      <path d="M 176,96
+               C 175,102 178,108 174,115
+               C 169,124 156,130 141,139
+               L 132,145
+               C 126,149 125,156 130,161
+               L 142,174
+               C 144,176 148,176 150,174
+               L 165,162
+               C 170,158 178,162 177,169
+               C 175,188 170,212 158,234
+               L 182,234
+               C 192,212 196,188 196,168
+               C 196,138 188,112 176,96 Z"
+            fill="#ffffff"
+            opacity="0.22" />
+
+      <polygon points="152,148 168,142 163,153" fill="#0f172a" />
+
+      <path d="M 132,272
+               L 268,272
+               C 274,272 278,276 276,282
+               L 272,294
+               C 270,298 266,302 260,302
+               L 140,302
+               C 134,302 130,298 128,294
+               L 124,282
+               C 122,276 126,272 132,272 Z"
+            fill="url(#logoGrad)" />
+
+      <g id="logo-grid">
+        <path d="M 130,306
+                 L 270,306
+                 C 274,306 278,310 276,316
+                 L 262,374
+                 C 260,380 254,385 246,385
+                 L 154,385
+                 C 146,385 140,380 138,374
+                 L 124,316
+                 C 122,310 126,306 130,306 Z"
+              fill="url(#logoGrad)" />
+
+        <line x1="126" y1="344" x2="274" y2="344" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" opacity="0.85" />
+        <line x1="156" y1="306" x2="153" y2="385" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" opacity="0.85" />
+        <line x1="184" y1="306" x2="183" y2="385" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" opacity="0.85" />
+        <line x1="214" y1="306" x2="215" y2="385" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" opacity="0.85" />
+        <line x1="244" y1="306" x2="247" y2="385" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" opacity="0.85" />
+      </g>
+    </g>
+
+    <!-- Trendline -->
+    <polyline points="152,278 214,212 254,236 338,138"
+              stroke="#0f172a"
+              stroke-width="16"
+              stroke-linecap="round"
+              stroke-linejoin="round" />
+    <polyline points="152,278 214,212 254,236 338,138"
+              stroke="url(#logoTrend)"
+              stroke-width="10"
+              stroke-linecap="round"
+              stroke-linejoin="round" />
+    <circle cx="214" cy="212" r="10" fill="#0f172a" />
+    <circle cx="214" cy="212" r="6" fill="#22d3ee" />
+    <circle cx="214" cy="212" r="2.5" fill="#ffffff" />
+    <circle cx="254" cy="236" r="10" fill="#0f172a" />
+    <circle cx="254" cy="236" r="6" fill="#22d3ee" />
+    <circle cx="254" cy="236" r="2.5" fill="#ffffff" />
+    <polygon points="346,126 312,135 328,151" fill="#0f172a" />
+    <polygon points="352,118 304,131 328,155" fill="url(#logoTrend)" />
+  </g>
+
+  <!-- Typography Right Lockup -->
+  <g transform="translate(205, 115)">
+    <!-- Brand Text -->
+    <text x="0" y="0" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" letter-spacing="-1">
+      <tspan fill="#f0f6fc" font-size="64" font-weight="900">CAISSA</tspan>
+      <tspan dx="1" fill="#38bdf8" font-size="64" font-weight="300">LYTICS</tspan>
+    </text>
+
+    <!-- Subtitle / Tagline -->
+    <text x="4" y="38" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="20" font-weight="400" fill="#94a3b8" letter-spacing="4.5">
+      CHESS INSIGHTS &amp; PERFORMANCE
+    </text>
+  </g>
+</svg>

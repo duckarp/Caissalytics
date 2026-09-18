@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Caissalytics.Components;
 using Caissalytics.Data;
 using Caissalytics.Engine;
@@ -10,9 +11,14 @@ namespace Caissalytics;
 
 internal class Program
 {
+    [DllImport("libglib-2.0.so.0", EntryPoint = "g_set_prgname", CallingConvention = CallingConvention.Cdecl)]
+    private static extern void g_set_prgname(string prgname);
+
     [STAThread]
     static void Main(string[] args)
     {
+        SetLinuxProgramName("caissalytics");
+
         var appBuilder = PhotinoBlazorAppBuilder.CreateDefault(args);
 
         // Register application services
@@ -103,8 +109,19 @@ internal class Program
         });
 
         // Configure the native desktop window
+        var iconFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "icon-256.png");
+        if (!File.Exists(iconFile))
+        {
+            iconFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "icon.png");
+        }
+        if (!File.Exists(iconFile))
+        {
+            iconFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "favicon.png");
+        }
+
         app.MainWindow
             .SetTitle("Caissalytics")
+            .SetIconFile(File.Exists(iconFile) ? iconFile : "wwwroot/icon-256.png")
             .SetSize(1400, 900)
             .SetMinSize(1000, 650)
             .SetMediaAutoplayEnabled(true)
@@ -116,5 +133,85 @@ internal class Program
         };
 
         app.Run();
+    }
+
+    private static void SetLinuxProgramName(string name)
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            try
+            {
+                g_set_prgname(name);
+            }
+            catch
+            {
+                // Non-fatal if libglib is not available
+            }
+
+            try
+            {
+                EnsureLinuxDesktopIntegration();
+            }
+            catch
+            {
+                // Non-fatal if user desktop directories cannot be written
+            }
+        }
+    }
+
+    private static void EnsureLinuxDesktopIntegration()
+    {
+        try
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (string.IsNullOrEmpty(home)) return;
+
+            var appsDir = Path.Combine(home, ".local", "share", "applications");
+            var icon256Dir = Path.Combine(home, ".local", "share", "icons", "hicolor", "256x256", "apps");
+            var iconSvgDir = Path.Combine(home, ".local", "share", "icons", "hicolor", "scalable", "apps");
+
+            Directory.CreateDirectory(appsDir);
+            Directory.CreateDirectory(icon256Dir);
+            Directory.CreateDirectory(iconSvgDir);
+
+            var wwwroot = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot");
+            var srcPng = Path.Combine(wwwroot, "icon-256.png");
+            if (!File.Exists(srcPng)) srcPng = Path.Combine(wwwroot, "icon.png");
+
+            if (File.Exists(srcPng))
+            {
+                File.Copy(srcPng, Path.Combine(icon256Dir, "caissalytics.png"), true);
+                File.Copy(srcPng, Path.Combine(icon256Dir, "Caissalytics.png"), true);
+            }
+
+            var srcSvg = Path.Combine(wwwroot, "images", "icon.svg");
+            if (File.Exists(srcSvg))
+            {
+                File.Copy(srcSvg, Path.Combine(iconSvgDir, "caissalytics.svg"), true);
+                File.Copy(srcSvg, Path.Combine(iconSvgDir, "Caissalytics.svg"), true);
+            }
+
+            var desktopFile = Path.Combine(appsDir, "caissalytics.desktop");
+            var exePath = Environment.ProcessPath ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Caissalytics");
+            var desktopContent = $"""
+                [Desktop Entry]
+                Name=Caissalytics
+                GenericName=Chess Analysis & Database
+                Comment=Chess Insights & Performance
+                Exec="{exePath}"
+                Icon=caissalytics
+                Terminal=false
+                Type=Application
+                Categories=Game;BoardGame;Utility;
+                StartupWMClass=caissalytics
+                StartupNotify=true
+                """;
+            File.WriteAllText(desktopFile, desktopContent);
+            File.WriteAllText(Path.Combine(appsDir, "Caissalytics.desktop"), desktopContent);
+        }
+        catch
+        {
+            // Non-fatal desktop entry creation
+        }
     }
 }

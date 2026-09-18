@@ -59,7 +59,7 @@ public class MoveNode
     }
 
     public bool IsRoot => Parent == null;
-    public bool IsMainline => Parent == null || (Parent.Children.Count > 0 && Parent.Children[0] == this);
+    public bool IsMainline => Parent == null || (Parent.IsMainline && Parent.Children.Count > 0 && Parent.Children[0] == this);
 
     // Active color in Position is who is to move NEXT. If active is Black, White just moved!
     public bool IsWhiteMove => Position.ActiveColor == PieceColor.Black;

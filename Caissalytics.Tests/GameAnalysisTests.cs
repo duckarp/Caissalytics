@@ -217,4 +217,80 @@ public class GameAnalysisTests
         Assert.NotNull(restoredTab?.AnalysisReport);
         Assert.Equal(100, restoredTab.AnalysisReport.Plies.Count);
     }
+
+    [Fact]
+    public void PromoteVariation_PromotesAllAncestorsToRootMainline()
+    {
+        var tree = new GameTree();
+        var e4 = tree.AddMoveSan("e4");
+        var e5 = tree.AddMoveSan("e5");
+        var nf3 = tree.AddMoveSan("Nf3");
+
+        // Navigate back to e4 and add a variation (e4 c5 Nf3 d6 d4)
+        tree.NavigateTo(e4!);
+        var c5 = tree.AddMoveSan("c5");
+        var nf3Var = tree.AddMoveSan("Nf3");
+        var d6 = tree.AddMoveSan("d6");
+
+        // Currently, e5 is mainline (idx 0 of e4.Children), c5 is variation (idx 1)
+        Assert.True(e5!.IsMainline);
+        Assert.False(c5!.IsMainline);
+        Assert.False(d6!.IsMainline);
+        Assert.Equal(3, tree.GetMainlineDepth()); // e4, e5, Nf3
+
+        // Promote d6 (deep in the variation)
+        tree.PromoteVariation(d6!);
+
+        // Now c5 -> Nf3 -> d6 is the mainline!
+        Assert.True(c5.IsMainline);
+        Assert.True(nf3Var!.IsMainline);
+        Assert.True(d6.IsMainline);
+        Assert.False(e5.IsMainline);
+        Assert.False(nf3!.IsMainline);
+        Assert.Equal(4, tree.GetMainlineDepth()); // e4, c5, Nf3, d6
+    }
+
+    [Fact]
+    public void MoveNode_IsMainline_IsFalseForSubVariationsEvenIfFirstChild()
+    {
+        var tree = new GameTree();
+        var e4 = tree.AddMoveSan("e4");
+        tree.NavigateTo(tree.Root);
+        var d4 = tree.AddMoveSan("d4"); // variation off Root
+        var d5 = tree.AddMoveSan("d5"); // first child of d4
+
+        Assert.True(e4!.IsMainline);
+        Assert.False(d4!.IsMainline);
+        Assert.False(d5!.IsMainline); // d5 is first child of d4, but d4 is a variation!
+    }
+
+    [Fact]
+    public void FindDeepestLeaf_IdentifiesDeepestBranchWhenMainlineIsTruncated()
+    {
+        var tree = new GameTree();
+        // Truncated mainline: 2 plies
+        tree.AddMoveSan("e4");
+        var e5 = tree.AddMoveSan("e5");
+
+        // Long variation from takeback: 6 plies
+        tree.NavigateTo(tree.Root);
+        tree.AddMoveSan("d4");
+        tree.AddMoveSan("d5");
+        tree.AddMoveSan("c4");
+        tree.AddMoveSan("e6");
+        tree.AddMoveSan("Nc3");
+        var nf6 = tree.AddMoveSan("Nf6");
+
+        Assert.Equal(2, tree.GetMainlineDepth());
+        var deepest = tree.FindDeepestLeaf();
+        Assert.NotNull(deepest);
+        Assert.Equal(nf6, deepest);
+        Assert.Equal(6, GameTree.GetDepth(deepest));
+        Assert.False(deepest.IsMainline);
+
+        // Promoting deepest branch makes it the mainline
+        tree.PromoteVariation(deepest);
+        Assert.Equal(6, tree.GetMainlineDepth());
+        Assert.True(deepest.IsMainline);
+    }
 }

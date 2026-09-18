@@ -8,8 +8,11 @@
 @implements IDisposable
 
 <header class="app-header">
-	<div class="app-brand">
-		<span class="brand-title">@Loc["Nav_Brand"]</span>
+	<div class="app-brand" @onclick="SelectDashboard" title="Caissalytics - Chess Insights &amp; Performance">
+		<img src="images/icon.svg" alt="Caissalytics" class="brand-logo-icon" />
+		<span class="brand-title">
+			<strong class="brand-caissa">CAISSA</strong><span class="brand-lytics">LYTICS</span>
+		</span>
 		<span class="brand-badge">v@(UpdateService.GetCurrentVersion())</span>
 	</div>
 	<div class="header-actions">
@@ -198,6 +201,15 @@
 		AnalysisTab a when a.Title == "Analysis Board" => Loc["Tab_Analysis"],
 		_ => tab.Title
 	};
+
+	private void SelectDashboard()
+	{
+		var dash = Workspace.Tabs.OfType<DashboardTab>().FirstOrDefault();
+		if (dash != null)
+		{
+			Workspace.SelectTab(dash.Id);
+		}
+	}
 
 	public void Dispose()
 	{

@@ -10,9 +10,20 @@
 @implements IDisposable
 
 <div class="dashboard-container">
-	<div class="dashboard-hero">
-		<h1 class="dashboard-heading">@Loc["Dash_Welcome"]</h1>
-		<p class="dashboard-subtitle">@Loc["Dash_Subtitle"]</p>
+	<div class="dashboard-hero-banner">
+		<div class="hero-brand-emblem-wrap">
+			<img src="images/icon.svg" alt="Caissalytics" class="hero-brand-emblem" />
+			<div class="hero-emblem-glow"></div>
+		</div>
+		<div class="hero-text-content">
+			<div class="hero-title-row">
+				<h1 class="hero-heading">
+					<strong class="hero-caissa">CAISSA</strong><span class="hero-lytics">LYTICS</span>
+				</h1>
+				<span class="hero-tagline-badge">Chess Insights &amp; Performance</span>
+			</div>
+			<p class="hero-subtitle">@Loc["Dash_Subtitle"]</p>
+		</div>
 	</div>
 
 	<div class="quick-actions-grid">
