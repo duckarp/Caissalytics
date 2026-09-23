@@ -14,6 +14,9 @@ public class UpdateInfo
     public long AssetSizeBytes { get; set; }
     public bool IsUpdateAvailable { get; set; }
     public string StatusMessage { get; set; } = string.Empty;
+    public List<ReleaseChangelogItem> ChangelogItems { get; set; } = new();
+    public string? CompareUrl { get; set; }
+    public string? AuthorNotes { get; set; }
 
     public string FormattedAssetSize
     {
@@ -22,6 +25,36 @@ public class UpdateInfo
             if (AssetSizeBytes <= 0) return string.Empty;
             if (AssetSizeBytes < 1024 * 1024) return $"{AssetSizeBytes / 1024.0:F1} KB";
             return $"{AssetSizeBytes / (1024.0 * 1024.0):F1} MB";
+        }
+    }
+}
+
+public class ReleaseChangelogItem
+{
+    public string Category { get; set; } = "Update";
+    public string Scope { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string RawMessage { get; set; } = string.Empty;
+    public string CommitSha { get; set; } = string.Empty;
+    public string Author { get; set; } = string.Empty;
+
+    public string BadgeClass => Category switch
+    {
+        "Feature" => "badge-feat",
+        "Fix" => "badge-fix",
+        "Performance" => "badge-perf",
+        "UI / Design" => "badge-ui",
+        "Refactor" => "badge-refactor",
+        "Docs" => "badge-docs",
+        _ => "badge-other"
+    };
+
+    public string FormattedText
+    {
+        get
+        {
+            string scopePrefix = !string.IsNullOrWhiteSpace(Scope) ? $"({Scope}) " : "";
+            return $"[{Category}] {scopePrefix}{Description}";
         }
     }
 }

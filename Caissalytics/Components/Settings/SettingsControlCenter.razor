@@ -1300,12 +1300,48 @@
 						}
 					</div>
 
-					@if (_latestUpdate != null && !string.IsNullOrWhiteSpace(_latestUpdate.ReleaseNotes))
+					@if (_latestUpdate != null && (!string.IsNullOrWhiteSpace(_latestUpdate.ReleaseNotes) || (_latestUpdate.ChangelogItems != null && _latestUpdate.ChangelogItems.Count > 0)))
 					{
 						<div class="update-notes-container">
 							<h4 class="update-notes-title">Latest Release: @_latestUpdate.ReleaseTitle</h4>
 							<div class="update-notes-scroll">
-								<pre class="update-notes-pre">@_latestUpdate.ReleaseNotes</pre>
+								@if (!string.IsNullOrWhiteSpace(_latestUpdate.AuthorNotes))
+								{
+									<div class="changelog-author-notes">@_latestUpdate.AuthorNotes</div>
+								}
+
+								@if (_latestUpdate.ChangelogItems != null && _latestUpdate.ChangelogItems.Count > 0)
+								{
+									<div class="changelog-list">
+										@foreach (var item in _latestUpdate.ChangelogItems)
+										{
+											<div class="changelog-entry">
+												<span class="changelog-badge @item.BadgeClass">@item.Category</span>
+												<div class="changelog-text">
+													@if (!string.IsNullOrWhiteSpace(item.Scope))
+													{
+														<strong class="changelog-scope">@item.Scope:</strong>
+													}
+													<span class="changelog-desc">@item.Description</span>
+												</div>
+											</div>
+										}
+									</div>
+								}
+								else if (!string.IsNullOrWhiteSpace(_latestUpdate.ReleaseNotes))
+								{
+									<pre class="update-notes-pre">@_latestUpdate.ReleaseNotes</pre>
+								}
+
+								@if (!string.IsNullOrWhiteSpace(_latestUpdate.CompareUrl))
+								{
+									<div class="changelog-footer-link">
+										<a href="@_latestUpdate.CompareUrl" target="_blank" rel="noopener noreferrer">
+											<AppIcon Name="external-link" Size="13" Class="btn-inline-icon" />
+											<span>View full comparison on GitHub</span>
+										</a>
+									</div>
+								}
 							</div>
 						</div>
 					}

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 namespace Caissalytics.Data;
 
@@ -145,6 +146,11 @@ public class UpdateService : IUpdateService
 
             ParseReleaseElement(releaseElement, updateInfo, currentVer);
 
+            if (!string.IsNullOrWhiteSpace(updateInfo.TagName))
+            {
+                await EnrichChangelogAsync(repo, updateInfo, currentVer, ct);
+            }
+
             lock (_lock)
             {
                 _settings.LastCheckedAt = DateTime.UtcNow;
@@ -179,6 +185,18 @@ public class UpdateService : IUpdateService
         updateInfo.ReleaseUrl = htmlUrl;
         updateInfo.PublishedAt = publishedAt;
 
+        // Check for compare URL in body (e.g. "**Full Changelog**: https://github.com/duckarp/Caissalytics/compare/v1.7.3...v1.7.4")
+        if (!string.IsNullOrWhiteSpace(body))
+        {
+            var match = Regex.Match(
+                body,
+                @"https://github\.com/[^/\s\)]+/[^/\s\)]+/compare/([^\s\)\r\n]+?)\.\.\.([^\s\)\r\n]+)");
+            if (match.Success)
+            {
+                updateInfo.CompareUrl = match.Value;
+            }
+        }
+
         // Determine if newer
         updateInfo.IsUpdateAvailable = SemVerHelper.IsNewerVersion(updateInfo.LatestVersion, currentVer);
         updateInfo.StatusMessage = updateInfo.IsUpdateAvailable
@@ -190,6 +208,212 @@ public class UpdateService : IUpdateService
         {
             PickBestAsset(assets, updateInfo);
         }
+    }
+
+    private async Task EnrichChangelogAsync(string repo, UpdateInfo updateInfo, string currentVer, CancellationToken ct)
+    {
+        string headTag = updateInfo.TagName;
+        if (string.IsNullOrWhiteSpace(headTag)) return;
+
+        string? fallbackBaseTag = null;
+        if (!string.IsNullOrWhiteSpace(updateInfo.CompareUrl))
+        {
+            var match = Regex.Match(updateInfo.CompareUrl, @"compare/([^\s\)\r\n]+?)\.\.\.([^\s\)\r\n]+)");
+            if (match.Success)
+            {
+                fallbackBaseTag = match.Groups[1].Value;
+            }
+        }
+
+        string baseTag = (!string.IsNullOrWhiteSpace(currentVer) && currentVer != "0.0.0" && SemVerHelper.CleanVersion(currentVer) != updateInfo.LatestVersion)
+            ? (currentVer.StartsWith('v') || currentVer.StartsWith('V') ? currentVer : $"v{currentVer}")
+            : (fallbackBaseTag ?? "");
+
+        if (string.Equals(baseTag, headTag, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(fallbackBaseTag) && !string.Equals(fallbackBaseTag, headTag, StringComparison.OrdinalIgnoreCase))
+        {
+            baseTag = fallbackBaseTag;
+        }
+
+        if (!string.IsNullOrWhiteSpace(baseTag) && !string.Equals(baseTag, headTag, StringComparison.OrdinalIgnoreCase))
+        {
+            var commits = await FetchCompareCommitsAsync(repo, baseTag, headTag, ct);
+            if ((commits == null || commits.Count == 0) && !string.IsNullOrEmpty(fallbackBaseTag) && fallbackBaseTag != baseTag)
+            {
+                commits = await FetchCompareCommitsAsync(repo, fallbackBaseTag, headTag, ct);
+            }
+
+            if (commits != null && commits.Count > 0)
+            {
+                var changelog = new List<ReleaseChangelogItem>();
+                foreach (var c in commits)
+                {
+                    var item = ParseCommitMessage(c.Message, c.Sha, c.Author);
+                    if (item != null)
+                    {
+                        changelog.Add(item);
+                    }
+                }
+
+                updateInfo.ChangelogItems = changelog;
+            }
+        }
+
+        string sanitized = SanitizeReleaseNotes(updateInfo.ReleaseNotes);
+        updateInfo.AuthorNotes = sanitized;
+        if (string.IsNullOrWhiteSpace(sanitized) && updateInfo.ChangelogItems.Count > 0)
+        {
+            updateInfo.ReleaseNotes = string.Join("\n", updateInfo.ChangelogItems.Select(ci => $"• {ci.FormattedText}"));
+        }
+        else
+        {
+            updateInfo.ReleaseNotes = sanitized;
+        }
+    }
+
+    private async Task<List<(string Message, string Sha, string Author)>?> FetchCompareCommitsAsync(string repo, string baseTag, string headTag, CancellationToken ct)
+    {
+        try
+        {
+            string url = $"https://api.github.com/repos/{repo}/compare/{baseTag}...{headTag}";
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Accept.ParseAdd("application/vnd.github.v3+json");
+
+            using var response = await _httpClient.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode) return null;
+
+            using var stream = await response.Content.ReadAsStreamAsync(ct);
+            using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+
+            if (doc.RootElement.TryGetProperty("commits", out var commitsArray) && commitsArray.ValueKind == JsonValueKind.Array)
+            {
+                var list = new List<(string Message, string Sha, string Author)>();
+                foreach (var c in commitsArray.EnumerateArray())
+                {
+                    string sha = c.TryGetProperty("sha", out var shaProp) ? shaProp.GetString() ?? "" : "";
+                    string msg = "";
+                    string author = "";
+                    if (c.TryGetProperty("commit", out var commitObj))
+                    {
+                        msg = commitObj.TryGetProperty("message", out var msgProp) ? msgProp.GetString() ?? "" : "";
+                        if (commitObj.TryGetProperty("author", out var authObj))
+                        {
+                            author = authObj.TryGetProperty("name", out var aProp) ? aProp.GetString() ?? "" : "";
+                        }
+                    }
+                    list.Add((msg, sha, author));
+                }
+                return list;
+            }
+        }
+        catch
+        {
+            // Graceful fallback on network/rate-limit issues
+        }
+        return null;
+    }
+
+    public static bool IsIgnoredCommit(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message)) return true;
+        string firstLine = message.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(firstLine)) return true;
+
+        if (firstLine.StartsWith("Merge pull request", StringComparison.OrdinalIgnoreCase)) return true;
+        if (firstLine.StartsWith("Merge branch", StringComparison.OrdinalIgnoreCase)) return true;
+        if (firstLine.StartsWith("Merge remote-tracking", StringComparison.OrdinalIgnoreCase)) return true;
+        if (Regex.IsMatch(firstLine, @"^(?:chore(?:\([^)]+\))?:\s*)?(?:release|bump(?:\s+version)?(?:\s+to)?|version\s+bump)\s+v?\d+", RegexOptions.IgnoreCase)) return true;
+        if (Regex.IsMatch(firstLine, @"^(?:chore(?:\([^)]+\))?:\s*)?(?:version\s+bump|bump\s+version)", RegexOptions.IgnoreCase)) return true;
+
+        return false;
+    }
+
+    public static ReleaseChangelogItem? ParseCommitMessage(string message, string sha = "", string author = "")
+    {
+        if (IsIgnoredCommit(message)) return null;
+
+        string firstLine = message.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(firstLine)) return null;
+
+        string shortSha = !string.IsNullOrEmpty(sha) && sha.Length >= 7 ? sha[..7] : sha;
+
+        var match = Regex.Match(firstLine, @"^([a-zA-Z]+)(?:\(([^)]+)\))?\s*:\s*(.+)$");
+        if (match.Success)
+        {
+            string rawType = match.Groups[1].Value.ToLowerInvariant();
+            string rawScope = match.Groups[2].Success ? match.Groups[2].Value.Trim() : "";
+            string desc = match.Groups[3].Value.Trim();
+
+            if (desc.Length > 0 && char.IsLower(desc[0]))
+            {
+                desc = char.ToUpperInvariant(desc[0]) + desc[1..];
+            }
+
+            if (!string.IsNullOrEmpty(rawScope))
+            {
+                rawScope = char.ToUpperInvariant(rawScope[0]) + rawScope[1..];
+            }
+
+            string category = rawType switch
+            {
+                "feat" or "feature" => "Feature",
+                "fix" or "bugfix" => "Fix",
+                "perf" or "performance" => "Performance",
+                "style" or "ui" => "UI / Design",
+                "refactor" => "Refactor",
+                "docs" or "doc" => "Docs",
+                "test" or "tests" => "Tests",
+                _ => "Update"
+            };
+
+            return new ReleaseChangelogItem
+            {
+                Category = category,
+                Scope = rawScope,
+                Description = desc,
+                RawMessage = firstLine,
+                CommitSha = shortSha,
+                Author = author
+            };
+        }
+
+        string fallbackDesc = firstLine;
+        if (fallbackDesc.Length > 0 && char.IsLower(fallbackDesc[0]))
+        {
+            fallbackDesc = char.ToUpperInvariant(fallbackDesc[0]) + fallbackDesc[1..];
+        }
+
+        return new ReleaseChangelogItem
+        {
+            Category = "Update",
+            Scope = "",
+            Description = fallbackDesc,
+            RawMessage = firstLine,
+            CommitSha = shortSha,
+            Author = author
+        };
+    }
+
+    public static string SanitizeReleaseNotes(string? rawNotes)
+    {
+        if (string.IsNullOrWhiteSpace(rawNotes)) return string.Empty;
+
+        var lines = rawNotes.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+        var filteredLines = new List<string>();
+
+        foreach (var line in lines)
+        {
+            string trimmed = line.Trim();
+            if (trimmed.StartsWith("**Full Changelog**", StringComparison.OrdinalIgnoreCase) ||
+                trimmed.StartsWith("Full Changelog:", StringComparison.OrdinalIgnoreCase) ||
+                (trimmed.StartsWith("http", StringComparison.OrdinalIgnoreCase) && trimmed.Contains("/compare/")))
+            {
+                continue;
+            }
+
+            filteredLines.Add(line);
+        }
+
+        return string.Join("\n", filteredLines).Trim();
     }
 
     public static void PickBestAsset(JsonElement assets, UpdateInfo updateInfo)

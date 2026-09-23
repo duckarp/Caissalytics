@@ -177,6 +177,166 @@ public class UpdateTests
         Assert.Contains("Forbidden", update.StatusMessage);
     }
 
+    [Theory]
+    [InlineData("feat(analysis): add board position editor", "Feature", "Analysis", "Add board position editor")]
+    [InlineData("fix: center modal button contents", "Fix", "", "Center modal button contents")]
+    [InlineData("perf(engine): optimize move evaluation speed", "Performance", "Engine", "Optimize move evaluation speed")]
+    [InlineData("style(dashboard): improve spacing between sections", "UI / Design", "Dashboard", "Improve spacing between sections")]
+    [InlineData("refactor(tabs): streamline workspace tab switching", "Refactor", "Tabs", "Streamline workspace tab switching")]
+    [InlineData("docs: update readme with changelog details", "Docs", "", "Update readme with changelog details")]
+    [InlineData("improved keyboard navigation across cards", "Update", "", "Improved keyboard navigation across cards")]
+    public void ParseCommitMessage_ParsesVariousCommitFormats(string message, string expectedCat, string expectedScope, string expectedDesc)
+    {
+        var item = UpdateService.ParseCommitMessage(message, "abc1234567", "duckarp");
+        Assert.NotNull(item);
+        Assert.Equal(expectedCat, item.Category);
+        Assert.Equal(expectedScope, item.Scope);
+        Assert.Equal(expectedDesc, item.Description);
+        Assert.Equal("abc1234", item.CommitSha);
+        Assert.Equal("duckarp", item.Author);
+    }
+
+    [Theory]
+    [InlineData("Merge pull request #42 from duckarp/feature")]
+    [InlineData("Merge branch 'main' of github.com:duckarp/Caissalytics")]
+    [InlineData("Merge remote-tracking branch 'origin/main'")]
+    [InlineData("chore: release v1.7.4")]
+    [InlineData("chore(release): bump version to 1.7.4")]
+    [InlineData("version bump 1.7.4")]
+    [InlineData("bump version to 1.7.4")]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void ParseCommitMessage_IgnoresMergeAndReleaseBumps(string message)
+    {
+        var item = UpdateService.ParseCommitMessage(message);
+        Assert.Null(item);
+        Assert.True(UpdateService.IsIgnoredCommit(message));
+    }
+
+    [Fact]
+    public void SanitizeReleaseNotes_RemovesFullChangelogLink_RetainsOtherContent()
+    {
+        string raw = "Welcome to v1.7.4!\n\n**Full Changelog**: https://github.com/duckarp/Caissalytics/compare/v1.7.3...v1.7.4\nEnjoy playing chess!";
+        string sanitized = UpdateService.SanitizeReleaseNotes(raw);
+
+        Assert.DoesNotContain("**Full Changelog**", sanitized);
+        Assert.DoesNotContain("compare/v1.7.3...v1.7.4", sanitized);
+        Assert.Contains("Welcome to v1.7.4!", sanitized);
+        Assert.Contains("Enjoy playing chess!", sanitized);
+    }
+
+    [Fact]
+    public void SanitizeReleaseNotes_OnlyCompareLink_ReturnsEmpty()
+    {
+        string raw = "**Full Changelog**: https://github.com/duckarp/Caissalytics/compare/v1.7.3...v1.7.4";
+        string sanitized = UpdateService.SanitizeReleaseNotes(raw);
+
+        Assert.Equal(string.Empty, sanitized);
+    }
+
+    [Fact]
+    public void ParseReleaseElement_ExtractsCompareUrl()
+    {
+        string json = """
+        {
+            "tag_name": "v1.7.4",
+            "name": "Caissalytics 1.7.4",
+            "body": "**Full Changelog**: https://github.com/duckarp/Caissalytics/compare/v1.7.3...v1.7.4",
+            "html_url": "https://github.com/duckarp/Caissalytics/releases/tag/v1.7.4",
+            "assets": []
+        }
+        """;
+
+        using var doc = JsonDocument.Parse(json);
+        var updateInfo = new UpdateInfo();
+
+        UpdateService.ParseReleaseElement(doc.RootElement, updateInfo, currentVer: "1.7.3");
+
+        Assert.Equal("https://github.com/duckarp/Caissalytics/compare/v1.7.3...v1.7.4", updateInfo.CompareUrl);
+        Assert.True(updateInfo.IsUpdateAvailable);
+    }
+
+    [Fact]
+    public async Task CheckForUpdatesAsync_EnrichesChangelogFromCompareApi()
+    {
+        string releaseJson = """
+        {
+            "tag_name": "v99.0.0",
+            "name": "v99.0.0",
+            "body": "**Full Changelog**: https://github.com/duckarp/Caissalytics/compare/v1.7.3...v99.0.0",
+            "html_url": "https://github.com/duckarp/Caissalytics/releases/tag/v99.0.0",
+            "published_at": "2026-09-23T12:00:00Z",
+            "assets": []
+        }
+        """;
+
+        string compareJson = """
+        {
+            "commits": [
+                {
+                    "sha": "1234567890abcdef",
+                    "commit": {
+                        "message": "feat(board): add edit position capability\n\nDetailed explanation",
+                        "author": { "name": "duckarp" }
+                    }
+                },
+                {
+                    "sha": "fedcba0987654321",
+                    "commit": {
+                        "message": "fix: vertically center button icons",
+                        "author": { "name": "duckarp" }
+                    }
+                },
+                {
+                    "sha": "1111222233334444",
+                    "commit": {
+                        "message": "chore: release v99.0.0",
+                        "author": { "name": "github-actions[bot]" }
+                    }
+                }
+            ]
+        }
+        """;
+
+        var mockHandler = new TestHttpMessageHandler(req =>
+        {
+            if (req.RequestUri!.ToString().Contains("/compare/"))
+            {
+                return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new StringContent(compareJson, System.Text.Encoding.UTF8, "application/json")
+                };
+            }
+
+            return new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new StringContent(releaseJson, System.Text.Encoding.UTF8, "application/json")
+            };
+        });
+
+        using var httpClient = new HttpClient(mockHandler);
+        var service = new UpdateService(httpClient);
+        var update = await service.CheckForUpdatesAsync(force: true);
+
+        Assert.NotNull(update);
+        Assert.Equal("https://github.com/duckarp/Caissalytics/compare/v1.7.3...v99.0.0", update.CompareUrl);
+        Assert.Equal(2, update.ChangelogItems.Count);
+
+        var first = update.ChangelogItems[0];
+        Assert.Equal("Feature", first.Category);
+        Assert.Equal("Board", first.Scope);
+        Assert.Equal("Add edit position capability", first.Description);
+        Assert.Equal("badge-feat", first.BadgeClass);
+
+        var second = update.ChangelogItems[1];
+        Assert.Equal("Fix", second.Category);
+        Assert.Equal("Vertically center button icons", second.Description);
+        Assert.Equal("badge-fix", second.BadgeClass);
+
+        Assert.Contains("Add edit position capability", update.ReleaseNotes);
+    }
+
+
     private class TestHttpMessageHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _sender;

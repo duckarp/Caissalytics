@@ -42,13 +42,46 @@
 				<div class="update-notes-container">
 					<h4 class="update-notes-title">What's New in @Update.ReleaseTitle</h4>
 					<div class="update-notes-scroll">
-						@if (!string.IsNullOrWhiteSpace(Update.ReleaseNotes))
+						@if (!string.IsNullOrWhiteSpace(Update.AuthorNotes))
+						{
+							<div class="changelog-author-notes">@Update.AuthorNotes</div>
+						}
+
+						@if (Update.ChangelogItems != null && Update.ChangelogItems.Count > 0)
+						{
+							<div class="changelog-list">
+								@foreach (var item in Update.ChangelogItems)
+								{
+									<div class="changelog-entry">
+										<span class="changelog-badge @item.BadgeClass">@item.Category</span>
+										<div class="changelog-text">
+											@if (!string.IsNullOrWhiteSpace(item.Scope))
+											{
+												<strong class="changelog-scope">@item.Scope:</strong>
+											}
+											<span class="changelog-desc">@item.Description</span>
+										</div>
+									</div>
+								}
+							</div>
+						}
+						else if (!string.IsNullOrWhiteSpace(Update.ReleaseNotes))
 						{
 							<pre class="update-notes-pre">@Update.ReleaseNotes</pre>
 						}
 						else
 						{
 							<p class="update-notes-empty">Performance improvements and bug fixes.</p>
+						}
+
+						@if (!string.IsNullOrWhiteSpace(Update.CompareUrl))
+						{
+							<div class="changelog-footer-link">
+								<a href="@Update.CompareUrl" target="_blank" rel="noopener noreferrer">
+									<AppIcon Name="external-link" Size="13" Class="btn-inline-icon" />
+									<span>View full comparison on GitHub</span>
+								</a>
+							</div>
 						}
 					</div>
 				</div>
