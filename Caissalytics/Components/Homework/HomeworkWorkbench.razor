@@ -21,16 +21,53 @@
 					<p class="hub-subtitle">@Loc["Homework_Subtitle"]</p>
 				</div>
 				<div class="hub-header-actions">
-					<button type="button" class="btn-primary btn-new-sheet" @onclick="() => CreateNewSheet(6, defaultTemplate: true)">
+					<button type="button" class="btn-primary btn-new-sheet" @onclick="CreateEmptySheet">
 						<span>➕</span>
-						<span>@Loc["Homework_NewSheet"] (6 @Loc["Homework_DiagramsCount"])</span>
+						<span>@Loc["Homework_CreateEmptySheet"]</span>
 					</button>
-					<button type="button" class="btn-secondary" @onclick="() => CreateNewSheet(4, defaultTemplate: true)">
-						<span>4 @Loc["Homework_DiagramsCount"]</span>
-					</button>
-					<button type="button" class="btn-secondary" @onclick="() => CreateNewSheet(8, defaultTemplate: true)">
-						<span>8 @Loc["Homework_DiagramsCount"]</span>
-					</button>
+
+					<div class="template-dropdown-wrapper">
+						<button type="button" class="btn-secondary btn-template-dropdown" @onclick="ToggleTemplateDropdown">
+							<span>📋</span>
+							<span>@Loc["Homework_CreateFromTemplate"]</span>
+							<span class="dropdown-chevron @(_showTemplateDropdown ? "chevron-open" : "")">▼</span>
+						</button>
+
+						@if (_showTemplateDropdown)
+						{
+							<div class="dropdown-backdrop" @onclick="() => _showTemplateDropdown = false"></div>
+							<div class="template-dropdown-menu">
+								<button type="button" class="template-menu-item" @onclick='() => SelectTemplate(2, "coaching_notes")'>
+									<span class="template-item-icon">📝</span>
+									<div class="template-item-text">
+										<span class="template-item-title">@Loc["Homework_TemplateCoaching"]</span>
+										<span class="template-item-desc">@Loc["Homework_TemplateCoachingDesc"]</span>
+									</div>
+								</button>
+								<button type="button" class="template-menu-item" @onclick='() => SelectTemplate(4, "mate_in_one")'>
+									<span class="template-item-icon">🎯</span>
+									<div class="template-item-text">
+										<span class="template-item-title">@Loc["Homework_Template4"]</span>
+										<span class="template-item-desc">@Loc["Homework_Template4Desc"]</span>
+									</div>
+								</button>
+								<button type="button" class="template-menu-item" @onclick='() => SelectTemplate(6, "mate_in_one")'>
+									<span class="template-item-icon">📄</span>
+									<div class="template-item-text">
+										<span class="template-item-title">@Loc["Homework_Template6"]</span>
+										<span class="template-item-desc">@Loc["Homework_Template6Desc"]</span>
+									</div>
+								</button>
+								<button type="button" class="template-menu-item" @onclick='() => SelectTemplate(8, "forks_pins")'>
+									<span class="template-item-icon">🏆</span>
+									<div class="template-item-text">
+										<span class="template-item-title">@Loc["Homework_Template8"]</span>
+										<span class="template-item-desc">@Loc["Homework_Template8Desc"]</span>
+									</div>
+								</button>
+							</div>
+						}
+					</div>
 				</div>
 			</div>
 
@@ -41,9 +78,16 @@
 						<span class="empty-state-icon">📋</span>
 						<h4>@Loc["Homework_NoSheets"]</h4>
 						<p>@Loc["Homework_NoSheetsDesc"]</p>
-						<button type="button" class="btn-primary" style="margin-top: 12px;" @onclick="() => CreateNewSheet(6)">
-							@Loc["Homework_CreateFirst"]
-						</button>
+						<div style="display: flex; gap: 10px; margin-top: 14px; justify-content: center; flex-wrap: wrap;">
+							<button type="button" class="btn-primary" @onclick="CreateEmptySheet">
+								<span>➕</span>
+								<span>@Loc["Homework_CreateEmptySheet"]</span>
+							</button>
+							<button type="button" class="btn-secondary" @onclick='() => SelectTemplate(2, "coaching_notes")'>
+								<span>📝</span>
+								<span>@Loc["Homework_TemplateCoaching"]</span>
+							</button>
+						</div>
 					</div>
 				}
 				else
@@ -59,6 +103,10 @@
 									</span>
 								</div>
 								<div class="sheet-card-badges">
+									@if (!string.IsNullOrWhiteSpace(sheet.Notes) && sheet.NotesPosition != "none")
+									{
+										<span class="sheet-badge badge-accent">📝 @Loc["Homework_CoachingNotes"]</span>
+									}
 									@if (sheet.ShowStudentHeader)
 									{
 										<span class="sheet-badge">@Loc["Homework_StudentHeader"]</span>
@@ -144,9 +192,25 @@
 						<label class="form-label">@Loc["Homework_SheetTitle"]</label>
 						<input type="text" class="form-input" @bind="_activeSheet.Title" @bind:event="oninput" />
 					</div>
+					<div class="settings-form-group">
+						<label class="form-label">@Loc["Homework_DiagramsPerRow"]</label>
+						<select class="form-select" @bind="_activeSheet.DiagramsPerRow">
+							<option value="1">@Loc["Homework_Col1"]</option>
+							<option value="2">2 @Loc["Homework_Columns"] (2x1, 2x2, 2x3, 2x4)</option>
+							<option value="3">3 @Loc["Homework_Columns"] (3x1, 3x2, 3x3)</option>
+						</select>
+					</div>
 					<div class="settings-form-group span-2">
 						<label class="form-label">@Loc["Homework_Instructions"]</label>
 						<input type="text" class="form-input" @bind="_activeSheet.Subtitle" @bind:event="oninput" />
+					</div>
+					<div class="settings-form-group">
+						<label class="form-label">@Loc["Homework_DiagramSize"]</label>
+						<select class="form-select" @bind="_activeSheet.DiagramSize">
+							<option value="large">@Loc["Homework_SizeLarge"]</option>
+							<option value="medium">@Loc["Homework_SizeMedium"]</option>
+							<option value="small">@Loc["Homework_SizeSmall"]</option>
+						</select>
 					</div>
 					<div class="settings-form-group">
 						<label class="form-label">@Loc["Homework_CoachName"]</label>
@@ -155,13 +219,6 @@
 					<div class="settings-form-group">
 						<label class="form-label">@Loc["Homework_ClubName"]</label>
 						<input type="text" class="form-input" placeholder="e.g. ŠK Považské Podhradie" @bind="_activeSheet.ClubName" />
-					</div>
-					<div class="settings-form-group">
-						<label class="form-label">@Loc["Homework_DiagramsPerRow"]</label>
-						<select class="form-select" @bind="_activeSheet.DiagramsPerRow">
-							<option value="2">2 @Loc["Homework_Columns"] (2x2, 2x3, 2x4)</option>
-							<option value="3">3 @Loc["Homework_Columns"] (3x2, 3x3)</option>
-						</select>
 					</div>
 					<div class="settings-form-group toggles-group span-3">
 						<label class="toggle-checkbox-item">
@@ -180,6 +237,92 @@
 							<input type="checkbox" @bind="_activeSheet.IncludeAnswerKey" />
 							<span>@Loc["Homework_IncludeAnswerKey"]</span>
 						</label>
+					</div>
+				</div>
+			</div>
+
+			<!-- Coaching Notes & Lesson Plan Card -->
+			<div class="sheet-notes-card">
+				<div class="notes-card-top">
+					<div class="notes-card-title-group">
+						<h3 class="notes-card-title">📝 @Loc["Homework_CoachingNotes"]</h3>
+						<span class="notes-card-badge">Markdown</span>
+					</div>
+					<div class="notes-card-actions">
+						<div class="notes-position-picker">
+							<label class="form-label" style="margin: 0;">@Loc["Homework_NotesPosition"]:</label>
+							<select class="form-select" style="padding: 4px 8px; font-size: 12px; width: auto;" @bind="_activeSheet.NotesPosition">
+								<option value="bottom">@Loc["Homework_NotesBottom"]</option>
+								<option value="top">@Loc["Homework_NotesTop"]</option>
+								<option value="none">@Loc["Homework_NotesHide"]</option>
+							</select>
+						</div>
+					</div>
+				</div>
+
+				<!-- Formatting Toolbar -->
+				<div class="notes-toolbar">
+					<button type="button" class="notes-tool-btn" @onclick='() => ApplyFormatAsync("**", "**")' title="Bold (Make selected text bold)">
+						<strong>B</strong>
+					</button>
+					<button type="button" class="notes-tool-btn" @onclick='() => ApplyFormatAsync("*", "*")' title="Italic (Make selected text italic)">
+						<em>I</em>
+					</button>
+					<button type="button" class="notes-tool-btn" @onclick='() => ApplyLinePrefixAsync("### ")' title="Heading">
+						<strong>H</strong>
+					</button>
+					<div class="notes-tool-divider"></div>
+					<button type="button" class="notes-tool-btn" @onclick='() => ApplyLinePrefixAsync("- ")' title="Bullet List">
+						<span>• List</span>
+					</button>
+					<button type="button" class="notes-tool-btn" @onclick='() => ApplyLinePrefixAsync("1. ")' title="Numbered List">
+						<span>1. List</span>
+					</button>
+					<button type="button" class="notes-tool-btn" @onclick='() => ApplyFormatAsync("`", "`")' title="Chess Move / Notation">
+						<span>♟ Move</span>
+					</button>
+					<button type="button" class="notes-tool-btn" @onclick='() => ApplyLinePrefixAsync("> **Coach Tip**: ")' title="Callout Tip Box">
+						<span>💬 Tip</span>
+					</button>
+					<button type="button" class="notes-tool-btn" @onclick='() => ApplyFormatAsync("\n---\n", "")' title="Horizontal Rule">
+						<span>― Line</span>
+					</button>
+					<div class="notes-tool-divider"></div>
+					<button type="button" class="notes-tool-btn btn-template" @onclick="InsertCoachingTemplate" title="Insert Lesson Plan Template">
+						<span>📋 @Loc["Homework_InsertTemplate"]</span>
+					</button>
+				</div>
+
+				<!-- Editor Panes (Textarea + Live Preview) -->
+				<div class="notes-editor-panes">
+					<div class="notes-pane">
+						<div class="notes-pane-header">
+							<span class="pane-header-label">✏️ @Loc["Homework_EditNotes"]</span>
+							<span class="pane-header-sub">Markdown</span>
+						</div>
+						<textarea id="homework-notes-textarea"
+								  class="notes-textarea"
+								  placeholder="@Loc["Homework_NotesPlaceholder"]"
+								  @bind="_activeSheet.Notes"
+								  @bind:event="oninput"></textarea>
+					</div>
+					<div class="notes-pane">
+						<div class="notes-pane-header">
+							<span class="pane-header-label">👁️ @Loc["Homework_PreviewNotes"]</span>
+							<span class="preview-live-badge">Live</span>
+						</div>
+						<div class="notes-preview-pane">
+							@if (string.IsNullOrWhiteSpace(_activeSheet.Notes))
+							{
+								<div class="notes-preview-empty">@Loc["Homework_NotesPlaceholder"]</div>
+							}
+							else
+							{
+								<div class="notes-body">
+									@HomeworkMarkdownHelper.ToHtml(_activeSheet.Notes)
+								</div>
+							}
+						</div>
 					</div>
 				</div>
 			</div>
@@ -351,6 +494,22 @@
 						}
 					</div>
 
+					@if (_activeSheet.NotesPosition == "top" && !string.IsNullOrWhiteSpace(_activeSheet.Notes))
+					{
+						<div class="print-notes-container notes-top">
+							<div class="print-notes-header">
+								<span class="print-notes-title">📝 @Loc["Homework_CoachingNotes"]</span>
+								@if (!string.IsNullOrWhiteSpace(_activeSheet.CoachName))
+								{
+									<span class="print-notes-meta">@_activeSheet.CoachName</span>
+								}
+							</div>
+							<div class="notes-body">
+								@HomeworkMarkdownHelper.ToHtml(_activeSheet.Notes)
+							</div>
+						</div>
+					}
+
 					<!-- Diagrams Grid -->
 					<div class="print-diagrams-grid @($"grid-cols-{_activeSheet.DiagramsPerRow}")">
 						@foreach (var ex in _activeSheet.Exercises)
@@ -358,9 +517,26 @@
 							<PrintableChessDiagram Exercise="ex"
 												   ShowCoordinates="_activeSheet.ShowCoordinates"
 												   ShowSolutionLines="_activeSheet.ShowSolutionLines"
+												   DiagramSize="@_activeSheet.DiagramSize"
 												   ShowAnswer="false" />
 						}
 					</div>
+
+					@if (_activeSheet.NotesPosition == "bottom" && !string.IsNullOrWhiteSpace(_activeSheet.Notes))
+					{
+						<div class="print-notes-container notes-bottom">
+							<div class="print-notes-header">
+								<span class="print-notes-title">📝 @Loc["Homework_CoachingNotes"]</span>
+								@if (!string.IsNullOrWhiteSpace(_activeSheet.CoachName))
+								{
+									<span class="print-notes-meta">@_activeSheet.CoachName</span>
+								}
+							</div>
+							<div class="notes-body">
+								@HomeworkMarkdownHelper.ToHtml(_activeSheet.Notes)
+							</div>
+						</div>
+					}
 
 					<div class="print-page-footer">
 						<span>Caissalytics Chess</span>
@@ -390,6 +566,7 @@
 								<PrintableChessDiagram Exercise="ex"
 													   ShowCoordinates="_activeSheet.ShowCoordinates"
 													   ShowSolutionLines="false"
+													   DiagramSize="@_activeSheet.DiagramSize"
 													   ShowAnswer="true" />
 							}
 						</div>
@@ -497,18 +674,114 @@
 		_viewMode = ViewMode.Editor;
 	}
 
-	private async Task CreateNewSheet(int exerciseCount, bool defaultTemplate = false)
+	private bool _showTemplateDropdown = false;
+
+	private void ToggleTemplateDropdown()
+	{
+		_showTemplateDropdown = !_showTemplateDropdown;
+	}
+
+	private async Task SelectTemplate(int count, string templateType)
+	{
+		_showTemplateDropdown = false;
+		await CreateNewSheet(count, defaultTemplate: true, templateType: templateType);
+	}
+
+	private async Task CreateEmptySheet()
+	{
+		_showTemplateDropdown = false;
+		var sheet = await HomeworkService.CreateNewSheetAsync("Blank Worksheet", 0, "");
+		sheet.Notes = "";
+		sheet.Subtitle = "";
+		_activeSheet = sheet;
+		_viewMode = ViewMode.Editor;
+	}
+
+	private async Task CreateNewSheet(int exerciseCount, bool defaultTemplate = false, string templateType = "")
 	{
 		string title = exerciseCount switch
 		{
+			1 => "Chess Position Focus (1 Diagram)",
+			2 => templateType == "coaching_notes" ? "Coaching Lesson Notes (2 Diagrams)" : "Tactics Drill (2 Diagrams)",
 			4 => "Chess Tactics Drill (4 Diagrams)",
 			8 => "Club Homework Sheet (8 Diagrams)",
 			_ => "Chess Homework Worksheet (6 Diagrams)"
 		};
 
-		var sheet = await HomeworkService.CreateNewSheetAsync(title, exerciseCount, defaultTemplate ? "mate_in_one" : "");
+		string t = !string.IsNullOrEmpty(templateType) ? templateType : (defaultTemplate ? "mate_in_one" : "");
+		var sheet = await HomeworkService.CreateNewSheetAsync(title, exerciseCount, t);
+		if (templateType == "coaching_notes")
+		{
+			sheet.ShowStudentHeader = false;
+			sheet.DiagramSize = "large";
+		}
 		_activeSheet = sheet;
 		_viewMode = ViewMode.Editor;
+	}
+
+	private async Task ApplyFormatAsync(string prefix, string suffix = "")
+	{
+		if (_activeSheet == null) return;
+		try
+		{
+			var newVal = await JS.InvokeAsync<string?>("homeworkEditor.formatSelection", "homework-notes-textarea", prefix, suffix);
+			if (newVal != null)
+			{
+				_activeSheet.Notes = newVal;
+				StateHasChanged();
+				return;
+			}
+		}
+		catch { }
+
+		InsertNotesFormat(prefix, suffix);
+	}
+
+	private async Task ApplyLinePrefixAsync(string linePrefix)
+	{
+		if (_activeSheet == null) return;
+		try
+		{
+			var newVal = await JS.InvokeAsync<string?>("homeworkEditor.formatLinePrefix", "homework-notes-textarea", linePrefix);
+			if (newVal != null)
+			{
+				_activeSheet.Notes = newVal;
+				StateHasChanged();
+				return;
+			}
+		}
+		catch { }
+
+		InsertNotesPrefix(linePrefix);
+	}
+
+	private void InsertNotesFormat(string prefix, string suffix)
+	{
+		if (_activeSheet == null) return;
+		_activeSheet.Notes = string.IsNullOrEmpty(_activeSheet.Notes)
+			? $"{prefix}text{suffix}"
+			: $"{_activeSheet.Notes} {prefix}text{suffix}";
+	}
+
+	private void InsertNotesPrefix(string prefix)
+	{
+		if (_activeSheet == null) return;
+		if (string.IsNullOrEmpty(_activeSheet.Notes))
+		{
+			_activeSheet.Notes = prefix;
+		}
+		else
+		{
+			_activeSheet.Notes = _activeSheet.Notes.EndsWith("\n")
+				? $"{_activeSheet.Notes}{prefix}"
+				: $"{_activeSheet.Notes}\n{prefix}";
+		}
+	}
+
+	private void InsertCoachingTemplate()
+	{
+		if (_activeSheet == null) return;
+		_activeSheet.Notes = HomeworkService.GetDefaultCoachingNotes();
 	}
 
 	private async Task SaveCurrentSheetAsync()

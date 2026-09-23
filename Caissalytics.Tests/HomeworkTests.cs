@@ -261,4 +261,102 @@ public class HomeworkTests : IDisposable
 
         return true;
     }
+
+    [Fact]
+    public void HomeworkMarkdownHelper_FormatsHeadingsListsAndFormatting()
+    {
+        string markdown = "### Lesson Goals\n" +
+                          "- Focus on **king activity**\n" +
+                          "- Learn *Lucena position*\n" +
+                          "1. Calculate `1. e4 e5` candidate\n" +
+                          "> **Coach Tip**: Keep calm\n" +
+                          "---\n" +
+                          "<script>alert('xss')</script>";
+
+        var html = HomeworkMarkdownHelper.ToHtml(markdown).Value;
+
+        Assert.Contains("<h5 class=\"notes-h3\">Lesson Goals</h5>", html);
+        Assert.Contains("<strong>king activity</strong>", html);
+        Assert.Contains("<em>Lucena position</em>", html);
+        Assert.Contains("<ul class=\"notes-list\">", html);
+        Assert.Contains("<ol class=\"notes-ordered-list\">", html);
+        Assert.Contains("<code class=\"notes-code\">1. e4 e5</code>", html);
+        Assert.Contains("<blockquote class=\"notes-callout\">", html);
+        Assert.Contains("<hr class=\"notes-divider\" />", html);
+        // Ensure XSS is properly escaped
+        Assert.DoesNotContain("<script>", html);
+        Assert.Contains("&lt;script&gt;", html);
+    }
+
+    [Fact]
+    public void HomeworkMarkdownHelper_EmptyOrNullReturnsEmpty()
+    {
+        Assert.Empty(HomeworkMarkdownHelper.ToHtml(null).Value);
+        Assert.Empty(HomeworkMarkdownHelper.ToHtml("   ").Value);
+    }
+
+    [Fact]
+    public async Task HomeworkService_CreateCoachingSheet_PrefillsNotesAndLargeDiagrams()
+    {
+        var service = new HomeworkService(_testDir);
+        var sheet = await service.CreateNewSheetAsync("Lesson with Tomas", 2, "coaching_notes");
+
+        Assert.NotNull(sheet);
+        Assert.Equal(2, sheet.Exercises.Count);
+        Assert.Equal("large", sheet.DiagramSize);
+        Assert.Equal(2, sheet.DiagramsPerRow);
+        Assert.False(string.IsNullOrWhiteSpace(sheet.Notes));
+        Assert.Contains("Lesson Objectives", sheet.Notes);
+    }
+
+    [Fact]
+    public async Task HomeworkService_CreateOneDiagramSheet_SetsOneColumn()
+    {
+        var service = new HomeworkService(_testDir);
+        var sheet = await service.CreateNewSheetAsync("Single Problem Focus", 1);
+
+        Assert.NotNull(sheet);
+        Assert.Single(sheet.Exercises);
+        Assert.Equal(1, sheet.DiagramsPerRow);
+        Assert.Equal("large", sheet.DiagramSize);
+    }
+
+    [Fact]
+    public async Task HomeworkService_CloneAndDuplicate_PreservesNotesAndDiagramSize()
+    {
+        var service = new HomeworkService(_testDir);
+        var sheet = await service.CreateNewSheetAsync("Original Sheet", 2);
+        sheet.Notes = "### Important Note\nRemember the opposition!";
+        sheet.NotesPosition = "top";
+        sheet.DiagramSize = "large";
+        sheet.DiagramsPerRow = 1;
+        await service.SaveSheetAsync(sheet);
+
+        var retrieved = await service.GetSheetAsync(sheet.Id);
+        Assert.NotNull(retrieved);
+        Assert.Equal(sheet.Notes, retrieved.Notes);
+        Assert.Equal("top", retrieved.NotesPosition);
+        Assert.Equal("large", retrieved.DiagramSize);
+        Assert.Equal(1, retrieved.DiagramsPerRow);
+
+        var duplicate = await service.DuplicateSheetAsync(sheet.Id);
+        Assert.NotNull(duplicate);
+        Assert.Equal(sheet.Notes, duplicate.Notes);
+        Assert.Equal("top", duplicate.NotesPosition);
+        Assert.Equal("large", duplicate.DiagramSize);
+        Assert.Equal(1, duplicate.DiagramsPerRow);
+    }
+
+    [Fact]
+    public async Task HomeworkService_CreateEmptySheet_HasZeroExercisesAndEmptyNotes()
+    {
+        var service = new HomeworkService(_testDir);
+        var sheet = await service.CreateNewSheetAsync("My Custom Worksheet", 0, "");
+
+        Assert.NotNull(sheet);
+        Assert.Equal("My Custom Worksheet", sheet.Title);
+        Assert.Empty(sheet.Exercises);
+        Assert.Empty(sheet.Notes);
+        Assert.Empty(sheet.Subtitle);
+    }
 }

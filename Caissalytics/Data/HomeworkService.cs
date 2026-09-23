@@ -134,16 +134,22 @@ public class HomeworkService : IHomeworkService
             catch { }
         }
 
+        string subtitle = exerciseCount == 0 ? "" : (exerciseCount <= 2
+            ? "Key tactical motifs and candidate move calculation for the upcoming lesson."
+            : "Find the best move in each position. Write down your solution and key defense.");
+
         var sheet = new HomeworkSheet
         {
             Id = Guid.NewGuid().ToString("N"),
-            Title = string.IsNullOrWhiteSpace(title) ? "Chess Tactics Worksheet" : title,
-            Subtitle = "Find the best move in each position. Write down your solution and key defense.",
+            Title = string.IsNullOrWhiteSpace(title) ? (exerciseCount == 0 ? "Blank Worksheet" : "Chess Tactics Worksheet") : title,
+            Subtitle = subtitle,
             CoachName = coachName,
             ClubName = clubName,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
-            DiagramsPerRow = exerciseCount <= 4 ? 2 : 2
+            DiagramsPerRow = exerciseCount == 1 ? 1 : 2,
+            DiagramSize = (exerciseCount > 0 && exerciseCount <= 2) ? "large" : "medium",
+            Notes = templateType == "coaching_notes" ? GetDefaultCoachingNotes() : ""
         };
 
         var templates = GetSampleExercises(templateType);
@@ -227,6 +233,9 @@ public class HomeworkService : IHomeworkService
             CreatedAt = s.CreatedAt,
             UpdatedAt = s.UpdatedAt,
             DiagramsPerRow = s.DiagramsPerRow,
+            DiagramSize = s.DiagramSize,
+            Notes = s.Notes,
+            NotesPosition = s.NotesPosition,
             ShowCoordinates = s.ShowCoordinates,
             ShowStudentHeader = s.ShowStudentHeader,
             ShowSolutionLines = s.ShowSolutionLines,
@@ -313,4 +322,21 @@ public class HomeworkService : IHomeworkService
             }
         };
     }
+
+    public static string GetDefaultCoachingNotes()
+    {
+        return "### 🎯 Lesson Objectives\n" +
+               "- Analyze key endgame motifs & candidate move calculation.\n" +
+               "- Identify undefended pieces and tactical weaknesses.\n\n" +
+               "### 💡 Discussion Points & Guidance\n" +
+               "1. **King Activity**: In pawn endgames, always prioritize active king placement.\n" +
+               "2. **Tactical Motif**: Look for pins, skewers, and overloaded defenders.\n" +
+               "3. **Candidate Moves**: Calculate at least 2 candidate moves before touching a piece.\n\n" +
+               "> **Coach Tip**: Remind student to evaluate opponent's best reply before committing to the attack!\n\n" +
+               "### 📝 Homework & Practice\n" +
+               "- Solve the diagrams above and write down complete variation trees.\n" +
+               "- Play two 15+10 games focusing on king safety.";
+    }
+
+    string IHomeworkService.GetDefaultCoachingNotes() => GetDefaultCoachingNotes();
 }

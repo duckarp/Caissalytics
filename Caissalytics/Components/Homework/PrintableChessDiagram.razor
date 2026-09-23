@@ -2,7 +2,7 @@
 @using Caissalytics.Core
 @using Caissalytics.Data
 
-<div class="printable-diagram-card">
+<div class="printable-diagram-card @($"diagram-size-{DiagramSize?.ToLowerInvariant() ?? "medium"}")">
 	<div class="diagram-card-header">
 		<div class="diagram-number-badge">#@Exercise.Order</div>
 		<div class="diagram-title-group">
@@ -84,6 +84,7 @@
 	[Parameter] public bool ShowCoordinates { get; set; } = true;
 	[Parameter] public bool ShowSolutionLines { get; set; } = true;
 	[Parameter] public bool ShowAnswer { get; set; } = false;
+	[Parameter] public string DiagramSize { get; set; } = "medium";
 
 	private BoardPosition _pos = new();
 

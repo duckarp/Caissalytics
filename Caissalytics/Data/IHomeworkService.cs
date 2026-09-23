@@ -9,4 +9,5 @@ public interface IHomeworkService
     Task DeleteSheetAsync(string id);
     Task<HomeworkSheet> DuplicateSheetAsync(string id);
     Task<HomeworkSheet> CreateNewSheetAsync(string title, int exerciseCount = 6, string templateType = "mate_in_one");
+    string GetDefaultCoachingNotes();
 }

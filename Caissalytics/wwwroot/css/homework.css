@@ -68,6 +68,92 @@
   flex-wrap: wrap;
 }
 
+/* Template Dropdown Menu */
+.template-dropdown-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.btn-template-dropdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.dropdown-chevron {
+  font-size: 9px;
+  transition: transform 0.2s ease;
+  margin-left: 2px;
+}
+
+.dropdown-chevron.chevron-open {
+  transform: rotate(180deg);
+}
+
+.dropdown-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: transparent;
+}
+
+.template-dropdown-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  background-color: var(--bg-surface-elevated, #24242e);
+  border: 1px solid var(--border-medium, rgba(255, 255, 255, 0.15));
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  min-width: 320px;
+  z-index: 100;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.template-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background-color 0.15s ease;
+}
+
+.template-menu-item:hover {
+  background-color: var(--bg-surface-hover, rgba(255, 255, 255, 0.08));
+}
+
+.template-item-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.template-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.template-item-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.template-item-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 .homework-sheets-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
@@ -370,6 +456,262 @@
   cursor: pointer;
 }
 
+/* Coaching Notes Card in Sheet Editor */
+.sheet-notes-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.notes-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.notes-card-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notes-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.notes-card-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  background-color: rgba(33, 150, 243, 0.15);
+  color: #64b5f6;
+  border-radius: 4px;
+}
+
+.notes-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.notes-position-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.notes-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  align-items: center;
+  padding: 6px 10px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+}
+
+.notes-tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.notes-tool-btn:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+
+.notes-tool-btn.btn-template {
+  background-color: rgba(76, 175, 80, 0.15);
+  color: #81c784;
+  border-color: rgba(76, 175, 80, 0.3);
+}
+
+.notes-tool-btn.btn-template:hover {
+  background-color: rgba(76, 175, 80, 0.25);
+  color: #a5d6a7;
+}
+
+.notes-tool-divider {
+  width: 1px;
+  height: 18px;
+  background-color: var(--border-subtle);
+  margin: 0 4px;
+}
+
+.notes-editor-panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 900px) {
+  .notes-editor-panes {
+    grid-template-columns: 1fr;
+  }
+}
+
+.notes-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.notes-pane-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 4px;
+}
+
+.pane-header-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pane-header-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.preview-live-badge {
+  font-size: 9px;
+  font-weight: 800;
+  padding: 2px 7px;
+  background-color: rgba(76, 175, 80, 0.18);
+  color: #81c784;
+  border: 1px solid rgba(76, 175, 80, 0.4);
+  border-radius: 10px;
+  letter-spacing: 0.5px;
+}
+
+.notes-textarea {
+  width: 100%;
+  min-height: 180px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  outline: none;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.notes-textarea:focus {
+  border-color: var(--accent-blue, #64b5f6);
+}
+
+.notes-preview-pane {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-medium, rgba(255, 255, 255, 0.15));
+  border-radius: 6px;
+  padding: 12px 16px;
+  overflow-y: auto;
+  min-height: 180px;
+  max-height: 280px;
+  box-sizing: border-box;
+}
+
+.notes-preview-pane .notes-body {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-primary, #ffffff);
+}
+
+.notes-preview-pane .notes-body .notes-h1,
+.notes-preview-pane .notes-body .notes-h2,
+.notes-preview-pane .notes-body .notes-h3 {
+  color: var(--text-primary, #ffffff);
+}
+
+.notes-preview-pane .notes-body .notes-h3 {
+  color: #90caf9;
+}
+
+.notes-preview-pane .notes-body .notes-p {
+  color: var(--text-primary, #ffffff);
+  margin: 0 0 6px 0;
+}
+
+.notes-preview-pane .notes-body .notes-list,
+.notes-preview-pane .notes-body .notes-ordered-list {
+  color: var(--text-primary, #ffffff);
+}
+
+.notes-preview-pane .notes-body .notes-callout {
+  margin: 8px 0;
+  padding: 6px 12px;
+  background-color: rgba(33, 150, 243, 0.15);
+  border-left: 3px solid #64b5f6;
+  border-radius: 0 4px 4px 0;
+  font-size: 12px;
+  color: var(--text-primary, #ffffff);
+}
+
+.notes-preview-pane .notes-body .notes-callout p {
+  color: var(--text-primary, #ffffff);
+}
+
+.notes-preview-pane .notes-body .notes-code {
+  font-family: var(--font-mono, monospace);
+  background-color: rgba(255, 255, 255, 0.08);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #ffcc80;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.notes-preview-pane .notes-body hr.notes-divider {
+  border: 0;
+  border-top: 1px dashed var(--border-subtle);
+  margin: 10px 0;
+}
+
+.notes-preview-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  font-size: 12px;
+  padding-top: 4px;
+}
+
 .editor-section-header {
   display: flex;
   justify-content: space-between;
@@ -404,6 +746,13 @@
 .editor-exercises-grid {
   display: grid;
   gap: 20px;
+}
+
+.editor-exercises-grid.cols-1 {
+  grid-template-columns: 1fr;
+  max-width: 680px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .editor-exercises-grid.cols-2 {
@@ -764,6 +1113,60 @@
   height: 26px;
 }
 
+/* Large diagram size (280px board, 35px squares, 32px pieces) - ideal for 1-2 diagrams & coaching focus */
+.printable-diagram-card.diagram-size-large .diagram-board-grid {
+  grid-template-columns: repeat(8, 35px);
+  grid-template-rows: repeat(8, 35px);
+  width: 280px;
+  height: 280px;
+}
+
+.printable-diagram-card.diagram-size-large .diagram-sq {
+  width: 35px;
+  height: 35px;
+}
+
+.printable-diagram-card.diagram-size-large .diagram-piece {
+  width: 32px;
+  height: 32px;
+}
+
+.printable-diagram-card.diagram-size-large .diag-rank-coord,
+.printable-diagram-card.diagram-size-large .diag-file-coord {
+  font-size: 10px;
+}
+
+.printable-diagram-card.diagram-size-large .diagram-title {
+  font-size: 14px;
+}
+
+.printable-diagram-card.diagram-size-large .diagram-prompt-box {
+  font-size: 13px;
+}
+
+/* Small diagram size (184px board, 23px squares, 21px pieces) */
+.printable-diagram-card.diagram-size-small .diagram-board-grid {
+  grid-template-columns: repeat(8, 23px);
+  grid-template-rows: repeat(8, 23px);
+  width: 184px;
+  height: 184px;
+}
+
+.printable-diagram-card.diagram-size-small .diagram-sq {
+  width: 23px;
+  height: 23px;
+}
+
+.printable-diagram-card.diagram-size-small .diagram-piece {
+  width: 21px;
+  height: 21px;
+}
+
+.printable-diagram-card.diagram-size-small .diag-rank-coord,
+.printable-diagram-card.diagram-size-small .diag-file-coord {
+  font-size: 7px;
+}
+
 /* Prompt Box */
 .diagram-prompt-box {
   font-size: 12px;
@@ -989,7 +1392,14 @@
 .print-diagrams-grid {
   display: grid;
   gap: 16px 20px;
-  flex: 1;
+  align-content: start;
+}
+
+.print-diagrams-grid.grid-cols-1 {
+  grid-template-columns: 1fr;
+  max-width: 440px;
+  margin: 0 auto;
+  width: 100%;
 }
 
 .print-diagrams-grid.grid-cols-2 {
@@ -998,6 +1408,116 @@
 
 .print-diagrams-grid.grid-cols-3 {
   grid-template-columns: repeat(3, 1fr);
+}
+
+/* Printable Coaching Notes Container */
+.print-notes-container {
+  background-color: #fafbfc;
+  border: 1.5px solid #222;
+  border-radius: 6px;
+  padding: 12px 16px;
+  box-sizing: border-box;
+}
+
+.print-notes-container.notes-top {
+  margin-bottom: 16px;
+}
+
+.print-notes-container.notes-bottom {
+  margin-top: 16px;
+  margin-bottom: 12px;
+}
+
+.print-notes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #ddd;
+}
+
+.print-notes-title {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #111;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.print-notes-meta {
+  font-size: 10px;
+  color: #666;
+  font-weight: 600;
+}
+
+.print-notes-container .notes-body {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #1a1a1a;
+}
+
+.print-notes-container .notes-body .notes-h1 {
+  font-size: 14px;
+  font-weight: 800;
+  margin: 10px 0 4px 0;
+  color: #111;
+}
+
+.print-notes-container .notes-body .notes-h2 {
+  font-size: 13px;
+  font-weight: 700;
+  margin: 8px 0 3px 0;
+  color: #111;
+}
+
+.print-notes-container .notes-body .notes-h3 {
+  font-size: 12px;
+  font-weight: 700;
+  margin: 6px 0 3px 0;
+  color: #222;
+}
+
+.print-notes-container .notes-body .notes-p {
+  margin: 0 0 5px 0;
+}
+
+.print-notes-container .notes-body .notes-list,
+.print-notes-container .notes-body .notes-ordered-list {
+  margin: 4px 0 6px 0;
+  padding-left: 20px;
+}
+
+.print-notes-container .notes-body li {
+  margin-bottom: 2px;
+}
+
+.print-notes-container .notes-body .notes-callout {
+  margin: 6px 0;
+  padding: 5px 10px;
+  background-color: #f1f5f9;
+  border-left: 3px solid #1976d2;
+  border-radius: 0 4px 4px 0;
+  font-size: 11px;
+}
+
+.print-notes-container .notes-body .notes-code {
+  font-family: var(--font-mono, monospace);
+  background-color: #f0f0f0;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid #ddd;
+}
+
+.print-notes-container .notes-body hr.notes-divider {
+  border: 0;
+  border-top: 1px dashed #ccc;
+  margin: 8px 0;
 }
 
 .print-page-footer {
@@ -1379,6 +1899,11 @@
    5. Browser Print Media Rules (@media print)
    ========================================================================== */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 10mm 12mm;
+  }
+
   body, html {
     margin: 0 !important;
     padding: 0 !important;
@@ -1412,11 +1937,14 @@
   .a4-page-sheet {
     box-shadow: none !important;
     margin: 0 !important;
-    padding: 10mm 12mm !important;
+    padding: 8mm 10mm !important;
     width: 100% !important;
-    min-height: auto !important;
+    min-height: 275mm !important;
     page-break-after: always;
     break-after: page;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
   }
 
   .a4-page-sheet.page-break-before {
@@ -1428,6 +1956,17 @@
     break-inside: avoid;
     page-break-inside: avoid;
     box-shadow: none !important;
+  }
+
+  .print-notes-container {
+    background-color: #fff !important;
+    border: 1.5px solid #333 !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-page-footer {
+    margin-top: auto !important;
   }
 
   /* Force browsers to print exact background colors and vector borders */

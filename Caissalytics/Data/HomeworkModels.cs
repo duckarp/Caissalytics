@@ -9,7 +9,10 @@ public class HomeworkSheet
     public string ClubName { get; set; } = "";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-    public int DiagramsPerRow { get; set; } = 2; // 2 (e.g. 2x2, 2x3, 2x4) or 3
+    public int DiagramsPerRow { get; set; } = 2; // 1 (single column / focus), 2 (e.g. 2x1, 2x2, 2x3), or 3
+    public string DiagramSize { get; set; } = "medium"; // "small", "medium", "large"
+    public string Notes { get; set; } = ""; // Markdown/formatted coaching notes or lesson plan
+    public string NotesPosition { get; set; } = "bottom"; // "bottom", "top", "none"
     public bool ShowCoordinates { get; set; } = true;
     public bool ShowStudentHeader { get; set; } = true; // Name, Date, Score
     public bool ShowSolutionLines { get; set; } = true; // blank dotted lines for student handwriting
