@@ -340,4 +340,23 @@ public class GameAnalysisTests
             CultureInfo.CurrentCulture = originalCulture;
         }
     }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(10)]
+    [InlineData(54)]
+    [InlineData(100)]
+    public void EvaluationChart_GetSliceBounds_ContinuouslyCoversSvgWidth(int total)
+    {
+        double currentX = 0.0;
+        for (int i = 0; i < total; i++)
+        {
+            var (x, width) = EvaluationChart.GetSliceBounds(i, total);
+            Assert.True(width > 0, $"Slice width must be positive at index {i}");
+            Assert.Equal(currentX, x, 4);
+            currentX = x + width;
+        }
+        Assert.Equal(EvaluationChart.SvgWidth, currentX, 4);
+    }
 }

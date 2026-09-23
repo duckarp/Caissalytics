@@ -436,16 +436,29 @@
   stroke-linecap: round;
 }
 
+.eval-chart-zero-line,
+.eval-chart-grid-line,
+.eval-chart-axis-line,
+.eval-chart-axis-tick,
+.eval-axis-text,
+.eval-axis-label,
+.eval-chart-area,
+.eval-chart-curve {
+  pointer-events: none;
+}
+
 .eval-chart-cursor {
   stroke: rgba(255, 255, 255, 0.7);
   stroke-width: 1;
   stroke-dasharray: 2 2;
+  pointer-events: none;
 }
 
 .eval-chart-active-dot {
   fill: #58a6ff;
   stroke: #ffffff;
   stroke-width: 1.5;
+  pointer-events: none;
 }
 
 .eval-marker-group {

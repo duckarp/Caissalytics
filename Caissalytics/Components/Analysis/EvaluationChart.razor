@@ -23,7 +23,7 @@
 		</div>
 	</div>
 
-	<svg class="eval-chart-svg" viewBox="0 0 800 175" preserveAspectRatio="none">
+	<svg class="eval-chart-svg" viewBox="0 0 800 175" preserveAspectRatio="none" @onmouseleave="() => _hoveredPly = null">
 		<defs>
 			<linearGradient id="evalAreaGradient" x1="0" y1="0" x2="0" y2="1">
 				<stop offset="0%" stop-color="#ffffff" stop-opacity="0.25" />
@@ -71,14 +71,12 @@
 		@for (int i = 0; i < Plies.Count; i++)
 		{
 			int plyIdx = i;
-			double sliceWidth = Plies.Count > 1 ? (PadRight - PadLeft) / (Plies.Count - 1) : (PadRight - PadLeft);
-			double sliceX = GetX(i, Plies.Count) - (sliceWidth / 2.0);
-			<rect x="@F(sliceX)" y="@F(TopY)" width="@F(sliceWidth)" height="@F(BottomY - TopY)"
+			var bounds = GetSliceBounds(i, Plies.Count);
+			<rect x="@F(bounds.X)" y="0" width="@F(bounds.Width)" height="@F(SvgHeight)"
 				  fill="transparent"
 				  class="eval-chart-slice"
 				  @onclick="() => OnSelectPly.InvokeAsync(plyIdx)"
-				  @onmouseenter="() => _hoveredPly = plyIdx"
-				  @onmouseleave="() => _hoveredPly = null" />
+				  @onmouseenter="() => _hoveredPly = plyIdx" />
 		}
 
 		<!-- Active cursor vertical line -->
@@ -113,8 +111,7 @@
 
 				<g class="eval-marker-group"
 				   @onclick="() => OnSelectPly.InvokeAsync(plyIdx)"
-				   @onmouseenter="() => _hoveredPly = plyIdx"
-				   @onmouseleave="() => _hoveredPly = null">
+				   @onmouseenter="() => _hoveredPly = plyIdx">
 					<!-- Invisible larger hit area to ensure smooth hovering without jitter -->
 					<circle cx="@F(cx)" cy="@F(cy)" r="11" fill="transparent" class="eval-marker-hitbox" />
 					<circle class="@markerClass"
@@ -150,6 +147,24 @@
 	{
 		if (total <= 1) return (PadLeft + PadRight) / 2.0;
 		return PadLeft + (index / (double)(total - 1)) * (PadRight - PadLeft);
+	}
+
+	public static (double X, double Width) GetSliceBounds(int index, int total)
+	{
+		if (total <= 1) return (0.0, SvgWidth);
+		if (index == 0)
+		{
+			double right = (GetX(0, total) + GetX(1, total)) / 2.0;
+			return (0.0, right);
+		}
+		if (index == total - 1)
+		{
+			double left = (GetX(index - 1, total) + GetX(index, total)) / 2.0;
+			return (left, SvgWidth - left);
+		}
+		double l = (GetX(index - 1, total) + GetX(index, total)) / 2.0;
+		double r = (GetX(index, total) + GetX(index + 1, total)) / 2.0;
+		return (l, r - l);
 	}
 
 	public static double GetY(double winRate)
