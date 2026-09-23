@@ -2,9 +2,6 @@
 @using Caissalytics.Data
 @using Caissalytics.Components.Database
 @inject WorkspaceState Workspace
-@inject IDatabaseService DatabaseService
-@inject IUserProfileService ProfileService
-@inject IOnlineGameSyncService SyncService
 @inject IChessClubService ClubService
 @inject ISkppIntegrationService SkppService
 @implements IDisposable
@@ -26,92 +23,114 @@
 		</div>
 	</div>
 
-	<div class="quick-actions-grid">
-		<div class="action-card card-theme-analysis" @onclick="() => Workspace.CreateAnalysisTab()">
-			<DashboardIcon Type="analysis" />
-			<h2 class="card-title">@Loc["Dash_Card_Analysis"]</h2>
-			<p class="card-description">@Loc["Dash_Card_Analysis_Desc"]</p>
-		</div>
-
-		<div class="action-card card-theme-databases" @onclick="() => Workspace.CreateDatabaseTab()">
-			<DashboardIcon Type="databases" />
-			<h2 class="card-title">@Loc["Dash_Card_Databases"]</h2>
-			<p class="card-description">@Loc["Dash_Card_Databases_Desc"]</p>
-		</div>
-
-		<label class="action-card card-theme-open-pgn">
-			<DashboardIcon Type="open-pgn" />
-			<h2 class="card-title">@Loc["Dash_Card_OpenPgn"]</h2>
-			<p class="card-description">@Loc["Dash_Card_OpenPgn_Desc"]</p>
-			<InputFile OnChange="HandlePgnUpload" class="hidden-file-input" accept=".pgn" />
-		</label>
-
-		<div class="action-card card-theme-online-games" @onclick="HandleMyOnlineGamesClicked">
-			<DashboardIcon Type="online-games" />
-			<h2 class="card-title">@Loc["Dash_Card_OnlineGames"]</h2>
-			<p class="card-description">@Loc["Dash_Card_OnlineGames_Desc"]</p>
-		</div>
-
-		<div class="action-card card-theme-puzzles" @onclick="() => Workspace.CreatePuzzleTrainerTab()">
-			<DashboardIcon Type="puzzles" />
-			<h2 class="card-title">@Loc["Dash_Card_Puzzles"]</h2>
-			<p class="card-description">@Loc["Dash_Card_Puzzles_Desc"]</p>
-		</div>
-
-		<div class="action-card card-theme-repertoire" @onclick="() => Workspace.CreateRepertoireTab()">
-			<DashboardIcon Type="repertoire" />
-			<h2 class="card-title">@Loc["Dash_Card_Repertoire"]</h2>
-			<p class="card-description">@Loc["Dash_Card_Repertoire_Desc"]</p>
-		</div>
-
-		<div class="action-card card-theme-dossier" @onclick="() => Workspace.CreateOpponentDossierTab()">
-			<DashboardIcon Type="dossier" />
-			<h2 class="card-title">@Loc["Dash_Card_Dossier"]</h2>
-			<p class="card-description">@Loc["Dash_Card_Dossier_Desc"]</p>
-		</div>
-
-		<div class="action-card card-theme-endgames" @onclick="() => Workspace.CreateEndgameTrainerTab()">
-			<DashboardIcon Type="endgames" />
-			<h2 class="card-title">@Loc["Dash_Card_Endgames"]</h2>
-			<p class="card-description">@Loc["Dash_Card_Endgames_Desc"]</p>
-		</div>
-
-		<div class="action-card card-theme-practice" @onclick="() => Workspace.CreatePracticeTab()">
-			<DashboardIcon Type="practice" />
-			<h2 class="card-title">@Loc["Dash_Card_Practice"]</h2>
-			<p class="card-description">@Loc["Dash_Card_Practice_Desc"]</p>
-		</div>
-
-		<div class="action-card card-theme-analytics" @onclick="() => Workspace.CreateAnalyticsTab()">
-			<DashboardIcon Type="analytics" />
-			<h2 class="card-title">@Loc["Nav_Insights"]</h2>
-			<p class="card-description">@Loc["Dash_Card_Insights_Desc"]</p>
-		</div>
-
-		@if (_coachFeaturesEnabled)
-		{
-			<div class="action-card card-theme-homework" @onclick="() => Workspace.CreateHomeworkTab()">
-				<DashboardIcon Type="homework" />
-				<h2 class="card-title">@Loc["Dash_Card_Homework"]</h2>
-				<p class="card-description">@Loc["Dash_Card_Homework_Desc"]</p>
+	<!-- Play & Training Section -->
+	<section class="dashboard-section-group">
+		<div class="dashboard-section-header">
+			<div class="dashboard-section-title-wrap">
+				<span class="dashboard-section-badge badge-play">⚔️</span>
+				<div class="dashboard-section-titles">
+					<h2 class="dashboard-section-title">@Loc["Dash_Group_Training"]</h2>
+					<span class="dashboard-section-desc">@Loc["Dash_Group_Training_Desc"]</span>
+				</div>
 			</div>
-		}
-
-		@if (_skppState.IsConnected)
-		{
-			<div class="action-card card-theme-club-homework" @onclick="() => Workspace.CreateClubHomeworkTab()">
-				<DashboardIcon Type="club-homework" />
-				<h2 class="card-title">@Loc["Dash_Card_ClubHomework"]</h2>
-				<p class="card-description">@Loc["Dash_Card_ClubHomework_Desc"]</p>
-			</div>
-		}
-
-		<div class="action-card card-theme-settings" @onclick="() => Workspace.CreateSettingsTab()">
-			<DashboardIcon Type="settings" />
-			<h2 class="card-title">@Loc["Dash_Card_Settings"]</h2>
-			<p class="card-description">@Loc["Dash_Card_Settings_Desc"]</p>
 		</div>
-	</div>
+
+		<div class="quick-actions-grid">
+			<div class="action-card card-theme-analysis" @onclick="() => Workspace.CreateAnalysisTab()">
+				<DashboardIcon Type="analysis" />
+				<h2 class="card-title">@Loc["Dash_Card_Analysis"]</h2>
+				<p class="card-description">@Loc["Dash_Card_Analysis_Desc"]</p>
+			</div>
+
+			<div class="action-card card-theme-practice" @onclick="() => Workspace.CreatePracticeTab()">
+				<DashboardIcon Type="practice" />
+				<h2 class="card-title">@Loc["Dash_Card_Practice"]</h2>
+				<p class="card-description">@Loc["Dash_Card_Practice_Desc"]</p>
+			</div>
+
+			<div class="action-card card-theme-puzzles" @onclick="() => Workspace.CreatePuzzleTrainerTab()">
+				<DashboardIcon Type="puzzles" />
+				<h2 class="card-title">@Loc["Dash_Card_Puzzles"]</h2>
+				<p class="card-description">@Loc["Dash_Card_Puzzles_Desc"]</p>
+			</div>
+
+			<div class="action-card card-theme-endgames" @onclick="() => Workspace.CreateEndgameTrainerTab()">
+				<DashboardIcon Type="endgames" />
+				<h2 class="card-title">@Loc["Dash_Card_Endgames"]</h2>
+				<p class="card-description">@Loc["Dash_Card_Endgames_Desc"]</p>
+			</div>
+
+			<div class="action-card card-theme-repertoire" @onclick="() => Workspace.CreateRepertoireTab()">
+				<DashboardIcon Type="repertoire" />
+				<h2 class="card-title">@Loc["Dash_Card_Repertoire"]</h2>
+				<p class="card-description">@Loc["Dash_Card_Repertoire_Desc"]</p>
+			</div>
+
+			@if (_coachFeaturesEnabled)
+			{
+				<div class="action-card card-theme-homework" @onclick="() => Workspace.CreateHomeworkTab()">
+					<DashboardIcon Type="homework" />
+					<h2 class="card-title">@Loc["Dash_Card_Homework"]</h2>
+					<p class="card-description">@Loc["Dash_Card_Homework_Desc"]</p>
+				</div>
+			}
+
+			@if (_skppState.IsConnected)
+			{
+				<div class="action-card card-theme-club-homework" @onclick="() => Workspace.CreateClubHomeworkTab()">
+					<DashboardIcon Type="club-homework" />
+					<h2 class="card-title">@Loc["Dash_Card_ClubHomework"]</h2>
+					<p class="card-description">@Loc["Dash_Card_ClubHomework_Desc"]</p>
+				</div>
+			}
+		</div>
+	</section>
+
+	<!-- Preparation & Insights Section -->
+	<section class="dashboard-section-group">
+		<div class="dashboard-section-header">
+			<div class="dashboard-section-title-wrap">
+				<span class="dashboard-section-badge badge-insights">🔍</span>
+				<div class="dashboard-section-titles">
+					<h2 class="dashboard-section-title">@Loc["Dash_Group_Insights"]</h2>
+					<span class="dashboard-section-desc">@Loc["Dash_Group_Insights_Desc"]</span>
+				</div>
+			</div>
+		</div>
+
+		<div class="quick-actions-grid">
+			<div class="action-card card-theme-databases" @onclick="() => Workspace.CreateDatabaseTab()">
+				<DashboardIcon Type="databases" />
+				<h2 class="card-title">@Loc["Dash_Card_Databases"]</h2>
+				<p class="card-description">@Loc["Dash_Card_Databases_Desc"]</p>
+			</div>
+
+			<div class="action-card card-theme-dossier" @onclick="() => Workspace.CreateOpponentDossierTab()">
+				<DashboardIcon Type="dossier" />
+				<h2 class="card-title">@Loc["Dash_Card_Dossier"]</h2>
+				<p class="card-description">@Loc["Dash_Card_Dossier_Desc"]</p>
+			</div>
+
+			<div class="action-card card-theme-analytics" @onclick="() => Workspace.CreateAnalyticsTab()">
+				<DashboardIcon Type="analytics" />
+				<h2 class="card-title">@Loc["Nav_Insights"]</h2>
+				<p class="card-description">@Loc["Dash_Card_Insights_Desc"]</p>
+			</div>
+
+			<label class="action-card card-theme-open-pgn">
+				<DashboardIcon Type="open-pgn" />
+				<h2 class="card-title">@Loc["Dash_Card_OpenPgn"]</h2>
+				<p class="card-description">@Loc["Dash_Card_OpenPgn_Desc"]</p>
+				<InputFile OnChange="HandlePgnUpload" class="hidden-file-input" accept=".pgn" />
+			</label>
+
+			<div class="action-card card-theme-settings" @onclick="() => Workspace.CreateSettingsTab()">
+				<DashboardIcon Type="settings" />
+				<h2 class="card-title">@Loc["Dash_Card_Settings"]</h2>
+				<p class="card-description">@Loc["Dash_Card_Settings_Desc"]</p>
+			</div>
+		</div>
+	</section>
 </div>
 
 @code {
@@ -155,29 +174,6 @@
 			_coachFeaturesEnabled = (await ClubService.GetSettingsAsync()).CoachFeaturesEnabled;
 			StateHasChanged();
 		});
-	}
-
-	private async Task HandleMyOnlineGamesClicked()
-	{
-		var profile = await ProfileService.GetProfileAsync();
-		bool hasHandle = profile.HasLichess || profile.HasChessCom;
-
-		if (hasHandle)
-		{
-			string onlineDbName = SyncService.OnlineGamesDatabaseName;
-			var existingDbs = await DatabaseService.GetDatabasesAsync();
-			if (!existingDbs.Any(d => string.Equals(d.Name, onlineDbName, StringComparison.OrdinalIgnoreCase)))
-			{
-				await DatabaseService.CreateDatabaseAsync(onlineDbName);
-			}
-
-			await DatabaseService.SetActiveDatabaseAsync(onlineDbName);
-			Workspace.CreateDatabaseTab(onlineDbName);
-		}
-		else
-		{
-			Workspace.CreateSettingsTab("sync");
-		}
 	}
 
 	private async Task HandlePgnUpload(InputFileChangeEventArgs e)

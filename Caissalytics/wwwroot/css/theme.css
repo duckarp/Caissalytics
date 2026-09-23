@@ -109,3 +109,10 @@ html, body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
+
+/* Common App SVG Icon */
+.app-svg-icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}

@@ -13,6 +13,8 @@ public class LocalizationTests
 
         Assert.Equal("en", loc.CurrentLanguage);
         Assert.Equal("New Analysis Board", loc["Dash_Card_Analysis"]);
+        Assert.Equal("Play & Training", loc["Dash_Group_Training"]);
+        Assert.Equal("Preparation & Insights", loc["Dash_Group_Insights"]);
         Assert.Equal("Settings & Control Center", loc["Settings_Title"]);
         Assert.Equal("Save Settings", loc["Common_Save"]);
     }
@@ -29,6 +31,8 @@ public class LocalizationTests
         Assert.True(eventFired);
         Assert.Equal("sk", loc.CurrentLanguage);
         Assert.Equal("Nová analýza partie", loc["Dash_Card_Analysis"]);
+        Assert.Equal("Hra & Tréning", loc["Dash_Group_Training"]);
+        Assert.Equal("Príprava & Prehľady", loc["Dash_Group_Insights"]);
         Assert.Equal("Nastavenia & Riadiace centrum", loc["Settings_Title"]);
         Assert.Equal("Uložiť nastavenia", loc["Common_Save"]);
         Assert.Equal("Odstrániť", loc["Common_Remove"]);

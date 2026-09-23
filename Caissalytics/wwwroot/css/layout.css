@@ -148,6 +148,12 @@
   margin-bottom: 0;
 }
 
+.tools-action-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
 .btn-copy-action {
   background-color: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
