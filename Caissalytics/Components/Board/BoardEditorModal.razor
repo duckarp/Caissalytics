@@ -13,8 +13,10 @@
 		<div class="board-editor-modal-body">
 			<BoardEditor InitialFen="@InitialFen"
 						 OnSave="HandleSave"
+						 OnSaveInNewTab="HandleSaveInNewTab"
 						 OnCancel="HandleCancel"
-						 ShowActionButtons="true" />
+						 ShowActionButtons="true"
+						 ShowOpenInNewTabOption="@ShowOpenInNewTabOption" />
 		</div>
 	</div>
 </div>
@@ -23,11 +25,25 @@
 	[Parameter] public string Title { get; set; } = "Board Position Editor";
 	[Parameter] public string InitialFen { get; set; } = "";
 	[Parameter] public EventCallback<string> OnSave { get; set; }
+	[Parameter] public EventCallback<string> OnSaveInNewTab { get; set; }
+	[Parameter] public bool ShowOpenInNewTabOption { get; set; } = false;
 	[Parameter] public EventCallback OnClose { get; set; }
 
 	private async Task HandleSave(string fen)
 	{
 		await OnSave.InvokeAsync(fen);
+	}
+
+	private async Task HandleSaveInNewTab(string fen)
+	{
+		if (OnSaveInNewTab.HasDelegate)
+		{
+			await OnSaveInNewTab.InvokeAsync(fen);
+		}
+		else
+		{
+			await OnSave.InvokeAsync(fen);
+		}
 	}
 
 	private async Task HandleCancel()

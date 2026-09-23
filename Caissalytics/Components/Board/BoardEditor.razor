@@ -238,10 +238,17 @@
 		@if (ShowActionButtons)
 		{
 			<div class="board-editor-footer-actions">
+				@if (ShowOpenInNewTabOption)
+				{
+					<label class="board-editor-newtab-check">
+						<input type="checkbox" @bind="_openInNewTab" />
+						<span>@Loc["Analysis_LoadPgn_OpenNewTab"]</span>
+					</label>
+				}
 				<button type="button" class="btn-puzzle btn-secondary-action" @onclick="HandleCancel">
 					@Loc["Common_Cancel"]
 				</button>
-				<button type="button" class="btn-puzzle btn-next" @onclick="HandleSave">
+				<button type="button" class="btn-puzzle btn-next" @onclick="HandleSave" disabled="@(!string.IsNullOrEmpty(_validationMessage))">
 					💾 @Loc["Common_Save"]
 				</button>
 			</div>
@@ -252,8 +259,10 @@
 @code {
 	[Parameter] public string InitialFen { get; set; } = BoardPosition.StartFen;
 	[Parameter] public EventCallback<string> OnSave { get; set; }
+	[Parameter] public EventCallback<string> OnSaveInNewTab { get; set; }
 	[Parameter] public EventCallback OnCancel { get; set; }
 	[Parameter] public bool ShowActionButtons { get; set; } = true;
+	[Parameter] public bool ShowOpenInNewTabOption { get; set; } = false;
 
 	private BoardPosition _position = new();
 	private Piece? _selectedPiece = new Piece(PieceColor.White, PieceType.Pawn);
@@ -262,6 +271,7 @@
 	private string _fenInput = "";
 	private string? _validationMessage;
 	private bool _copied = false;
+	private bool _openInNewTab = false;
 
 	protected override void OnInitialized()
 	{
@@ -539,7 +549,16 @@
 
 	private async Task HandleSave()
 	{
-		await OnSave.InvokeAsync(_fenInput);
+		if (!string.IsNullOrEmpty(_validationMessage)) return;
+
+		if (ShowOpenInNewTabOption && _openInNewTab && OnSaveInNewTab.HasDelegate)
+		{
+			await OnSaveInNewTab.InvokeAsync(_fenInput);
+		}
+		else
+		{
+			await OnSave.InvokeAsync(_fenInput);
+		}
 	}
 
 	private async Task HandleCancel()

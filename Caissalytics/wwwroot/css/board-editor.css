@@ -434,8 +434,25 @@
 .board-editor-footer-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 10px;
   margin-top: 4px;
+}
+
+.board-editor-newtab-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  margin-right: auto;
+  user-select: none;
+}
+
+.board-editor-newtab-check input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--accent-primary);
 }
 
 /* Modal Overlay */

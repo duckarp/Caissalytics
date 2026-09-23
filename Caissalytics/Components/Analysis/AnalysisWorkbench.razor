@@ -24,6 +24,7 @@
 							  OnPrev="HandlePrev"
 							  OnNext="HandleNext"
 							  OnLast="HandleLast"
+							  OnEditPosition="() => _showBoardEditorModal = true"
 							  Tree="@Tab.Tree">
 				<SideGauge>
 					<EvaluationGauge TopLine="@(Tab.CurrentEvalLines.Count > 0 ? Tab.CurrentEvalLines[0] : null)"
@@ -49,6 +50,7 @@
 			<button class="panel-tab-btn @(_activeRightTab == "tools" ? "tab-active" : "")" 
 					@onclick="@(() => _activeRightTab = "tools")">@Loc["Analysis_Tab_Tools"]</button>
 			<div class="workbench-header-actions">
+				<button class="btn-secondary-small" title="@Loc["BoardEditor_EditPosition"]" @onclick="() => _showBoardEditorModal = true">✏️ @Loc["BoardEditor_EditPosition"]</button>
 				<button class="btn-secondary-small" title="Play vs PC from current position" @onclick="() => _showPlayVsPcModal = true">🤖 @Loc["Analysis_PlayVsPc"]</button>
 				<button class="btn-secondary-small" title="Load PGN" @onclick="() => _showLoadModal = true">📂 @Loc["Analysis_LoadPgnShort"]</button>
 				<button class="btn-primary-small" title="Save game to database" @onclick="() => _showSaveModal = true">@Loc["Analysis_SaveToDb"]</button>
@@ -123,9 +125,14 @@
 
 					<div class="tools-header-row">
 						<h3 class="tools-subheading">@Loc["Analysis_Fen"]</h3>
-						<button class="btn-copy-action" @onclick="CopyFenAsync" title="Copy FEN to clipboard">
-							@(_fenCopied ? Loc["Analysis_Copied"] : Loc["Analysis_CopyFen"])
-						</button>
+						<div class="tools-action-group">
+							<button class="btn-copy-action" @onclick="CopyFenAsync" title="Copy FEN to clipboard">
+								@(_fenCopied ? Loc["Analysis_Copied"] : Loc["Analysis_CopyFen"])
+							</button>
+							<button class="btn-copy-action" @onclick="() => _showBoardEditorModal = true" title="@Loc["BoardEditor_EditPosition"]">
+								✏️ @Loc["BoardEditor_EditPosition"]
+							</button>
+						</div>
 					</div>
 					<input class="tools-fen-input" readonly value="@FenParser.ToFen(Tab.Tree.CurrentNode.Position)" />
 
@@ -171,6 +178,16 @@
 					   Tree="@Tab.Tree"
 					   OnClose="() => _showPlayVsPcModal = false" />
 
+@if (_showBoardEditorModal)
+{
+	<BoardEditorModal Title="@Loc["BoardEditor_Title"]"
+					  InitialFen="@FenParser.ToFen(Tab.Tree.CurrentNode.Position)"
+					  ShowOpenInNewTabOption="true"
+					  OnSave="HandlePositionEdited"
+					  OnSaveInNewTab="HandlePositionEditedInNewTab"
+					  OnClose="() => _showBoardEditorModal = false" />
+}
+
 @code {
 	[Parameter, EditorRequired] public AnalysisTab Tab { get; set; } = default!;
 
@@ -181,6 +198,7 @@
 	private bool _showSaveModal = false;
 	private bool _showLoadModal = false;
 	private bool _showPlayVsPcModal = false;
+	private bool _showBoardEditorModal = false;
 	private bool _fenCopied = false;
 	private bool _pgnCopied = false;
 
@@ -337,6 +355,47 @@
 		{
 			Console.WriteLine($"[AnalysisWorkbench] Failed to load PGN: {ex.Message}");
 		}
+	}
+
+	private async Task HandlePositionEdited(string fen)
+	{
+		_showBoardEditorModal = false;
+		if (string.IsNullOrWhiteSpace(fen)) return;
+
+		try
+		{
+			_engineCts?.Cancel();
+			await EngineService.StopAnalysisAsync();
+			Tab.CurrentEvalLines.Clear();
+
+			Tab.Tree.PositionChanged -= OnPositionChanged;
+			Tab.Tree = new GameTree(fen);
+			Tab.Tree.PositionChanged += OnPositionChanged;
+
+			Tab.DatabaseGameId = null;
+			Tab.AnalysisReport = null;
+
+			string title = fen == BoardPosition.StartFen ? "Analysis Board" : "Custom Position";
+			Tab.SetTitle(title);
+
+			_activeRightTab = "moves";
+
+			await SyncBoardAndEngineAsync();
+			StateHasChanged();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[AnalysisWorkbench] Failed to set edited position: {ex.Message}");
+		}
+	}
+
+	private void HandlePositionEditedInNewTab(string fen)
+	{
+		_showBoardEditorModal = false;
+		if (string.IsNullOrWhiteSpace(fen)) return;
+
+		string title = fen == BoardPosition.StartFen ? "Analysis Board" : "Custom Position";
+		Workspace.CreateAnalysisTab(title: title, startFen: fen);
 	}
 
 	protected override void OnInitialized()
