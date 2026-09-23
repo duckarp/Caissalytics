@@ -1,4 +1,6 @@
+using System.Globalization;
 using Caissalytics.Components;
+using Caissalytics.Components.Analysis;
 using Caissalytics.Core;
 using Caissalytics.Engine;
 using Xunit;
@@ -292,5 +294,50 @@ public class GameAnalysisTests
         tree.PromoteVariation(deepest);
         Assert.Equal(6, tree.GetMainlineDepth());
         Assert.True(deepest.IsMainline);
+    }
+
+    [Theory]
+    [InlineData("en-US")]
+    [InlineData("sk-SK")]
+    [InlineData("de-DE")]
+    [InlineData("fr-FR")]
+    [InlineData("cs-CZ")]
+    public void EvaluationChart_BuildCurvePath_FormatsInvariantlyUnderCommaCultures(string cultureName)
+    {
+        var originalCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo(cultureName);
+
+            var plies = new List<PlyAnalysis>
+            {
+                new() { Ply = 0, WinRateAfter = 50.0 },
+                new() { Ply = 1, WinRateAfter = 54.3 },
+                new() { Ply = 2, WinRateAfter = 48.7 },
+                new() { Ply = 3, WinRateAfter = 62.1 }
+            };
+
+            string curvePath = EvaluationChart.BuildCurvePath(plies);
+            string areaPath = EvaluationChart.BuildAreaPath(plies);
+
+            // In SVG path 'd', numbers must use dot as decimal separator and never comma
+            Assert.NotEmpty(curvePath);
+            Assert.NotEmpty(areaPath);
+            Assert.DoesNotContain(",", curvePath);
+            Assert.DoesNotContain(",", areaPath);
+            Assert.StartsWith("M 42.0 80.0", curvePath);
+            Assert.Contains(" L ", curvePath);
+            Assert.StartsWith("M 42.0 80.0", areaPath);
+            Assert.EndsWith(" Z", areaPath);
+
+            // Ensure F helper also formats with invariant culture
+            Assert.Equal("42.3", EvaluationChart.F(42.34));
+            Assert.Equal("18.0", EvaluationChart.F(EvaluationChart.TopY));
+            Assert.Equal("142.0", EvaluationChart.F(EvaluationChart.BottomY));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = originalCulture;
+        }
     }
 }

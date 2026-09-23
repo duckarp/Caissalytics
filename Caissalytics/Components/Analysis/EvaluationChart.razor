@@ -1,4 +1,5 @@
 @namespace Caissalytics.Components.Analysis
+@using System.Globalization
 @using Caissalytics.Engine
 
 <div class="eval-chart-wrapper">
@@ -17,7 +18,7 @@
 			}
 			else
 			{
-				<span class="eval-title-hint">Hover or click markers to inspect</span>
+				<span class="eval-title-hint">Hover or click graph to inspect moves</span>
 			}
 		</div>
 	</div>
@@ -33,21 +34,21 @@
 		</defs>
 
 		<!-- Y-Axis Grid Lines -->
-		<line class="eval-chart-grid-line" x1="@PadLeft" y1="49" x2="@PadRight" y2="49" />
-		<line class="eval-chart-zero-line" x1="@PadLeft" y1="@ZeroY" x2="@PadRight" y2="@ZeroY" />
-		<line class="eval-chart-grid-line" x1="@PadLeft" y1="111" x2="@PadRight" y2="111" />
+		<line class="eval-chart-grid-line" x1="@F(PadLeft)" y1="49" x2="@F(PadRight)" y2="49" />
+		<line class="eval-chart-zero-line" x1="@F(PadLeft)" y1="@F(ZeroY)" x2="@F(PadRight)" y2="@F(ZeroY)" />
+		<line class="eval-chart-grid-line" x1="@F(PadLeft)" y1="111" x2="@F(PadRight)" y2="111" />
 
 		<!-- Vertical Grid Lines & Move Numbers for X-Axis -->
 		@foreach (var tick in GetMoveTicks())
 		{
-			<line class="eval-chart-grid-line" x1="@tick.X.ToString("F1")" y1="@TopY" x2="@tick.X.ToString("F1")" y2="@BottomY" />
-			<line class="eval-chart-axis-tick" x1="@tick.X.ToString("F1")" y1="@BottomY" x2="@tick.X.ToString("F1")" y2="@(BottomY + 4)" />
+			<line class="eval-chart-grid-line" x1="@F(tick.X)" y1="@F(TopY)" x2="@F(tick.X)" y2="@F(BottomY)" />
+			<line class="eval-chart-axis-tick" x1="@F(tick.X)" y1="@F(BottomY)" x2="@F(tick.X)" y2="@F(BottomY + 4)" />
 			@SvgText(tick.X, 160, tick.MoveNumber.ToString(), "middle", "eval-axis-text")
 		}
 
 		<!-- Axis Border Lines -->
-		<line class="eval-chart-axis-line" x1="@PadLeft" y1="@TopY" x2="@PadLeft" y2="@BottomY" />
-		<line class="eval-chart-axis-line" x1="@PadLeft" y1="@BottomY" x2="@PadRight" y2="@BottomY" />
+		<line class="eval-chart-axis-line" x1="@F(PadLeft)" y1="@F(TopY)" x2="@F(PadLeft)" y2="@F(BottomY)" />
+		<line class="eval-chart-axis-line" x1="@F(PadLeft)" y1="@F(BottomY)" x2="@F(PadRight)" y2="@F(BottomY)" />
 
 		<!-- Y-Axis Numerical Labels -->
 		@SvgText(36, 23, "+5", "end", "eval-axis-text eval-axis-white")
@@ -66,13 +67,30 @@
 		<!-- Advantage curve -->
 		<path class="eval-chart-curve" d="@BuildCurvePath()" />
 
-		<!-- Active cursor vertical line -->
-		@if (ActivePly.HasValue && ActivePly.Value >= 0 && ActivePly.Value < Plies.Count)
+		<!-- Interactive slices for each ply to inspect/select any move -->
+		@for (int i = 0; i < Plies.Count; i++)
 		{
-			double curX = GetX(ActivePly.Value, Plies.Count);
-			double curY = GetY(Plies[ActivePly.Value].WinRateAfter);
-			<line class="eval-chart-cursor" x1="@curX.ToString("F1")" y1="@TopY" x2="@curX.ToString("F1")" y2="@BottomY" />
-			<circle cx="@curX.ToString("F1")" cy="@curY.ToString("F1")" r="4" class="eval-chart-active-dot" />
+			int plyIdx = i;
+			double sliceWidth = Plies.Count > 1 ? (PadRight - PadLeft) / (Plies.Count - 1) : (PadRight - PadLeft);
+			double sliceX = GetX(i, Plies.Count) - (sliceWidth / 2.0);
+			<rect x="@F(sliceX)" y="@F(TopY)" width="@F(sliceWidth)" height="@F(BottomY - TopY)"
+				  fill="transparent"
+				  class="eval-chart-slice"
+				  @onclick="() => OnSelectPly.InvokeAsync(plyIdx)"
+				  @onmouseenter="() => _hoveredPly = plyIdx"
+				  @onmouseleave="() => _hoveredPly = null" />
+		}
+
+		<!-- Active cursor vertical line -->
+		@{
+			int? indicatorPly = _hoveredPly ?? ActivePly;
+		}
+		@if (indicatorPly.HasValue && indicatorPly.Value >= 0 && indicatorPly.Value < Plies.Count)
+		{
+			double curX = GetX(indicatorPly.Value, Plies.Count);
+			double curY = GetY(Plies[indicatorPly.Value].WinRateAfter);
+			<line class="eval-chart-cursor" x1="@F(curX)" y1="@F(TopY)" x2="@F(curX)" y2="@F(BottomY)" />
+			<circle cx="@F(curX)" cy="@F(curY)" r="4" class="eval-chart-active-dot" />
 		}
 
 		<!-- Interactive Blunder / Mistake / Inaccuracy dots with Hitboxes -->
@@ -98,10 +116,10 @@
 				   @onmouseenter="() => _hoveredPly = plyIdx"
 				   @onmouseleave="() => _hoveredPly = null">
 					<!-- Invisible larger hit area to ensure smooth hovering without jitter -->
-					<circle cx="@cx.ToString("F1")" cy="@cy.ToString("F1")" r="11" fill="transparent" class="eval-marker-hitbox" />
+					<circle cx="@F(cx)" cy="@F(cy)" r="11" fill="transparent" class="eval-marker-hitbox" />
 					<circle class="@markerClass"
-							cx="@cx.ToString("F1")"
-							cy="@cy.ToString("F1")"
+							cx="@F(cx)"
+							cy="@F(cy)"
 							r="4.5">
 						<title>@($"{p.MoveNumber}{(p.IsWhiteMove ? "." : "...")} {p.MoveSan} ({p.FormattedScoreAfter}) - {p.Classification}")</title>
 					</circle>
@@ -118,56 +136,61 @@
 
 	private int? _hoveredPly;
 
-	private const double SvgWidth = 800.0;
-	private const double SvgHeight = 175.0;
-	private const double PadLeft = 42.0;
-	private const double PadRight = 780.0;
-	private const double TopY = 18.0;
-	private const double BottomY = 142.0;
-	private const double ZeroY = 80.0;
+	public const double SvgWidth = 800.0;
+	public const double SvgHeight = 175.0;
+	public const double PadLeft = 42.0;
+	public const double PadRight = 780.0;
+	public const double TopY = 18.0;
+	public const double BottomY = 142.0;
+	public const double ZeroY = 80.0;
 
-	private double GetX(int index, int total)
+	public static string F(double value) => value.ToString("F1", CultureInfo.InvariantCulture);
+
+	public static double GetX(int index, int total)
 	{
 		if (total <= 1) return (PadLeft + PadRight) / 2.0;
 		return PadLeft + (index / (double)(total - 1)) * (PadRight - PadLeft);
 	}
 
-	private double GetY(double winRate)
+	public static double GetY(double winRate)
 	{
 		double clamped = Math.Clamp(winRate, 0.0, 100.0);
 		return BottomY - (clamped / 100.0) * (BottomY - TopY);
 	}
 
-	private string BuildCurvePath()
+	public static string BuildCurvePath(IReadOnlyList<PlyAnalysis> plies)
 	{
-		if (Plies.Count == 0) return "";
+		if (plies.Count == 0) return "";
 		var sb = new System.Text.StringBuilder();
-		for (int i = 0; i < Plies.Count; i++)
+		for (int i = 0; i < plies.Count; i++)
 		{
-			double x = GetX(i, Plies.Count);
-			double y = GetY(Plies[i].WinRateAfter);
-			sb.Append(i == 0 ? $"M {x:F1} {y:F1}" : $" L {x:F1} {y:F1}");
+			double x = GetX(i, plies.Count);
+			double y = GetY(plies[i].WinRateAfter);
+			sb.Append(i == 0 ? $"M {F(x)} {F(y)}" : $" L {F(x)} {F(y)}");
 		}
 		return sb.ToString();
 	}
 
-	private string BuildAreaPath()
+	public static string BuildAreaPath(IReadOnlyList<PlyAnalysis> plies)
 	{
-		if (Plies.Count == 0) return "";
+		if (plies.Count == 0) return "";
 		var sb = new System.Text.StringBuilder();
-		double startX = GetX(0, Plies.Count);
-		double endX = GetX(Plies.Count - 1, Plies.Count);
+		double startX = GetX(0, plies.Count);
+		double endX = GetX(plies.Count - 1, plies.Count);
 
-		sb.Append($"M {startX:F1} {ZeroY:F1}");
-		for (int i = 0; i < Plies.Count; i++)
+		sb.Append($"M {F(startX)} {F(ZeroY)}");
+		for (int i = 0; i < plies.Count; i++)
 		{
-			double x = GetX(i, Plies.Count);
-			double y = GetY(Plies[i].WinRateAfter);
-			sb.Append($" L {x:F1} {y:F1}");
+			double x = GetX(i, plies.Count);
+			double y = GetY(plies[i].WinRateAfter);
+			sb.Append($" L {F(x)} {F(y)}");
 		}
-		sb.Append($" L {endX:F1} {ZeroY:F1} Z");
+		sb.Append($" L {F(endX)} {F(ZeroY)} Z");
 		return sb.ToString();
 	}
+
+	private string BuildCurvePath() => BuildCurvePath(Plies);
+	private string BuildAreaPath() => BuildAreaPath(Plies);
 
 	private record MoveTick(int MoveNumber, double X);
 
@@ -219,6 +242,6 @@
 	{
 		string anchorAttr = string.IsNullOrEmpty(anchor) ? "" : $" text-anchor=\"{anchor}\"";
 		string classAttr = string.IsNullOrEmpty(cssClass) ? "" : $" class=\"{cssClass}\"";
-		return (MarkupString)$"<text x=\"{x:F1}\" y=\"{y:F1}\"{anchorAttr}{classAttr}>{text}</text>";
+		return (MarkupString)$"<text x=\"{F(x)}\" y=\"{F(y)}\"{anchorAttr}{classAttr}>{text}</text>";
 	}
 }

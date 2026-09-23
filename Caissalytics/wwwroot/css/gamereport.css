@@ -452,6 +452,11 @@
   cursor: pointer;
 }
 
+.eval-chart-slice {
+  cursor: pointer;
+  pointer-events: all;
+}
+
 .eval-marker-hitbox {
   pointer-events: all;
   cursor: pointer;
