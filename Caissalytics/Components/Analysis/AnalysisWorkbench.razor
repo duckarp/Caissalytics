@@ -61,7 +61,10 @@
 			@if (_activeRightTab == "moves")
 			{
 				<div class="panel-top-section">
-					<NotationTree Tree="@Tab.Tree" OnSelectNode="HandleSelectNode" />
+					<NotationTree Tree="@Tab.Tree"
+								  OnSelectNode="HandleSelectNode"
+								  OnPromoteVariation="HandlePromoteVariation"
+								  OnDeleteSubtree="HandleDeleteSubtree" />
 					<AnnotationPalette ActiveNode="@Tab.Tree.CurrentNode"
 									   OnAnnotationChanged="StateHasChanged"
 									   OnPromoteVariation="HandlePromoteVariation"

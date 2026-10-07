@@ -1,20 +1,42 @@
 @namespace Caissalytics.Components.Analysis
 @using Caissalytics.Core
+@inject IJSRuntime JS
+@implements IDisposable
 
 <div class="notation-panel-container">
-	@if (HasClocks || ResultInfo.HasResult)
-	{
-		<div class="notation-toolbar-row">
-			@if (ResultInfo.HasResult)
+	<div class="notation-toolbar-row">
+		<div class="notation-view-toggle" title="Switch notation display layout">
+			<button class="view-mode-btn @(_viewMode == NotationViewMode.Structured ? "active" : "")"
+					@onclick="() => _viewMode = NotationViewMode.Structured">
+				🌳 Tree
+			</button>
+			<button class="view-mode-btn @(_viewMode == NotationViewMode.Inline ? "active" : "")"
+					@onclick="() => _viewMode = NotationViewMode.Inline">
+				📜 Flow
+			</button>
+		</div>
+
+		@if (ResultInfo.HasResult)
+		{
+			<div class="notation-toolbar-result @ResultInfo.ResultClass" title="@ResultInfo.Tooltip" @onclick="SelectLastMove">
+				<span class="toolbar-result-badge">@ResultInfo.DisplayScore</span>
+				@if (!string.IsNullOrEmpty(ResultInfo.Description))
+				{
+					<span class="toolbar-result-desc">@ResultInfo.Description</span>
+				}
+			</div>
+		}
+
+		<div class="notation-toolbar-right">
+			@if (HasVariations && _viewMode == NotationViewMode.Structured)
 			{
-				<div class="notation-toolbar-result @ResultInfo.ResultClass" title="@ResultInfo.Tooltip" @onclick="SelectLastMove">
-					<span class="toolbar-result-badge">@ResultInfo.DisplayScore</span>
-					@if (!string.IsNullOrEmpty(ResultInfo.Description))
-					{
-						<span class="toolbar-result-desc">@ResultInfo.Description</span>
-					}
-				</div>
+				<button class="notation-toggle-btn"
+						title="@(_collapsedVariations.Count > 0 ? "Expand all variations" : "Collapse all variations")"
+						@onclick="ToggleAllVariations">
+					@(_collapsedVariations.Count > 0 ? "⊞ Expand All" : "⊟ Collapse All")
+				</button>
 			}
+
 			@if (HasClocks)
 			{
 				<button class="notation-toggle-btn @(_showClocks ? "active" : "")"
@@ -24,18 +46,43 @@
 				</button>
 			}
 		</div>
+	</div>
+
+	@if (Tree?.CurrentNode != null && !Tree.CurrentNode.IsMainline)
+	{
+		var sourceNode = GetBranchSourceNode();
+		<div class="active-variation-banner">
+			<div class="variation-banner-info">
+				<span class="variation-icon-badge">🔀 Variation</span>
+				@if (sourceNode != null && !sourceNode.IsRoot)
+				{
+					<span class="variation-origin-text">
+						Branch from <strong>@(sourceNode.MoveNumber)@(sourceNode.IsWhiteMove ? "." : "...") @sourceNode.San</strong>
+					</span>
+				}
+			</div>
+			<div class="variation-banner-actions">
+				<button class="banner-action-btn banner-promote-btn" title="Promote this variation to mainline" @onclick="() => HandlePromote(Tree.CurrentNode)">
+					⬆ Promote
+				</button>
+				<button class="banner-action-btn banner-return-btn" title="Return to mainline" @onclick="ReturnToMainline">
+					↩ Mainline
+				</button>
+			</div>
+		</div>
 	}
+
 	<div class="notation-tree-scrollable">
-		@if (Tree.Root.Children.Count == 0)
+		@if (Tree?.Root.Children.Count == 0)
 		{
 			<div class="empty-notation-prompt">
 				<span>Make a move on the board to start notation</span>
 			</div>
 		}
-		else
+		else if (Tree != null)
 		{
-			<div class="move-list-flow">
-				@RenderNodeChildren(Tree.Root, isMainline: true)
+			<div class="@(_viewMode == NotationViewMode.Structured ? "move-tree-structured" : "move-list-flow")">
+				@RenderBranchFromPosition(Tree.Root, isMainline: true, depth: 1, forceFirstNumber: false)
 				@if (ResultInfo.HasResult)
 				{
 					<div class="notation-result-flow-box @ResultInfo.ResultClass" title="@ResultInfo.Tooltip" @onclick="SelectLastMove">
@@ -52,24 +99,80 @@
 </div>
 
 @code {
+	public enum NotationViewMode
+	{
+		Structured,
+		Inline
+	}
+
 	[Parameter, EditorRequired] public GameTree Tree { get; set; } = default!;
 	[Parameter] public EventCallback<MoveNode> OnSelectNode { get; set; }
+	[Parameter] public EventCallback<MoveNode> OnPromoteVariation { get; set; }
+	[Parameter] public EventCallback<MoveNode> OnDeleteSubtree { get; set; }
 
+	private NotationViewMode _viewMode = NotationViewMode.Structured;
 	private bool _showClocks = true;
+	private readonly HashSet<Guid> _collapsedVariations = new();
+	private GameTree? _lastTree;
+	private MoveNode? _lastScrolledNode;
+
 	private GameResultInfo ResultInfo => GameResultHelper.GetResult(Tree, Tree?.CurrentNode?.Position);
 
-	private void SelectLastMove()
+	protected override void OnInitialized()
 	{
-		if (Tree?.Root == null) return;
-		var leaf = Tree.Root;
-		while (leaf.Children.Count > 0)
+		SubscribeToTree(Tree);
+	}
+
+	protected override void OnParametersSet()
+	{
+		if (Tree != _lastTree)
 		{
-			leaf = leaf.Children[0];
+			UnsubscribeFromTree(_lastTree);
+			SubscribeToTree(Tree);
+			_lastTree = Tree;
 		}
-		if (leaf != Tree.Root)
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (Tree?.CurrentNode != null && Tree.CurrentNode != _lastScrolledNode && !Tree.CurrentNode.IsRoot)
 		{
-			OnSelectNode.InvokeAsync(leaf);
+			_lastScrolledNode = Tree.CurrentNode;
+			try
+			{
+				await JS.InvokeVoidAsync("notationInterop.scrollMoveIntoView", $"move-{Tree.CurrentNode.Id}");
+			}
+			catch
+			{
+				// Ignore JS interop during component disposal or disconnect
+			}
 		}
+	}
+
+	public void Dispose()
+	{
+		UnsubscribeFromTree(Tree);
+	}
+
+	private void SubscribeToTree(GameTree? tree)
+	{
+		if (tree != null)
+		{
+			tree.PositionChanged += HandlePositionChanged;
+		}
+	}
+
+	private void UnsubscribeFromTree(GameTree? tree)
+	{
+		if (tree != null)
+		{
+			tree.PositionChanged -= HandlePositionChanged;
+		}
+	}
+
+	private void HandlePositionChanged()
+	{
+		InvokeAsync(StateHasChanged);
 	}
 
 	private bool HasClocks
@@ -87,31 +190,214 @@
 		}
 	}
 
-	private RenderFragment RenderNodeChildren(MoveNode parent, bool isMainline) => __builder =>
+	private bool HasVariations
 	{
-		if (parent.Children.Count == 0) return;
-
-		var mainChild = parent.Children[0];
-		@RenderSingleMove(mainChild, forceNumber: false)
-
-		for (int i = 1; i < parent.Children.Count; i++)
+		get
 		{
-			var varChild = parent.Children[i];
-			<span class="variation-block">
-				<span class="variation-delimiter">(</span>
-				@RenderSingleMove(varChild, forceNumber: true)
-				@RenderNodeChildren(varChild, isMainline: false)
-				<span class="variation-delimiter">)</span>
-			</span>
+			if (Tree?.Root == null) return false;
+			return CheckHasVariations(Tree.Root);
+		}
+	}
+
+	private static bool CheckHasVariations(MoveNode node)
+	{
+		if (node.Children.Count > 1) return true;
+		foreach (var child in node.Children)
+		{
+			if (CheckHasVariations(child)) return true;
+		}
+		return false;
+	}
+
+	private void SelectLastMove()
+	{
+		if (Tree?.Root == null) return;
+		var leaf = Tree.Root;
+		while (leaf.Children.Count > 0)
+		{
+			leaf = leaf.Children[0];
+		}
+		if (leaf != Tree.Root)
+		{
+			OnSelectNode.InvokeAsync(leaf);
+		}
+	}
+
+	private bool IsBranchActive(MoveNode branchStartNode)
+	{
+		var curr = Tree?.CurrentNode;
+		while (curr != null)
+		{
+			if (curr == branchStartNode) return true;
+			curr = curr.Parent;
+		}
+		return false;
+	}
+
+	private MoveNode? GetBranchSourceNode()
+	{
+		if (Tree?.CurrentNode == null || Tree.CurrentNode.IsMainline) return null;
+		var curr = Tree.CurrentNode;
+		while (curr.Parent != null && !curr.Parent.IsMainline)
+		{
+			curr = curr.Parent;
+		}
+		return curr.Parent;
+	}
+
+	private async Task ReturnToMainline()
+	{
+		var source = GetBranchSourceNode();
+		if (source != null)
+		{
+			var target = source.Children.Count > 0 ? source.Children[0] : source;
+			await OnSelectNode.InvokeAsync(target);
+		}
+	}
+
+	private void ToggleCollapse(Guid nodeId)
+	{
+		if (!_collapsedVariations.Add(nodeId))
+		{
+			_collapsedVariations.Remove(nodeId);
+		}
+	}
+
+	private void ToggleAllVariations()
+	{
+		if (Tree?.Root == null) return;
+		if (_collapsedVariations.Count > 0)
+		{
+			_collapsedVariations.Clear();
+		}
+		else
+		{
+			CollectVariationIds(Tree.Root, _collapsedVariations);
+		}
+	}
+
+	private static void CollectVariationIds(MoveNode node, HashSet<Guid> set)
+	{
+		for (int i = 1; i < node.Children.Count; i++)
+		{
+			set.Add(node.Children[i].Id);
+		}
+		foreach (var child in node.Children)
+		{
+			CollectVariationIds(child, set);
+		}
+	}
+
+	private static int GetVariationMoveCount(MoveNode startNode)
+	{
+		int count = 1;
+		var curr = startNode;
+		while (curr.Children.Count > 0)
+		{
+			count++;
+			curr = curr.Children[0];
+		}
+		return count;
+	}
+
+	private async Task HandlePromote(MoveNode node)
+	{
+		if (OnPromoteVariation.HasDelegate)
+		{
+			await OnPromoteVariation.InvokeAsync(node);
+		}
+		else if (Tree != null)
+		{
+			Tree.PromoteVariation(node);
+		}
+	}
+
+	private async Task HandleDelete(MoveNode node)
+	{
+		if (OnDeleteSubtree.HasDelegate)
+		{
+			await OnDeleteSubtree.InvokeAsync(node);
+		}
+		else if (Tree != null)
+		{
+			Tree.DeleteSubtree(node);
+		}
+	}
+
+	private RenderFragment RenderBranchFromPosition(MoveNode positionNode, bool isMainline, int depth, bool forceFirstNumber) => __builder =>
+	{
+		if (positionNode.Children.Count == 0) return;
+
+		var mainMove = positionNode.Children[0];
+		@RenderSingleMove(mainMove, forceNumber: forceFirstNumber, isMainline: isMainline)
+
+		bool hadInterruption = positionNode.Children.Count > 1 || !string.IsNullOrWhiteSpace(mainMove.Comment);
+
+		if (positionNode.Children.Count > 1)
+		{
+			for (int i = 1; i < positionNode.Children.Count; i++)
+			{
+				var varChild = positionNode.Children[i];
+				bool isBranchActive = IsBranchActive(varChild);
+				bool isCollapsed = _collapsedVariations.Contains(varChild.Id);
+
+				if (_viewMode == NotationViewMode.Structured)
+				{
+					<div class="variation-branch-card depth-@(Math.Min(depth, 4)) @(isBranchActive ? "active-branch" : "")">
+						<div class="branch-card-header">
+							<div class="branch-card-title" @onclick="() => OnSelectNode.InvokeAsync(varChild)">
+								<span class="branch-card-arrow">↳</span>
+								<span class="branch-card-label">Variation</span>
+								<span class="branch-card-first-move">
+									@varChild.MoveNumber@(varChild.IsWhiteMove ? "." : "...") @varChild.San
+								</span>
+								@if (isCollapsed)
+								{
+									<span class="branch-collapsed-hint">(@GetVariationMoveCount(varChild) moves)</span>
+								}
+							</div>
+							<div class="branch-card-actions">
+								<button class="branch-action-btn" title="Promote variation to mainline" @onclick:stopPropagation="true" @onclick="() => HandlePromote(varChild)">
+									⬆ Main
+								</button>
+								<button class="branch-action-btn branch-delete-btn" title="Delete variation" @onclick:stopPropagation="true" @onclick="() => HandleDelete(varChild)">
+									🗑
+								</button>
+								<button class="branch-collapse-btn" title="@(isCollapsed ? "Expand variation" : "Collapse variation")" @onclick:stopPropagation="true" @onclick="() => ToggleCollapse(varChild.Id)">
+									@(isCollapsed ? "▸" : "▾")
+								</button>
+							</div>
+						</div>
+						@if (!isCollapsed)
+						{
+							<div class="branch-card-body">
+								@RenderSingleMove(varChild, forceNumber: true, isMainline: false)
+								@RenderBranchFromPosition(varChild, isMainline: false, depth: depth + 1, forceFirstNumber: !string.IsNullOrWhiteSpace(varChild.Comment))
+							</div>
+						}
+					</div>
+				}
+				else
+				{
+					<span class="variation-inline-pill depth-@(Math.Min(depth, 4)) @(isBranchActive ? "active-branch" : "")">
+						<span class="variation-delimiter">(</span>
+						@RenderSingleMove(varChild, forceNumber: true, isMainline: false)
+						@RenderBranchFromPosition(varChild, isMainline: false, depth: depth + 1, forceFirstNumber: !string.IsNullOrWhiteSpace(varChild.Comment))
+						<span class="variation-delimiter">)</span>
+					</span>
+				}
+			}
 		}
 
-		@RenderNodeChildren(mainChild, isMainline)
+		@RenderBranchFromPosition(mainMove, isMainline: isMainline, depth: depth, forceFirstNumber: hadInterruption)
 	};
 
-	private RenderFragment RenderSingleMove(MoveNode node, bool forceNumber) => __builder =>
+	private RenderFragment RenderSingleMove(MoveNode node, bool forceNumber, bool isMainline) => __builder =>
 	{
 		bool isCurrent = node == Tree.CurrentNode;
-		string btnClass = isCurrent ? "move-button move-current" : "move-button";
+		string btnClass = isCurrent
+			? (isMainline ? "move-button mainline-move move-current" : "move-button variation-move move-current")
+			: (isMainline ? "move-button mainline-move" : "move-button variation-move");
 
 		if (node.IsWhiteMove || forceNumber)
 		{
@@ -120,11 +406,11 @@
 			</span>
 		}
 
-		<button class="@btnClass" @onclick="() => OnSelectNode.InvokeAsync(node)">
+		<button id="@($"move-{node.Id}")" class="@btnClass" @onclick="() => OnSelectNode.InvokeAsync(node)">
 			<span>@node.San</span>
 			@if (node.Nags.Count > 0)
 			{
-				<span class="nag-glyph">@node.NagSymbol()</span>
+				<span class="nag-glyph @GetNagClass(node.Nags[0])">@node.NagSymbol()</span>
 			}
 		</button>
 
@@ -137,5 +423,16 @@
 		{
 			<span class="move-comment-text">{@node.Comment}</span>
 		}
+	};
+
+	private static string GetNagClass(int nag) => nag switch
+	{
+		1 => "nag-good",
+		2 => "nag-mistake",
+		3 => "nag-brilliant",
+		4 => "nag-blunder",
+		5 => "nag-speculative",
+		6 => "nag-dubious",
+		_ => "nag-general"
 	};
 }

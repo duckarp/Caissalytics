@@ -19,7 +19,7 @@ public static class PgnHandler
         // 2. Movetext
         if (tree.Root.Children.Count > 0)
         {
-            FormatNodeChildren(tree.Root, sb, true);
+            FormatNodeChildren(tree.Root, sb, true, forceMoveNumber: false);
         }
 
         sb.Append(' ');
@@ -29,14 +29,15 @@ public static class PgnHandler
         return sb.ToString();
     }
 
-    private static void FormatNodeChildren(MoveNode parent, StringBuilder sb, bool isMainline)
+    private static void FormatNodeChildren(MoveNode parent, StringBuilder sb, bool isMainline, bool forceMoveNumber = false)
     {
         if (parent.Children.Count == 0) return;
 
         // First child is the mainline continuation
         var mainChild = parent.Children[0];
-        FormatSingleNode(mainChild, sb);
+        FormatSingleNode(mainChild, sb, forceMoveNumber: forceMoveNumber);
 
+        bool hadInterruption = false;
         // Subsequent children are variations
         for (int i = 1; i < parent.Children.Count; i++)
         {
@@ -45,10 +46,16 @@ public static class PgnHandler
             FormatSingleNode(varChild, sb, forceMoveNumber: true);
             FormatNodeChildren(varChild, sb, false);
             sb.Append(')');
+            hadInterruption = true;
+        }
+
+        if (!string.IsNullOrWhiteSpace(mainChild.Comment))
+        {
+            hadInterruption = true;
         }
 
         // Continue mainline
-        FormatNodeChildren(mainChild, sb, isMainline);
+        FormatNodeChildren(mainChild, sb, isMainline, forceMoveNumber: hadInterruption);
     }
 
     private static void FormatSingleNode(MoveNode node, StringBuilder sb, bool forceMoveNumber = false)

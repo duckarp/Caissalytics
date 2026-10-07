@@ -121,6 +121,34 @@ public class CoreTests
     }
 
     [Fact]
+    public void PgnHandler_ExportPgn_IncludesMoveNumberAfterVariationOnWhiteMove()
+    {
+        string pgn = "1. e4 e5 2. Nf3 (2. f4 d5) 2... Nc6 *";
+        var tree = PgnHandler.ImportPgn(pgn);
+        string exported = PgnHandler.ExportPgn(tree);
+        Assert.Contains("2... Nc6", exported);
+    }
+
+    [Fact]
+    public void PgnHandler_ExportPgn_IncludesMoveNumberAfterCommentBeforeBlackMove()
+    {
+        string pgn = "1. e4 {King's pawn opening} 1... e5 *";
+        var tree = PgnHandler.ImportPgn(pgn);
+        string exported = PgnHandler.ExportPgn(tree);
+        Assert.Contains("1... e5", exported);
+    }
+
+    [Fact]
+    public void PgnHandler_ExportPgn_NestedVariations_FormatsMoveNumbersCorrectly()
+    {
+        string pgn = "1. e4 e5 (1... c5 2. Nf3 d6 (2... e6 3. d4)) 2. Nf3 *";
+        var tree = PgnHandler.ImportPgn(pgn);
+        string exported = PgnHandler.ExportPgn(tree);
+        Assert.Contains("1... c5", exported);
+        Assert.Contains("2... e6", exported);
+    }
+
+    [Fact]
     public void PgnHandler_ClockAndCommentParsing_ExtractsClocksCleanly()
     {
         string pgnWithClocks = "1. e4 {[%clk 0:04:21]} e5 {[%clk 0:00:45] Great defensive resource!} 2. Nf3 {[%clk 0:04:15][%eval +0.25]} *";
