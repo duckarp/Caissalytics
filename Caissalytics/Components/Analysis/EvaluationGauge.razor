@@ -18,6 +18,8 @@
 	private readonly string _elementId = $"eval_{Guid.NewGuid():N}";
 	private IJSObjectReference? _evalModule;
 	private bool _isDisposed = false;
+	private double _lastWhitePct = -1.0;
+	private string _lastScoreText = "";
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
@@ -26,11 +28,6 @@
 			_evalModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/evalInterop.js");
 		}
 
-		await UpdateGaugeAsync();
-	}
-
-	protected override async Task OnParametersSetAsync()
-	{
 		await UpdateGaugeAsync();
 	}
 
@@ -46,6 +43,14 @@
 			whitePct = TopLine.WhiteWinPercentage;
 			scoreText = TopLine.FormattedScore;
 		}
+
+		if (Math.Abs(whitePct - _lastWhitePct) < 0.05 && scoreText == _lastScoreText)
+		{
+			return;
+		}
+
+		_lastWhitePct = whitePct;
+		_lastScoreText = scoreText;
 
 		try
 		{

@@ -408,6 +408,19 @@
 		catch (InvalidOperationException) { }
 	}
 
+	public async Task SetShapesAsync(List<object>? shapes)
+	{
+		if (_isDisposed || !_isInitialized || _module == null) return;
+		try
+		{
+			await _module.InvokeVoidAsync("drawShapes", _elementId, shapes);
+		}
+		catch (ObjectDisposedException) { }
+		catch (JSDisconnectedException) { }
+		catch (JSException) { }
+		catch (InvalidOperationException) { }
+	}
+
 	public async Task RedrawAsync()
 	{
 		if (_isDisposed || !_isInitialized || _module == null) return;

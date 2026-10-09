@@ -19,6 +19,14 @@ internal class Program
     {
         SetLinuxProgramName("caissalytics");
 
+        // Optimize WebView2 GPU acceleration and render pipeline on Windows
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            Environment.SetEnvironmentVariable(
+                "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+                "--enable-gpu-rasterization --enable-zero-copy --ignore-gpu-blocklist --disable-backgrounding-occluded-windows");
+        }
+
         var appBuilder = PhotinoBlazorAppBuilder.CreateDefault(args);
 
         // Register application services
@@ -116,7 +124,21 @@ internal class Program
             .SetSize(1400, 900)
             .SetMinSize(1000, 650)
             .SetMediaAutoplayEnabled(true)
-            .SetUseOsDefaultLocation(false);
+            .SetUseOsDefaultLocation(false)
+            .SetSmoothScrollingEnabled(true);
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            try
+            {
+                app.MainWindow.SetBrowserControlInitParameters(
+                    "--enable-gpu-rasterization --enable-zero-copy --ignore-gpu-blocklist --disable-backgrounding-occluded-windows");
+            }
+            catch
+            {
+                // Non-fatal if browser parameters are fixed by environment
+            }
+        }
 
         if (!string.IsNullOrEmpty(iconFile) && File.Exists(iconFile))
         {
@@ -170,7 +192,53 @@ internal class Program
     {
         try
         {
-            // 1. Check physical file paths next to binary or current working directory
+            bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var targetDir = !string.IsNullOrEmpty(appData)
+                ? Path.Combine(appData, "Caissalytics")
+                : Path.Combine(Path.GetTempPath(), "caissalytics");
+
+            Directory.CreateDirectory(targetDir);
+
+            if (isWindows)
+            {
+                // On Windows, Photino and Win32 WM_SETICON require a valid .ico file
+                string[] winPhysicalCandidates = [
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "icon.ico"),
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "icon.ico"),
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "favicon.ico"),
+                    Path.Combine(Directory.GetCurrentDirectory(), "icon.ico"),
+                    Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "icon.ico"),
+                    Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "favicon.ico"),
+                ];
+
+                foreach (var c in winPhysicalCandidates)
+                {
+                    if (File.Exists(c) && new FileInfo(c).Length > 0)
+                    {
+                        return c;
+                    }
+                }
+
+                var targetIco = Path.Combine(targetDir, "icon.ico");
+                string[] embeddedIcoNames = ["icon.ico", "favicon.ico"];
+                foreach (var name in embeddedIcoNames)
+                {
+                    var fileInfo = fileProvider.GetFileInfo(name);
+                    if (fileInfo.Exists)
+                    {
+                        if (!File.Exists(targetIco) || new FileInfo(targetIco).Length != fileInfo.Length)
+                        {
+                            using var src = fileInfo.CreateReadStream();
+                            using var dst = File.Create(targetIco);
+                            src.CopyTo(dst);
+                        }
+                        return targetIco;
+                    }
+                }
+            }
+
+            // Fallback for non-Windows (Linux/macOS) or if no .ico found
             string[] physicalCandidates = [
                 Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "icon-256.png"),
                 Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "wwwroot", "icon.png"),
@@ -187,29 +255,19 @@ internal class Program
                 }
             }
 
-            // 2. Extract embedded icon into persistent application data or temp directory
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            var targetDir = !string.IsNullOrEmpty(appData)
-                ? Path.Combine(appData, "Caissalytics")
-                : Path.Combine(Path.GetTempPath(), "caissalytics");
-
-            Directory.CreateDirectory(targetDir);
             var targetPng = Path.Combine(targetDir, "icon-256.png");
-
-            if (File.Exists(targetPng) && new FileInfo(targetPng).Length > 0)
-            {
-                return targetPng;
-            }
-
             string[] embeddedNames = ["icon-256.png", "icon.png", "favicon.png"];
             foreach (var name in embeddedNames)
             {
                 var fileInfo = fileProvider.GetFileInfo(name);
                 if (fileInfo.Exists)
                 {
-                    using var src = fileInfo.CreateReadStream();
-                    using var dst = File.Create(targetPng);
-                    src.CopyTo(dst);
+                    if (!File.Exists(targetPng) || new FileInfo(targetPng).Length != fileInfo.Length)
+                    {
+                        using var src = fileInfo.CreateReadStream();
+                        using var dst = File.Create(targetPng);
+                        src.CopyTo(dst);
+                    }
                     return targetPng;
                 }
             }

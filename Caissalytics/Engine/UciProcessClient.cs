@@ -14,6 +14,10 @@ public class UciProcessClient : IDisposable
     private PieceColor _sideToMove = PieceColor.White;
     private TaskCompletionSource<EngineEvaluationLine?>? _evalTcs;
     private TaskCompletionSource<(string? BestMove, List<EngineEvaluationLine> Lines)>? _searchTcs;
+    private int _lastDispatchedDepth = 0;
+    private long _lastDispatchTimestamp = 0;
+    private Timer? _throttleTimer;
+    private bool _hasPendingDispatch = false;
 
     public bool IsRunning => _process != null && !_process.HasExited;
 
@@ -62,10 +66,14 @@ public class UciProcessClient : IDisposable
         if (_process == null || _process.HasExited || _stdin == null)
             return;
 
-        _onUpdate = onUpdate;
         lock (_lock)
         {
+            _throttleTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+            _hasPendingDispatch = false;
+            _lastDispatchedDepth = 0;
+            _lastDispatchTimestamp = 0;
             _currentLines.Clear();
+            _onUpdate = onUpdate;
         }
 
         // Determine side to move from FEN for score normalization
@@ -219,6 +227,15 @@ public class UciProcessClient : IDisposable
 
     public async Task StopAnalysisAsync()
     {
+        lock (_lock)
+        {
+            _throttleTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+            if (_hasPendingDispatch)
+            {
+                FlushPendingUpdateLocked();
+            }
+        }
+
         if (_stdin != null && IsRunning)
         {
             await SendCommandAsync("stop");
@@ -350,13 +367,72 @@ public class UciProcessClient : IDisposable
         lock (_lock)
         {
             _currentLines[multiPv] = evalLine;
-            var ordered = _currentLines.Values.OrderBy(l => l.MultiPvIndex).ToList();
-            _onUpdate?.Invoke(ordered);
+
+            if (_onUpdate != null)
+            {
+                int maxDepth = _currentLines.Values.Count > 0 ? _currentLines.Values.Max(l => l.Depth) : 0;
+                long now = Stopwatch.GetTimestamp();
+                double elapsedMs = _lastDispatchTimestamp == 0 ? 999.0 : (now - _lastDispatchTimestamp) * 1000.0 / Stopwatch.Frequency;
+
+                // Dispatch immediately if:
+                // 1. Engine reached a deeper search depth
+                // 2. Or at least 75ms elapsed since the previous UI notification
+                if (maxDepth > _lastDispatchedDepth || elapsedMs >= 75)
+                {
+                    _lastDispatchedDepth = maxDepth;
+                    _lastDispatchTimestamp = now;
+                    _hasPendingDispatch = false;
+                    _throttleTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+
+                    var ordered = _currentLines.Values.OrderBy(l => l.MultiPvIndex).ToList();
+                    _onUpdate.Invoke(ordered);
+                }
+                else if (!_hasPendingDispatch)
+                {
+                    _hasPendingDispatch = true;
+                    int delay = Math.Clamp(75 - (int)elapsedMs, 10, 75);
+                    if (_throttleTimer == null)
+                    {
+                        _throttleTimer = new Timer(_ => FlushPendingUpdate(), null, delay, Timeout.Infinite);
+                    }
+                    else
+                    {
+                        _throttleTimer.Change(delay, Timeout.Infinite);
+                    }
+                }
+            }
         }
+    }
+
+    private void FlushPendingUpdate()
+    {
+        lock (_lock)
+        {
+            FlushPendingUpdateLocked();
+        }
+    }
+
+    private void FlushPendingUpdateLocked()
+    {
+        if (!_hasPendingDispatch || _onUpdate == null) return;
+        _hasPendingDispatch = false;
+        _lastDispatchTimestamp = Stopwatch.GetTimestamp();
+        _lastDispatchedDepth = _currentLines.Values.Count > 0 ? _currentLines.Values.Max(l => l.Depth) : 0;
+        var ordered = _currentLines.Values.OrderBy(l => l.MultiPvIndex).ToList();
+        _onUpdate.Invoke(ordered);
     }
 
     public void Stop()
     {
+        lock (_lock)
+        {
+            _throttleTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+            if (_hasPendingDispatch)
+            {
+                FlushPendingUpdateLocked();
+            }
+        }
+
         try
         {
             if (_stdin != null && IsRunning)
@@ -383,6 +459,11 @@ public class UciProcessClient : IDisposable
 
     public void Dispose()
     {
+        lock (_lock)
+        {
+            _throttleTimer?.Dispose();
+            _throttleTimer = null;
+        }
         Stop();
     }
 }

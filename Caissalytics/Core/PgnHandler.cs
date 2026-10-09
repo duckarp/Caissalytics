@@ -31,6 +31,11 @@ public static class PgnHandler
 
     private static void FormatNodeChildren(MoveNode parent, StringBuilder sb, bool isMainline, bool forceMoveNumber = false)
     {
+        if (parent.IsRoot && !string.IsNullOrWhiteSpace(parent.Comment))
+        {
+            sb.Append($"{{{parent.Comment.Trim()}}}");
+        }
+
         if (parent.Children.Count == 0) return;
 
         // First child is the mainline continuation
@@ -191,10 +196,7 @@ public static class PgnHandler
             else if (tok.StartsWith("{") && tok.EndsWith("}"))
             {
                 string comment = tok.Substring(1, tok.Length - 2).Trim();
-                if (!tree.CurrentNode.IsRoot)
-                {
-                    ParseAndAttachComment(tree.CurrentNode, comment);
-                }
+                ParseAndAttachComment(tree.CurrentNode, comment);
             }
             else if (tok.StartsWith("$") && int.TryParse(tok.Substring(1), out int nag))
             {

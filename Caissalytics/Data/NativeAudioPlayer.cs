@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
 using System.Runtime.InteropServices;
@@ -13,6 +14,7 @@ public static class NativeAudioPlayer
     private static string? _linuxPlayerExecutable;
     private static bool _linuxPlayerChecked = false;
     private static readonly object _initLock = new();
+    private static readonly ConcurrentDictionary<ChessSoundType, string?> _soundPathCache = new();
 
     [DllImport("winmm.dll", EntryPoint = "PlaySound", CharSet = CharSet.Auto, SetLastError = true)]
     private static extern bool PlaySoundWin32(string pszSound, IntPtr hmod, uint fdwSound);
@@ -21,6 +23,11 @@ public static class NativeAudioPlayer
     private const uint SND_FILENAME = 0x00020000;
 
     public static string? GetSoundFilePath(ChessSoundType soundType)
+    {
+        return _soundPathCache.GetOrAdd(soundType, ResolveSoundFilePath);
+    }
+
+    private static string? ResolveSoundFilePath(ChessSoundType soundType)
     {
         string fileName = soundType switch
         {

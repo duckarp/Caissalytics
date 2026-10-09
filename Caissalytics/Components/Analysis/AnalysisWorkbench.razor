@@ -204,6 +204,7 @@
 	private bool _showBoardEditorModal = false;
 	private bool _fenCopied = false;
 	private bool _pgnCopied = false;
+	private string? _lastRenderedBestMove;
 
 	private async Task CopyFenAsync()
 	{
@@ -507,12 +508,10 @@
 			_engineCts?.Cancel();
 			await EngineService.StopAnalysisAsync();
 			Tab.CurrentEvalLines.Clear();
+			_lastRenderedBestMove = null;
 			if (_boardRef != null)
 			{
-				await _boardRef.UpdateBoardStateAsync(
-					Tab.Tree.CurrentNode.Position,
-					Tab.Tree.CurrentNode.IsRoot ? null : Tab.Tree.CurrentNode.Move,
-					new List<object>());
+				await _boardRef.SetShapesAsync(new List<object>());
 			}
 		}
 		StateHasChanged();
@@ -539,6 +538,7 @@
 		catch { }
 
 		_engineCts = new CancellationTokenSource();
+		_lastRenderedBestMove = null;
 
 		string fen = FenParser.ToFen(Tab.Tree.CurrentNode.Position);
 
@@ -549,15 +549,15 @@
 				if (_isDisposed) return;
 
 				Tab.CurrentEvalLines = lines;
-				var shapes = GenerateBestMoveShapes();
-				if (_boardRef != null && !_isDisposed)
+				var topMove = lines.Count > 0 ? lines[0].BestMove : null;
+
+				if (_boardRef != null && !_isDisposed && !string.Equals(topMove, _lastRenderedBestMove, StringComparison.Ordinal))
 				{
+					_lastRenderedBestMove = topMove;
+					var shapes = GenerateBestMoveShapes();
 					try
 					{
-						await _boardRef.UpdateBoardStateAsync(
-							Tab.Tree.CurrentNode.Position,
-							Tab.Tree.CurrentNode.IsRoot ? null : Tab.Tree.CurrentNode.Move,
-							shapes);
+						await _boardRef.SetShapesAsync(shapes);
 					}
 					catch (ObjectDisposedException) { }
 				}
