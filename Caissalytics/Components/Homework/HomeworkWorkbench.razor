@@ -439,6 +439,33 @@
 					<span class="preview-title-badge">📄 @Loc["Homework_PrintPreview"]: @_activeSheet.Title</span>
 				</div>
 				<div class="preview-toolbar-right">
+					<div class="preview-scale-wrapper">
+						<label class="scale-label">📐 @Loc["Homework_Scale"]:</label>
+						<select class="scale-select" value="@_scaleOption" @onchange="HandleScaleChange">
+							<option value="auto">@Loc["Homework_ScaleAuto"]</option>
+							<option value="1.0">100%</option>
+							<option value="0.95">95%</option>
+							<option value="0.90">90%</option>
+							<option value="0.85">85%</option>
+							<option value="0.80">80%</option>
+						</select>
+					</div>
+
+					@if (IsOverflowingPage())
+					{
+						<button type="button" class="btn-fit-alert" title="Content exceeds 1 A4 page (bottom will be cut off). Click to auto-fit." @onclick="AutoFitToPage">
+							<span>⚠️</span>
+							<span>@Loc["Homework_OverflowsPage"]</span>
+						</button>
+					}
+					else
+					{
+						<span class="preview-fit-badge" title="Content fits within a single A4 page">
+							<span>✅</span>
+							<span>@Loc["Homework_FitsOnePage"]</span>
+						</span>
+					}
+
 					<button type="button" class="btn-primary btn-print-cta" @onclick="TriggerBrowserPrint">
 						<span>🖨️</span>
 						<span>@Loc["Homework_Print"]</span>
@@ -449,131 +476,145 @@
 			<!-- The Printable A4 Document Container -->
 			<div class="printable-document">
 				<!-- Page 1: Student Worksheet -->
-				<div class="a4-page-sheet printable-page">
-					<!-- Sheet Header -->
-					<div class="print-sheet-header">
-						<div class="print-header-top">
-							<div class="print-title-group">
-								<h1 class="print-sheet-title">@_activeSheet.Title</h1>
-								@if (!string.IsNullOrWhiteSpace(_activeSheet.Subtitle))
+				<div class="a4-page-sheet printable-page @(IsOverflowingPage() ? "has-overflow" : "")" style="--sheet-scale: @(GetEffectiveScaleCss());">
+					<div class="a4-sheet-content" style="zoom: @(GetEffectiveScaleCss());">
+						<!-- Sheet Header -->
+						<div class="print-sheet-header">
+							<div class="print-header-top">
+								<div class="print-title-group">
+									<h1 class="print-sheet-title">@_activeSheet.Title</h1>
+									@if (!string.IsNullOrWhiteSpace(_activeSheet.Subtitle))
+									{
+										<p class="print-sheet-subtitle">@_activeSheet.Subtitle</p>
+									}
+								</div>
+								@if (!string.IsNullOrWhiteSpace(_activeSheet.ClubName) || !string.IsNullOrWhiteSpace(_activeSheet.CoachName))
 								{
-									<p class="print-sheet-subtitle">@_activeSheet.Subtitle</p>
+									<div class="print-club-info">
+										@if (!string.IsNullOrWhiteSpace(_activeSheet.ClubName))
+										{
+											<div class="print-club-name">@_activeSheet.ClubName</div>
+										}
+										@if (!string.IsNullOrWhiteSpace(_activeSheet.CoachName))
+										{
+											<div class="print-coach-name">@_activeSheet.CoachName</div>
+										}
+									</div>
 								}
 							</div>
-							@if (!string.IsNullOrWhiteSpace(_activeSheet.ClubName) || !string.IsNullOrWhiteSpace(_activeSheet.CoachName))
+
+							@if (_activeSheet.ShowStudentHeader)
 							{
-								<div class="print-club-info">
-									@if (!string.IsNullOrWhiteSpace(_activeSheet.ClubName))
-									{
-										<div class="print-club-name">@_activeSheet.ClubName</div>
-									}
-									@if (!string.IsNullOrWhiteSpace(_activeSheet.CoachName))
-									{
-										<div class="print-coach-name">@_activeSheet.CoachName</div>
-									}
+								<div class="print-student-bar">
+									<div class="student-bar-field">
+										<span class="student-bar-label">@Loc["Homework_StudentName"]</span>
+										<span class="student-bar-line"></span>
+									</div>
+									<div class="student-bar-field">
+										<span class="student-bar-label">@Loc["Homework_Date"]</span>
+										<span class="student-bar-line"></span>
+									</div>
+									<div class="student-bar-field student-score-field">
+										<span class="student-bar-label">@Loc["Homework_Score"]</span>
+										<span class="score-box">/ @_activeSheet.Exercises.Count</span>
+									</div>
 								</div>
 							}
 						</div>
 
-						@if (_activeSheet.ShowStudentHeader)
+						@if (_activeSheet.NotesPosition == "top" && !string.IsNullOrWhiteSpace(_activeSheet.Notes))
 						{
-							<div class="print-student-bar">
-								<div class="student-bar-field">
-									<span class="student-bar-label">@Loc["Homework_StudentName"]</span>
-									<span class="student-bar-line"></span>
+							<div class="print-notes-container notes-top">
+								<div class="print-notes-header">
+									<span class="print-notes-title">📝 @Loc["Homework_CoachingNotes"]</span>
+									@if (!string.IsNullOrWhiteSpace(_activeSheet.CoachName))
+									{
+										<span class="print-notes-meta">@_activeSheet.CoachName</span>
+									}
 								</div>
-								<div class="student-bar-field">
-									<span class="student-bar-label">@Loc["Homework_Date"]</span>
-									<span class="student-bar-line"></span>
-								</div>
-								<div class="student-bar-field student-score-field">
-									<span class="student-bar-label">@Loc["Homework_Score"]</span>
-									<span class="score-box">/ @_activeSheet.Exercises.Count</span>
+								<div class="notes-body">
+									@HomeworkMarkdownHelper.ToHtml(_activeSheet.Notes)
 								</div>
 							</div>
 						}
-					</div>
 
-					@if (_activeSheet.NotesPosition == "top" && !string.IsNullOrWhiteSpace(_activeSheet.Notes))
-					{
-						<div class="print-notes-container notes-top">
-							<div class="print-notes-header">
-								<span class="print-notes-title">📝 @Loc["Homework_CoachingNotes"]</span>
-								@if (!string.IsNullOrWhiteSpace(_activeSheet.CoachName))
-								{
-									<span class="print-notes-meta">@_activeSheet.CoachName</span>
-								}
-							</div>
-							<div class="notes-body">
-								@HomeworkMarkdownHelper.ToHtml(_activeSheet.Notes)
-							</div>
+						<!-- Diagrams Grid -->
+						<div class="print-diagrams-grid @($"grid-cols-{_activeSheet.DiagramsPerRow}")">
+							@foreach (var ex in _activeSheet.Exercises)
+							{
+								<PrintableChessDiagram Exercise="ex"
+													   ShowCoordinates="_activeSheet.ShowCoordinates"
+													   ShowSolutionLines="_activeSheet.ShowSolutionLines"
+													   DiagramSize="@_activeSheet.DiagramSize"
+													   ShowAnswer="false" />
+							}
 						</div>
-					}
 
-					<!-- Diagrams Grid -->
-					<div class="print-diagrams-grid @($"grid-cols-{_activeSheet.DiagramsPerRow}")">
-						@foreach (var ex in _activeSheet.Exercises)
+						@if (_activeSheet.NotesPosition == "bottom" && !string.IsNullOrWhiteSpace(_activeSheet.Notes))
 						{
-							<PrintableChessDiagram Exercise="ex"
-												   ShowCoordinates="_activeSheet.ShowCoordinates"
-												   ShowSolutionLines="_activeSheet.ShowSolutionLines"
-												   DiagramSize="@_activeSheet.DiagramSize"
-												   ShowAnswer="false" />
+							<div class="print-notes-container notes-bottom">
+								<div class="print-notes-header">
+									<span class="print-notes-title">📝 @Loc["Homework_CoachingNotes"]</span>
+									@if (!string.IsNullOrWhiteSpace(_activeSheet.CoachName))
+									{
+										<span class="print-notes-meta">@_activeSheet.CoachName</span>
+									}
+								</div>
+								<div class="notes-body">
+									@HomeworkMarkdownHelper.ToHtml(_activeSheet.Notes)
+								</div>
+							</div>
 						}
+
+						<div class="print-page-footer">
+							<span>Caissalytics Chess</span>
+							<span>@DateTime.Now.ToString("yyyy-MM-dd")</span>
+						</div>
 					</div>
 
-					@if (_activeSheet.NotesPosition == "bottom" && !string.IsNullOrWhiteSpace(_activeSheet.Notes))
-					{
-						<div class="print-notes-container notes-bottom">
-							<div class="print-notes-header">
-								<span class="print-notes-title">📝 @Loc["Homework_CoachingNotes"]</span>
-								@if (!string.IsNullOrWhiteSpace(_activeSheet.CoachName))
-								{
-									<span class="print-notes-meta">@_activeSheet.CoachName</span>
-								}
-							</div>
-							<div class="notes-body">
-								@HomeworkMarkdownHelper.ToHtml(_activeSheet.Notes)
-							</div>
-						</div>
-					}
-
-					<div class="print-page-footer">
-						<span>Caissalytics Chess</span>
-						<span>@DateTime.Now.ToString("yyyy-MM-dd")</span>
+					<!-- Visual Page Overflow Cutoff Guide at physical A4 boundary (297mm) -->
+					<div class="a4-page-boundary-guide no-print">
+						<span class="boundary-label">✂ A4 Page Cutoff (297mm)</span>
 					</div>
 				</div>
 
 				<!-- Page 2 (Optional): Teacher Answer Key -->
 				@if (_activeSheet.IncludeAnswerKey)
 				{
-					<div class="a4-page-sheet printable-page page-break-before">
-						<div class="print-sheet-header">
-							<div class="print-header-top">
-								<div class="print-title-group">
-									<h1 class="print-sheet-title">@_activeSheet.Title — @Loc["Homework_AnswerKeyTitle"]</h1>
-									<p class="print-sheet-subtitle">@Loc["Homework_AnswerKeyDesc"]</p>
+					<div class="a4-page-sheet printable-page page-break-before @(IsAnswerKeyOverflowing() ? "has-overflow" : "")" style="--sheet-scale: @(GetEffectiveScaleCss());">
+						<div class="a4-sheet-content" style="zoom: @(GetEffectiveScaleCss());">
+							<div class="print-sheet-header">
+								<div class="print-header-top">
+									<div class="print-title-group">
+										<h1 class="print-sheet-title">@_activeSheet.Title — @Loc["Homework_AnswerKeyTitle"]</h1>
+										<p class="print-sheet-subtitle">@Loc["Homework_AnswerKeyDesc"]</p>
+									</div>
+									<div class="print-club-info">
+										<span class="teacher-key-badge">🔑 @Loc["Homework_TeacherKey"]</span>
+									</div>
 								</div>
-								<div class="print-club-info">
-									<span class="teacher-key-badge">🔑 @Loc["Homework_TeacherKey"]</span>
-								</div>
+							</div>
+
+							<div class="print-diagrams-grid @($"grid-cols-{_activeSheet.DiagramsPerRow}")">
+								@foreach (var ex in _activeSheet.Exercises)
+								{
+									<PrintableChessDiagram Exercise="ex"
+														   ShowCoordinates="_activeSheet.ShowCoordinates"
+														   ShowSolutionLines="false"
+														   DiagramSize="@_activeSheet.DiagramSize"
+														   ShowAnswer="true" />
+								}
+							</div>
+
+							<div class="print-page-footer">
+								<span>Caissalytics Chess • @Loc["Homework_TeacherKey"]</span>
+								<span>@DateTime.Now.ToString("yyyy-MM-dd")</span>
 							</div>
 						</div>
 
-						<div class="print-diagrams-grid @($"grid-cols-{_activeSheet.DiagramsPerRow}")">
-							@foreach (var ex in _activeSheet.Exercises)
-							{
-								<PrintableChessDiagram Exercise="ex"
-													   ShowCoordinates="_activeSheet.ShowCoordinates"
-													   ShowSolutionLines="false"
-													   DiagramSize="@_activeSheet.DiagramSize"
-													   ShowAnswer="true" />
-							}
-						</div>
-
-						<div class="print-page-footer">
-							<span>Caissalytics Chess • @Loc["Homework_TeacherKey"]</span>
-							<span>@DateTime.Now.ToString("yyyy-MM-dd")</span>
+						<!-- Visual Page Overflow Cutoff Guide at physical A4 boundary (297mm) -->
+						<div class="a4-page-boundary-guide no-print">
+							<span class="boundary-label">✂ A4 Page Cutoff (297mm)</span>
 						</div>
 					</div>
 				}
@@ -939,6 +980,101 @@
 			Prompt = $"{char.ToUpper(toMove[0])}{toMove.Substring(1)} to move and win",
 			Solution = ""
 		});
+	}
+
+	private string _scaleOption = "auto";
+
+	private void HandleScaleChange(ChangeEventArgs e)
+	{
+		_scaleOption = e.Value?.ToString() ?? "auto";
+	}
+
+	private void AutoFitToPage()
+	{
+		_scaleOption = "auto";
+	}
+
+	private double CalculateEstimatedSheetHeightMmRaw(bool isAnswerKey = false)
+	{
+		if (_activeSheet == null) return 0;
+
+		double height = 18.0;
+		if (_activeSheet.ShowStudentHeader && !isAnswerKey)
+		{
+			height += 12.0;
+		}
+
+		if (!string.IsNullOrWhiteSpace(_activeSheet.Notes) && _activeSheet.NotesPosition != "none" && !isAnswerKey)
+		{
+			int lines = _activeSheet.Notes.Split('\n').Length;
+			height += 14.0 + Math.Min(lines * 3.5, 45.0);
+		}
+
+		int count = _activeSheet.Exercises.Count;
+		int cols = Math.Max(1, _activeSheet.DiagramsPerRow);
+		int rows = (int)Math.Ceiling((double)count / cols);
+
+		double rowHeight = _activeSheet.DiagramSize?.ToLowerInvariant() switch
+		{
+			"small" => 54.0,
+			"large" => 86.0,
+			_ => 68.0
+		};
+
+		if (isAnswerKey)
+		{
+			rowHeight -= 4.0;
+		}
+
+		height += rows * rowHeight;
+		if (rows > 1)
+		{
+			height += (rows - 1) * 3.0;
+		}
+
+		height += 8.0; // footer
+		return height;
+	}
+
+	private double GetEffectiveScale()
+	{
+		if (_scaleOption != "auto")
+		{
+			return double.TryParse(_scaleOption, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var s) ? s : 1.0;
+		}
+
+		if (_activeSheet == null) return 1.0;
+
+		double estimatedRaw = CalculateEstimatedSheetHeightMmRaw(false);
+		if (_activeSheet.IncludeAnswerKey)
+		{
+			estimatedRaw = Math.Max(estimatedRaw, CalculateEstimatedSheetHeightMmRaw(true));
+		}
+
+		if (estimatedRaw <= 265.0)
+		{
+			return 1.0;
+		}
+
+		double targetScale = 258.0 / estimatedRaw;
+		return Math.Max(0.75, Math.Min(1.0, Math.Round(targetScale, 2)));
+	}
+
+	private string GetEffectiveScaleCss()
+	{
+		return GetEffectiveScale().ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+	}
+
+	private bool IsOverflowingPage()
+	{
+		double effectiveHeight = CalculateEstimatedSheetHeightMmRaw(false) * GetEffectiveScale();
+		return effectiveHeight > 270.0;
+	}
+
+	private bool IsAnswerKeyOverflowing()
+	{
+		double effectiveHeight = CalculateEstimatedSheetHeightMmRaw(true) * GetEffectiveScale();
+		return effectiveHeight > 270.0;
 	}
 
 	private async Task TriggerBrowserPrint()

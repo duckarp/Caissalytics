@@ -359,4 +359,63 @@ public class HomeworkTests : IDisposable
         Assert.Empty(sheet.Notes);
         Assert.Empty(sheet.Subtitle);
     }
+
+    [Fact]
+    public void Homework_PrintMediaRules_HideHeaderAndEnablePagination()
+    {
+        // Locate homework.css from the solution structure
+        var cssPath = Path.Combine(AppContext.BaseDirectory, "wwwroot", "css", "homework.css");
+        if (!File.Exists(cssPath))
+        {
+            // Fallback to relative source tree if running directly in IDE
+            cssPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../Caissalytics/wwwroot/css/homework.css"));
+        }
+
+        Assert.True(File.Exists(cssPath), $"Could not find homework.css at {cssPath}");
+        var css = File.ReadAllText(cssPath);
+
+        // Verify @media print section exists
+        Assert.Contains("@media print", css);
+
+        int printIdx = css.IndexOf("@media print", StringComparison.Ordinal);
+        var printBlock = css.Substring(printIdx);
+
+        // Ensure the top navigation bar (.app-header) is hidden in print
+        Assert.Contains(".app-header", printBlock);
+
+        // Ensure ancestor viewport containers are reset to overflow visible so multi-page printing works
+        Assert.Contains(".workspace-view-container", printBlock);
+        Assert.Contains("overflow: visible", printBlock);
+
+        // Ensure print color adjust is enabled for board squares & pieces
+        Assert.Contains("print-color-adjust: exact", printBlock);
+    }
+
+    [Fact]
+    public void Homework_DiagramStyles_FlatBordersAndBoundaryCutoffGuide()
+    {
+        var cssPath = Path.Combine(AppContext.BaseDirectory, "wwwroot", "css", "homework.css");
+        if (!File.Exists(cssPath))
+        {
+            cssPath = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../Caissalytics/wwwroot/css/homework.css"));
+        }
+
+        Assert.True(File.Exists(cssPath), $"Could not find homework.css at {cssPath}");
+        var css = File.ReadAllText(cssPath);
+
+        // Diagrams have simple flat borders without 3D effects
+        Assert.Contains(".printable-diagram-card", css);
+        Assert.Contains("border-radius: 0", css);
+        Assert.Contains("filter: none !important", css);
+
+        // Preview has cutoff boundary guide line at 297mm
+        Assert.Contains(".a4-page-boundary-guide", css);
+        Assert.Contains("top: 297mm", css);
+
+        // Scale and fit controls exist
+        Assert.Contains(".preview-scale-wrapper", css);
+        Assert.Contains(".preview-fit-badge", css);
+    }
 }
+
+

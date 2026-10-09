@@ -988,13 +988,14 @@
 .printable-diagram-card {
   background-color: #ffffff;
   color: #1a1a1a;
-  border: 1.5px solid #222222;
-  border-radius: 6px;
-  padding: 10px;
+  border: 1.5px solid #111111;
+  border-radius: 0;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   box-sizing: border-box;
+  box-shadow: none !important;
 }
 
 .diagram-card-header {
@@ -1005,13 +1006,13 @@
 }
 
 .diagram-number-badge {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   color: #111;
-  background-color: #eaeaea;
+  background-color: #f2f2f2;
   padding: 2px 6px;
-  border-radius: 4px;
-  border: 1px solid #ccc;
+  border-radius: 0;
+  border: 1px solid #222;
 }
 
 .diagram-title-group {
@@ -1019,7 +1020,7 @@
 }
 
 .diagram-title {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: #111;
 }
@@ -1031,26 +1032,26 @@
   font-size: 11px;
   font-weight: 700;
   padding: 2px 6px;
-  border-radius: 4px;
-  border: 1px solid #888;
+  border-radius: 0;
+  border: 1px solid #222;
 }
 
 .diagram-turn-badge.turn-white {
-  background-color: #f5f5f5;
-  color: #222;
+  background-color: #ffffff;
+  color: #111;
 }
 
 .diagram-turn-badge.turn-black {
-  background-color: #222;
-  color: #fff;
-  border-color: #000;
+  background-color: #111111;
+  color: #ffffff;
+  border-color: #111111;
 }
 
 .turn-symbol {
-  font-size: 13px;
+  font-size: 12px;
 }
 
-/* Board Grid in Diagram */
+/* Board Grid in Diagram - Simple crisp border all around, no 3D effects */
 .diagram-board-wrapper {
   display: flex;
   justify-content: center;
@@ -1059,23 +1060,26 @@
 
 .diagram-board-grid {
   display: grid;
-  grid-template-columns: repeat(8, 28px);
-  grid-template-rows: repeat(8, 28px);
-  width: 224px;
-  height: 224px;
-  border: 2px solid #222;
-  background-color: #fff;
+  grid-template-columns: repeat(8, 26px);
+  grid-template-rows: repeat(8, 26px);
+  width: 208px;
+  height: 208px;
+  border: 1.5px solid #111111;
+  border-radius: 0;
+  background-color: #ffffff;
   position: relative;
   user-select: none;
+  box-shadow: none !important;
 }
 
 .diagram-sq {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 0;
 }
 
 .diagram-sq.sq-light {
@@ -1090,7 +1094,7 @@
   position: absolute;
   top: 1px;
   left: 2px;
-  font-size: 8px;
+  font-size: 7.5px;
   font-weight: 700;
   color: #666;
   line-height: 1;
@@ -1101,7 +1105,7 @@
   position: absolute;
   bottom: 1px;
   right: 2px;
-  font-size: 8px;
+  font-size: 7.5px;
   font-weight: 700;
   color: #666;
   line-height: 1;
@@ -1109,57 +1113,69 @@
 }
 
 .diagram-piece {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
 }
 
-/* Large diagram size (280px board, 35px squares, 32px pieces) - ideal for 1-2 diagrams & coaching focus */
+/* Clean piece appearance in diagrams - completely strip screen theme drop-shadows */
+.printable-diagram-card .captured-piece,
+.printable-diagram-card .diagram-piece {
+  filter: none !important;
+}
+
+/* Large diagram size (264px board, 33px squares, 30px pieces) - ideal for 1-2 diagrams & coaching focus */
 .printable-diagram-card.diagram-size-large .diagram-board-grid {
-  grid-template-columns: repeat(8, 35px);
-  grid-template-rows: repeat(8, 35px);
-  width: 280px;
-  height: 280px;
+  grid-template-columns: repeat(8, 33px);
+  grid-template-rows: repeat(8, 33px);
+  width: 264px;
+  height: 264px;
+  border: 1.5px solid #111111;
+  border-radius: 0;
 }
 
 .printable-diagram-card.diagram-size-large .diagram-sq {
-  width: 35px;
-  height: 35px;
+  width: 33px;
+  height: 33px;
+  border-radius: 0;
 }
 
 .printable-diagram-card.diagram-size-large .diagram-piece {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
 }
 
 .printable-diagram-card.diagram-size-large .diag-rank-coord,
 .printable-diagram-card.diagram-size-large .diag-file-coord {
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .printable-diagram-card.diagram-size-large .diagram-title {
-  font-size: 14px;
-}
-
-.printable-diagram-card.diagram-size-large .diagram-prompt-box {
   font-size: 13px;
 }
 
-/* Small diagram size (184px board, 23px squares, 21px pieces) */
+.printable-diagram-card.diagram-size-large .diagram-prompt-box {
+  font-size: 12px;
+}
+
+/* Small diagram size (176px board, 22px squares, 20px pieces) */
 .printable-diagram-card.diagram-size-small .diagram-board-grid {
-  grid-template-columns: repeat(8, 23px);
-  grid-template-rows: repeat(8, 23px);
-  width: 184px;
-  height: 184px;
+  grid-template-columns: repeat(8, 22px);
+  grid-template-rows: repeat(8, 22px);
+  width: 176px;
+  height: 176px;
+  border: 1.5px solid #111111;
+  border-radius: 0;
 }
 
 .printable-diagram-card.diagram-size-small .diagram-sq {
-  width: 23px;
-  height: 23px;
+  width: 22px;
+  height: 22px;
+  border-radius: 0;
 }
 
 .printable-diagram-card.diagram-size-small .diagram-piece {
-  width: 21px;
-  height: 21px;
+  width: 20px;
+  height: 20px;
 }
 
 .printable-diagram-card.diagram-size-small .diag-rank-coord,
@@ -1169,19 +1185,19 @@
 
 /* Prompt Box */
 .diagram-prompt-box {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: #222;
   text-align: center;
-  min-height: 18px;
+  min-height: 16px;
 }
 
 /* Handwriting Lines for student answers */
 .diagram-solution-lines {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 4px;
+  gap: 6px;
+  margin-top: 2px;
 }
 
 .solution-line {
@@ -1191,7 +1207,7 @@
 }
 
 .line-prefix {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: #444;
   width: 14px;
@@ -1199,17 +1215,17 @@
 
 .line-dots {
   flex: 1;
-  border-bottom: 1.5px dotted #777;
-  height: 12px;
+  border-bottom: 1.5px dotted #666;
+  height: 10px;
 }
 
 /* Answer Box in Teacher Key */
 .diagram-answer-box {
-  background-color: #e8f5e9;
-  border: 1px solid #81c784;
-  border-radius: 4px;
-  padding: 6px 10px;
-  font-size: 12px;
+  background-color: #f1f8e9;
+  border: 1px solid #388e3c;
+  border-radius: 0;
+  padding: 4px 8px;
+  font-size: 11px;
   color: #1b5e20;
   display: flex;
   align-items: center;
@@ -1222,7 +1238,7 @@
 
 .answer-text {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 /* ==========================================================================
@@ -1247,6 +1263,7 @@
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
+  gap: 12px;
 }
 
 .preview-toolbar-left, .preview-toolbar-right {
@@ -1261,13 +1278,80 @@
   color: var(--text-primary);
 }
 
+/* Toolbar Scale & Fit Controls */
+.preview-scale-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.scale-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.scale-select {
+  background-color: var(--bg-surface-elevated, #2a2a35);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+}
+
+.scale-select:focus {
+  border-color: var(--accent-blue);
+}
+
+.preview-fit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #4caf50;
+  background-color: rgba(76, 175, 80, 0.12);
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  white-space: nowrap;
+}
+
+.btn-fit-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffb74d;
+  background-color: rgba(255, 152, 0, 0.15);
+  border: 1px solid rgba(255, 152, 0, 0.4);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.btn-fit-alert:hover {
+  background-color: rgba(255, 152, 0, 0.25);
+  border-color: #ff9800;
+}
+
 .btn-print-cta {
   font-weight: 700;
   padding: 8px 18px;
   font-size: 14px;
 }
 
-/* A4 Sheet Dimensions */
+/* A4 Sheet Dimensions - Matches physical A4 paper (210mm x 297mm) */
 .printable-document {
   display: flex;
   flex-direction: column;
@@ -1279,22 +1363,64 @@
   min-height: 297mm;
   background-color: #ffffff;
   color: #111111;
-  padding: 14mm 16mm;
+  padding: 10mm 12mm;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   position: relative;
+  transition: box-shadow 0.2s ease;
+}
+
+/* Scale-aware sheet content wrapper */
+.a4-sheet-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  width: 100%;
+}
+
+/* Visual Page Overflow Cutoff Guide at physical A4 boundary (297mm) */
+.a4-page-boundary-guide {
+  display: none;
+}
+
+.a4-page-sheet.has-overflow {
+  box-shadow: 0 10px 30px rgba(229, 57, 53, 0.25), 0 0 0 2px rgba(229, 57, 53, 0.5);
+}
+
+.a4-page-sheet.has-overflow .a4-page-boundary-guide {
+  display: flex;
+  position: absolute;
+  top: 297mm;
+  left: 0;
+  right: 0;
+  border-top: 2.5px dashed #d32f2f;
+  pointer-events: none;
+  z-index: 25;
+  justify-content: flex-end;
+  padding: 4px 16px;
+}
+
+.a4-page-boundary-guide .boundary-label {
+  background-color: #d32f2f;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 3px;
+  letter-spacing: 0.2px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
 }
 
 /* Print Header */
 .print-sheet-header {
-  border-bottom: 2px solid #222;
-  padding-bottom: 12px;
-  margin-bottom: 16px;
+  border-bottom: 1.5px solid #222;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 .print-header-top {
@@ -1310,11 +1436,11 @@
 }
 
 .print-sheet-title {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 800;
   color: #111;
   margin: 0;
-  letter-spacing: -0.5px;
+  letter-spacing: -0.4px;
 }
 
 .print-sheet-subtitle {
@@ -1391,7 +1517,7 @@
 /* Grid of Diagrams on Print Page */
 .print-diagrams-grid {
   display: grid;
-  gap: 16px 20px;
+  gap: 12px 16px;
   align-content: start;
 }
 
@@ -1904,52 +2030,114 @@
     margin: 10mm 12mm;
   }
 
-  body, html {
+  html, body {
     margin: 0 !important;
     padding: 0 !important;
-    background: #fff !important;
+    background: #ffffff !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
   }
 
-  /* Hide app frame, sidebars, tabs, and screen tools */
-  .workspace-tabs-container,
+  #app {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Hide app frame, header, sidebars, tabs, modals, and screen tools */
+  .app-header,
   .app-header-toolbar,
+  .workspace-tabs-container,
+  .preview-toolbar,
   .no-print,
   .workspace-view.view-hidden,
-  .preview-toolbar {
+  .modal-backdrop,
+  .update-dialog,
+  #blazor-error-ui {
     display: none !important;
+  }
+
+  /* Reset layout containers to prevent clipping or viewport lock */
+  .workspace-view-container,
+  .workspace-view {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    flex: none !important;
   }
 
   .homework-workbench-container {
     height: auto !important;
+    min-height: 0 !important;
     overflow: visible !important;
-    background: #fff !important;
+    background: #ffffff !important;
     padding: 0 !important;
+    margin: 0 !important;
+    display: block !important;
+    flex: none !important;
   }
 
   .homework-preview-view {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
     padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    display: block !important;
   }
 
   .printable-document {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
     gap: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
   }
 
   .a4-page-sheet {
     box-shadow: none !important;
+    border: none !important;
     margin: 0 !important;
-    padding: 8mm 10mm !important;
+    padding: 0 !important;
     width: 100% !important;
-    min-height: 275mm !important;
-    page-break-after: always;
-    break-after: page;
+    max-width: 100% !important;
+    min-height: 240mm !important;
     box-sizing: border-box !important;
     display: flex !important;
     flex-direction: column !important;
+    background: #ffffff !important;
+    page-break-after: auto !important;
+    break-after: auto !important;
   }
 
+  /* Break subsequent sheets (e.g. teacher answer key) cleanly to a new page */
+  .a4-page-sheet + .a4-page-sheet,
   .a4-page-sheet.page-break-before {
-    page-break-before: always;
-    break-before: page;
+    page-break-before: always !important;
+    break-before: page !important;
+  }
+
+  .a4-sheet-content {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 !important;
+    width: 100% !important;
+    zoom: var(--sheet-scale, 1);
+  }
+
+  .a4-page-boundary-guide {
+    display: none !important;
   }
 
   .printable-diagram-card {
@@ -1958,15 +2146,23 @@
     box-shadow: none !important;
   }
 
+  .printable-diagram-card .captured-piece,
+  .printable-diagram-card .diagram-piece {
+    filter: none !important;
+  }
+
   .print-notes-container {
-    background-color: #fff !important;
-    border: 1.5px solid #333 !important;
+    background-color: #ffffff !important;
+    border: 1.5px solid #333333 !important;
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
   .print-page-footer {
     margin-top: auto !important;
+    padding-top: 6px !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   /* Force browsers to print exact background colors and vector borders */
@@ -1975,3 +2171,4 @@
     print-color-adjust: exact !important;
   }
 }
+
