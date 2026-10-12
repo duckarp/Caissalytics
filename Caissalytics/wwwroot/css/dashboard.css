@@ -6,6 +6,7 @@
   overflow-y: auto;
   width: 100%;
   box-sizing: border-box;
+  contain: content;
 }
 
 .dashboard-hero-banner {
@@ -19,23 +20,15 @@
   box-sizing: border-box;
   margin-bottom: 36px;
   padding: 16px 28px;
-  background: linear-gradient(135deg, rgba(22, 27, 34, 0.95) 0%, rgba(14, 17, 23, 0.95) 100%);
+  background-color: var(--bg-surface);
   border: 1px solid rgba(6, 182, 212, 0.22);
   border-radius: 12px;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28);
 }
 
 .dashboard-hero-banner::before {
-  content: '';
-  position: absolute;
-  top: -50px;
-  left: -20px;
-  width: 180px;
-  height: 180px;
-  background: radial-gradient(circle, rgba(6, 182, 212, 0.12) 0%, transparent 70%);
-  pointer-events: none;
+  content: none;
 }
 
 .hero-brand-emblem-wrap {
@@ -50,17 +43,12 @@
   width: 68px;
   height: 80px;
   object-fit: contain;
-  filter: drop-shadow(0 4px 12px rgba(6, 182, 212, 0.25));
   position: relative;
   z-index: 1;
 }
 
 .hero-emblem-glow {
-  position: absolute;
-  inset: -8px;
-  background: radial-gradient(circle, rgba(14, 165, 233, 0.2) 0%, transparent 70%);
-  border-radius: 50%;
-  pointer-events: none;
+  display: none;
 }
 
 .hero-text-content {
@@ -211,18 +199,13 @@
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   cursor: pointer;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  will-change: transform, box-shadow;
-  transition: transform var(--transition-fast), border-color var(--transition-fast), background-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: border-color var(--transition-fast), background-color var(--transition-fast);
   text-align: left;
 }
 
 .action-card:hover {
   border-color: var(--brand-cyan);
   background-color: var(--bg-surface-elevated);
-  transform: translateY(-2px) translateZ(0);
-  box-shadow: 0 4px 16px rgba(6, 182, 212, 0.12);
 }
 
 .card-icon-badge {
@@ -233,21 +216,12 @@
   height: 48px;
   border-radius: 10px;
   margin-bottom: 16px;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  will-change: transform;
-  transition: all var(--transition-fast);
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .card-icon-badge svg {
   width: 24px;
   height: 24px;
-  transform: translateZ(0);
-  transition: transform var(--transition-fast);
-}
-
-.action-card:hover .card-icon-badge svg {
-  transform: scale(1.08) translateZ(0);
 }
 
 /* Feature Accent Themes */
@@ -258,11 +232,9 @@
 }
 .action-card.card-theme-analysis:hover {
   border-color: #06b6d4;
-  box-shadow: 0 4px 20px rgba(6, 182, 212, 0.16);
 }
 .action-card.card-theme-analysis:hover .card-icon-badge {
-  background: rgba(6, 182, 212, 0.22);
-  box-shadow: 0 0 14px rgba(6, 182, 212, 0.35);
+  background: rgba(6, 182, 212, 0.24);
 }
 
 .card-icon-databases {
@@ -272,11 +244,9 @@
 }
 .action-card.card-theme-databases:hover {
   border-color: #6366f1;
-  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.16);
 }
 .action-card.card-theme-databases:hover .card-icon-badge {
-  background: rgba(99, 102, 241, 0.22);
-  box-shadow: 0 0 14px rgba(99, 102, 241, 0.35);
+  background: rgba(99, 102, 241, 0.24);
 }
 
 .card-icon-open-pgn {
@@ -286,11 +256,9 @@
 }
 .action-card.card-theme-open-pgn:hover {
   border-color: #10b981;
-  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.16);
 }
 .action-card.card-theme-open-pgn:hover .card-icon-badge {
-  background: rgba(16, 185, 129, 0.22);
-  box-shadow: 0 0 14px rgba(16, 185, 129, 0.35);
+  background: rgba(16, 185, 129, 0.24);
 }
 
 .card-icon-online-games {
@@ -300,11 +268,9 @@
 }
 .action-card.card-theme-online-games:hover {
   border-color: #0ea5e9;
-  box-shadow: 0 4px 20px rgba(14, 165, 233, 0.16);
 }
 .action-card.card-theme-online-games:hover .card-icon-badge {
-  background: rgba(14, 165, 233, 0.22);
-  box-shadow: 0 0 14px rgba(14, 165, 233, 0.35);
+  background: rgba(14, 165, 233, 0.24);
 }
 
 .card-icon-puzzles {
@@ -314,11 +280,9 @@
 }
 .action-card.card-theme-puzzles:hover {
   border-color: #f59e0b;
-  box-shadow: 0 4px 20px rgba(245, 158, 11, 0.16);
 }
 .action-card.card-theme-puzzles:hover .card-icon-badge {
-  background: rgba(245, 158, 11, 0.22);
-  box-shadow: 0 0 14px rgba(245, 158, 11, 0.35);
+  background: rgba(245, 158, 11, 0.24);
 }
 
 .card-icon-repertoire {
@@ -328,11 +292,9 @@
 }
 .action-card.card-theme-repertoire:hover {
   border-color: #f43f5e;
-  box-shadow: 0 4px 20px rgba(244, 63, 94, 0.16);
 }
 .action-card.card-theme-repertoire:hover .card-icon-badge {
-  background: rgba(244, 63, 94, 0.22);
-  box-shadow: 0 0 14px rgba(244, 63, 94, 0.35);
+  background: rgba(244, 63, 94, 0.24);
 }
 
 .card-icon-dossier {
@@ -342,11 +304,9 @@
 }
 .action-card.card-theme-dossier:hover {
   border-color: #a855f7;
-  box-shadow: 0 4px 20px rgba(168, 85, 247, 0.16);
 }
 .action-card.card-theme-dossier:hover .card-icon-badge {
-  background: rgba(168, 85, 247, 0.22);
-  box-shadow: 0 0 14px rgba(168, 85, 247, 0.35);
+  background: rgba(168, 85, 247, 0.24);
 }
 
 .card-icon-endgames {
@@ -356,11 +316,9 @@
 }
 .action-card.card-theme-endgames:hover {
   border-color: #eab308;
-  box-shadow: 0 4px 20px rgba(234, 179, 8, 0.16);
 }
 .action-card.card-theme-endgames:hover .card-icon-badge {
-  background: rgba(234, 179, 8, 0.22);
-  box-shadow: 0 0 14px rgba(234, 179, 8, 0.35);
+  background: rgba(234, 179, 8, 0.24);
 }
 
 .card-icon-practice {
@@ -370,11 +328,9 @@
 }
 .action-card.card-theme-practice:hover {
   border-color: #84cc16;
-  box-shadow: 0 4px 20px rgba(132, 204, 22, 0.16);
 }
 .action-card.card-theme-practice:hover .card-icon-badge {
-  background: rgba(132, 204, 22, 0.22);
-  box-shadow: 0 0 14px rgba(132, 204, 22, 0.35);
+  background: rgba(132, 204, 22, 0.24);
 }
 
 .card-icon-analytics {
@@ -384,11 +340,9 @@
 }
 .action-card.card-theme-analytics:hover {
   border-color: #3b82f6;
-  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.16);
 }
 .action-card.card-theme-analytics:hover .card-icon-badge {
-  background: rgba(59, 130, 246, 0.22);
-  box-shadow: 0 0 14px rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.24);
 }
 
 .card-icon-homework {
@@ -398,11 +352,9 @@
 }
 .action-card.card-theme-homework:hover {
   border-color: #14b8a6;
-  box-shadow: 0 4px 20px rgba(20, 184, 166, 0.16);
 }
 .action-card.card-theme-homework:hover .card-icon-badge {
-  background: rgba(20, 184, 166, 0.22);
-  box-shadow: 0 0 14px rgba(20, 184, 166, 0.35);
+  background: rgba(20, 184, 166, 0.24);
 }
 
 .card-icon-club-homework {
@@ -412,11 +364,9 @@
 }
 .action-card.card-theme-club-homework:hover {
   border-color: #0d9488;
-  box-shadow: 0 4px 20px rgba(13, 148, 136, 0.16);
 }
 .action-card.card-theme-club-homework:hover .card-icon-badge {
-  background: rgba(13, 148, 136, 0.22);
-  box-shadow: 0 0 14px rgba(13, 148, 136, 0.35);
+  background: rgba(13, 148, 136, 0.24);
 }
 
 .card-icon-settings {
@@ -426,11 +376,9 @@
 }
 .action-card.card-theme-settings:hover {
   border-color: #94a3b8;
-  box-shadow: 0 4px 20px rgba(148, 163, 184, 0.16);
 }
 .action-card.card-theme-settings:hover .card-icon-badge {
-  background: rgba(148, 163, 184, 0.22);
-  box-shadow: 0 0 14px rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.24);
 }
 
 .card-title {

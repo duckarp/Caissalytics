@@ -30,7 +30,6 @@
   width: 22px;
   height: 26px;
   object-fit: contain;
-  filter: drop-shadow(0 1px 4px rgba(6, 182, 212, 0.35));
   flex-shrink: 0;
 }
 
