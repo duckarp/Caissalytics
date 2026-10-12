@@ -19,12 +19,12 @@ internal class Program
     {
         SetLinuxProgramName("caissalytics");
 
-        // Optimize WebView2 GPU acceleration and render pipeline on Windows
+        // Keep WebView2 responsive without forcing unstable GPU rasterization on hybrid/integrated GPUs
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             Environment.SetEnvironmentVariable(
                 "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
-                "--enable-gpu-rasterization --disable-backgrounding-occluded-windows");
+                "--disable-backgrounding-occluded-windows");
         }
 
         var appBuilder = PhotinoBlazorAppBuilder.CreateDefault(args);
@@ -125,14 +125,14 @@ internal class Program
             .SetMinSize(1000, 650)
             .SetMediaAutoplayEnabled(true)
             .SetUseOsDefaultLocation(false)
-            .SetSmoothScrollingEnabled(true);
+            .SetDevToolsEnabled(true);
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             try
             {
                 app.MainWindow.SetBrowserControlInitParameters(
-                    "--enable-gpu-rasterization --disable-backgrounding-occluded-windows");
+                    "--disable-backgrounding-occluded-windows");
             }
             catch
             {
