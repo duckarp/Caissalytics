@@ -39,7 +39,8 @@ public class EngineTests
                     tcs.TrySetResult(lines);
                 }
             },
-            cts.Token);
+            maxDepth: 0,
+            ct: cts.Token);
 
         var resultLines = await tcs.Task;
         await manager.StopAnalysisAsync();

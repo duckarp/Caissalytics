@@ -61,7 +61,7 @@ public class UciProcessClient : IDisposable
         }
     }
 
-    public async Task StartAnalysisAsync(string fen, int multiPv, Action<List<EngineEvaluationLine>> onUpdate)
+    public async Task StartAnalysisAsync(string fen, int multiPv, Action<List<EngineEvaluationLine>> onUpdate, int maxDepth = 0)
     {
         if (_process == null || _process.HasExited || _stdin == null)
             return;
@@ -85,7 +85,14 @@ public class UciProcessClient : IDisposable
         await SendCommandAsync("stop");
         await SendCommandAsync($"setoption name MultiPV value {Math.Max(1, Math.Min(5, multiPv))}");
         await SendCommandAsync($"position fen {fen}");
-        await SendCommandAsync("go infinite");
+        if (maxDepth > 0)
+        {
+            await SendCommandAsync($"go depth {maxDepth}");
+        }
+        else
+        {
+            await SendCommandAsync("go infinite");
+        }
     }
 
     public async Task<EngineEvaluationLine?> EvaluatePositionAsync(string fen, int movetimeMs, int maxDepth, CancellationToken ct = default)

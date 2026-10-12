@@ -18,7 +18,7 @@ public class FakeEngineService : IEngineService
     public Task<bool> RemoveEngineAsync(string engineId) => Task.FromResult(true);
     public Task<IReadOnlyList<EngineInfo>> ScanSystemEnginesAsync() => Task.FromResult<IReadOnlyList<EngineInfo>>([]);
     public Task SetCustomEnginePathAsync(string name, string path) => Task.CompletedTask;
-    public Task StartAnalysisAsync(string fen, int multiPv, Action<List<EngineEvaluationLine>> onUpdate, CancellationToken ct = default) => Task.CompletedTask;
+    public Task StartAnalysisAsync(string fen, int multiPv, Action<List<EngineEvaluationLine>> onUpdate, int maxDepth = 0, CancellationToken ct = default) => Task.CompletedTask;
     public Task StopAnalysisAsync() => Task.CompletedTask;
     public bool IsAnalyzing => false;
     public string? SyzygyPath { get; set; }

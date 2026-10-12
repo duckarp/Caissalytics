@@ -283,4 +283,23 @@ public class WorkspacePersistenceTests
         Assert.Equal("Club Messages", restoredMsg.Title);
         Assert.Equal("✉️", restoredMsg.Icon);
     }
+
+    [Fact]
+    public void ExportAndRestore_AnalysisTab_WithMaxDepth()
+    {
+        var ws = new WorkspaceState();
+        var tab = ws.CreateAnalysisTab("Depth Test");
+        tab.MaxDepth = 20;
+
+        string json = ws.ExportStateJson();
+        Assert.False(string.IsNullOrWhiteSpace(json));
+
+        var ws2 = new WorkspaceState();
+        bool restored = ws2.RestoreStateFromJson(json);
+
+        Assert.True(restored);
+        var restoredTab = ws2.Tabs.OfType<AnalysisTab>().FirstOrDefault(t => t.Id == tab.Id);
+        Assert.NotNull(restoredTab);
+        Assert.Equal(20, restoredTab.MaxDepth);
+    }
 }

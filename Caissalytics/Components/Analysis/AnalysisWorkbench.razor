@@ -155,9 +155,11 @@
 					<EngineAnalysisPanel Position="@Tab.Tree.CurrentNode.Position"
 										 IsAnalyzing="@Tab.IsAnalyzing"
 										 MultiPv="@Tab.MultiPv"
+										 MaxDepth="@Tab.MaxDepth"
 										 EvalLines="@Tab.CurrentEvalLines"
 										 IsAnalyzingChanged="HandleAnalyzingToggled"
 										 MultiPvChanged="HandleMultiPvChanged"
+										 MaxDepthChanged="HandleMaxDepthChanged"
 										 OnInsertPvVariation="HandleInsertPvVariation" />
 				</div>
 			}
@@ -526,6 +528,15 @@
 		}
 	}
 
+	private async Task HandleMaxDepthChanged(int depth)
+	{
+		Tab.MaxDepth = depth;
+		if (Tab.IsAnalyzing)
+		{
+			await RestartEngineAnalysisAsync();
+		}
+	}
+
 	private async Task RestartEngineAnalysisAsync()
 	{
 		if (_isDisposed) return;
@@ -571,7 +582,7 @@
 					catch (ObjectDisposedException) { }
 					catch (InvalidOperationException) { }
 				}
-			}, _engineCts.Token);
+			}, Tab.MaxDepth, _engineCts.Token);
 		}
 		catch (OperationCanceledException) { }
 	}

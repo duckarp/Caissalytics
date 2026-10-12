@@ -37,6 +37,14 @@
 				<option value="4">@Loc["Engine_Line_4"]</option>
 				<option value="5">@Loc["Engine_Line_5"]</option>
 			</select>
+
+			<select class="maxdepth-select-dropdown" value="@MaxDepth" @onchange="HandleMaxDepthChange" disabled="@(!IsAnalyzing)">
+				<option value="15">@Loc["Engine_Depth_Limit", 15]</option>
+				<option value="20">@Loc["Engine_Depth_Limit", 20]</option>
+				<option value="25">@Loc["Engine_Depth_Limit", 25]</option>
+				<option value="30">@Loc["Engine_Depth_Limit", 30]</option>
+				<option value="0">@Loc["Engine_Depth_Infinite"]</option>
+			</select>
 		</div>
 
 		<div class="engine-stats-right">
@@ -111,9 +119,11 @@
 	[Parameter, EditorRequired] public BoardPosition Position { get; set; } = default!;
 	[Parameter] public bool IsAnalyzing { get; set; }
 	[Parameter] public int MultiPv { get; set; } = 3;
+	[Parameter] public int MaxDepth { get; set; } = 25;
 	[Parameter] public List<EngineEvaluationLine> EvalLines { get; set; } = new();
 	[Parameter] public EventCallback<bool> IsAnalyzingChanged { get; set; }
 	[Parameter] public EventCallback<int> MultiPvChanged { get; set; }
+	[Parameter] public EventCallback<int> MaxDepthChanged { get; set; }
 	[Parameter] public EventCallback<List<string>> OnInsertPvVariation { get; set; }
 
 	private bool _isEngineInstalled = false;
@@ -182,6 +192,14 @@
 		if (int.TryParse(e.Value?.ToString(), out int val))
 		{
 			await MultiPvChanged.InvokeAsync(val);
+		}
+	}
+
+	private async Task HandleMaxDepthChange(ChangeEventArgs e)
+	{
+		if (int.TryParse(e.Value?.ToString(), out int val))
+		{
+			await MaxDepthChanged.InvokeAsync(val);
 		}
 	}
 

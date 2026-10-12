@@ -112,7 +112,8 @@
   cursor: not-allowed;
 }
 
-.multipv-select-dropdown {
+.multipv-select-dropdown,
+.maxdepth-select-dropdown {
   height: 28px;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);

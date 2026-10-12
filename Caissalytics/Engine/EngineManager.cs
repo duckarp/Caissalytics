@@ -726,7 +726,7 @@ public class EngineManager : IEngineService, IDisposable
         return newEngines;
     }
 
-    public async Task StartAnalysisAsync(string fen, int multiPv, Action<List<EngineEvaluationLine>> onUpdate, CancellationToken ct = default)
+    public async Task StartAnalysisAsync(string fen, int multiPv, Action<List<EngineEvaluationLine>> onUpdate, int maxDepth = 0, CancellationToken ct = default)
     {
         var engine = await GetActiveEngineAsync();
         if (engine == null || !engine.IsInstalled || string.IsNullOrEmpty(engine.ExecutablePath))
@@ -749,7 +749,7 @@ public class EngineManager : IEngineService, IDisposable
             }
         }
 
-        await _activeClient.StartAnalysisAsync(fen, multiPv, onUpdate);
+        await _activeClient.StartAnalysisAsync(fen, multiPv, onUpdate, maxDepth);
     }
 
     public async Task StopAnalysisAsync()

@@ -92,6 +92,20 @@ public class AnalysisTab : WorkspaceTab
         }
     }
 
+    private int _maxDepth = 25;
+    public int MaxDepth
+    {
+        get => _maxDepth;
+        set
+        {
+            if (_maxDepth != value)
+            {
+                _maxDepth = value;
+                NotifyTabChanged();
+            }
+        }
+    }
+
     public List<EngineEvaluationLine> CurrentEvalLines { get; set; } = new();
 
     private string? _targetDatabase;
@@ -707,6 +721,7 @@ public class WorkspaceState
                         Orientation = analysis.Orientation,
                         IsAnalyzing = analysis.IsAnalyzing,
                         MultiPv = analysis.MultiPv,
+                        MaxDepth = analysis.MaxDepth,
                         TargetDatabase = analysis.TargetDatabase,
                         DatabaseGameId = analysis.DatabaseGameId,
                         AnalysisReport = analysis.AnalysisReport
@@ -870,6 +885,7 @@ public class WorkspaceState
                             Orientation = tabDto.Orientation ?? "white",
                             IsAnalyzing = tabDto.IsAnalyzing,
                             MultiPv = tabDto.MultiPv > 0 ? tabDto.MultiPv : 3,
+                            MaxDepth = tabDto.MaxDepth >= 0 ? tabDto.MaxDepth : 25,
                             AnalysisReport = tabDto.AnalysisReport
                         };
 

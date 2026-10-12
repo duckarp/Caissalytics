@@ -24,7 +24,7 @@ internal class Program
         {
             Environment.SetEnvironmentVariable(
                 "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
-                "--enable-gpu-rasterization --enable-zero-copy --ignore-gpu-blocklist --disable-backgrounding-occluded-windows");
+                "--enable-gpu-rasterization --disable-backgrounding-occluded-windows");
         }
 
         var appBuilder = PhotinoBlazorAppBuilder.CreateDefault(args);
@@ -132,7 +132,7 @@ internal class Program
             try
             {
                 app.MainWindow.SetBrowserControlInitParameters(
-                    "--enable-gpu-rasterization --enable-zero-copy --ignore-gpu-blocklist --disable-backgrounding-occluded-windows");
+                    "--enable-gpu-rasterization --disable-backgrounding-occluded-windows");
             }
             catch
             {

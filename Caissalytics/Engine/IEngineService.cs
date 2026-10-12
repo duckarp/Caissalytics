@@ -12,7 +12,7 @@ public interface IEngineService
     Task<IReadOnlyList<EngineInfo>> ScanSystemEnginesAsync();
     Task SetCustomEnginePathAsync(string name, string path);
 
-    Task StartAnalysisAsync(string fen, int multiPv, Action<List<EngineEvaluationLine>> onUpdate, CancellationToken ct = default);
+    Task StartAnalysisAsync(string fen, int multiPv, Action<List<EngineEvaluationLine>> onUpdate, int maxDepth = 0, CancellationToken ct = default);
     Task StopAnalysisAsync();
     bool IsAnalyzing { get; }
     string? SyzygyPath { get; }
