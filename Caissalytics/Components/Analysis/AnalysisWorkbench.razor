@@ -5,6 +5,7 @@
 @using Caissalytics.Components.Board
 @inject IEngineService EngineService
 @inject ITablebaseService TablebaseService
+@inject IAppearanceService AppearanceService
 @inject IJSRuntime JS
 @inject WorkspaceState Workspace
 @implements IDisposable
@@ -207,6 +208,8 @@
 	private bool _fenCopied = false;
 	private bool _pgnCopied = false;
 	private string? _lastRenderedBestMove;
+	private DotNetObjectReference<AnalysisWorkbench>? _dotNetRef;
+	private KeyboardShortcutSettings _shortcuts = new();
 
 	private async Task CopyFenAsync()
 	{
@@ -404,17 +407,42 @@
 		Workspace.CreateAnalysisTab(title: title, startFen: fen);
 	}
 
-	protected override void OnInitialized()
+	protected override async Task OnInitializedAsync()
 	{
 		Tab.Tree.PositionChanged += OnPositionChanged;
 		Loc.OnLanguageChanged += StateHasChanged;
+		AppearanceService.OnAppearanceChanged += HandleAppearanceChanged;
+		var settings = await AppearanceService.GetSettingsAsync();
+		if (settings?.Shortcuts != null)
+		{
+			_shortcuts = settings.Shortcuts;
+		}
+	}
+
+	private void HandleAppearanceChanged(AppearanceSettings settings)
+	{
+		if (settings?.Shortcuts != null)
+		{
+			_shortcuts = settings.Shortcuts;
+			InvokeAsync(StateHasChanged);
+		}
 	}
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
-		if (firstRender && Tab.IsAnalyzing)
+		if (firstRender)
 		{
-			await RestartEngineAnalysisAsync();
+			_dotNetRef = DotNetObjectReference.Create(this);
+			try
+			{
+				await JS.InvokeVoidAsync("notationInterop.registerKeyboardListener", _dotNetRef);
+			}
+			catch { }
+
+			if (Tab.IsAnalyzing)
+			{
+				await RestartEngineAnalysisAsync();
+			}
 		}
 	}
 
@@ -633,21 +661,50 @@
 		Tab.Tree.NavigateTo(baseNode);
 	}
 
+	public class KeyEventDto
+	{
+		public string Key { get; set; } = "";
+		public bool CtrlKey { get; set; }
+		public bool AltKey { get; set; }
+		public bool ShiftKey { get; set; }
+	}
+
+	[JSInvokable]
+	public void OnGlobalKeyDown(KeyEventDto e)
+	{
+		ProcessShortcut(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey);
+	}
+
 	private void HandleGlobalKey(KeyboardEventArgs e)
 	{
-		if (e.Key == "ArrowLeft")
+		ProcessShortcut(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey);
+	}
+
+	private void ProcessShortcut(string key, bool ctrl, bool alt, bool shift)
+	{
+		if (_shortcuts.NextVariation.Matches(key, ctrl, alt, shift) ||
+			_shortcuts.AlternateNextVariation.Matches(key, ctrl, alt, shift))
 		{
-			HandlePrev();
+			Tab.Tree.GoToNextVariation();
 		}
-		else if (e.Key == "ArrowRight")
+		else if (_shortcuts.PreviousVariation.Matches(key, ctrl, alt, shift) ||
+				 _shortcuts.AlternatePreviousVariation.Matches(key, ctrl, alt, shift))
+		{
+			Tab.Tree.GoToPreviousVariation();
+		}
+		else if (_shortcuts.NextMove.Matches(key, ctrl, alt, shift))
 		{
 			HandleNext();
 		}
-		else if (e.Key == "Home")
+		else if (_shortcuts.PreviousMove.Matches(key, ctrl, alt, shift))
+		{
+			HandlePrev();
+		}
+		else if (_shortcuts.FirstMove.Matches(key, ctrl, alt, shift))
 		{
 			HandleFirst();
 		}
-		else if (e.Key == "End")
+		else if (_shortcuts.LastMove.Matches(key, ctrl, alt, shift))
 		{
 			HandleLast();
 		}
@@ -658,6 +715,13 @@
 		_isDisposed = true;
 		Tab.Tree.PositionChanged -= OnPositionChanged;
 		Loc.OnLanguageChanged -= StateHasChanged;
+		AppearanceService.OnAppearanceChanged -= HandleAppearanceChanged;
+		try
+		{
+			_ = JS.InvokeVoidAsync("notationInterop.unregisterKeyboardListener");
+		}
+		catch { }
+		_dotNetRef?.Dispose();
 		try
 		{
 			_engineCts?.Cancel();

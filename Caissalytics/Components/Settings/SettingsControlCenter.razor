@@ -55,6 +55,14 @@
 					</div>
 				</button>
 
+				<button class="@GetNavClass("shortcuts")" @onclick='() => SetCategory("shortcuts")'>
+					<span class="nav-item-icon nav-icon-shortcuts" style="color: var(--accent-blue);"><AppIcon Name="keyboard" Size="18" /></span>
+					<div class="nav-item-content">
+						<span class="nav-item-title">@Loc["Settings_Nav_Shortcuts"]</span>
+						<span class="nav-item-desc">@Loc["Settings_Nav_Shortcuts_Desc"]</span>
+					</div>
+				</button>
+
 				<button class="@GetNavClass("engines")" @onclick='() => SetCategory("engines")'>
 					<span class="nav-item-icon nav-icon-engines"><AppIcon Name="engines" Size="18" /></span>
 					<div class="nav-item-content">
@@ -1587,6 +1595,52 @@
 					</div>
 				</div>
 			}
+			else if (_activeCategory == "shortcuts")
+			{
+				<div class="control-section-card">
+					<div class="card-section-header">
+						<h3 class="card-section-title">
+							<span class="card-title-badge badge-theme-blue">
+								<AppIcon Name="keyboard" Size="16" />
+							</span>
+							@Loc["Settings_Shortcuts_Title"]
+						</h3>
+						<p class="card-section-desc">@Loc["Settings_Shortcuts_Desc"]</p>
+					</div>
+
+					<div class="shortcuts-grid" style="display: flex; flex-direction: column; gap: 12px; margin-top: 14px;">
+						@RenderShortcutRow("NextMove", Loc["Settings_Shortcuts_NextMove"], _appearanceSettings.Shortcuts.NextMove)
+						@RenderShortcutRow("PreviousMove", Loc["Settings_Shortcuts_PrevMove"], _appearanceSettings.Shortcuts.PreviousMove)
+						@RenderShortcutRow("FirstMove", Loc["Settings_Shortcuts_FirstMove"], _appearanceSettings.Shortcuts.FirstMove)
+						@RenderShortcutRow("LastMove", Loc["Settings_Shortcuts_LastMove"], _appearanceSettings.Shortcuts.LastMove)
+
+						<div class="section-divider" style="margin: 6px 0;"></div>
+
+						@RenderShortcutRow("NextVariation", Loc["Settings_Shortcuts_NextVar"], _appearanceSettings.Shortcuts.NextVariation)
+						@RenderShortcutRow("PreviousVariation", Loc["Settings_Shortcuts_PrevVar"], _appearanceSettings.Shortcuts.PreviousVariation)
+						@RenderShortcutRow("AltNextVariation", Loc["Settings_Shortcuts_AltNextVar"], _appearanceSettings.Shortcuts.AlternateNextVariation)
+						@RenderShortcutRow("AltPreviousVariation", Loc["Settings_Shortcuts_AltPrevVar"], _appearanceSettings.Shortcuts.AlternatePreviousVariation)
+					</div>
+
+					<div class="form-action-row" style="margin-top: 20px; display: flex; align-items: center; gap: 12px;">
+						<button class="btn btn-primary" @onclick="SaveAppearanceSettingsAsync">
+							<AppIcon Name="save" Size="14" Class="btn-inline-icon" />
+							<span>@Loc["Common_Save"]</span>
+						</button>
+						<button class="btn btn-secondary" @onclick="ResetShortcutsToDefaultAsync">
+							<AppIcon Name="refresh" Size="14" Class="btn-inline-icon" />
+							<span>@Loc["Settings_Shortcuts_ResetDefaults"]</span>
+						</button>
+						@if (_appearanceSettingsSaved)
+						{
+							<span class="save-status-badge">
+								<AppIcon Name="check" Size="13" Class="btn-inline-icon" />
+								<span>@Loc["Settings_Shortcuts_Saved"]</span>
+							</span>
+						}
+					</div>
+				</div>
+			}
 		</main>
 	</div>
 </div>
@@ -2428,6 +2482,73 @@
 
 	private async Task SaveAppearanceSettingsAsync()
 	{
+		await AppearanceService.SaveSettingsAsync(_appearanceSettings);
+		_appearanceSettingsSaved = true;
+		_ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { _appearanceSettingsSaved = false; StateHasChanged(); }));
+	}
+
+	private string? _recordingShortcutKey;
+
+	private RenderFragment RenderShortcutRow(string propertyName, string label, ShortcutBinding binding) => __builder =>
+	{
+		bool isRecording = _recordingShortcutKey == propertyName;
+
+		<div class="shortcut-setting-row" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 6px;">
+			<div style="display: flex; flex-direction: column;">
+				<span style="font-size: 13.5px; font-weight: 600; color: var(--text-primary);">@label</span>
+			</div>
+			<div style="display: flex; align-items: center; gap: 8px;">
+				<button type="button"
+						class="shortcut-key-badge @(isRecording ? "recording" : "")"
+						style="font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; padding: 5px 12px; border-radius: 4px; border: 1px solid @(isRecording ? "var(--accent-blue)" : "var(--border-subtle)"); background: @(isRecording ? "rgba(56, 139, 253, 0.15)" : "rgba(0, 0, 0, 0.2)"); color: @(isRecording ? "var(--accent-blue)" : "var(--text-primary)"); cursor: pointer; min-width: 90px; text-align: center;"
+						tabindex="0"
+						@onkeydown="(e) => HandleShortcutKeyDown(propertyName, e)"
+						@onclick="() => StartRecordingShortcut(propertyName)">
+					@(isRecording ? Loc["Settings_Shortcuts_PressKey"] : binding.ToDisplayString())
+				</button>
+			</div>
+		</div>
+	};
+
+	private void StartRecordingShortcut(string propertyName)
+	{
+		_recordingShortcutKey = propertyName;
+	}
+
+	private void HandleShortcutKeyDown(string propertyName, KeyboardEventArgs e)
+	{
+		if (_recordingShortcutKey != propertyName) return;
+
+		// Ignore standalone modifier presses
+		if (e.Key is "Control" or "Shift" or "Alt" or "Meta") return;
+
+		var newBinding = new ShortcutBinding(
+			e.Key,
+			ctrl: e.CtrlKey,
+			alt: e.AltKey,
+			shift: e.ShiftKey
+		);
+
+		switch (propertyName)
+		{
+			case "NextMove": _appearanceSettings.Shortcuts.NextMove = newBinding; break;
+			case "PreviousMove": _appearanceSettings.Shortcuts.PreviousMove = newBinding; break;
+			case "FirstMove": _appearanceSettings.Shortcuts.FirstMove = newBinding; break;
+			case "LastMove": _appearanceSettings.Shortcuts.LastMove = newBinding; break;
+			case "NextVariation": _appearanceSettings.Shortcuts.NextVariation = newBinding; break;
+			case "PreviousVariation": _appearanceSettings.Shortcuts.PreviousVariation = newBinding; break;
+			case "AltNextVariation": _appearanceSettings.Shortcuts.AlternateNextVariation = newBinding; break;
+			case "AltPreviousVariation": _appearanceSettings.Shortcuts.AlternatePreviousVariation = newBinding; break;
+		}
+
+		_recordingShortcutKey = null;
+		StateHasChanged();
+	}
+
+	private async Task ResetShortcutsToDefaultAsync()
+	{
+		_appearanceSettings.Shortcuts = new KeyboardShortcutSettings();
+		_recordingShortcutKey = null;
 		await AppearanceService.SaveSettingsAsync(_appearanceSettings);
 		_appearanceSettingsSaved = true;
 		_ = Task.Delay(3000).ContinueWith(_ => InvokeAsync(() => { _appearanceSettingsSaved = false; StateHasChanged(); }));

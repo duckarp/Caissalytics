@@ -463,7 +463,10 @@
   color: var(--text-secondary);
   font-style: italic;
   font-size: 13px;
+  line-height: 1.45;
   margin: 0 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* Move Clocks */
@@ -632,7 +635,7 @@
 
 .scoresheet-row {
   display: grid;
-  grid-template-columns: 44px 1fr 1fr;
+  grid-template-columns: 48px minmax(70px, max-content) minmax(70px, max-content) 1fr;
   align-items: center;
   min-height: 32px;
   padding: 2px 4px;
@@ -653,7 +656,7 @@
   font-weight: 600;
   color: var(--text-muted);
   text-align: right;
-  padding-right: 8px;
+  padding-right: 10px;
   user-select: none;
 }
 
@@ -664,17 +667,33 @@
   min-width: 0;
 }
 
+.scoresheet-white-cell {
+  justify-content: flex-end;
+}
+
+.scoresheet-black-cell {
+  justify-content: flex-start;
+}
+
 .scoresheet-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  width: 100%;
-  padding: 3px 8px;
+  gap: 5px;
+  width: auto;
+  min-width: 68px;
+  padding: 3px 10px;
   margin: 0;
   border-radius: 4px;
-  text-align: left;
   font-size: 13.5px;
   font-family: var(--font-mono);
+}
+
+.scoresheet-white-cell .scoresheet-btn {
+  justify-content: flex-end;
+}
+
+.scoresheet-black-cell .scoresheet-btn {
+  justify-content: flex-start;
 }
 
 .scoresheet-san-text {
@@ -682,31 +701,66 @@
 }
 
 .scoresheet-clock {
-  margin-left: auto;
   font-size: 11px;
+}
+
+.scoresheet-white-cell .scoresheet-clock {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+.scoresheet-black-cell .scoresheet-clock {
+  margin-left: auto;
 }
 
 .scoresheet-comment-row {
   display: flex;
-  padding: 2px 8px 4px 44px;
+  padding: 3px 8px 5px 48px;
   background-color: rgba(0, 0, 0, 0.15);
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 .scoresheet-comment-pill {
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 12.5px;
+  line-height: 1.5;
   color: var(--text-secondary);
   font-style: italic;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .scoresheet-variation-row {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 4px 8px 6px 44px;
+  gap: 5px;
+  padding: 4px 8px 6px 32px;
   background-color: rgba(56, 139, 253, 0.03);
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.scoresheet-variation-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 2px 0;
+  line-height: 1.6;
+}
+
+.scoresheet-var-arrow {
+  color: var(--accent-blue);
+  font-size: 13px;
+  font-weight: 700;
+  user-select: none;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.scoresheet-variation-content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+  font-size: 13px;
 }
 
 .scoresheet-variation-block {

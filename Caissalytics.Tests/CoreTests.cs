@@ -239,4 +239,35 @@ public class CoreTests
         // A disambiguation pointing at the other (b1) knight must not match.
         Assert.True(SanParser.ParseSan(pos, "Nbe2").IsEmpty);
     }
+
+    [Fact]
+    public void GameTree_VariationNavigation_NextAndPreviousVariation_Work()
+    {
+        // 1. e4 e5 (1... c5)
+        var tree = new GameTree();
+        var e4 = tree.AddMoveSan("e4")!;
+        var e5 = tree.AddMoveSan("e5")!;
+
+        // Go back to e4 and add variation c5
+        tree.GoBack();
+        var c5 = tree.AddMoveSan("c5")!;
+
+        // CurrentNode is now c5 (index 1 of e4)
+        Assert.Equal(c5, tree.CurrentNode);
+
+        // Next variation should cycle back to e5 (index 0)
+        bool nextOk = tree.GoToNextVariation();
+        Assert.True(nextOk);
+        Assert.Equal(e5, tree.CurrentNode);
+
+        // Next variation again should cycle to c5 (index 1)
+        nextOk = tree.GoToNextVariation();
+        Assert.True(nextOk);
+        Assert.Equal(c5, tree.CurrentNode);
+
+        // Previous variation should cycle to e5
+        bool prevOk = tree.GoToPreviousVariation();
+        Assert.True(prevOk);
+        Assert.Equal(e5, tree.CurrentNode);
+    }
 }

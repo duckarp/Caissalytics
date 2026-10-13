@@ -115,7 +115,7 @@
 								{
 									<div class="scoresheet-comment-row">
 										<span class="scoresheet-comment-pill">
-											<strong>@row.MoveNumber.</strong> @row.WhiteNode.Comment
+											<strong>@row.MoveNumber.</strong> @FormatComment(row.WhiteNode.Comment)
 										</span>
 									</div>
 								}
@@ -126,13 +126,7 @@
 										@for (int vi = 1; vi < row.WhiteNode.Parent.Children.Count; vi++)
 										{
 											var varChild = row.WhiteNode.Parent.Children[vi];
-											bool isBranchActive = IsBranchActive(varChild);
-											<div class="scoresheet-variation-block @(isBranchActive ? "active-branch" : "")">
-												<span class="variation-delimiter">(</span>
-												@RenderSingleMove(varChild, forceNumber: true, isMainline: false)
-												@RenderBranchFromPosition(varChild, isMainline: false, depth: 2, forceFirstNumber: !string.IsNullOrWhiteSpace(varChild.Comment))
-												<span class="variation-delimiter">)</span>
-											</div>
+											@RenderScoresheetVariationBranch(varChild, depth: 1)
 										}
 									</div>
 								}
@@ -141,7 +135,7 @@
 								{
 									<div class="scoresheet-comment-row">
 										<span class="scoresheet-comment-pill">
-											<strong>@row.MoveNumber...</strong> @row.BlackNode.Comment
+											<strong>@row.MoveNumber...</strong> @FormatComment(row.BlackNode.Comment)
 										</span>
 									</div>
 								}
@@ -152,13 +146,7 @@
 										@for (int vi = 1; vi < row.BlackNode.Parent.Children.Count; vi++)
 										{
 											var varChild = row.BlackNode.Parent.Children[vi];
-											bool isBranchActive = IsBranchActive(varChild);
-											<div class="scoresheet-variation-block @(isBranchActive ? "active-branch" : "")">
-												<span class="variation-delimiter">(</span>
-												@RenderSingleMove(varChild, forceNumber: true, isMainline: false)
-												@RenderBranchFromPosition(varChild, isMainline: false, depth: 2, forceFirstNumber: !string.IsNullOrWhiteSpace(varChild.Comment))
-												<span class="variation-delimiter">)</span>
-											</div>
+											@RenderScoresheetVariationBranch(varChild, depth: 1)
 										}
 									</div>
 								}
@@ -218,6 +206,15 @@
 	private MoveNode? _lastScrolledNode;
 
 	private GameResultInfo ResultInfo => GameResultHelper.GetResult(Tree, Tree?.CurrentNode?.Position);
+
+	private static readonly System.Text.RegularExpressions.Regex CommentSplitRegex =
+		new(@"\s+(?=\([1-4]\)\s+[^.!?()]{1,100}:)", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+	private static string FormatComment(string? comment)
+	{
+		if (string.IsNullOrWhiteSpace(comment)) return "";
+		return CommentSplitRegex.Replace(comment, "\n");
+	}
 
 	protected override void OnInitialized()
 	{
@@ -522,7 +519,7 @@
 
 		@if (!string.IsNullOrWhiteSpace(node.Comment))
 		{
-			<span class="move-comment-text">{@node.Comment}</span>
+			<span class="move-comment-text">{@FormatComment(node.Comment)}</span>
 		}
 	};
 
@@ -615,5 +612,42 @@
 				<span class="move-clock-badge scoresheet-clock" title="Time remaining: @node.Clock">@node.FormattedClock</span>
 			}
 		</button>
+	};
+
+	private RenderFragment RenderScoresheetVariationBranch(MoveNode branchStartNode, int depth) => __builder =>
+	{
+		bool isBranchActive = IsBranchActive(branchStartNode);
+		int indentPx = (depth - 1) * 16;
+
+		<div class="scoresheet-variation-line" style="@(indentPx > 0 ? $"margin-left: {indentPx}px;" : "")">
+			<span class="scoresheet-var-arrow">↳</span>
+			<div class="scoresheet-variation-content @(isBranchActive ? "active-branch" : "")">
+				<span class="variation-delimiter">(</span>
+				@RenderSingleMove(branchStartNode, forceNumber: true, isMainline: false)
+				@RenderScoresheetSubBranch(branchStartNode, depth: depth)
+				<span class="variation-delimiter">)</span>
+			</div>
+		</div>
+	};
+
+	private RenderFragment RenderScoresheetSubBranch(MoveNode positionNode, int depth) => __builder =>
+	{
+		if (positionNode.Children.Count == 0) return;
+
+		var mainMove = positionNode.Children[0];
+		bool hadInterruption = positionNode.Children.Count > 1 || !string.IsNullOrWhiteSpace(mainMove.Comment);
+
+		@RenderSingleMove(mainMove, forceNumber: hadInterruption, isMainline: false)
+
+		if (positionNode.Children.Count > 1)
+		{
+			for (int i = 1; i < positionNode.Children.Count; i++)
+			{
+				var subVarChild = positionNode.Children[i];
+				@RenderScoresheetVariationBranch(subVarChild, depth: depth + 1)
+			}
+		}
+
+		@RenderScoresheetSubBranch(mainMove, depth: depth)
 	};
 }

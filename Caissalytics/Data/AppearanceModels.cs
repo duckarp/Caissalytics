@@ -33,6 +33,9 @@ public class AppearanceSettings
     // Performance & Rendering options
     public bool HardwareAccelerationEnabled { get; set; } = true;
 
+    // Keyboard Shortcuts
+    public KeyboardShortcutSettings Shortcuts { get; set; } = new();
+
     public static readonly string[] AvailableBoardThemes =
     [
         "brown",

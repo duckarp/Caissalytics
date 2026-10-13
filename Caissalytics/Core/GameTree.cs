@@ -100,6 +100,62 @@ public class GameTree
         return false;
     }
 
+    public bool GoToNextVariation()
+    {
+        // 1. If current node's parent has multiple branches, switch to the next sibling variation
+        if (CurrentNode.Parent != null && CurrentNode.Parent.Children.Count > 1)
+        {
+            int currentIdx = CurrentNode.Parent.Children.IndexOf(CurrentNode);
+            if (currentIdx >= 0 && currentIdx < CurrentNode.Parent.Children.Count - 1)
+            {
+                CurrentNode = CurrentNode.Parent.Children[currentIdx + 1];
+                PositionChanged?.Invoke();
+                return true;
+            }
+            // If already at last sibling, wrap to first
+            if (currentIdx == CurrentNode.Parent.Children.Count - 1)
+            {
+                CurrentNode = CurrentNode.Parent.Children[0];
+                PositionChanged?.Invoke();
+                return true;
+            }
+        }
+
+        // 2. Or if current node has variations forward (more than 1 child), step into variation index 1
+        if (CurrentNode.Children.Count > 1)
+        {
+            CurrentNode = CurrentNode.Children[1];
+            PositionChanged?.Invoke();
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool GoToPreviousVariation()
+    {
+        // 1. If current node's parent has multiple branches, switch to the previous sibling variation
+        if (CurrentNode.Parent != null && CurrentNode.Parent.Children.Count > 1)
+        {
+            int currentIdx = CurrentNode.Parent.Children.IndexOf(CurrentNode);
+            if (currentIdx > 0)
+            {
+                CurrentNode = CurrentNode.Parent.Children[currentIdx - 1];
+                PositionChanged?.Invoke();
+                return true;
+            }
+            // If at first sibling, wrap to last
+            if (currentIdx == 0)
+            {
+                CurrentNode = CurrentNode.Parent.Children[^1];
+                PositionChanged?.Invoke();
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public void GoToStart()
     {
         CurrentNode = Root;
