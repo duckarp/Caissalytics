@@ -10,7 +10,7 @@
 @inject WorkspaceState Workspace
 @implements IDisposable
 
-<div class="workbench-layout" @onkeydown="HandleGlobalKey" tabindex="0">
+<div class="workbench-layout">
 	<div class="workbench-left-panel">
 		<div class="board-eval-row">
 			<ChessgroundBoard @ref="_boardRef"
@@ -671,11 +671,6 @@
 
 	[JSInvokable]
 	public void OnGlobalKeyDown(KeyEventDto e)
-	{
-		ProcessShortcut(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey);
-	}
-
-	private void HandleGlobalKey(KeyboardEventArgs e)
 	{
 		ProcessShortcut(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey);
 	}
