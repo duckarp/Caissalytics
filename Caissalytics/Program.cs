@@ -19,12 +19,11 @@ internal class Program
     {
         SetLinuxProgramName("caissalytics");
 
-        // Keep WebView2 responsive without forcing unstable GPU rasterization on hybrid/integrated GPUs
+        // Configure WebView2 arguments for low-latency mouse tracking and hardware acceleration toggle
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            Environment.SetEnvironmentVariable(
-                "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
-                "--disable-backgrounding-occluded-windows");
+            string winArgs = BuildWindowsBrowserArguments();
+            Environment.SetEnvironmentVariable("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", winArgs);
         }
 
         var appBuilder = PhotinoBlazorAppBuilder.CreateDefault(args);
@@ -131,8 +130,8 @@ internal class Program
         {
             try
             {
-                app.MainWindow.SetBrowserControlInitParameters(
-                    "--disable-backgrounding-occluded-windows");
+                string winArgs = BuildWindowsBrowserArguments();
+                app.MainWindow.SetBrowserControlInitParameters(winArgs);
             }
             catch
             {
@@ -351,5 +350,45 @@ internal class Program
         {
             // Non-fatal desktop entry creation
         }
+    }
+
+    private static string BuildWindowsBrowserArguments()
+    {
+        bool hwAccel = true;
+        try
+        {
+            string configDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Caissalytics");
+            string settingsFilePath = Path.Combine(configDir, "appearance_settings.json");
+            if (File.Exists(settingsFilePath))
+            {
+                string json = File.ReadAllText(settingsFilePath);
+                var settings = System.Text.Json.JsonSerializer.Deserialize<AppearanceSettings>(json);
+                if (settings != null)
+                {
+                    hwAccel = settings.HardwareAccelerationEnabled;
+                }
+            }
+        }
+        catch
+        {
+            // Fall back to default
+        }
+
+        var args = new List<string>
+        {
+            "--disable-backgrounding-occluded-windows",
+            "--enable-features=DirectCompositionUseSystemFrameLatency",
+            "--disable-features=CalculateNativeWinOcclusion"
+        };
+
+        if (!hwAccel)
+        {
+            args.Add("--disable-gpu");
+            args.Add("--disable-software-rasterizer");
+        }
+
+        return string.Join(" ", args);
     }
 }

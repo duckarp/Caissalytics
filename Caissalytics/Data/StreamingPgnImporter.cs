@@ -13,6 +13,9 @@ public class StreamingPgnImporter
     // Matches the PGN convention tag "[ECO "???"]" (unknown opening) in the stored PGN header.
     public static readonly Regex EcoUnknownTagRegex = new(@"^\[ECO\s+""\?\?\?""\]", RegexOptions.Compiled | RegexOptions.Multiline);
 
+    // Matches valid PGN header tag pairs: [Tag "Value"]
+    public static readonly Regex PgnHeaderLineRegex = new(@"^\[([A-Za-z0-9_]+)\s+""([^""]*)""\]\s*$", RegexOptions.Compiled);
+
     public async Task ImportAsync(
         string connectionString,
         TextReader reader,
@@ -101,6 +104,7 @@ public class StreamingPgnImporter
         var headerLines = new List<string>();
         var movetext = new StringBuilder();
         bool readingMovetext = false;
+        int commentDepth = 0;
         string? line;
 
         try
@@ -120,7 +124,11 @@ public class StreamingPgnImporter
                     continue;
                 }
 
-                if (trimmed.StartsWith('['))
+                // Check if this line is a genuine PGN header pair: [Tag "Value"]
+                // Note: It must NOT be inside an unclosed comment block { ... }
+                bool isHeader = commentDepth == 0 && PgnHeaderLineRegex.IsMatch(trimmed);
+
+                if (isHeader)
                 {
                     if (readingMovetext)
                     {
@@ -129,6 +137,7 @@ public class StreamingPgnImporter
                         headerLines.Clear();
                         movetext.Clear();
                         readingMovetext = false;
+                        commentDepth = 0;
                     }
 
                     headerLines.Add(trimmed);
@@ -138,6 +147,15 @@ public class StreamingPgnImporter
                     readingMovetext = true;
                     movetext.Append(' ');
                     movetext.Append(trimmed);
+
+                    // Track curly brace comment depth across lines to prevent
+                    // comments spanning lines from being misinterpreted.
+                    for (int chIdx = 0; chIdx < trimmed.Length; chIdx++)
+                    {
+                        char ch = trimmed[chIdx];
+                        if (ch == '{') commentDepth++;
+                        else if (ch == '}' && commentDepth > 0) commentDepth--;
+                    }
                 }
             }
 

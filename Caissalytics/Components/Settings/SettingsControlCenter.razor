@@ -1546,6 +1546,31 @@
 							</div>
 						}
 
+						<div class="section-divider"></div>
+
+						<div class="card-section-header">
+							<h4 class="card-section-subtitle">
+								<span class="card-subtitle-badge badge-theme-security"><AppIcon Name="settings" Size="14" /></span>
+								<span>@Loc["Settings_Performance_Title"]</span>
+							</h4>
+							<p class="card-section-desc">@Loc["Settings_Performance_Desc"]</p>
+						</div>
+
+						<div class="control-form-grid">
+							<div class="form-field-block form-field-full">
+								<label class="sound-checkbox-label">
+									<input type="checkbox" class="sound-check-box"
+										   checked="@_appearanceSettings.HardwareAccelerationEnabled"
+										   @onchange="ToggleHardwareAcceleration" />
+									<div>
+										<strong>@Loc["Settings_Performance_HwAccel"]</strong>
+										<p class="field-hint">@Loc["Settings_Performance_HwAccel_Desc"]</p>
+									</div>
+								</label>
+								<span class="field-hint" style="margin-top: 6px; font-style: italic;">@Loc["Settings_Performance_RestartNote"]</span>
+							</div>
+						</div>
+
 						<div class="form-action-row">
 							<button class="btn btn-primary" @onclick="SaveAppearanceSettingsAsync">
 								<AppIcon Name="save" Size="14" Class="btn-inline-icon" />
@@ -2390,6 +2415,15 @@
 	{
 		AppearanceService.SetJSRuntime(JS);
 		await AppearanceService.PlaySoundAsync(soundType, JS);
+	}
+
+	private async Task ToggleHardwareAcceleration(ChangeEventArgs e)
+	{
+		if (e.Value is bool b)
+		{
+			_appearanceSettings.HardwareAccelerationEnabled = b;
+			await AppearanceService.SaveSettingsAsync(_appearanceSettings);
+		}
 	}
 
 	private async Task SaveAppearanceSettingsAsync()

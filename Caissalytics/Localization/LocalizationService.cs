@@ -253,6 +253,13 @@ public class LocalizationService : ILocalizationService
         ["Settings_Sound_LowTime"] = "Low Time Warning",
         ["Settings_Sound_Test"] = "Test",
 
+        // Graphics & Performance
+        ["Settings_Performance_Title"] = "Graphics & Performance",
+        ["Settings_Performance_Desc"] = "Configure display rendering and GPU acceleration. Useful for high-refresh displays or graphics driver troubleshooting.",
+        ["Settings_Performance_HwAccel"] = "Hardware GPU Acceleration",
+        ["Settings_Performance_HwAccel_Desc"] = "Enable DirectX/GPU rasterization. If cursor hovering or scrolling stutters on your graphics driver, disabling this switches to software rendering.",
+        ["Settings_Performance_RestartNote"] = "Restart the application after changing graphics acceleration for changes to take effect.",
+
         // Common Actions
         ["Common_Save"] = "Save Settings",
         ["Common_Cancel"] = "Cancel",
@@ -1062,6 +1069,13 @@ public class LocalizationService : ILocalizationService
         ["Settings_Sound_Victory"] = "Víťazstvo & Mat",
         ["Settings_Sound_LowTime"] = "Varovanie pred časom",
         ["Settings_Sound_Test"] = "Vyskúšať",
+
+        // Graphics & Performance
+        ["Settings_Performance_Title"] = "Grafika & Výkon",
+        ["Settings_Performance_Desc"] = "Nastavenie vykresľovania zobrazenia a GPU akcelerácie. Užitočné pri monitoroch s vysokou obnovovacou frekvenciou alebo problémoch s grafickým ovládačom.",
+        ["Settings_Performance_HwAccel"] = "Hardvérová GPU akcelerácia",
+        ["Settings_Performance_HwAccel_Desc"] = "Povoliť DirectX/GPU akceleráciu. Ak vám pri vašom ovládači trhá pohyb kurzora alebo scrollovanie, vypnutím prepnete na softvérové vykresľovanie.",
+        ["Settings_Performance_RestartNote"] = "Po zmene grafickej akcelerácie je potrebné aplikáciu reštartovať.",
 
         // Common Actions
         ["Common_Save"] = "Uložiť nastavenia",

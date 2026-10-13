@@ -30,6 +30,9 @@ public class AppearanceSettings
     public bool PlayVictorySound { get; set; } = true;
     public bool PlayLowTimeSound { get; set; } = true;
 
+    // Performance & Rendering options
+    public bool HardwareAccelerationEnabled { get; set; } = true;
+
     public static readonly string[] AvailableBoardThemes =
     [
         "brown",

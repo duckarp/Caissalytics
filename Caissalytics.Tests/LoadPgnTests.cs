@@ -155,7 +155,7 @@ public class LoadPgnTests
     }
 
     [Fact]
-    public void LoadPgn_ComplexSmyslovPgn_ParsesCorrectly()
+    public async Task LoadPgn_ComplexSmyslovPgn_ParsesCorrectly()
     {
         string pgn = """
         [Event "?"]
@@ -338,5 +338,29 @@ public class LoadPgnTests
             reimportedMoves.Add(rCur.San);
         }
         Assert.Equal(moves, reimportedMoves);
+
+        // Verify DatabaseManager imports this PGN with multi-line [%cal] annotations as 1 complete game
+        string tempDir = Path.Combine(Path.GetTempPath(), $"CaissalyticsTest_{Guid.NewGuid():N}");
+        try
+        {
+            var dbManager = new DatabaseManager(tempDir);
+            await dbManager.CreateDatabaseAsync("StudyDb");
+            await dbManager.ImportPgnTextAsync("StudyDb", pgn);
+
+            var (games, count) = await dbManager.SearchGamesAsync("StudyDb", new GameFilter());
+            Assert.Equal(1, count);
+            Assert.Single(games);
+            Assert.Equal("Ruy Lopez", games[0].White);
+            Assert.Contains("again we can opt for the same structural advantage", games[0].Pgn);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                try { Directory.Delete(tempDir, true); } catch { }
+            }
+        }
     }
 }
+
+
