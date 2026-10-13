@@ -14,6 +14,10 @@
 					@onclick="() => _viewMode = NotationViewMode.Inline">
 				📜 Flow
 			</button>
+			<button class="view-mode-btn @(_viewMode == NotationViewMode.Scoresheet ? "active" : "")"
+					@onclick="() => _viewMode = NotationViewMode.Scoresheet">
+				📋 Sheet
+			</button>
 		</div>
 
 		@if (ResultInfo.HasResult)
@@ -81,19 +85,107 @@
 		}
 		else if (Tree != null)
 		{
-			<div class="@(_viewMode == NotationViewMode.Structured ? "move-tree-structured" : "move-list-flow")">
-				@RenderBranchFromPosition(Tree.Root, isMainline: true, depth: 1, forceFirstNumber: false)
-				@if (ResultInfo.HasResult)
-				{
-					<div class="notation-result-flow-box @ResultInfo.ResultClass" title="@ResultInfo.Tooltip" @onclick="SelectLastMove">
-						<span class="notation-result-score-highlight">@ResultInfo.DisplayScore</span>
-						@if (!string.IsNullOrEmpty(ResultInfo.Description))
+			@if (_viewMode == NotationViewMode.Scoresheet)
+			{
+				<div class="move-scoresheet-container">
+					<div class="scoresheet-grid">
+						@foreach (var row in GetScoresheetRows())
 						{
-							<span class="notation-result-flow-desc">@ResultInfo.Description</span>
+							<div class="scoresheet-row">
+								<div class="scoresheet-num-cell">@row.MoveNumber.</div>
+								
+								<div class="scoresheet-move-cell scoresheet-white-cell">
+									@if (row.WhiteNode != null)
+									{
+										@RenderScoresheetMoveButton(row.WhiteNode)
+									}
+								</div>
+
+								<div class="scoresheet-move-cell scoresheet-black-cell">
+									@if (row.BlackNode != null)
+									{
+										@RenderScoresheetMoveButton(row.BlackNode)
+									}
+								</div>
+							</div>
+
+							@if (row.HasAnnotationOrBranch)
+							{
+								@if (!string.IsNullOrWhiteSpace(row.WhiteNode?.Comment))
+								{
+									<div class="scoresheet-comment-row">
+										<span class="scoresheet-comment-pill">
+											<strong>@row.MoveNumber.</strong> @row.WhiteNode.Comment
+										</span>
+									</div>
+								}
+
+								@if (row.WhiteNode != null && row.WhiteNode.Parent != null && row.WhiteNode.Parent.Children.Count > 1)
+								{
+									<div class="scoresheet-variation-row">
+										@for (int vi = 1; vi < row.WhiteNode.Parent.Children.Count; vi++)
+										{
+											var varChild = row.WhiteNode.Parent.Children[vi];
+											<span class="scoresheet-var-pill" @onclick="() => OnSelectNode.InvokeAsync(varChild)">
+												↳ (@varChild.MoveNumber.@varChild.San)
+											</span>
+										}
+									</div>
+								}
+
+								@if (!string.IsNullOrWhiteSpace(row.BlackNode?.Comment))
+								{
+									<div class="scoresheet-comment-row">
+										<span class="scoresheet-comment-pill">
+											<strong>@row.MoveNumber...</strong> @row.BlackNode.Comment
+										</span>
+									</div>
+								}
+
+								@if (row.BlackNode != null && row.BlackNode.Parent != null && row.BlackNode.Parent.Children.Count > 1)
+								{
+									<div class="scoresheet-variation-row">
+										@for (int vi = 1; vi < row.BlackNode.Parent.Children.Count; vi++)
+										{
+											var varChild = row.BlackNode.Parent.Children[vi];
+											<span class="scoresheet-var-pill" @onclick="() => OnSelectNode.InvokeAsync(varChild)">
+												↳ (@varChild.MoveNumber...@varChild.San)
+											</span>
+										}
+									</div>
+								}
+							}
 						}
 					</div>
-				}
-			</div>
+
+					@if (ResultInfo.HasResult)
+					{
+						<div class="notation-result-flow-box scoresheet-result-box @ResultInfo.ResultClass" title="@ResultInfo.Tooltip" @onclick="SelectLastMove">
+							<span class="notation-result-score-highlight">@ResultInfo.DisplayScore</span>
+							@if (!string.IsNullOrEmpty(ResultInfo.Description))
+							{
+								<span class="notation-result-flow-desc">@ResultInfo.Description</span>
+							}
+						</div>
+					}
+				</div>
+			}
+			else
+			{
+				<div class="@(_viewMode == NotationViewMode.Structured ? "move-tree-structured" : "move-list-flow")">
+					@RenderBranchFromPosition(Tree.Root, isMainline: true, depth: 1, forceFirstNumber: false)
+					@if (ResultInfo.HasResult)
+					{
+						<div class="notation-result-flow-box @ResultInfo.ResultClass" title="@ResultInfo.Tooltip" @onclick="SelectLastMove">
+							<span class="notation-result-score-highlight">@ResultInfo.DisplayScore</span>
+							@if (!string.IsNullOrEmpty(ResultInfo.Description))
+							{
+								<span class="notation-result-flow-desc">@ResultInfo.Description</span>
+							}
+						</div>
+					}
+				</div>
+			}
 		}
 	</div>
 </div>
@@ -102,7 +194,8 @@
 	public enum NotationViewMode
 	{
 		Structured,
-		Inline
+		Inline,
+		Scoresheet
 	}
 
 	[Parameter, EditorRequired] public GameTree Tree { get; set; } = default!;
@@ -434,5 +527,85 @@
 		5 => "nag-speculative",
 		6 => "nag-dubious",
 		_ => "nag-general"
+	};
+
+	private class ScoresheetRow
+	{
+		public int MoveNumber { get; set; }
+		public MoveNode? WhiteNode { get; set; }
+		public MoveNode? BlackNode { get; set; }
+
+		public bool HasAnnotationOrBranch =>
+			!string.IsNullOrWhiteSpace(WhiteNode?.Comment) ||
+			!string.IsNullOrWhiteSpace(BlackNode?.Comment) ||
+			(WhiteNode?.Parent != null && WhiteNode.Parent.Children.Count > 1) ||
+			(BlackNode?.Parent != null && BlackNode.Parent.Children.Count > 1);
+	}
+
+	private List<ScoresheetRow> GetScoresheetRows()
+	{
+		var rows = new List<ScoresheetRow>();
+		if (Tree?.Root == null) return rows;
+
+		// Collect mainline nodes
+		var mainlineNodes = new List<MoveNode>();
+		var cur = Tree.Root;
+		while (cur.Children.Count > 0)
+		{
+			cur = cur.Children[0];
+			mainlineNodes.Add(cur);
+		}
+
+		ScoresheetRow? currentRow = null;
+		foreach (var node in mainlineNodes)
+		{
+			if (node.IsWhiteMove)
+			{
+				currentRow = new ScoresheetRow
+				{
+					MoveNumber = node.MoveNumber,
+					WhiteNode = node
+				};
+				rows.Add(currentRow);
+			}
+			else
+			{
+				if (currentRow == null || currentRow.MoveNumber != node.MoveNumber)
+				{
+					currentRow = new ScoresheetRow
+					{
+						MoveNumber = node.MoveNumber,
+						BlackNode = node
+					};
+					rows.Add(currentRow);
+				}
+				else
+				{
+					currentRow.BlackNode = node;
+				}
+			}
+		}
+
+		return rows;
+	}
+
+	private RenderFragment RenderScoresheetMoveButton(MoveNode node) => __builder =>
+	{
+		bool isCurrent = node == Tree.CurrentNode;
+		string btnClass = isCurrent
+			? "move-button mainline-move move-current scoresheet-btn"
+			: "move-button mainline-move scoresheet-btn";
+
+		<button id="@($"move-{node.Id}")" class="@btnClass" @onclick="() => OnSelectNode.InvokeAsync(node)">
+			<span class="scoresheet-san-text">@node.San</span>
+			@if (node.Nags.Count > 0)
+			{
+				<span class="nag-glyph @GetNagClass(node.Nags[0])">@node.NagSymbol()</span>
+			}
+			@if (!string.IsNullOrWhiteSpace(node.FormattedClock) && _showClocks)
+			{
+				<span class="move-clock-badge scoresheet-clock" title="Time remaining: @node.Clock">@node.FormattedClock</span>
+			}
+		</button>
 	};
 }
