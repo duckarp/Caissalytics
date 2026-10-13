@@ -1042,6 +1042,45 @@
   color: var(--text-muted);
 }
 
+/* --- Save Game Two-Pane Modal --- */
+.save-game-modal {
+  width: 780px;
+  max-width: 95vw;
+  max-height: 90vh;
+}
+
+.save-game-modal .modal-body {
+  overflow-y: auto;
+  max-height: calc(90vh - 130px);
+  padding: 16px 20px;
+  gap: 14px;
+}
+
+.save-game-panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.save-game-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.save-game-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* --- PGN Import Modal Enhancements --- */
 .import-mode-selector {
   display: flex;

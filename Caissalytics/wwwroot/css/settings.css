@@ -126,6 +126,12 @@
   color: #fb7185;
 }
 
+.nav-icon-shortcuts {
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  color: #60a5fa;
+}
+
 .nav-icon-engines {
   background: rgba(163, 230, 53, 0.12);
   border: 1px solid rgba(163, 230, 53, 0.25);
@@ -382,6 +388,12 @@
   background: rgba(168, 85, 247, 0.12);
   border: 1px solid rgba(168, 85, 247, 0.25);
   color: #c084fc;
+}
+
+.badge-theme-security {
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  color: #38bdf8;
 }
 
 /* Button & Alert Inline Icon Helpers */

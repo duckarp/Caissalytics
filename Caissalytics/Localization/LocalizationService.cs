@@ -331,7 +331,7 @@ public class LocalizationService : ILocalizationService
         ["Analysis_LoadPgn_Invalid"] = "No valid chess moves or PGN headers detected.",
         ["Analysis_LoadPgn_Preview"] = "Detected Game",
         ["Analysis_LoadPgn_Clear"] = "Clear text",
-        ["Analysis_SaveToDb"] = "💾 Save to DB",
+        ["Analysis_SaveToDb"] = "💾 Save",
         ["Analysis_SaveGameToDb"] = "💾 Save Game to Database",
         ["Analysis_GameHeaders"] = "Game Headers",
         ["Analysis_White"] = "White:",
@@ -433,6 +433,7 @@ public class LocalizationService : ILocalizationService
         ["SaveGame_Eco"] = "ECO Code",
         ["SaveGame_Saving"] = "Saving...",
         ["SaveGame_BtnSave"] = "Save Game",
+        ["SaveGame_BtnOverwrite"] = "Overwrite Game",
 
         // Database Browser
         ["Db_Databases"] = "Databases",
@@ -1164,7 +1165,7 @@ public class LocalizationService : ILocalizationService
         ["Analysis_LoadPgn_Invalid"] = "Neboli rozpoznané žiadne platné šachové ťahy ani PGN hlavičky.",
         ["Analysis_LoadPgn_Preview"] = "Rozpoznaná partia",
         ["Analysis_LoadPgn_Clear"] = "Vymazať text",
-        ["Analysis_SaveToDb"] = "💾 Uložiť do DB",
+        ["Analysis_SaveToDb"] = "💾 Uložiť",
         ["Analysis_SaveGameToDb"] = "💾 Uložiť partiu do databázy",
         ["Analysis_GameHeaders"] = "Hlavičky partie",
         ["Analysis_White"] = "Biely:",
@@ -1266,6 +1267,7 @@ public class LocalizationService : ILocalizationService
         ["SaveGame_Eco"] = "ECO kód",
         ["SaveGame_Saving"] = "Ukladám...",
         ["SaveGame_BtnSave"] = "Uložiť partiu",
+        ["SaveGame_BtnOverwrite"] = "Prepísať partiu",
 
         // Database Browser
         ["Db_Databases"] = "Databázy",

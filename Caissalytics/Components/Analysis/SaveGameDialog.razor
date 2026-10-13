@@ -2,20 +2,21 @@
 @using Caissalytics.Core
 @using Caissalytics.Data
 @inject IDatabaseService DatabaseService
+@inject LocalizationService Loc
 
 @if (IsOpen)
 {
 	<div class="modal-backdrop" @onclick="CloseDialog">
-		<div class="modal-dialog modal-dialog-large" @onclick:stopPropagation="true">
+		<div class="modal-dialog save-game-modal" @onclick:stopPropagation="true">
 			<div class="modal-header">
-				<h3 class="modal-title">💾 Save Game to Database</h3>
+				<h3 class="modal-title">💾 @Loc["SaveGame_Title"]</h3>
 				<button class="modal-close-btn" @onclick="CloseDialog">✕</button>
 			</div>
 
 			<div class="modal-body">
 				<!-- Target Database -->
 				<div class="modal-form-group">
-					<label class="filter-label">Target Database</label>
+					<label class="filter-label">@Loc["SaveGame_TargetDb"]</label>
 					<select class="modal-input" value="@_selectedDb" @onchange="HandleTargetDbChanged">
 						@foreach (var db in _databases)
 						{
@@ -28,100 +29,108 @@
 				@if (CanOverwrite)
 				{
 					<div class="save-mode-container">
-						<span class="save-mode-title">Save Mode</span>
+						<span class="save-mode-title">@Loc["SaveGame_SaveMode"]</span>
 						<div class="save-mode-options">
 							<label class="save-mode-label">
 								<input type="radio" name="saveMode" value="update" checked="@(_saveMode == "update")" @onchange="@(() => _saveMode = "update")" />
 								<div class="save-mode-text-col">
-									<strong>Overwrite existing record (#@ExistingGameId)</strong>
-									<span class="save-mode-desc">Updates the existing game and its positions in @_selectedDb</span>
+									<strong>@Loc["SaveGame_Overwrite", ExistingGameId!]</strong>
+									<span class="save-mode-desc">@Loc["SaveGame_OverwriteDesc", _selectedDb]</span>
 								</div>
 							</label>
 
 							<label class="save-mode-label">
 								<input type="radio" name="saveMode" value="new" checked="@(_saveMode == "new")" @onchange="@(() => _saveMode = "new")" />
 								<div class="save-mode-text-col">
-									<strong>Save as a new game record</strong>
-									<span class="save-mode-desc">Leaves original game #@ExistingGameId untouched and creates a new entry</span>
+									<strong>@Loc["SaveGame_SaveAsNew"]</strong>
+									<span class="save-mode-desc">@Loc["SaveGame_SaveAsNewDesc", ExistingGameId!]</span>
 								</div>
 							</label>
 						</div>
 					</div>
 				}
 
-				<!-- Players Row -->
-				<div class="modal-form-row">
-					<div class="modal-form-group">
-						<label class="filter-label">White Player</label>
-						<input class="modal-input" placeholder="White Player" @bind="_white" />
-					</div>
-					<div class="modal-form-group">
-						<label class="filter-label">White Elo</label>
-						<input class="modal-input" type="number" placeholder="e.g. 2600" @bind="_whiteElo" />
-					</div>
-				</div>
+				<!-- Two-Pane Layout: Players & Results (Left) vs Metadata & Details (Right) -->
+				<div class="save-game-panes">
+					<!-- Left Pane: Players, Ratings, Result -->
+					<div class="save-game-pane">
+						<div class="save-game-section-title">👤 Players & Result</div>
 
-				<div class="modal-form-row">
-					<div class="modal-form-group">
-						<label class="filter-label">Black Player</label>
-						<input class="modal-input" placeholder="Black Player" @bind="_black" />
-					</div>
-					<div class="modal-form-group">
-						<label class="filter-label">Black Elo</label>
-						<input class="modal-input" type="number" placeholder="e.g. 2600" @bind="_blackElo" />
-					</div>
-				</div>
+						<div class="modal-form-row">
+							<div class="modal-form-group">
+								<label class="filter-label">@Loc["SaveGame_WhitePlayer"]</label>
+								<input class="modal-input" placeholder="White Player" @bind="_white" />
+							</div>
+							<div class="modal-form-group">
+								<label class="filter-label">@Loc["SaveGame_WhiteElo"]</label>
+								<input class="modal-input" type="number" placeholder="e.g. 2600" @bind="_whiteElo" />
+							</div>
+						</div>
 
-				<!-- Result, Date & ECO Row -->
-				<div class="modal-form-row">
-					<div class="modal-form-group">
-						<label class="filter-label">Result</label>
-						<select class="modal-input" @bind="_result">
-							<option value="1-0">1-0 (White win)</option>
-							<option value="0-1">0-1 (Black win)</option>
-							<option value="1/2-1/2">½-½ (Draw)</option>
-							<option value="*">* (Ongoing / Unfinished)</option>
-						</select>
-					</div>
-					<div class="modal-form-group">
-						<label class="filter-label">Date (DD.MM.YYYY)</label>
-						<input class="modal-input" placeholder="DD.MM.YYYY" @bind="_date" />
-					</div>
-				</div>
+						<div class="modal-form-row">
+							<div class="modal-form-group">
+								<label class="filter-label">@Loc["SaveGame_BlackPlayer"]</label>
+								<input class="modal-input" placeholder="Black Player" @bind="_black" />
+							</div>
+							<div class="modal-form-group">
+								<label class="filter-label">@Loc["SaveGame_BlackElo"]</label>
+								<input class="modal-input" type="number" placeholder="e.g. 2600" @bind="_blackElo" />
+							</div>
+						</div>
 
-				<!-- Event Row -->
-				<div class="modal-form-group">
-					<label class="filter-label">Event</label>
-					<input class="modal-input" placeholder="e.g. FIDE World Championship" @bind="_event" />
-				</div>
+						<div class="modal-form-group">
+							<label class="filter-label">@Loc["SaveGame_Result"]</label>
+							<select class="modal-input" @bind="_result">
+								<option value="1-0">1-0 (White win)</option>
+								<option value="0-1">0-1 (Black win)</option>
+								<option value="1/2-1/2">½-½ (Draw)</option>
+								<option value="*">* (Ongoing / Unfinished)</option>
+							</select>
+						</div>
+					</div>
 
-				<!-- Round # & Board # Row -->
-				<div class="modal-form-row">
-					<div class="modal-form-group">
-						<label class="filter-label">Round #</label>
-						<input class="modal-input" placeholder="e.g. 1" @bind="_round" />
-					</div>
-					<div class="modal-form-group">
-						<label class="filter-label">Board #</label>
-						<input class="modal-input" placeholder="e.g. 1" @bind="_board" />
-					</div>
-				</div>
+					<!-- Right Pane: Event, Date, Round/Board, Time Control, ECO -->
+					<div class="save-game-pane">
+						<div class="save-game-section-title">📋 Details & Metadata</div>
 
-				<!-- Time Control & ECO Row -->
-				<div class="modal-form-row">
-					<div class="modal-form-group">
-						<label class="filter-label">Time Control</label>
-						<select class="modal-input" @bind="_selectedTimeClass">
-							<option value="">(Unspecified)</option>
-							<option value="bullet">Bullet (&lt; 3 min)</option>
-							<option value="blitz">Blitz (3 - 10 min)</option>
-							<option value="rapid">Rapid (10 - 60 min)</option>
-							<option value="standard">Standard / Classical (60+ min)</option>
-						</select>
-					</div>
-					<div class="modal-form-group">
-						<label class="filter-label">ECO Code</label>
-						<input class="modal-input" placeholder="e.g. B90" readonly value="@_eco" />
+						<div class="modal-form-row">
+							<div class="modal-form-group">
+								<label class="filter-label">@Loc["SaveGame_Event"]</label>
+								<input class="modal-input" placeholder="e.g. FIDE World Championship" @bind="_event" />
+							</div>
+							<div class="modal-form-group">
+								<label class="filter-label">@Loc["SaveGame_Date"] (DD.MM.YYYY)</label>
+								<input class="modal-input" placeholder="DD.MM.YYYY" @bind="_date" />
+							</div>
+						</div>
+
+						<div class="modal-form-row">
+							<div class="modal-form-group">
+								<label class="filter-label">@Loc["SaveGame_Round"] #</label>
+								<input class="modal-input" placeholder="e.g. 1" @bind="_round" />
+							</div>
+							<div class="modal-form-group">
+								<label class="filter-label">Board #</label>
+								<input class="modal-input" placeholder="e.g. 1" @bind="_board" />
+							</div>
+						</div>
+
+						<div class="modal-form-row">
+							<div class="modal-form-group">
+								<label class="filter-label">Time Control</label>
+								<select class="modal-input" @bind="_selectedTimeClass">
+									<option value="">(Unspecified)</option>
+									<option value="bullet">Bullet (&lt; 3 min)</option>
+									<option value="blitz">Blitz (3 - 10 min)</option>
+									<option value="rapid">Rapid (10 - 60 min)</option>
+									<option value="standard">Standard / Classical (60+ min)</option>
+								</select>
+							</div>
+							<div class="modal-form-group">
+								<label class="filter-label">@Loc["SaveGame_Eco"]</label>
+								<input class="modal-input" placeholder="e.g. B90" readonly value="@_eco" />
+							</div>
+						</div>
 					</div>
 				</div>
 
@@ -132,19 +141,19 @@
 			</div>
 
 			<div class="modal-footer">
-				<button class="btn-secondary" @onclick="CloseDialog">Cancel</button>
+				<button class="btn-secondary" @onclick="CloseDialog">@Loc["Common_Cancel"]</button>
 				<button class="btn-primary" disabled="@_isSaving" @onclick="SaveAsync">
 					@if (_isSaving)
 					{
-						<span>Saving...</span>
+						<span>@Loc["SaveGame_Saving"]</span>
 					}
 					else if (CanOverwrite && _saveMode == "update")
 					{
-						<span>Overwrite Game</span>
+						<span>@Loc["SaveGame_BtnOverwrite"]</span>
 					}
 					else
 					{
-						<span>Save as New Game</span>
+						<span>@Loc["SaveGame_BtnSave"]</span>
 					}
 				</button>
 			</div>

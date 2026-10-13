@@ -5,10 +5,10 @@
 		<TargetFramework>net10.0</TargetFramework>
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
-		<Version>1.9.13</Version>
-		<AssemblyVersion>1.9.13.0</AssemblyVersion>
-		<FileVersion>1.9.13.0</FileVersion>
-		<InformationalVersion>1.9.13</InformationalVersion>
+		<Version>1.9.14</Version>
+		<AssemblyVersion>1.9.14.0</AssemblyVersion>
+		<FileVersion>1.9.14.0</FileVersion>
+		<InformationalVersion>1.9.14</InformationalVersion>
 		<GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
 		<ApplicationIcon>icon.ico</ApplicationIcon>
 	</PropertyGroup>
