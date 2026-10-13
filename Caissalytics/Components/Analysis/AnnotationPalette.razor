@@ -30,13 +30,13 @@
 	</div>
 
 	<div class="comment-input-row">
-		<input class="comment-input-field" 
-			   type="text" 
-			   placeholder="Add a comment to this move..." 
-			   @bind="_commentText" 
-			   @bind:event="oninput"
-			   @onkeydown="HandleKeyDown"
-			   disabled="@(ActiveNode.IsRoot)" />
+		<textarea class="comment-input-field" 
+				  rows="2"
+				  placeholder="Add a comment to this move... (Ctrl+Enter to save)" 
+				  @bind="_commentText" 
+				  @bind:event="oninput"
+				  @onkeydown="HandleKeyDown"
+				  disabled="@(ActiveNode.IsRoot)"></textarea>
 		<button class="comment-save-btn" disabled="@(ActiveNode.IsRoot)" @onclick="SaveComment">Save</button>
 	</div>
 </div>
@@ -92,7 +92,7 @@
 
 	private async Task HandleKeyDown(KeyboardEventArgs e)
 	{
-		if (e.Key == "Enter")
+		if (e.Key == "Enter" && (e.CtrlKey || e.MetaKey))
 		{
 			await SaveComment();
 		}

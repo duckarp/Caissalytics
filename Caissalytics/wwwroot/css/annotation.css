@@ -43,17 +43,22 @@
 
 .comment-input-row {
   display: flex;
+  align-items: flex-start;
   gap: 8px;
 }
 
 .comment-input-field {
   flex: 1;
+  min-height: 44px;
+  max-height: 240px;
+  resize: vertical;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   color: var(--text-primary);
-  padding: 6px 10px;
+  padding: 8px 10px;
   border-radius: 4px;
   font-size: 13px;
+  line-height: 1.45;
   font-family: var(--font-sans);
   outline: none;
 }
@@ -63,7 +68,8 @@
 }
 
 .comment-save-btn {
-  padding: 6px 12px;
+  padding: 8px 14px;
+  align-self: flex-start;
   background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   color: var(--text-primary);
@@ -76,3 +82,4 @@
 .comment-save-btn:hover {
   background-color: var(--bg-surface-hover);
 }
+
