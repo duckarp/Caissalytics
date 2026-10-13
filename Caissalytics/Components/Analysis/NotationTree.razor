@@ -126,9 +126,13 @@
 										@for (int vi = 1; vi < row.WhiteNode.Parent.Children.Count; vi++)
 										{
 											var varChild = row.WhiteNode.Parent.Children[vi];
-											<span class="scoresheet-var-pill" @onclick="() => OnSelectNode.InvokeAsync(varChild)">
-												↳ (@varChild.MoveNumber.@varChild.San)
-											</span>
+											bool isBranchActive = IsBranchActive(varChild);
+											<div class="scoresheet-variation-block @(isBranchActive ? "active-branch" : "")">
+												<span class="variation-delimiter">(</span>
+												@RenderSingleMove(varChild, forceNumber: true, isMainline: false)
+												@RenderBranchFromPosition(varChild, isMainline: false, depth: 2, forceFirstNumber: !string.IsNullOrWhiteSpace(varChild.Comment))
+												<span class="variation-delimiter">)</span>
+											</div>
 										}
 									</div>
 								}
@@ -148,9 +152,13 @@
 										@for (int vi = 1; vi < row.BlackNode.Parent.Children.Count; vi++)
 										{
 											var varChild = row.BlackNode.Parent.Children[vi];
-											<span class="scoresheet-var-pill" @onclick="() => OnSelectNode.InvokeAsync(varChild)">
-												↳ (@varChild.MoveNumber...@varChild.San)
-											</span>
+											bool isBranchActive = IsBranchActive(varChild);
+											<div class="scoresheet-variation-block @(isBranchActive ? "active-branch" : "")">
+												<span class="variation-delimiter">(</span>
+												@RenderSingleMove(varChild, forceNumber: true, isMainline: false)
+												@RenderBranchFromPosition(varChild, isMainline: false, depth: 2, forceFirstNumber: !string.IsNullOrWhiteSpace(varChild.Comment))
+												<span class="variation-delimiter">)</span>
+											</div>
 										}
 									</div>
 								}
