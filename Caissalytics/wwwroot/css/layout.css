@@ -270,6 +270,33 @@
   resize: vertical;
 }
 
+.pgn-dropzone-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--border-subtle);
+  border-radius: 8px;
+  padding: 24px 20px;
+  text-align: center;
+  cursor: pointer;
+  background-color: var(--bg-surface-elevated);
+  transition: all var(--transition-fast);
+  margin-bottom: 4px;
+}
+
+.pgn-dropzone-box:hover,
+.pgn-dropzone-box.drag-active {
+  border-color: var(--accent-blue);
+  background-color: var(--bg-hover);
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.15);
+}
+
+.pgn-dropzone-compact {
+  padding: 16px 14px;
+}
+
 .pgn-detected-box {
   background-color: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
