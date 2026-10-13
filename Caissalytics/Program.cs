@@ -47,7 +47,8 @@ internal class Program
         appBuilder.Services.AddSingleton<IAppWindowProvider, AppWindowProvider>();
         appBuilder.Services.AddSingleton<IHomeworkService, HomeworkService>();
         appBuilder.Services.AddScoped<IAppearanceService, AppearanceService>();
-        appBuilder.Services.AddScoped<ILocalizationService, LocalizationService>();
+        appBuilder.Services.AddScoped<LocalizationService>();
+        appBuilder.Services.AddScoped<ILocalizationService>(sp => sp.GetRequiredService<LocalizationService>());
         appBuilder.Services.AddSingleton<IOpponentDossierService, OpponentDossierService>();
         appBuilder.Services.AddSingleton<IFideScoutingService, FideScoutingService>();
         appBuilder.Services.AddSingleton<IChessResultsScoutingService, ChessResultsScoutingService>();
