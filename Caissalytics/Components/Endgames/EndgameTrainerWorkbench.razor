@@ -254,6 +254,11 @@
 		_feedbackType = "neutral";
 
 		await ProbeCurrentPositionAsync();
+
+		if (_tree.CurrentNode.Position.ActiveColor != _currentPosition.PlayerColor)
+		{
+			await MakeComputerDefenseMoveAsync();
+		}
 	}
 
 	private async Task ResetCurrentPosition()
@@ -277,8 +282,8 @@
 	{
 		if (_isComputerThinking) return;
 
-		// Check side to move matches player color
-		bool isUserTurn = _tree.CurrentNode.Position.ActiveColor == _currentPosition.PlayerColor;
+		// Only allow move if it is the user's turn
+		if (_tree.CurrentNode.Position.ActiveColor != _currentPosition.PlayerColor) return;
 		_tree.AddMove(move);
 
 		await AppearanceService.PlaySoundAsync(move.IsCapture ? ChessSoundType.Capture : ChessSoundType.Move);
@@ -412,6 +417,10 @@
 			}
 
 			await ProbeCurrentPositionAsync();
+			if (_boardRef != null)
+			{
+				await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, _tree.CurrentNode.IsRoot ? null : _tree.CurrentNode.Move);
+			}
 		}
 		finally
 		{

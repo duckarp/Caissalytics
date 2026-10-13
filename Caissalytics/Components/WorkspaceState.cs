@@ -689,6 +689,16 @@ public class WorkspaceState
         NotifyStateChanged();
     }
 
+    public bool CloseActiveTab()
+    {
+        if (ActiveTab != null && ActiveTab.CanClose)
+        {
+            CloseTab(ActiveTab.Id);
+            return true;
+        }
+        return false;
+    }
+
     public string ExportStateJson()
     {
         var dto = new WorkspaceStateDto

@@ -55,9 +55,12 @@
 	@if (Tree?.CurrentNode != null && !Tree.CurrentNode.IsMainline)
 	{
 		var sourceNode = GetBranchSourceNode();
+		var (activeVarIdx, totalActiveVars) = GetActiveVariationIndex(Tree.CurrentNode);
 		<div class="active-variation-banner">
 			<div class="variation-banner-info">
-				<span class="variation-icon-badge">🔀 Variation</span>
+				<span class="variation-icon-badge">
+					🔀 Variation @(totalActiveVars > 1 ? $"({activeVarIdx}/{totalActiveVars})" : "")
+				</span>
 				@if (sourceNode != null && !sourceNode.IsRoot)
 				{
 					<span class="variation-origin-text">
@@ -122,11 +125,12 @@
 
 								@if (row.WhiteNode != null && row.WhiteNode.Parent != null && row.WhiteNode.Parent.Children.Count > 1)
 								{
+									int totalWVars = row.WhiteNode.Parent.Children.Count - 1;
 									<div class="scoresheet-variation-row">
 										@for (int vi = 1; vi < row.WhiteNode.Parent.Children.Count; vi++)
 										{
 											var varChild = row.WhiteNode.Parent.Children[vi];
-											@RenderScoresheetVariationBranch(varChild, depth: 1)
+											@RenderScoresheetVariationBranch(varChild, depth: 1, varIndex: vi, totalVars: totalWVars)
 										}
 									</div>
 								}
@@ -142,11 +146,12 @@
 
 								@if (row.BlackNode != null && row.BlackNode.Parent != null && row.BlackNode.Parent.Children.Count > 1)
 								{
+									int totalBVars = row.BlackNode.Parent.Children.Count - 1;
 									<div class="scoresheet-variation-row">
 										@for (int vi = 1; vi < row.BlackNode.Parent.Children.Count; vi++)
 										{
 											var varChild = row.BlackNode.Parent.Children[vi];
-											@RenderScoresheetVariationBranch(varChild, depth: 1)
+											@RenderScoresheetVariationBranch(varChild, depth: 1, varIndex: vi, totalVars: totalBVars)
 										}
 									</div>
 								}
@@ -343,6 +348,23 @@
 		return curr.Parent;
 	}
 
+	private static (int index, int total) GetActiveVariationIndex(MoveNode? node)
+	{
+		if (node == null || node.IsMainline) return (1, 1);
+		var curr = node;
+		while (curr.Parent != null && !curr.Parent.IsMainline)
+		{
+			curr = curr.Parent;
+		}
+		if (curr.Parent != null && curr.Parent.Children.Count > 1)
+		{
+			int idx = curr.Parent.Children.IndexOf(curr);
+			int total = curr.Parent.Children.Count - 1;
+			return (Math.Max(1, idx), total);
+		}
+		return (1, 1);
+	}
+
 	private async Task ReturnToMainline()
 	{
 		var source = GetBranchSourceNode();
@@ -439,6 +461,9 @@
 				bool isBranchActive = IsBranchActive(varChild);
 				bool isCollapsed = _collapsedVariations.Contains(varChild.Id);
 
+				int totalVars = positionNode.Children.Count - 1;
+				string varIndexBadge = totalVars > 1 ? $"{i}/{totalVars}" : "";
+
 				if (_viewMode == NotationViewMode.Structured)
 				{
 					<div class="variation-branch-card depth-@(Math.Min(depth, 4)) @(isBranchActive ? "active-branch" : "")">
@@ -446,6 +471,10 @@
 							<div class="branch-card-title" @onclick="() => OnSelectNode.InvokeAsync(varChild)">
 								<span class="branch-card-arrow">↳</span>
 								<span class="branch-card-label">Variation</span>
+								@if (!string.IsNullOrEmpty(varIndexBadge))
+								{
+									<span class="variation-fraction-badge" title="Variation @varIndexBadge">@varIndexBadge</span>
+								}
 								<span class="branch-card-first-move">
 									@varChild.MoveNumber@(varChild.IsWhiteMove ? "." : "...") @varChild.San
 								</span>
@@ -479,6 +508,10 @@
 				{
 					<span class="variation-inline-pill depth-@(Math.Min(depth, 4)) @(isBranchActive ? "active-branch" : "")">
 						<span class="variation-delimiter">(</span>
+						@if (!string.IsNullOrEmpty(varIndexBadge))
+						{
+							<span class="variation-fraction-badge" title="Variation @varIndexBadge">@varIndexBadge</span>
+						}
 						@RenderSingleMove(varChild, forceNumber: true, isMainline: false)
 						@RenderBranchFromPosition(varChild, isMainline: false, depth: depth + 1, forceFirstNumber: !string.IsNullOrWhiteSpace(varChild.Comment))
 						<span class="variation-delimiter">)</span>
@@ -614,13 +647,18 @@
 		</button>
 	};
 
-	private RenderFragment RenderScoresheetVariationBranch(MoveNode branchStartNode, int depth) => __builder =>
+	private RenderFragment RenderScoresheetVariationBranch(MoveNode branchStartNode, int depth, int varIndex = 1, int totalVars = 1) => __builder =>
 	{
 		bool isBranchActive = IsBranchActive(branchStartNode);
 		int indentPx = (depth - 1) * 16;
+		string varIndexBadge = totalVars > 1 ? $"{varIndex}/{totalVars}" : "";
 
 		<div class="scoresheet-variation-line" style="@(indentPx > 0 ? $"margin-left: {indentPx}px;" : "")">
 			<span class="scoresheet-var-arrow">↳</span>
+			@if (!string.IsNullOrEmpty(varIndexBadge))
+			{
+				<span class="scoresheet-var-fraction" title="Variation @varIndexBadge">@varIndexBadge</span>
+			}
 			<div class="scoresheet-variation-content @(isBranchActive ? "active-branch" : "")">
 				<span class="variation-delimiter">(</span>
 				@RenderSingleMove(branchStartNode, forceNumber: true, isMainline: false)
@@ -641,10 +679,11 @@
 
 		if (positionNode.Children.Count > 1)
 		{
+			int totalSubVars = positionNode.Children.Count - 1;
 			for (int i = 1; i < positionNode.Children.Count; i++)
 			{
 				var subVarChild = positionNode.Children[i];
-				@RenderScoresheetVariationBranch(subVarChild, depth: depth + 1)
+				@RenderScoresheetVariationBranch(subVarChild, depth: depth + 1, varIndex: i, totalVars: totalSubVars)
 			}
 		}
 

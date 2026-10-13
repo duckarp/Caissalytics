@@ -1620,6 +1620,10 @@
 						@RenderShortcutRow("PreviousVariation", Loc["Settings_Shortcuts_PrevVar"], _appearanceSettings.Shortcuts.PreviousVariation)
 						@RenderShortcutRow("AltNextVariation", Loc["Settings_Shortcuts_AltNextVar"], _appearanceSettings.Shortcuts.AlternateNextVariation)
 						@RenderShortcutRow("AltPreviousVariation", Loc["Settings_Shortcuts_AltPrevVar"], _appearanceSettings.Shortcuts.AlternatePreviousVariation)
+
+						<div class="section-divider" style="margin: 6px 0;"></div>
+
+						@RenderShortcutRow("CloseTab", Loc["Settings_Shortcuts_CloseTab"], _appearanceSettings.Shortcuts.CloseTab)
 					</div>
 
 					<div class="form-action-row" style="margin-top: 20px; display: flex; align-items: center; gap: 12px;">
@@ -2539,6 +2543,7 @@
 			case "PreviousVariation": _appearanceSettings.Shortcuts.PreviousVariation = newBinding; break;
 			case "AltNextVariation": _appearanceSettings.Shortcuts.AlternateNextVariation = newBinding; break;
 			case "AltPreviousVariation": _appearanceSettings.Shortcuts.AlternatePreviousVariation = newBinding; break;
+			case "CloseTab": _appearanceSettings.Shortcuts.CloseTab = newBinding; break;
 		}
 
 		_recordingShortcutKey = null;

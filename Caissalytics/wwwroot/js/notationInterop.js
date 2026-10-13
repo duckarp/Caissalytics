@@ -27,8 +27,9 @@ window.notationInterop = {
                 return;
             }
 
-            // Prevent default scrolling for arrow keys, home, end
-            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', ' '].includes(e.key)) {
+            // Prevent default scrolling for arrow keys, home, end, or default window close for Ctrl+W
+            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', ' '].includes(e.key) ||
+                (e.ctrlKey && (e.key === 'w' || e.key === 'W'))) {
                 e.preventDefault();
             }
 

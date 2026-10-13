@@ -61,4 +61,7 @@ public class KeyboardShortcutSettings
     public ShortcutBinding PreviousVariation { get; set; } = new("ArrowLeft", ctrl: true);
     public ShortcutBinding AlternateNextVariation { get; set; } = new("ArrowDown");
     public ShortcutBinding AlternatePreviousVariation { get; set; } = new("ArrowUp");
+
+    // Tab Management
+    public ShortcutBinding CloseTab { get; set; } = new("w", ctrl: true);
 }

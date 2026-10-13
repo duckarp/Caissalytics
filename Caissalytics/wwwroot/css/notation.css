@@ -307,6 +307,20 @@
   letter-spacing: 0.5px;
 }
 
+.variation-fraction-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--accent-blue);
+  background-color: rgba(56, 139, 253, 0.15);
+  border: 1px solid rgba(56, 139, 253, 0.3);
+  border-radius: 3px;
+  padding: 0 4px;
+  margin: 0 3px;
+}
+
 .branch-card-first-move {
   color: var(--brand-sky);
   font-weight: 700;
@@ -753,6 +767,20 @@
   user-select: none;
   flex-shrink: 0;
   margin-top: 1px;
+}
+
+.scoresheet-var-fraction {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--accent-blue);
+  background-color: rgba(56, 139, 253, 0.12);
+  border: 1px solid rgba(56, 139, 253, 0.25);
+  border-radius: 3px;
+  padding: 0 4px;
+  user-select: none;
+  align-self: center;
+  flex-shrink: 0;
 }
 
 .scoresheet-variation-content {

@@ -703,6 +703,10 @@
 		{
 			HandleLast();
 		}
+		else if (_shortcuts.CloseTab.Matches(key, ctrl, alt, shift))
+		{
+			Workspace.CloseActiveTab();
+		}
 	}
 
 	public void Dispose()
