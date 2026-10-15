@@ -959,4 +959,36 @@ public class DatabaseTests : IDisposable
         var (allGames, allCount) = await _dbManager.SearchGamesAsync("PositionClearDb", filter);
         Assert.Equal(2, allCount);
     }
+
+    [Fact]
+    public async Task ImportPgnStreamAsync_SmallFile_ImportsCorrectly()
+    {
+        await _dbManager.CreateDatabaseAsync("SmallFileDb");
+
+        string smallPgn = @"[Event ""Quick Game""]
+[White ""Player 1""]
+[Black ""Player 2""]
+[Result ""1-0""]
+
+1. e4 e5 2. Nf3 Nc6 1-0";
+
+        byte[] bytes = Encoding.UTF8.GetBytes(smallPgn);
+        using var ms = new MemoryStream(bytes);
+
+        await _dbManager.ImportPgnStreamAsync("SmallFileDb", ms, "quick.pgn");
+
+        var (games, count) = await _dbManager.SearchGamesAsync("SmallFileDb", new GameFilter());
+        Assert.Equal(1, count);
+        Assert.Equal("Quick Game", games[0].Event);
+    }
+
+    [Fact]
+    public void InitialDroppedFile_StoresDataAccurately()
+    {
+        var file = new Caissalytics.Components.Database.PgnImportDialog.InitialDroppedFile("test.pgn", 12345, null!);
+        Assert.Equal("test.pgn", file.FileName);
+        Assert.Equal(12345, file.FileSize);
+        Assert.Null(file.StreamRef);
+    }
 }
+

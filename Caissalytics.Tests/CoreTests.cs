@@ -270,4 +270,38 @@ public class CoreTests
         Assert.True(prevOk);
         Assert.Equal(e5, tree.CurrentNode);
     }
+
+    [Fact]
+    public void Move_DefaultAndEmpty_AreConsistent()
+    {
+        var def = default(Move);
+        var empty = Move.Empty;
+        var sameSq = new Move(Square.A1, Square.A1);
+        var valid = new Move(Square.E2, Square.E4);
+
+        Assert.True(def.IsEmpty);
+        Assert.True(empty.IsEmpty);
+        Assert.True(sameSq.IsEmpty);
+        Assert.False(valid.IsEmpty);
+
+        Assert.Equal(empty, def);
+        Assert.Equal(def, empty);
+        Assert.Equal(sameSq, def);
+        Assert.NotEqual(valid, def);
+
+        Assert.Equal("0000", def.ToUci());
+        Assert.Equal("0000", empty.ToUci());
+        Assert.Equal("0000", sameSq.ToUci());
+        Assert.Equal("e2e4", valid.ToUci());
+    }
+
+    [Fact]
+    public void SanParser_EmptyMove_ReturnsEmptyStringNotRa1()
+    {
+        var startPos = FenParser.Parse(BoardPosition.StartFen);
+
+        Assert.Equal("", SanParser.ToSan(startPos, default(Move)));
+        Assert.Equal("", SanParser.ToSan(startPos, Move.Empty));
+        Assert.Equal("", SanParser.ToSan(startPos, new Move(Square.A1, Square.A1)));
+    }
 }

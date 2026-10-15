@@ -1,6 +1,7 @@
 @namespace Caissalytics.Components.Database
 @using Caissalytics.Data
 @using Caissalytics.Components.Board
+@using Microsoft.JSInterop
 @inject IDatabaseService DatabaseService
 @inject IOnlineGameSyncService SyncService
 @inject IUserProfileService ProfileService
@@ -9,7 +10,12 @@
 @inject IAppWindowProvider WindowProvider
 @implements IDisposable
 
-<div class="db-browser-container">
+<div class="db-browser-container" @ref="_dbBrowserRef">
+	<div class="workbench-drag-drop-overlay">
+		<div class="drop-overlay-icon">📥</div>
+		<div class="drop-overlay-title">@Loc["Db_DropImport_Title"]</div>
+		<div class="drop-overlay-subtitle">@Loc["Db_DropImport_Subtitle"]</div>
+	</div>
 	<!-- Left Sidebar: Databases List -->
 	<div class="db-sidebar">
 		<div class="db-sidebar-header">
@@ -499,14 +505,12 @@
 						{
 							<div class="modal-form-group">
 								<label class="filter-label">Select or Drop Chess File to Import</label>
-								<label class="dropzone-box @(_newDbPgnDragOver ? "drag-active" : "")"
-									   @ondragenter="HandleNewDbPgnDragEnter"
-									   @ondragleave="HandleNewDbPgnDragLeave"
-									   @ondrop="HandleNewDbPgnDrop">
-									<div class="dropzone-icon">📥</div>
-									<div class="dropzone-text">Click or drag &amp; drop chess file here</div>
-									<div class="dropzone-subtext">Supports PGN files (.pgn), Zip archives (.zip), and 7-Zip archives (.7z)</div>
-									<div class="import-format-badges">
+								<label @ref="_newDbDropzoneRef"
+									   class="dropzone-box @(_newDbPgnDragOver ? "drag-active" : "")">
+									<div class="dropzone-icon" style="pointer-events: none;">📥</div>
+									<div class="dropzone-text" style="pointer-events: none;">Click or drag &amp; drop chess file here</div>
+									<div class="dropzone-subtext" style="pointer-events: none;">Supports PGN files (.pgn), Zip archives (.zip), and 7-Zip archives (.7z)</div>
+									<div class="import-format-badges" style="pointer-events: none;">
 										<span class="format-badge">.pgn</span>
 										<span class="format-badge">.zip (TWIC, Chess.cz)</span>
 										<span class="format-badge">.7z (Lumbra's GigaBase)</span>
@@ -519,7 +523,7 @@
 							{
 								<div class="filter-group">
 									<span class="filter-label">Selected File:</span>
-									<span class="score-cell">@_newDbPgnFileName (@((_newDbPgnFileSize / 1024.0 / 1024.0).ToString("0.2")) MB)</span>
+									<span class="score-cell">@_newDbPgnFileName (@FormatFileSize(_newDbPgnFileSize))</span>
 								</div>
 							}
 						}
@@ -569,7 +573,8 @@
 <!-- PGN Import Modal -->
 <PgnImportDialog IsOpen="_showImportModal"
 				 DatabaseName="@_currentDbName"
-				 OnClose="() => _showImportModal = false"
+				 InitialFile="@_initialImportFile"
+				 OnClose="() => { _showImportModal = false; _initialImportFile = null; }"
 				 OnImportCompleted="HandleImportCompletedAsync" />
 
 <!-- Clean Foreign Games Confirmation Modal -->
@@ -855,6 +860,15 @@
 	private string _newDbPgnFileName = "";
 	private long _newDbPgnFileSize = 0;
 	private bool _newDbPgnDragOver = false;
+	private ElementReference _newDbDropzoneRef;
+	private ElementReference _dbBrowserRef;
+	private IJSObjectReference? _dropModule;
+	private IJSObjectReference? _newDbDropInstance;
+	private IJSObjectReference? _browserDropInstance;
+	private IJSStreamReference? _newDbDroppedStreamRef;
+	private string? _newDbDroppedFilePath;
+	private PgnImportDialog.InitialDroppedFile? _initialImportFile;
+	private DotNetObjectReference<DatabaseBrowser>? _dotNetRef;
 	private string _newDbPgnError = "";
 	private bool _isCreatingFromPgn = false;
 	private bool _createPgnFinished = false;
@@ -983,6 +997,137 @@
 		}
 	}
 
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			try
+			{
+				_dotNetRef ??= DotNetObjectReference.Create(this);
+				_dropModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/fileDropInterop.js");
+				_browserDropInstance = await _dropModule.InvokeAsync<IJSObjectReference>(
+					"registerWorkbenchDrop",
+					_dbBrowserRef,
+					_dotNetRef,
+					nameof(OnBrowserFileDropped),
+					new[] { ".pgn", ".zip", ".7z" },
+					new { mode = "stream" }
+				);
+			}
+			catch { }
+		}
+
+		if (_showNewDbModal && _newDbMode == NewDbMode.PgnImport && _newDbPgnSource == PgnSource.File)
+		{
+			if (_newDbDropInstance == null)
+			{
+				try
+				{
+					_dotNetRef ??= DotNetObjectReference.Create(this);
+					_dropModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/fileDropInterop.js");
+					_newDbDropInstance = await _dropModule.InvokeAsync<IJSObjectReference>(
+						"registerDropZone",
+						_newDbDropzoneRef,
+						_dotNetRef,
+						nameof(OnNewDbPgnFileDropped),
+						new[] { ".pgn", ".zip", ".7z" },
+						new { mode = "stream" }
+					);
+				}
+				catch { }
+			}
+		}
+		else
+		{
+			if (_newDbDropInstance != null)
+			{
+				try { await _newDbDropInstance.InvokeVoidAsync("dispose"); } catch { }
+				_newDbDropInstance = null;
+			}
+		}
+	}
+
+	[JSInvokable]
+	public void OnBrowserFileDropped(string fileName, long fileSize, IJSStreamReference streamRef)
+	{
+		if (string.Equals(_currentDbName, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase))
+		{
+			var targetDb = _databases.FirstOrDefault(d => !IsOnlineGamesDb(d.Name))?.Name ?? "Default";
+			_currentDbName = targetDb;
+		}
+
+		_initialImportFile = new PgnImportDialog.InitialDroppedFile(fileName, fileSize, streamRef);
+		_showImportModal = true;
+		StateHasChanged();
+	}
+
+	[JSInvokable]
+	public void OnBrowserFileDroppedPath(string filePath)
+	{
+		if (!File.Exists(filePath)) return;
+		var fileInfo = new FileInfo(filePath);
+		var ext = fileInfo.Extension.ToLowerInvariant();
+		if (ext != ".pgn" && ext != ".zip" && ext != ".7z") return;
+
+		if (string.Equals(_currentDbName, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase))
+		{
+			var targetDb = _databases.FirstOrDefault(d => !IsOnlineGamesDb(d.Name))?.Name ?? "Default";
+			_currentDbName = targetDb;
+		}
+
+		_initialImportFile = new PgnImportDialog.InitialDroppedFile(fileInfo.Name, fileInfo.Length, null, filePath);
+		_showImportModal = true;
+		StateHasChanged();
+	}
+
+	[JSInvokable]
+	public async Task OnNewDbPgnFileDropped(string fileName, long fileSize, IJSStreamReference streamRef)
+	{
+		if (_newDbDroppedStreamRef != null && _newDbDroppedStreamRef != streamRef)
+		{
+			try { await _newDbDroppedStreamRef.DisposeAsync(); } catch { }
+		}
+
+		_newDbPgnDragOver = false;
+		_newDbPgnSource = PgnSource.File;
+		_newDbPgnFileName = fileName;
+		_newDbPgnFileSize = fileSize;
+		_newDbDroppedStreamRef = streamRef;
+		_newDbDroppedFilePath = null;
+		_newDbPgnFile = null;
+		_newDbPgnError = "";
+		await InvokeAsync(StateHasChanged);
+	}
+
+	[JSInvokable]
+	public async Task OnNewDbPgnFileDroppedPath(string filePath)
+	{
+		if (!File.Exists(filePath)) return;
+		var fileInfo = new FileInfo(filePath);
+		var ext = fileInfo.Extension.ToLowerInvariant();
+		if (ext != ".pgn" && ext != ".zip" && ext != ".7z")
+		{
+			_newDbPgnError = $"Unsupported file type \"{fileInfo.Name}\". Supported formats: .pgn, .zip, .7z";
+			StateHasChanged();
+			return;
+		}
+
+		if (_newDbDroppedStreamRef != null)
+		{
+			try { await _newDbDroppedStreamRef.DisposeAsync(); } catch { }
+			_newDbDroppedStreamRef = null;
+		}
+
+		_newDbPgnDragOver = false;
+		_newDbPgnSource = PgnSource.File;
+		_newDbPgnFileName = fileInfo.Name;
+		_newDbPgnFileSize = fileInfo.Length;
+		_newDbDroppedFilePath = filePath;
+		_newDbPgnFile = null;
+		_newDbPgnError = "";
+		await InvokeAsync(StateHasChanged);
+	}
+
 	private async Task LoadProfileAsync()
 	{
 		_userProfile = await ProfileService.GetProfileAsync();
@@ -1058,6 +1203,11 @@
 	{
 		if (!_isInstallingMaster && !_isCreatingFromPgn)
 		{
+			if (_newDbDropInstance != null)
+			{
+				try { _ = _newDbDropInstance.InvokeVoidAsync("dispose"); } catch { }
+				_newDbDropInstance = null;
+			}
 			_showNewDbModal = false;
 		}
 	}
@@ -1094,7 +1244,7 @@
 		!string.IsNullOrWhiteSpace(_newDbName) &&
 		(_newDbPgnSource == PgnSource.Text
 			? !string.IsNullOrWhiteSpace(_newDbPgnText)
-			: _newDbPgnFile != null);
+			: (_newDbPgnFile != null || _newDbDroppedStreamRef != null || (!string.IsNullOrEmpty(_newDbDroppedFilePath) && File.Exists(_newDbDroppedFilePath))));
 
 	private void SetNewDbPgnSource(PgnSource source)
 	{
@@ -1117,11 +1267,25 @@
 
 	private void HandleNewDbPgnFileSelected(InputFileChangeEventArgs e)
 	{
+		if (_newDbDroppedStreamRef != null)
+		{
+			try { _ = _newDbDroppedStreamRef.DisposeAsync(); } catch { }
+			_newDbDroppedStreamRef = null;
+		}
 		_newDbPgnDragOver = false;
+		_newDbDroppedFilePath = null;
 		_newDbPgnFile = e.File;
 		_newDbPgnFileName = e.File.Name;
 		_newDbPgnFileSize = e.File.Size;
 		_newDbPgnError = "";
+	}
+
+	private static string FormatFileSize(long bytes)
+	{
+		if (bytes < 1024) return $"{bytes} B";
+		if (bytes < 1024 * 1024) return $"{(bytes / 1024.0):0.1} KB";
+		if (bytes < 1024L * 1024 * 1024) return $"{(bytes / (1024.0 * 1024.0)):0.2} MB";
+		return $"{(bytes / (1024.0 * 1024.0 * 1024.0)):0.2} GB";
 	}
 
 	private async Task CreateDbFromPgnAsync()
@@ -1157,23 +1321,50 @@
 				var pgnText = _newDbPgnText;
 				await Task.Run(() => DatabaseService.ImportPgnTextAsync(db.Name, pgnText, progressReporter, token), token);
 			}
-			else
+			else if (!string.IsNullOrEmpty(_newDbDroppedFilePath) && File.Exists(_newDbDroppedFilePath))
 			{
-				// IBrowserFile.OpenReadStream() is bound to the Blazor render context and cannot be
-				// accessed from a background thread. Copy the file into a plain MemoryStream here on
-				// the Blazor thread first, then hand the MemoryStream off to the thread pool.
-				var ms = new MemoryStream();
-				using (var browserStream = _newDbPgnFile!.OpenReadStream(maxAllowedSize: 2048L * 1024 * 1024))
-				{
-					await browserStream.CopyToAsync(ms, token);
-				}
-				ms.Position = 0;
 				var fileName = _newDbPgnFileName;
+				var filePath = _newDbDroppedFilePath;
 				await Task.Run(async () =>
 				{
-					await using var _ = ms;
-					await DatabaseService.ImportPgnStreamAsync(db.Name, ms, fileName, progressReporter, token);
+					await using var fsRead = File.OpenRead(filePath);
+					await DatabaseService.ImportPgnStreamAsync(db.Name, fsRead, fileName, progressReporter, token);
 				}, token);
+			}
+			else
+			{
+				string tempFile = Path.Combine(Path.GetTempPath(), $"caissa_create_db_{Guid.NewGuid():N}.tmp");
+				try
+				{
+					await using (var fs = File.Create(tempFile))
+					{
+						if (_newDbDroppedStreamRef != null)
+						{
+							await using var jsStream = await _newDbDroppedStreamRef.OpenReadStreamAsync(maxAllowedSize: 2048L * 1024 * 1024, cancellationToken: token);
+							await jsStream.CopyToAsync(fs, token);
+						}
+						else if (_newDbPgnFile != null)
+						{
+							await using var browserStream = _newDbPgnFile.OpenReadStream(maxAllowedSize: 2048L * 1024 * 1024, cancellationToken: token);
+							await browserStream.CopyToAsync(fs, token);
+						}
+						else
+						{
+							throw new InvalidOperationException("No file was selected.");
+						}
+					}
+
+					var fileName = _newDbPgnFileName;
+					await Task.Run(async () =>
+					{
+						await using var fsRead = File.OpenRead(tempFile);
+						await DatabaseService.ImportPgnStreamAsync(db.Name, fsRead, fileName, progressReporter, token);
+					}, token);
+				}
+				finally
+				{
+					try { if (File.Exists(tempFile)) File.Delete(tempFile); } catch { }
+				}
 			}
 
 			_createPgnFinished = true;
@@ -1782,5 +1973,27 @@
 		DatabaseService.OnDatabaseModified -= HandleDatabaseModified;
 		ProfileService.OnProfileChanged -= HandleProfileChanged;
 		Loc.OnLanguageChanged -= StateHasChanged;
+		if (_newDbDropInstance != null)
+		{
+			try { _ = _newDbDropInstance.InvokeVoidAsync("dispose"); } catch { }
+			_newDbDropInstance = null;
+		}
+		if (_browserDropInstance != null)
+		{
+			try { _ = _browserDropInstance.InvokeVoidAsync("dispose"); } catch { }
+			_browserDropInstance = null;
+		}
+		if (_newDbDroppedStreamRef != null)
+		{
+			try { _ = _newDbDroppedStreamRef.DisposeAsync(); } catch { }
+			_newDbDroppedStreamRef = null;
+		}
+		_dotNetRef?.Dispose();
+		_dotNetRef = null;
+		if (_dropModule != null)
+		{
+			try { _ = _dropModule.DisposeAsync(); } catch { }
+			_dropModule = null;
+		}
 	}
 }

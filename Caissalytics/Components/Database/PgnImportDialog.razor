@@ -1,11 +1,14 @@
 @namespace Caissalytics.Components.Database
 @using Caissalytics.Data
+@using Microsoft.JSInterop
 @inject IDatabaseService DatabaseService
+@inject IJSRuntime JS
+@implements IAsyncDisposable
 
 @if (IsOpen)
 {
 	<div class="modal-backdrop" @onclick="HandleBackdropClick">
-		<div class="modal-dialog modal-dialog-large" @onclick:stopPropagation="true">
+		<div @ref="_dialogRef" class="modal-dialog modal-dialog-large @(_isDragOver ? "drag-active" : "")" @onclick:stopPropagation="true">
 			<div class="modal-header">
 				<h3 class="modal-title">Import Games into @DatabaseName</h3>
 				<button class="modal-close-btn" @onclick="CloseDialog">✕</button>
@@ -33,7 +36,7 @@
 							<div>Games Saved: @_progress.GamesSaved</div>
 							<div>Speed: @_progress.GamesPerSecond.ToString("0") games/s</div>
 							<div>Elapsed: @_progress.Elapsed.ToString(@"mm\:ss")</div>
-							<div>Data: @((_progress.BytesProcessed / 1024.0 / 1024.0).ToString("0.1")) MB</div>
+							<div>Data: @FormatFileSize(_progress.BytesProcessed)</div>
 						</div>
 					</div>
 				}
@@ -58,18 +61,44 @@
 				{
 					<div class="import-mode-selector">
 						<button type="button"
-								class="import-mode-btn @(_importMode == ImportMode.Text ? "active" : "")"
-								@onclick="() => SetMode(ImportMode.Text)">
-							📝 Paste PGN
-						</button>
-						<button type="button"
 								class="import-mode-btn @(_importMode == ImportMode.File ? "active" : "")"
 								@onclick="() => SetMode(ImportMode.File)">
 							📁 Drop or Upload File
 						</button>
+						<button type="button"
+								class="import-mode-btn @(_importMode == ImportMode.Text ? "active" : "")"
+								@onclick="() => SetMode(ImportMode.Text)">
+							📝 Paste PGN
+						</button>
 					</div>
 
-					@if (_importMode == ImportMode.Text)
+					@if (_importMode == ImportMode.File)
+					{
+						<div class="modal-form-group">
+							<label class="filter-label">Select or Drop Chess File to Import</label>
+							<label @ref="_dropzoneRef"
+								   class="dropzone-box @(_isDragOver ? "drag-active" : "")">
+								<div class="dropzone-icon" style="pointer-events: none;">📥</div>
+								<div class="dropzone-text" style="pointer-events: none;">Click or drag &amp; drop chess file here</div>
+								<div class="dropzone-subtext" style="pointer-events: none;">Supports PGN files (.pgn), Zip archives (.zip), and 7-Zip archives (.7z)</div>
+								<div class="import-format-badges" style="pointer-events: none;">
+									<span class="format-badge">.pgn</span>
+									<span class="format-badge">.zip (TWIC, Chess.cz)</span>
+									<span class="format-badge">.7z (Lumbra's GigaBase)</span>
+								</div>
+								<InputFile OnChange="HandleFileSelected" class="hidden-file-input" accept=".pgn,.zip,.7z" />
+							</label>
+						</div>
+
+						@if (!string.IsNullOrEmpty(_selectedFileName))
+						{
+							<div class="filter-group">
+								<span class="filter-label">Selected File:</span>
+								<span class="score-cell">@_selectedFileName (@FormatFileSize(_fileSize))</span>
+							</div>
+						}
+					}
+					else
 					{
 						<div class="modal-form-group">
 							<div class="import-textarea-header">
@@ -93,34 +122,6 @@
 								}
 							</div>
 						</div>
-					}
-					else
-					{
-						<div class="modal-form-group">
-							<label class="filter-label">Select or Drop Chess File to Import</label>
-							<label class="dropzone-box @(_isDragOver ? "drag-active" : "")"
-								   @ondragenter="HandleDragEnter"
-								   @ondragleave="HandleDragLeave"
-								   @ondrop="HandleDrop">
-								<div class="dropzone-icon">📥</div>
-								<div class="dropzone-text">Click or drag &amp; drop chess file here</div>
-								<div class="dropzone-subtext">Supports PGN files (.pgn), Zip archives (.zip), and 7-Zip archives (.7z)</div>
-								<div class="import-format-badges">
-									<span class="format-badge">.pgn</span>
-									<span class="format-badge">.zip (TWIC, Chess.cz)</span>
-									<span class="format-badge">.7z (Lumbra's GigaBase)</span>
-								</div>
-								<InputFile OnChange="HandleFileSelected" class="hidden-file-input" accept=".pgn,.zip,.7z" />
-							</label>
-						</div>
-
-						@if (!string.IsNullOrEmpty(_selectedFileName))
-						{
-							<div class="filter-group">
-								<span class="filter-label">Selected File:</span>
-								<span class="score-cell">@_selectedFileName (@((_fileSize / 1024.0 / 1024.0).ToString("0.2")) MB)</span>
-							</div>
-						}
 					}
 
 					@if (!string.IsNullOrEmpty(_errorMessage))
@@ -154,20 +155,25 @@
 }
 
 @code {
+	public record InitialDroppedFile(string FileName, long FileSize, IJSStreamReference? StreamRef = null, string? FilePath = null);
+
 	[Parameter] public bool IsOpen { get; set; }
 	[Parameter] public string DatabaseName { get; set; } = "Default";
+	[Parameter] public InitialDroppedFile? InitialFile { get; set; }
 	[Parameter] public EventCallback OnClose { get; set; }
 	[Parameter] public EventCallback OnImportCompleted { get; set; }
 
 	private enum ImportMode
 	{
-		Text,
-		File
+		File,
+		Text
 	}
 
-	private ImportMode _importMode = ImportMode.Text;
+	private ImportMode _importMode = ImportMode.File;
 	private string _pastedPgn = "";
 	private IBrowserFile? _selectedFile;
+	private IJSStreamReference? _droppedStreamRef;
+	private string? _droppedFilePath;
 	private string _selectedFileName = "";
 	private long _fileSize = 0;
 	private bool _isImporting = false;
@@ -177,10 +183,17 @@
 	private CancellationTokenSource? _importCts;
 	private bool _prevIsOpen = false;
 
+	private bool _isDragOver = false;
+	private ElementReference _dialogRef;
+	private ElementReference _dropzoneRef;
+	private IJSObjectReference? _dropModule;
+	private IJSObjectReference? _dropInstance;
+	private DotNetObjectReference<PgnImportDialog>? _dotNetRef;
+
 	private bool CanStartImport => !string.Equals(DatabaseName, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase) &&
 		(_importMode == ImportMode.Text
 			? !string.IsNullOrWhiteSpace(_pastedPgn)
-			: _selectedFile != null);
+			: (_selectedFile != null || _droppedStreamRef != null || (!string.IsNullOrEmpty(_droppedFilePath) && File.Exists(_droppedFilePath))));
 
 	protected override void OnParametersSet()
 	{
@@ -189,8 +202,25 @@
 			_isFinished = false;
 			_isImporting = false;
 			_errorMessage = "";
+			_importMode = ImportMode.File;
 		}
 		_prevIsOpen = IsOpen;
+
+		if (InitialFile != null)
+		{
+			if (_droppedStreamRef != null && _droppedStreamRef != InitialFile.StreamRef)
+			{
+				try { _ = _droppedStreamRef.DisposeAsync(); } catch { }
+			}
+			_droppedStreamRef = InitialFile.StreamRef;
+			_droppedFilePath = InitialFile.FilePath;
+			_selectedFileName = InitialFile.FileName;
+			_fileSize = InitialFile.FileSize;
+			_selectedFile = null;
+			_importMode = ImportMode.File;
+			_errorMessage = "";
+			InitialFile = null;
+		}
 	}
 
 	private void SetMode(ImportMode mode)
@@ -204,19 +234,129 @@
 		_pastedPgn = string.Empty;
 	}
 
-	private bool _isDragOver = false;
-
-	private void HandleDragEnter() => _isDragOver = true;
-	private void HandleDragLeave() => _isDragOver = false;
-	private void HandleDrop() => _isDragOver = false;
-
-	private void HandleFileSelected(InputFileChangeEventArgs e)
+	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
+		if (IsOpen)
+		{
+			if (_dropInstance == null)
+			{
+				try
+				{
+					_dotNetRef ??= DotNetObjectReference.Create(this);
+					_dropModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/fileDropInterop.js");
+					_dropInstance = await _dropModule.InvokeAsync<IJSObjectReference>(
+						"registerDropZone",
+						_dialogRef,
+						_dotNetRef,
+						nameof(OnFileDropped),
+						new[] { ".pgn", ".zip", ".7z" },
+						new { mode = "stream" }
+					);
+				}
+				catch { }
+			}
+		}
+		else
+		{
+			if (_dropInstance != null)
+			{
+				try { await _dropInstance.InvokeVoidAsync("dispose"); } catch { }
+				_dropInstance = null;
+			}
+		}
+	}
+
+	[JSInvokable]
+	public async Task OnFileDropped(string fileName, long fileSize, IJSStreamReference streamRef)
+	{
+		if (_droppedStreamRef != null && _droppedStreamRef != streamRef)
+		{
+			try { await _droppedStreamRef.DisposeAsync(); } catch { }
+		}
+
 		_isDragOver = false;
+		_importMode = ImportMode.File;
+		_selectedFileName = fileName;
+		_fileSize = fileSize;
+		_droppedStreamRef = streamRef;
+		_droppedFilePath = null;
+		_selectedFile = null;
+		_errorMessage = "";
+		await InvokeAsync(StateHasChanged);
+	}
+
+	[JSInvokable]
+	public async Task OnFileDroppedPath(string filePath)
+	{
+		try
+		{
+			if (!File.Exists(filePath))
+			{
+				_errorMessage = $"File not found: {filePath}";
+				StateHasChanged();
+				return;
+			}
+
+			var fileInfo = new FileInfo(filePath);
+			var ext = fileInfo.Extension.ToLowerInvariant();
+			if (ext != ".pgn" && ext != ".zip" && ext != ".7z")
+			{
+				_errorMessage = $"Unsupported file type \"{fileInfo.Name}\". Supported formats: .pgn, .zip, .7z";
+				StateHasChanged();
+				return;
+			}
+
+			if (_droppedStreamRef != null)
+			{
+				try { await _droppedStreamRef.DisposeAsync(); } catch { }
+				_droppedStreamRef = null;
+			}
+
+			_isDragOver = false;
+			_importMode = ImportMode.File;
+			_selectedFileName = fileInfo.Name;
+			_fileSize = fileInfo.Length;
+			_droppedFilePath = filePath;
+			_selectedFile = null;
+			_errorMessage = "";
+			await InvokeAsync(StateHasChanged);
+		}
+		catch (Exception ex)
+		{
+			_errorMessage = $"Error accessing file: {ex.Message}";
+			StateHasChanged();
+		}
+	}
+
+	[JSInvokable]
+	public void OnFileDropError(string errorMessage)
+	{
+		_errorMessage = errorMessage;
+		StateHasChanged();
+	}
+
+	private async Task HandleFileSelected(InputFileChangeEventArgs e)
+	{
+		if (_droppedStreamRef != null)
+		{
+			try { await _droppedStreamRef.DisposeAsync(); } catch { }
+			_droppedStreamRef = null;
+		}
+
+		_isDragOver = false;
+		_droppedFilePath = null;
 		_selectedFile = e.File;
 		_selectedFileName = e.File.Name;
 		_fileSize = e.File.Size;
 		_errorMessage = "";
+	}
+
+	private static string FormatFileSize(long bytes)
+	{
+		if (bytes < 1024) return $"{bytes} B";
+		if (bytes < 1024 * 1024) return $"{(bytes / 1024.0):0.1} KB";
+		if (bytes < 1024L * 1024 * 1024) return $"{(bytes / (1024.0 * 1024.0)):0.2} MB";
+		return $"{(bytes / (1024.0 * 1024.0 * 1024.0)):0.2} GB";
 	}
 
 	private async Task StartImportAsync()
@@ -234,7 +374,6 @@
 			InvokeAsync(StateHasChanged);
 		});
 
-		// Capture locals for the background task so we don't capture 'this' state mutably
 		var databaseName = DatabaseName;
 		var token = _importCts.Token;
 
@@ -245,23 +384,52 @@
 				var pgnText = _pastedPgn;
 				await Task.Run(() => DatabaseService.ImportPgnTextAsync(databaseName, pgnText, progressReporter, token), token);
 			}
-			else
+			else if (!string.IsNullOrEmpty(_droppedFilePath) && File.Exists(_droppedFilePath))
 			{
-				// IBrowserFile.OpenReadStream() is bound to the Blazor render context and cannot be
-				// accessed from a background thread. Copy the file into a plain MemoryStream here on
-				// the Blazor thread first, then hand the MemoryStream off to the thread pool.
-				var ms = new MemoryStream();
-				using (var browserStream = _selectedFile!.OpenReadStream(maxAllowedSize: 2048L * 1024 * 1024))
-				{
-					await browserStream.CopyToAsync(ms, token);
-				}
-				ms.Position = 0;
 				var fileName = _selectedFileName;
+				var filePath = _droppedFilePath;
 				await Task.Run(async () =>
 				{
-					await using var _ = ms;
-					await DatabaseService.ImportPgnStreamAsync(databaseName, ms, fileName, progressReporter, token);
+					await using var fsRead = File.OpenRead(filePath);
+					await DatabaseService.ImportPgnStreamAsync(databaseName, fsRead, fileName, progressReporter, token);
 				}, token);
+			}
+			else
+			{
+				// Copy uploaded file/stream into a temporary file on disk using the Blazor thread context.
+				// This allows both streaming from JS and reading from background threads without high memory usage.
+				string tempFile = Path.Combine(Path.GetTempPath(), $"caissa_import_{Guid.NewGuid():N}.tmp");
+				try
+				{
+					await using (var fs = File.Create(tempFile))
+					{
+						if (_droppedStreamRef != null)
+						{
+							await using var jsStream = await _droppedStreamRef.OpenReadStreamAsync(maxAllowedSize: 2048L * 1024 * 1024, cancellationToken: token);
+							await jsStream.CopyToAsync(fs, token);
+						}
+						else if (_selectedFile != null)
+						{
+							await using var browserStream = _selectedFile.OpenReadStream(maxAllowedSize: 2048L * 1024 * 1024, cancellationToken: token);
+							await browserStream.CopyToAsync(fs, token);
+						}
+						else
+						{
+							throw new InvalidOperationException("No file was selected for import.");
+						}
+					}
+
+					var fileName = _selectedFileName;
+					await Task.Run(async () =>
+					{
+						await using var fsRead = File.OpenRead(tempFile);
+						await DatabaseService.ImportPgnStreamAsync(databaseName, fsRead, fileName, progressReporter, token);
+					}, token);
+				}
+				finally
+				{
+					try { if (File.Exists(tempFile)) File.Delete(tempFile); } catch { }
+				}
 			}
 
 			_isFinished = true;
@@ -292,6 +460,17 @@
 
 	private async Task CloseDialog()
 	{
+		if (_dropInstance != null)
+		{
+			try { await _dropInstance.InvokeVoidAsync("dispose"); } catch { }
+			_dropInstance = null;
+		}
+		if (_droppedStreamRef != null)
+		{
+			try { await _droppedStreamRef.DisposeAsync(); } catch { }
+			_droppedStreamRef = null;
+		}
+		_droppedFilePath = null;
 		IsOpen = false;
 		_isFinished = false;
 		_selectedFile = null;
@@ -309,5 +488,26 @@
 		{
 			await CloseDialog();
 		}
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		if (_dropInstance != null)
+		{
+			try { await _dropInstance.InvokeVoidAsync("dispose"); } catch { }
+			_dropInstance = null;
+		}
+		if (_dropModule != null)
+		{
+			try { await _dropModule.DisposeAsync(); } catch { }
+			_dropModule = null;
+		}
+		if (_droppedStreamRef != null)
+		{
+			try { await _droppedStreamRef.DisposeAsync(); } catch { }
+			_droppedStreamRef = null;
+		}
+		_dotNetRef?.Dispose();
+		_dotNetRef = null;
 	}
 }

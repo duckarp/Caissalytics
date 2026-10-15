@@ -1,3 +1,4 @@
+using Caissalytics.Core;
 using Caissalytics.Engine;
 using Xunit;
 
@@ -414,5 +415,45 @@ public class EngineTests
         public TestHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> sender) => _sender = sender;
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(_sender(request));
+    }
+
+    [Fact]
+    public void EngineEvaluationLine_MultiPvAndBestMove_Properties()
+    {
+        var line1 = new EngineEvaluationLine
+        {
+            MultiPvIndex = 1,
+            Centipawns = 150,
+            PvMoves = new() { "e2e4", "e7e5" }
+        };
+        var line2 = new EngineEvaluationLine
+        {
+            MultiPvIndex = 2,
+            Centipawns = 100,
+            PvMoves = new() { "d2d4", "d7d5" }
+        };
+
+        Assert.Equal("e2e4", line1.BestMove);
+        Assert.Equal("d2d4", line2.BestMove);
+        Assert.Equal("+1.50", line1.FormattedScore);
+        Assert.Equal("+1.00", line2.FormattedScore);
+    }
+
+    [Fact]
+    public void MismatchedMove_FirstOrDefault_IsEmptyAndSanIsEmpty()
+    {
+        // Position from user report (Italian Game after 6. O-O)
+        var pos = FenParser.Parse("r1bqk2r/pppp1ppp/2n5/2b1p3/2B1P3/2PP1N2/PP3PPP/RNBQ1RK1 b kq - 0 6");
+        var legal = MoveGenerator.GenerateLegalMoves(pos);
+
+        // When a UCI move does not match legal moves (e.g. move from old position or invalid move)
+        var move = legal.FirstOrDefault(m => m.From == Square.A1 && m.To == Square.A1);
+        Assert.True(move.IsEmpty);
+        Assert.Equal("", SanParser.ToSan(pos, move));
+
+        // Attempting an illegal move for Black (e.g. moving White's pawn b2b4)
+        var whiteMove = legal.FirstOrDefault(m => m.From == Square.B2 && m.To == Square.B4);
+        Assert.True(whiteMove.IsEmpty);
+        Assert.Equal("", SanParser.ToSan(pos, whiteMove));
     }
 }

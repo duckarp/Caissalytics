@@ -382,6 +382,101 @@
   border-color: var(--accent-red, #ef5350);
 }
 
+.btn-primary.btn-saved-success {
+  background-color: var(--accent-green, #10b981) !important;
+  border-color: rgba(16, 185, 129, 0.6) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.35);
+  transition: all 0.2s ease;
+}
+
+/* Toast Notification Popup */
+.homework-toast-notification {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background-color: var(--bg-surface-elevated, #1e293b);
+  border: 1px solid rgba(46, 204, 113, 0.45);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 0 18px rgba(46, 204, 113, 0.15);
+  border-radius: 8px;
+  padding: 12px 16px;
+  min-width: 280px;
+  max-width: 420px;
+  animation: homeworkToastSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  color: var(--text-primary, #ffffff);
+  pointer-events: auto;
+}
+
+@keyframes homeworkToastSlideIn {
+  from {
+    transform: translateY(18px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.homework-toast-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(46, 204, 113, 0.15);
+  color: #2ecc71;
+  flex-shrink: 0;
+}
+
+.homework-toast-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.homework-toast-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #2ecc71;
+  line-height: 1.25;
+}
+
+.homework-toast-desc {
+  font-size: 12px;
+  color: var(--text-muted, #94a3b8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 280px;
+}
+
+.homework-toast-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.homework-toast-close:hover {
+  color: var(--text-primary, #ffffff);
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
 .editor-header-title {
   font-size: 18px;
   font-weight: 700;
@@ -1059,6 +1154,7 @@
 }
 
 .diagram-board-grid {
+  box-sizing: content-box;
   display: grid;
   grid-template-columns: repeat(8, 26px);
   grid-template-rows: repeat(8, 26px);
@@ -2057,6 +2153,7 @@
   .workspace-view.view-hidden,
   .modal-backdrop,
   .update-dialog,
+  .homework-toast-notification,
   #blazor-error-ui {
     display: none !important;
   }
@@ -2144,6 +2241,11 @@
     break-inside: avoid;
     page-break-inside: avoid;
     box-shadow: none !important;
+  }
+
+  .printable-diagram-card .diagram-board-grid {
+    box-sizing: content-box !important;
+    border: 1.5px solid #111111 !important;
   }
 
   .printable-diagram-card .captured-piece,

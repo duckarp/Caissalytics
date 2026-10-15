@@ -10,7 +10,12 @@
 @inject WorkspaceState Workspace
 @implements IDisposable
 
-<div class="workbench-layout">
+<div class="workbench-layout" @ref="_workbenchLayoutRef">
+	<div class="workbench-drag-drop-overlay">
+		<div class="drop-overlay-icon">📥</div>
+		<div class="drop-overlay-title">@Loc["Analysis_DropPgn_Title"]</div>
+		<div class="drop-overlay-subtitle">@Loc["Analysis_DropPgn_Subtitle"]</div>
+	</div>
 	<div class="workbench-left-panel">
 		<div class="board-eval-row">
 			<ChessgroundBoard @ref="_boardRef"
@@ -156,10 +161,12 @@
 					<EngineAnalysisPanel Position="@Tab.Tree.CurrentNode.Position"
 										 IsAnalyzing="@Tab.IsAnalyzing"
 										 MultiPv="@Tab.MultiPv"
+										 ArrowCount="@Tab.ArrowCount"
 										 MaxDepth="@Tab.MaxDepth"
 										 EvalLines="@Tab.CurrentEvalLines"
 										 IsAnalyzingChanged="HandleAnalyzingToggled"
 										 MultiPvChanged="HandleMultiPvChanged"
+										 ArrowCountChanged="HandleArrowCountChanged"
 										 MaxDepthChanged="HandleMaxDepthChanged"
 										 OnInsertPvVariation="HandleInsertPvVariation" />
 				</div>
@@ -207,9 +214,12 @@
 	private bool _showBoardEditorModal = false;
 	private bool _fenCopied = false;
 	private bool _pgnCopied = false;
-	private string? _lastRenderedBestMove;
+	private string? _lastRenderedMovesSig;
 	private DotNetObjectReference<AnalysisWorkbench>? _dotNetRef;
 	private KeyboardShortcutSettings _shortcuts = new();
+	private ElementReference _workbenchLayoutRef;
+	private IJSObjectReference? _dropModule;
+	private IJSObjectReference? _workbenchDropInstance;
 
 	private async Task CopyFenAsync()
 	{
@@ -439,6 +449,13 @@
 			}
 			catch { }
 
+			try
+			{
+				_dropModule = await JS.InvokeAsync<IJSObjectReference>("import", "./js/fileDropInterop.js");
+				_workbenchDropInstance = await _dropModule.InvokeAsync<IJSObjectReference>("registerWorkbenchDrop", _workbenchLayoutRef, _dotNetRef, nameof(OnWorkbenchPgnDropped));
+			}
+			catch { }
+
 			if (Tab.IsAnalyzing)
 			{
 				await RestartEngineAnalysisAsync();
@@ -465,6 +482,12 @@
 
 	private async Task SyncBoardAndEngineAsync()
 	{
+		if (Tab.IsAnalyzing)
+		{
+			Tab.CurrentEvalLines.Clear();
+			_lastRenderedMovesSig = null;
+		}
+
 		var shapes = GenerateBestMoveShapes();
 		if (_boardRef != null)
 		{
@@ -538,7 +561,7 @@
 			_engineCts?.Cancel();
 			await EngineService.StopAnalysisAsync();
 			Tab.CurrentEvalLines.Clear();
-			_lastRenderedBestMove = null;
+			_lastRenderedMovesSig = null;
 			if (_boardRef != null)
 			{
 				await _boardRef.SetShapesAsync(new List<object>());
@@ -554,6 +577,18 @@
 		{
 			await RestartEngineAnalysisAsync();
 		}
+	}
+
+	private async Task HandleArrowCountChanged(int count)
+	{
+		Tab.ArrowCount = count;
+		_lastRenderedMovesSig = null;
+		if (_boardRef != null)
+		{
+			var shapes = GenerateBestMoveShapes();
+			await _boardRef.SetShapesAsync(shapes);
+		}
+		StateHasChanged();
 	}
 
 	private async Task HandleMaxDepthChanged(int depth)
@@ -577,22 +612,24 @@
 		catch { }
 
 		_engineCts = new CancellationTokenSource();
-		_lastRenderedBestMove = null;
+		_lastRenderedMovesSig = null;
+		Tab.CurrentEvalLines.Clear();
 
-		string fen = FenParser.ToFen(Tab.Tree.CurrentNode.Position);
+		string expectedFen = FenParser.ToFen(Tab.Tree.CurrentNode.Position);
 
 		try
 		{
-			await EngineService.StartAnalysisAsync(fen, Tab.MultiPv, async lines =>
+			await EngineService.StartAnalysisAsync(expectedFen, Tab.MultiPv, async lines =>
 			{
-				if (_isDisposed) return;
+				if (_isDisposed || !Tab.IsAnalyzing) return;
+				if (FenParser.ToFen(Tab.Tree.CurrentNode.Position) != expectedFen) return;
 
 				Tab.CurrentEvalLines = lines;
-				var topMove = lines.Count > 0 ? lines[0].BestMove : null;
+				string currentMovesSig = string.Join(";", lines.Take(Tab.ArrowCount).Select(l => $"{l.BestMove}:{l.Centipawns}:{l.MateInMoves}"));
 
-				if (_boardRef != null && !_isDisposed && !string.Equals(topMove, _lastRenderedBestMove, StringComparison.Ordinal))
+				if (_boardRef != null && !_isDisposed && !string.Equals(currentMovesSig, _lastRenderedMovesSig, StringComparison.Ordinal))
 				{
-					_lastRenderedBestMove = topMove;
+					_lastRenderedMovesSig = currentMovesSig;
 					var shapes = GenerateBestMoveShapes();
 					try
 					{
@@ -617,18 +654,73 @@
 
 	private List<object> GenerateBestMoveShapes()
 	{
-		var shapes = new List<object>();
-		if (Tab.IsAnalyzing && Tab.CurrentEvalLines.Count > 0)
+		var topShapes = new List<object>();
+		var secondaryShapes = new List<object>();
+
+		if (!Tab.IsAnalyzing || Tab.ArrowCount <= 0 || Tab.CurrentEvalLines.Count == 0)
 		{
-			var top = Tab.CurrentEvalLines[0];
-			if (!string.IsNullOrEmpty(top.BestMove) && top.BestMove.Length >= 4)
+			return topShapes;
+		}
+
+		int countToDraw = Math.Min(Tab.ArrowCount, Tab.CurrentEvalLines.Count);
+		var top = Tab.CurrentEvalLines[0];
+		double topScoreCp = GetEvalScoreCp(top);
+
+		var drawnMoves = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+		for (int i = 0; i < countToDraw; i++)
+		{
+			var line = Tab.CurrentEvalLines[i];
+			if (string.IsNullOrEmpty(line.BestMove) || line.BestMove.Length < 4) continue;
+
+			if (!drawnMoves.Add(line.BestMove)) continue;
+
+			string orig = line.BestMove.Substring(0, 2);
+			string dest = line.BestMove.Substring(2, 2);
+
+			if (i == 0)
 			{
-				string orig = top.BestMove.Substring(0, 2);
-				string dest = top.BestMove.Substring(2, 2);
-				shapes.Add(new { orig = orig, dest = dest, brush = "green" });
+				// Best move: solid prominent emerald green arrow (thickness 12)
+				topShapes.Add(new
+				{
+					orig = orig,
+					dest = dest,
+					brush = "green",
+					modifiers = new { lineWidth = 12 }
+				});
+			}
+			else
+			{
+				// Secondary moves: scaled thickness (4 to 9) and soft blue arrow based on eval drop
+				double lineScoreCp = GetEvalScoreCp(line);
+				double gap = Math.Max(0.0, topScoreCp - lineScoreCp);
+				double ratio = Math.Clamp(gap / 250.0, 0.0, 1.0);
+				int width = (int)Math.Round(9.0 - 5.0 * ratio); // 4 (blunder/bad) to 9 (near equal)
+
+				secondaryShapes.Add(new
+				{
+					orig = orig,
+					dest = dest,
+					brush = "paleBlue",
+					modifiers = new { lineWidth = width }
+				});
 			}
 		}
-		return shapes;
+
+		// Secondary shapes drawn first, top shape drawn last so green arrow sits on top in SVG
+		secondaryShapes.AddRange(topShapes);
+		return secondaryShapes;
+	}
+
+	private static double GetEvalScoreCp(EngineEvaluationLine line)
+	{
+		if (line.MateInMoves.HasValue)
+		{
+			return line.MateInMoves.Value > 0
+				? 10000.0 - line.MateInMoves.Value * 10.0
+				: -10000.0 - line.MateInMoves.Value * 10.0;
+		}
+		return line.Centipawns ?? 0.0;
 	}
 
 	private async Task HandleInsertPvVariation(List<string> uciMoves)
@@ -641,6 +733,7 @@
 			if (uci.Length < 4) break;
 			var from = SquareExtensions.Parse(uci.Substring(0, 2));
 			var to = SquareExtensions.Parse(uci.Substring(2, 2));
+			if (from == Square.None || to == Square.None || from == to) break;
 			var promo = uci.Length > 4 ? uci[4] switch
 			{
 				'q' => PieceType.Queen,
@@ -709,6 +802,36 @@
 		}
 	}
 
+	[JSInvokable]
+	public async Task OnWorkbenchPgnDropped(string fileName, string pgnContent)
+	{
+		if (string.IsNullOrWhiteSpace(pgnContent)) return;
+		await HandlePgnLoaded(new LoadPgnDialog.LoadPgnResult
+		{
+			Pgn = pgnContent,
+			OpenInNewTab = false
+		});
+		await InvokeAsync(StateHasChanged);
+	}
+
+	[JSInvokable]
+	public async Task OnWorkbenchPgnDroppedPath(string filePath)
+	{
+		try
+		{
+			if (File.Exists(filePath))
+			{
+				var content = await File.ReadAllTextAsync(filePath);
+				var fileInfo = new FileInfo(filePath);
+				await OnWorkbenchPgnDropped(fileInfo.Name, content);
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"[AnalysisWorkbench] Error reading dropped file path: {ex.Message}");
+		}
+	}
+
 	public void Dispose()
 	{
 		_isDisposed = true;
@@ -720,6 +843,16 @@
 			_ = JS.InvokeVoidAsync("notationInterop.unregisterKeyboardListener");
 		}
 		catch { }
+		if (_workbenchDropInstance != null)
+		{
+			try { _ = _workbenchDropInstance.InvokeVoidAsync("dispose"); } catch { }
+			_workbenchDropInstance = null;
+		}
+		if (_dropModule != null)
+		{
+			try { _ = _dropModule.DisposeAsync(); } catch { }
+			_dropModule = null;
+		}
 		_dotNetRef?.Dispose();
 		try
 		{

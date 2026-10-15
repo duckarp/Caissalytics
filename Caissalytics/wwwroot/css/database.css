@@ -4,6 +4,7 @@
    ========================================================================== */
 
 .db-browser-container {
+  position: relative;
   display: flex;
   height: calc(100vh - var(--header-height) - var(--tabs-height));
   width: 100%;
@@ -880,6 +881,10 @@
 
 .modal-dialog-large {
   width: 560px;
+}
+
+.modal-dialog.drag-active {
+  box-shadow: 0 0 24px rgba(59, 130, 246, 0.4), 0 0 0 2px var(--accent-blue);
 }
 
 .modal-form-row {

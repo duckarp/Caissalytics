@@ -18,6 +18,7 @@ public class WorkspaceTabDto
     public string? Orientation { get; set; }
     public bool IsAnalyzing { get; set; }
     public int MultiPv { get; set; } = 3;
+    public int ArrowCount { get; set; } = 3;
     public int MaxDepth { get; set; } = 25;
     public string? TargetDatabase { get; set; }
     public long? DatabaseGameId { get; set; }

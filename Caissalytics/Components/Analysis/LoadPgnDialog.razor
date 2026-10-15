@@ -3,6 +3,8 @@
 @using Caissalytics.Core
 @inject IJSRuntime JS
 
+@implements IAsyncDisposable
+
 @if (IsOpen)
 {
 	<div class="modal-backdrop" @onclick="CloseDialog">
@@ -16,13 +18,11 @@
 				<p class="dialog-subtitle">@Loc["Analysis_LoadPgn_Desc"]</p>
 
 				<!-- Dropzone area for dragging & dropping PGN files -->
-				<label class="pgn-dropzone-box @(_isDragOver ? "drag-active" : "")"
-					   @ondragenter="HandleDragEnter"
-					   @ondragleave="HandleDragLeave"
-					   @ondrop="HandleDrop">
-					<div class="dropzone-icon" style="font-size: 26px; margin-bottom: 4px;">📥</div>
-					<div class="dropzone-text">Click or drag &amp; drop .pgn file here</div>
-					<div class="dropzone-subtext">Supports standard PGN chess game files</div>
+				<label @ref="_dropzoneRef"
+					   class="pgn-dropzone-box @(_isDragOver ? "drag-active" : "")">
+					<div class="dropzone-icon" style="font-size: 26px; margin-bottom: 4px; pointer-events: none;">📥</div>
+					<div class="dropzone-text" style="pointer-events: none;">@Loc["Analysis_DropPgn_DropzoneText"]</div>
+					<div class="dropzone-subtext" style="pointer-events: none;">@Loc["Analysis_DropPgn_DropzoneSubtext"]</div>
 					<InputFile OnChange="HandleFileSelected" class="hidden-file-input" accept=".pgn" />
 				</label>
 
@@ -106,9 +106,71 @@
 	private bool _isParsing = false;
 	private bool _isDragOver = false;
 
-	private void HandleDragEnter() => _isDragOver = true;
-	private void HandleDragLeave() => _isDragOver = false;
-	private void HandleDrop() => _isDragOver = false;
+	private ElementReference _dropzoneRef;
+	private IJSObjectReference? _dropModule;
+	private IJSObjectReference? _dropInstance;
+	private DotNetObjectReference<LoadPgnDialog>? _dotNetRef;
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (IsOpen)
+		{
+			if (_dropInstance == null)
+			{
+				try
+				{
+					_dotNetRef ??= DotNetObjectReference.Create(this);
+					_dropModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/fileDropInterop.js");
+					_dropInstance = await _dropModule.InvokeAsync<IJSObjectReference>("registerDropZone", _dropzoneRef, _dotNetRef, nameof(OnPgnFileDropped), new[] { ".pgn" });
+				}
+				catch { }
+			}
+		}
+		else
+		{
+			if (_dropInstance != null)
+			{
+				try { await _dropInstance.InvokeVoidAsync("dispose"); } catch { }
+				_dropInstance = null;
+			}
+		}
+	}
+
+	[JSInvokable]
+	public void OnPgnFileDropped(string fileName, string content)
+	{
+		_selectedFileName = fileName;
+		_pgnText = content;
+		_errorMessage = null;
+		UpdatePreview();
+		StateHasChanged();
+	}
+
+	[JSInvokable]
+	public async Task OnPgnFileDroppedPath(string filePath)
+	{
+		try
+		{
+			if (File.Exists(filePath))
+			{
+				var content = await File.ReadAllTextAsync(filePath);
+				var fileInfo = new FileInfo(filePath);
+				OnPgnFileDropped(fileInfo.Name, content);
+			}
+		}
+		catch (Exception ex)
+		{
+			_errorMessage = $"Error reading file: {ex.Message}";
+			StateHasChanged();
+		}
+	}
+
+	[JSInvokable]
+	public void OnFileDropError(string errorMessage)
+	{
+		_errorMessage = errorMessage;
+		StateHasChanged();
+	}
 
 	protected override void OnParametersSet()
 	{
@@ -252,7 +314,27 @@
 
 	private async Task CloseDialog()
 	{
+		if (_dropInstance != null)
+		{
+			try { await _dropInstance.InvokeVoidAsync("dispose"); } catch { }
+			_dropInstance = null;
+		}
 		_errorMessage = null;
 		await OnClose.InvokeAsync();
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		if (_dropInstance != null)
+		{
+			try { await _dropInstance.InvokeVoidAsync("dispose"); } catch { }
+			_dropInstance = null;
+		}
+		if (_dropModule != null)
+		{
+			try { await _dropModule.DisposeAsync(); } catch { }
+			_dropModule = null;
+		}
+		_dotNetRef?.Dispose();
 	}
 }

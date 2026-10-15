@@ -92,6 +92,20 @@ public class AnalysisTab : WorkspaceTab
         }
     }
 
+    private int _arrowCount = 3;
+    public int ArrowCount
+    {
+        get => _arrowCount;
+        set
+        {
+            if (_arrowCount != value)
+            {
+                _arrowCount = value;
+                NotifyTabChanged();
+            }
+        }
+    }
+
     private int _maxDepth = 25;
     public int MaxDepth
     {
@@ -731,6 +745,7 @@ public class WorkspaceState
                         Orientation = analysis.Orientation,
                         IsAnalyzing = analysis.IsAnalyzing,
                         MultiPv = analysis.MultiPv,
+                        ArrowCount = analysis.ArrowCount,
                         MaxDepth = analysis.MaxDepth,
                         TargetDatabase = analysis.TargetDatabase,
                         DatabaseGameId = analysis.DatabaseGameId,
@@ -895,6 +910,7 @@ public class WorkspaceState
                             Orientation = tabDto.Orientation ?? "white",
                             IsAnalyzing = tabDto.IsAnalyzing,
                             MultiPv = tabDto.MultiPv > 0 ? tabDto.MultiPv : 3,
+                            ArrowCount = tabDto.ArrowCount >= 0 ? tabDto.ArrowCount : 3,
                             MaxDepth = tabDto.MaxDepth >= 0 ? tabDto.MaxDepth : 25,
                             AnalysisReport = tabDto.AnalysisReport
                         };

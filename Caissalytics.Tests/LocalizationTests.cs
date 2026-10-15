@@ -17,6 +17,11 @@ public class LocalizationTests
         Assert.Equal("Preparation & Insights", loc["Dash_Group_Insights"]);
         Assert.Equal("Settings & Control Center", loc["Settings_Title"]);
         Assert.Equal("Save Settings", loc["Common_Save"]);
+        Assert.Equal("Worksheet saved successfully!", loc["Homework_SavedNotification"]);
+        Assert.Equal("Saved!", loc["Homework_Saved"]);
+        Assert.Equal("1 Arrow", loc["Engine_Arrows_1"]);
+        Assert.Equal("No Arrows", loc["Engine_Arrows_Off"]);
+        Assert.Equal("Drop PGN to Load Game", loc["Analysis_DropPgn_Title"]);
     }
 
     [Fact]
@@ -35,6 +40,11 @@ public class LocalizationTests
         Assert.Equal("Príprava & Prehľady", loc["Dash_Group_Insights"]);
         Assert.Equal("Nastavenia & Riadiace centrum", loc["Settings_Title"]);
         Assert.Equal("Uložiť nastavenia", loc["Common_Save"]);
+        Assert.Equal("Pracovný list bol úspešne uložený!", loc["Homework_SavedNotification"]);
+        Assert.Equal("Uložené!", loc["Homework_Saved"]);
+        Assert.Equal("1 šípka", loc["Engine_Arrows_1"]);
+        Assert.Equal("Bez šípok", loc["Engine_Arrows_Off"]);
+        Assert.Equal("Pusťte PGN pre načítanie partie", loc["Analysis_DropPgn_Title"]);
         Assert.Equal("Odstrániť", loc["Common_Remove"]);
     }
 

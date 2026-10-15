@@ -18,6 +18,7 @@
 }
 
 .workbench-layout {
+  position: relative;
   display: grid;
   grid-template-columns: auto 1fr;
   height: 100%;
@@ -316,6 +317,58 @@
 .detected-value {
   color: var(--accent-blue);
   font-weight: 500;
+}
+
+.hidden-file-input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+/* Workbench drag & drop overlay */
+.workbench-drag-drop-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(14, 17, 23, 0.88);
+  backdrop-filter: blur(4px);
+  border: 3px dashed var(--accent-blue);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  z-index: 1000;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+
+.workbench-drag-drop-overlay.visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.workbench-drag-drop-overlay .drop-overlay-icon {
+  font-size: 48px;
+  filter: drop-shadow(0 4px 12px rgba(59, 130, 246, 0.5));
+}
+
+.workbench-drag-drop-overlay .drop-overlay-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.workbench-drag-drop-overlay .drop-overlay-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .pgn-error-banner {

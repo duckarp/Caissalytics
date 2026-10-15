@@ -113,6 +113,7 @@
 }
 
 .multipv-select-dropdown,
+.arrows-select-dropdown,
 .maxdepth-select-dropdown {
   height: 28px;
   background-color: var(--bg-surface);

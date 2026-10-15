@@ -28,6 +28,7 @@ public class WorkspacePersistenceTests
         var ws = new WorkspaceState();
         var tab1 = ws.CreateAnalysisTab("Kasparov vs Topalov", targetDatabase: "MasterGames", databaseGameId: 42);
         tab1.Orientation = "black";
+        tab1.ArrowCount = 2;
         tab1.Tree.AddMoveSan("e4");
         tab1.Tree.AddMoveSan("d6");
 
@@ -53,6 +54,7 @@ public class WorkspacePersistenceTests
         var restoredTab1 = Assert.IsType<AnalysisTab>(ws2.ActiveTab);
         Assert.Equal("Kasparov vs Topalov", restoredTab1.Title);
         Assert.Equal("black", restoredTab1.Orientation);
+        Assert.Equal(2, restoredTab1.ArrowCount);
         Assert.Equal("MasterGames", restoredTab1.TargetDatabase);
         Assert.Equal(42, restoredTab1.DatabaseGameId);
         Assert.Equal("d6", restoredTab1.Tree.CurrentNode.San);

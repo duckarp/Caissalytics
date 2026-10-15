@@ -7,7 +7,7 @@
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-512bd4.svg?style=flat-square&logo=dotnet)](https://dotnet.microsoft.com/)
 [![Photino.Blazor](https://img.shields.io/badge/Photino-Blazor-0078d4.svg?style=flat-square)](https://www.tryphotino.io/)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20Windows-brightgreen.svg?style=flat-square)](https://github.com/)
-[![Tests](https://img.shields.io/badge/Tests-334%20Passing-success.svg?style=flat-square)](file:///home/tomask/projects/Caissalytics/Caissalytics.Tests)
+[![Tests](https://img.shields.io/badge/Tests-444%20Passing-success.svg?style=flat-square)](file:///home/tomask/projects/Caissalytics/Caissalytics.Tests)
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg?style=flat-square)](LICENSE)
 
 *Caissalytics is a lightweight, blazing-fast, open-source alternative to commercial chess software. Built with modern .NET 10, Photino.Blazor native desktop shell, Chessground, Stockfish, and SQLite.*
@@ -161,6 +161,13 @@ Caissalytics features an integrated zero-latency sound engine and crisp vector t
 - **Board Themes**: Classic Walnut, Tournament Green, Ocean Blue, Dark Slate, Cool Marble, and Monochrome.
 
 Customize your theme and audio preferences in **Control Center → Board & Audio**.
+
+---
+
+## ⚠️ Known Issues
+
+- **OS Drag & Drop on Linux (WebKitGTK)**: Dragging and dropping files directly from native desktop file managers (GNOME Files/Nautilus, Dolphin) into the app window is currently not handled reliably due to native GTK/WebKitGTK sandbox event translation.
+  - **Workaround**: Click the dropzone box to open the native system file dialog to select `.pgn`, `.zip`, or `.7z` files, or use the "Paste PGN" tab directly.
 
 ---
 

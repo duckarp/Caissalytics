@@ -18,6 +18,8 @@ public class UciProcessClient : IDisposable
     private long _lastDispatchTimestamp = 0;
     private Timer? _throttleTimer;
     private bool _hasPendingDispatch = false;
+    private TaskCompletionSource<bool>? _readyTcs;
+    private int _analysisSearchId = 0;
 
     public bool IsRunning => _process != null && !_process.HasExited;
 
@@ -66,13 +68,30 @@ public class UciProcessClient : IDisposable
         if (_process == null || _process.HasExited || _stdin == null)
             return;
 
+        int searchId;
         lock (_lock)
         {
+            _analysisSearchId++;
+            searchId = _analysisSearchId;
             _throttleTimer?.Change(Timeout.Infinite, Timeout.Infinite);
             _hasPendingDispatch = false;
             _lastDispatchedDepth = 0;
             _lastDispatchTimestamp = 0;
             _currentLines.Clear();
+            _onUpdate = null;
+        }
+
+        await SendCommandAsync("stop");
+        await WaitReadyAsync(500);
+
+        lock (_lock)
+        {
+            if (_analysisSearchId != searchId)
+                return;
+
+            _currentLines.Clear();
+            _lastDispatchedDepth = 0;
+            _lastDispatchTimestamp = 0;
             _onUpdate = onUpdate;
         }
 
@@ -82,7 +101,6 @@ public class UciProcessClient : IDisposable
             ? PieceColor.Black
             : PieceColor.White;
 
-        await SendCommandAsync("stop");
         await SendCommandAsync($"setoption name MultiPV value {Math.Max(1, Math.Min(5, multiPv))}");
         await SendCommandAsync($"position fen {fen}");
         if (maxDepth > 0)
@@ -236,16 +254,49 @@ public class UciProcessClient : IDisposable
     {
         lock (_lock)
         {
+            _analysisSearchId++;
             _throttleTimer?.Change(Timeout.Infinite, Timeout.Infinite);
             if (_hasPendingDispatch)
             {
                 FlushPendingUpdateLocked();
             }
+            _onUpdate = null;
+            _currentLines.Clear();
         }
 
         if (_stdin != null && IsRunning)
         {
             await SendCommandAsync("stop");
+        }
+    }
+
+    public async Task<bool> WaitReadyAsync(int timeoutMs = 1000)
+    {
+        if (_stdin == null || !IsRunning) return false;
+
+        TaskCompletionSource<bool> tcs;
+        lock (_lock)
+        {
+            _readyTcs?.TrySetResult(false);
+            tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            _readyTcs = tcs;
+        }
+
+        await SendCommandAsync("isready");
+
+        using var cts = new CancellationTokenSource(timeoutMs);
+        using var reg = cts.Token.Register(() => tcs.TrySetResult(false));
+
+        try
+        {
+            return await tcs.Task;
+        }
+        finally
+        {
+            lock (_lock)
+            {
+                if (_readyTcs == tcs) _readyTcs = null;
+            }
         }
     }
 
@@ -270,6 +321,15 @@ public class UciProcessClient : IDisposable
         if (string.IsNullOrWhiteSpace(e.Data)) return;
 
         string line = e.Data.Trim();
+        if (line == "readyok")
+        {
+            lock (_lock)
+            {
+                _readyTcs?.TrySetResult(true);
+            }
+            return;
+        }
+
         if (line.StartsWith("info ") && line.Contains(" pv "))
         {
             ParseInfoLine(line);
@@ -308,6 +368,12 @@ public class UciProcessClient : IDisposable
 
     private void ParseInfoLine(string line)
     {
+        lock (_lock)
+        {
+            if (_onUpdate == null && _evalTcs == null && _searchTcs == null)
+                return;
+        }
+
         int multiPv = 1;
         var mpvMatch = Regex.Match(line, @"multipv\s+(\d+)");
         if (mpvMatch.Success)
