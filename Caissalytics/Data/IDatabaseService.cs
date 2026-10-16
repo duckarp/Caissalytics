@@ -25,6 +25,8 @@ public interface IDatabaseService
     Task<GameHeader?> GetGameByIdAsync(string? databaseName, long gameId);
     Task<long> SaveGameAsync(string databaseName, GameHeader game);
     Task<bool> DeleteGameAsync(string databaseName, long gameId);
+    Task UpdateGameNoteAsync(string databaseName, long gameId, string note) => Task.CompletedTask;
+    Task ReorderGamesAsync(string databaseName, IReadOnlyList<long> orderedGameIds) => Task.CompletedTask;
 
     Task ImportPgnStreamAsync(string databaseName, Stream stream, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false, bool allowProtectedDatabase = false);
     Task ImportPgnStreamAsync(string databaseName, Stream stream, string? fileName, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false, bool allowProtectedDatabase = false)

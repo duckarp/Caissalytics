@@ -155,5 +155,7 @@ public class LocalizationTests
         Assert.Equal("Základné postavenie", loc["BoardEditor_StartingPos"]);
         Assert.Equal("Posunúť nahor", loc["Common_MoveUp"]);
         Assert.Equal("Vrátiť ťah", loc["Common_Undo"]);
+        Assert.Equal("Tag / Poznámka", loc["Db_Col_Note"]);
+        Assert.Equal("+ Tag / poznámka", loc["Db_AddNote"]);
     }
 }

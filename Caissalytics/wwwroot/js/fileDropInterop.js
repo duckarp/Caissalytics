@@ -274,6 +274,23 @@ export function registerWorkbenchDrop(workbenchEl, dotNetHelper, methodName, acc
         }
     }
 
+    function onRowDragStart(e) {
+        if (!e.target || typeof e.target.closest !== 'function') return;
+        if (e.target.closest('button, input, select, textarea, a')) {
+            e.preventDefault();
+            return;
+        }
+        const row = e.target.closest('.db-game-row');
+        if (!row) return;
+        if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            try {
+                e.dataTransfer.setData('text/plain', row.getAttribute('data-game-id') || 'row');
+            } catch { }
+        }
+    }
+
+    workbenchEl.addEventListener('dragstart', onRowDragStart);
     workbenchEl.addEventListener('dragenter', onDragEnter);
     workbenchEl.addEventListener('dragover', onDragOver);
     workbenchEl.addEventListener('dragleave', onDragLeave);
@@ -281,6 +298,7 @@ export function registerWorkbenchDrop(workbenchEl, dotNetHelper, methodName, acc
 
     return {
         dispose: () => {
+            workbenchEl.removeEventListener('dragstart', onRowDragStart);
             workbenchEl.removeEventListener('dragenter', onDragEnter);
             workbenchEl.removeEventListener('dragover', onDragOver);
             workbenchEl.removeEventListener('dragleave', onDragLeave);

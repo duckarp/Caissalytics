@@ -40,12 +40,14 @@ public class StreamingPgnImporter
             await pragmaCmd.ExecuteNonQueryAsync(cancellationToken);
         }
 
+        await DatabaseManager.EnsureGameColumnsAsync(connection, cancellationToken);
+
         SqliteTransaction? transaction = connection.BeginTransaction();
         var insertGameCmd = connection.CreateCommand();
         insertGameCmd.Transaction = transaction;
         insertGameCmd.CommandText = @"
-            INSERT INTO games (white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn)
-            VALUES ($white, $black, $white_elo, $black_elo, $result, $date, $event, $site, $round, $eco, $ply_count, $pgn);
+            INSERT INTO games (white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn, note)
+            VALUES ($white, $black, $white_elo, $black_elo, $result, $date, $event, $site, $round, $eco, $ply_count, $pgn, $note);
             SELECT last_insert_rowid();";
 
         var pWhite = insertGameCmd.Parameters.Add("$white", SqliteType.Text);
@@ -60,6 +62,7 @@ public class StreamingPgnImporter
         var pEco = insertGameCmd.Parameters.Add("$eco", SqliteType.Text);
         var pPlyCount = insertGameCmd.Parameters.Add("$ply_count", SqliteType.Integer);
         var pPgn = insertGameCmd.Parameters.Add("$pgn", SqliteType.Text);
+        var pNote = insertGameCmd.Parameters.Add("$note", SqliteType.Text);
 
         var insertPosCmd = connection.CreateCommand();
         insertPosCmd.Transaction = transaction;
@@ -289,6 +292,7 @@ public class StreamingPgnImporter
                 pgnText = EcoUnknownTagRegex.Replace(pgnText, $"[ECO \"{eco}\"]", 1);
             }
             pPgn.Value = pgnText;
+            pNote.Value = headers.GetValueOrDefault("Note", "").Trim();
 
             long gameId = (long)(await insertGameCmd.ExecuteScalarAsync(cancellationToken) ?? 0L);
             gamesSaved++;

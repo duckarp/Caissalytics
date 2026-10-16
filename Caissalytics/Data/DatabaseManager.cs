@@ -569,10 +569,7 @@ public class DatabaseManager : IDatabaseService
     {
         string dbName = string.IsNullOrWhiteSpace(databaseName) ? _activeDatabaseName : databaseName;
         string path = GetDbPath(dbName);
-        if (!File.Exists(path))
-        {
-            await InitializeSchemaAsync(path);
-        }
+        await InitializeSchemaAsync(path);
 
         var result = new PositionReferenceResult
         {
@@ -644,7 +641,7 @@ public class DatabaseManager : IDatabaseService
         using (var gameCmd = conn.CreateCommand())
         {
             gameCmd.CommandText = @"
-                SELECT DISTINCT g.id, g.white, g.black, g.white_elo, g.black_elo, g.result, g.date, g.event, g.site, g.round, g.eco, g.ply_count, g.pgn
+                SELECT DISTINCT g.id, g.white, g.black, g.white_elo, g.black_elo, g.result, g.date, g.event, g.site, g.round, g.eco, g.ply_count, g.pgn, g.note, g.sort_order
                 FROM positions p
                 JOIN games g ON g.id = p.game_id
                 WHERE p.zobrist_key = $zobrist
@@ -668,10 +665,7 @@ public class DatabaseManager : IDatabaseService
     {
         string dbName = string.IsNullOrWhiteSpace(databaseName) ? _activeDatabaseName : databaseName;
         string path = GetDbPath(dbName);
-        if (!File.Exists(path))
-        {
-            await InitializeSchemaAsync(path);
-        }
+        await InitializeSchemaAsync(path);
 
         var games = new List<GameHeader>();
         int totalCount = 0;
@@ -695,10 +689,10 @@ public class DatabaseManager : IDatabaseService
         using (var queryCmd = conn.CreateCommand())
         {
             queryCmd.CommandText = $@"
-                SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn
+                SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn, note, sort_order
                 FROM games
                 WHERE {whereSql}
-                ORDER BY date DESC, id DESC
+                ORDER BY CASE WHEN sort_order IS NOT NULL THEN 0 ELSE 1 END, sort_order ASC, date DESC, id DESC
                 LIMIT $limit OFFSET $offset;";
 
             foreach (var p in parameters) queryCmd.Parameters.Add(new SqliteParameter(p.ParameterName, p.Value));
@@ -756,7 +750,7 @@ public class DatabaseManager : IDatabaseService
         int exported = 0;
 
         using var selectCmd = conn.CreateCommand();
-        selectCmd.CommandText = $"SELECT pgn FROM games WHERE {whereSql} ORDER BY date DESC, id DESC;";
+        selectCmd.CommandText = $"SELECT pgn FROM games WHERE {whereSql} ORDER BY CASE WHEN sort_order IS NOT NULL THEN 0 ELSE 1 END, sort_order ASC, date DESC, id DESC;";
         foreach (var p in parameters) selectCmd.Parameters.Add(new SqliteParameter(p.ParameterName, p.Value));
 
         using var reader = await selectCmd.ExecuteReaderAsync(cancellationToken);
@@ -867,6 +861,12 @@ public class DatabaseManager : IDatabaseService
             parameters.Add(new SqliteParameter("$event", $"%{filter.Event.Trim()}%"));
         }
 
+        if (!string.IsNullOrWhiteSpace(filter.Note))
+        {
+            whereClauses.Add("COALESCE(note, '') LIKE $note");
+            parameters.Add(new SqliteParameter("$note", $"%{filter.Note.Trim()}%"));
+        }
+
         if (filter.YearFrom.HasValue)
         {
             whereClauses.Add("substr(date, 1, 4) >= $yearFrom");
@@ -910,13 +910,14 @@ public class DatabaseManager : IDatabaseService
             {
                 try
                 {
+                    await InitializeSchemaAsync(file);
                     using var conn = new SqliteConnection($"Data Source={file};Mode=ReadOnly");
                     await conn.OpenAsync();
                     using var cmd = conn.CreateCommand();
                     cmd.CommandText = @"
-                        SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn
+                        SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn, note, sort_order
                         FROM games
-                        ORDER BY date DESC, id DESC;";
+                        ORDER BY CASE WHEN sort_order IS NOT NULL THEN 0 ELSE 1 END, sort_order ASC, date DESC, id DESC;";
                     using var reader = await cmd.ExecuteReaderAsync();
                     while (await reader.ReadAsync())
                     {
@@ -932,14 +933,16 @@ public class DatabaseManager : IDatabaseService
         string path = GetDbPath(dbName);
         if (!File.Exists(path)) return games;
 
+        await InitializeSchemaAsync(path);
+
         using (var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly"))
         {
             await conn.OpenAsync();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"
-                SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn
+                SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn, note, sort_order
                 FROM games
-                ORDER BY date DESC, id DESC;";
+                ORDER BY CASE WHEN sort_order IS NOT NULL THEN 0 ELSE 1 END, sort_order ASC, date DESC, id DESC;";
             using var reader = await cmd.ExecuteReaderAsync();
             while (await reader.ReadAsync())
             {
@@ -956,12 +959,14 @@ public class DatabaseManager : IDatabaseService
         string path = GetDbPath(dbName);
         if (!File.Exists(path)) return null;
 
+        await InitializeSchemaAsync(path);
+
         using var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly");
         await conn.OpenAsync();
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
-            SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn
+            SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn, note, sort_order
             FROM games
             WHERE id = $id;";
         cmd.Parameters.AddWithValue("$id", gameId);
@@ -984,6 +989,16 @@ public class DatabaseManager : IDatabaseService
         string path = GetDbPath(dbName);
         await InitializeSchemaAsync(path);
 
+        string effectiveNote = !string.IsNullOrWhiteSpace(game.Note)
+            ? game.Note.Trim()
+            : GameHeader.ExtractNoteFromPgn(game.Pgn);
+
+        if (!string.IsNullOrWhiteSpace(effectiveNote))
+        {
+            game.Note = effectiveNote;
+            game.Pgn = GameHeader.SetNoteInPgn(game.Pgn, effectiveNote);
+        }
+
         using var conn = new SqliteConnection($"Data Source={path}");
         await conn.OpenAsync();
         using var tx = conn.BeginTransaction();
@@ -1004,7 +1019,7 @@ public class DatabaseManager : IDatabaseService
                 UPDATE games 
                 SET white = $white, black = $black, white_elo = $white_elo, black_elo = $black_elo,
                     result = $result, date = $date, event = $event, site = $site, round = $round,
-                    eco = $eco, ply_count = $ply_count, pgn = $pgn
+                    eco = $eco, ply_count = $ply_count, pgn = $pgn, note = $note
                 WHERE id = $id;";
             updateGameCmd.Parameters.AddWithValue("$id", gameId);
             updateGameCmd.Parameters.AddWithValue("$white", game.White);
@@ -1019,15 +1034,29 @@ public class DatabaseManager : IDatabaseService
             updateGameCmd.Parameters.AddWithValue("$eco", game.Eco);
             updateGameCmd.Parameters.AddWithValue("$ply_count", game.PlyCount);
             updateGameCmd.Parameters.AddWithValue("$pgn", game.Pgn);
+            updateGameCmd.Parameters.AddWithValue("$note", effectiveNote);
             await updateGameCmd.ExecuteNonQueryAsync();
         }
         else
         {
+            int? nextSortOrder = game.SortOrder;
+            if (!nextSortOrder.HasValue)
+            {
+                using var maxOrderCmd = conn.CreateCommand();
+                maxOrderCmd.Transaction = tx;
+                maxOrderCmd.CommandText = "SELECT MAX(sort_order) FROM games WHERE sort_order IS NOT NULL;";
+                var maxVal = await maxOrderCmd.ExecuteScalarAsync();
+                if (maxVal != null && maxVal != DBNull.Value)
+                {
+                    nextSortOrder = Convert.ToInt32(maxVal) + 1;
+                }
+            }
+
             using var insertGameCmd = conn.CreateCommand();
             insertGameCmd.Transaction = tx;
             insertGameCmd.CommandText = @"
-                INSERT INTO games (white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn)
-                VALUES ($white, $black, $white_elo, $black_elo, $result, $date, $event, $site, $round, $eco, $ply_count, $pgn);
+                INSERT INTO games (white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn, note, sort_order)
+                VALUES ($white, $black, $white_elo, $black_elo, $result, $date, $event, $site, $round, $eco, $ply_count, $pgn, $note, $sort_order);
                 SELECT last_insert_rowid();";
             insertGameCmd.Parameters.AddWithValue("$white", game.White);
             insertGameCmd.Parameters.AddWithValue("$black", game.Black);
@@ -1041,6 +1070,8 @@ public class DatabaseManager : IDatabaseService
             insertGameCmd.Parameters.AddWithValue("$eco", game.Eco);
             insertGameCmd.Parameters.AddWithValue("$ply_count", game.PlyCount);
             insertGameCmd.Parameters.AddWithValue("$pgn", game.Pgn);
+            insertGameCmd.Parameters.AddWithValue("$note", effectiveNote);
+            insertGameCmd.Parameters.AddWithValue("$sort_order", (object?)nextSortOrder ?? DBNull.Value);
             gameId = (long)(await insertGameCmd.ExecuteScalarAsync() ?? 0L);
         }
 
@@ -1088,6 +1119,140 @@ public class DatabaseManager : IDatabaseService
         OnDatabaseModified?.Invoke(dbName);
         OnActiveDatabaseChanged?.Invoke();
         return gameId;
+    }
+
+    public async Task UpdateGameNoteAsync(string databaseName, long gameId, string note)
+    {
+        string dbName = string.IsNullOrWhiteSpace(databaseName) ? _activeDatabaseName : databaseName;
+        string path = GetDbPath(dbName);
+        if (!File.Exists(path)) return;
+
+        await InitializeSchemaAsync(path);
+
+        string cleanNote = (note ?? string.Empty).Trim();
+
+        using var conn = new SqliteConnection($"Data Source={path}");
+        await conn.OpenAsync();
+
+        string currentPgn = string.Empty;
+        using (var getCmd = conn.CreateCommand())
+        {
+            getCmd.CommandText = "SELECT pgn FROM games WHERE id = $id;";
+            getCmd.Parameters.AddWithValue("$id", gameId);
+            var scalar = await getCmd.ExecuteScalarAsync();
+            if (scalar == null || scalar == DBNull.Value) return;
+            currentPgn = scalar.ToString() ?? string.Empty;
+        }
+
+        string updatedPgn = GameHeader.SetNoteInPgn(currentPgn, cleanNote);
+
+        using (var updateCmd = conn.CreateCommand())
+        {
+            updateCmd.CommandText = "UPDATE games SET note = $note, pgn = $pgn WHERE id = $id;";
+            updateCmd.Parameters.AddWithValue("$note", cleanNote);
+            updateCmd.Parameters.AddWithValue("$pgn", updatedPgn);
+            updateCmd.Parameters.AddWithValue("$id", gameId);
+            await updateCmd.ExecuteNonQueryAsync();
+        }
+
+        OnDatabaseModified?.Invoke(dbName);
+    }
+
+    public async Task ReorderGamesAsync(string databaseName, IReadOnlyList<long> orderedGameIds)
+    {
+        if (orderedGameIds == null || orderedGameIds.Count < 2) return;
+
+        string dbName = string.IsNullOrWhiteSpace(databaseName) ? _activeDatabaseName : databaseName;
+        string path = GetDbPath(dbName);
+        if (!File.Exists(path)) return;
+
+        await InitializeSchemaAsync(path);
+
+        using var conn = new SqliteConnection($"Data Source={path}");
+        await conn.OpenAsync();
+        using var tx = conn.BeginTransaction();
+
+        // 1. Ensure all games in the database have an initial sequential sort_order (1..N)
+        bool hasNullSortOrder;
+        using (var checkCmd = conn.CreateCommand())
+        {
+            checkCmd.Transaction = tx;
+            checkCmd.CommandText = "SELECT EXISTS(SELECT 1 FROM games WHERE sort_order IS NULL);";
+            hasNullSortOrder = Convert.ToInt32(await checkCmd.ExecuteScalarAsync() ?? 0) != 0;
+        }
+
+        if (hasNullSortOrder)
+        {
+            var allIds = new List<long>();
+            using (var allCmd = conn.CreateCommand())
+            {
+                allCmd.Transaction = tx;
+                allCmd.CommandText = @"
+                    SELECT id FROM games
+                    ORDER BY CASE WHEN sort_order IS NOT NULL THEN 0 ELSE 1 END, sort_order ASC, date DESC, id DESC;";
+                using var reader = await allCmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    allIds.Add(reader.GetInt64(0));
+                }
+            }
+
+            using var initCmd = conn.CreateCommand();
+            initCmd.Transaction = tx;
+            initCmd.CommandText = "UPDATE games SET sort_order = $order WHERE id = $id;";
+            var pOrder = initCmd.Parameters.Add("$order", SqliteType.Integer);
+            var pId = initCmd.Parameters.Add("$id", SqliteType.Integer);
+
+            for (int i = 0; i < allIds.Count; i++)
+            {
+                pOrder.Value = i + 1;
+                pId.Value = allIds[i];
+                await initCmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        // 2. Fetch the existing sort_order slots occupied by the target IDs, sort those slots ascending,
+        // and reassign them to orderedGameIds in the new order.
+        var distinctIds = orderedGameIds.Distinct().ToList();
+        var existingOrders = new Dictionary<long, int>();
+
+        using (var fetchCmd = conn.CreateCommand())
+        {
+            fetchCmd.Transaction = tx;
+            fetchCmd.CommandText = "SELECT sort_order FROM games WHERE id = $id;";
+            var pFetchId = fetchCmd.Parameters.Add("$id", SqliteType.Integer);
+
+            foreach (long id in distinctIds)
+            {
+                pFetchId.Value = id;
+                var val = await fetchCmd.ExecuteScalarAsync();
+                if (val != null && val != DBNull.Value)
+                {
+                    existingOrders[id] = Convert.ToInt32(val);
+                }
+            }
+        }
+
+        var validIdsInNewOrder = distinctIds.Where(id => existingOrders.ContainsKey(id)).ToList();
+        var sortedSlots = validIdsInNewOrder.Select(id => existingOrders[id]).OrderBy(s => s).ToList();
+
+        using (var updateCmd = conn.CreateCommand())
+        {
+            updateCmd.Transaction = tx;
+            updateCmd.CommandText = "UPDATE games SET sort_order = $order WHERE id = $id;";
+            var pOrder = updateCmd.Parameters.Add("$order", SqliteType.Integer);
+            var pId = updateCmd.Parameters.Add("$id", SqliteType.Integer);
+
+            for (int i = 0; i < validIdsInNewOrder.Count; i++)
+            {
+                pOrder.Value = sortedSlots[i];
+                pId.Value = validIdsInNewOrder[i];
+                await updateCmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        await tx.CommitAsync();
+        OnDatabaseModified?.Invoke(dbName);
     }
 
     public async Task<bool> DeleteGameAsync(string databaseName, long gameId)
@@ -1333,7 +1498,9 @@ public class DatabaseManager : IDatabaseService
                 round TEXT,
                 eco TEXT,
                 ply_count INTEGER DEFAULT 0,
-                pgn TEXT NOT NULL
+                pgn TEXT NOT NULL,
+                note TEXT DEFAULT '',
+                sort_order INTEGER
             );
 
             CREATE INDEX IF NOT EXISTS idx_games_white ON games(white);
@@ -1359,7 +1526,48 @@ public class DatabaseManager : IDatabaseService
         ";
         await cmd.ExecuteNonQueryAsync();
 
+        await EnsureGameColumnsAsync(conn);
         await EnsurePositionsIndexedAsync(conn);
+    }
+
+    internal static async Task EnsureGameColumnsAsync(SqliteConnection conn, CancellationToken cancellationToken = default)
+    {
+        var existingCols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        using (var infoCmd = conn.CreateCommand())
+        {
+            infoCmd.CommandText = "PRAGMA table_info(games);";
+            using var reader = await infoCmd.ExecuteReaderAsync(cancellationToken);
+            while (await reader.ReadAsync(cancellationToken))
+            {
+                if (!reader.IsDBNull(1))
+                {
+                    existingCols.Add(reader.GetString(1));
+                }
+            }
+        }
+
+        if (existingCols.Count == 0)
+        {
+            return;
+        }
+
+        if (!existingCols.Contains("note"))
+        {
+            using var alterNote = conn.CreateCommand();
+            alterNote.CommandText = "ALTER TABLE games ADD COLUMN note TEXT DEFAULT '';";
+            await alterNote.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        if (!existingCols.Contains("sort_order"))
+        {
+            using var alterSort = conn.CreateCommand();
+            alterSort.CommandText = "ALTER TABLE games ADD COLUMN sort_order INTEGER;";
+            await alterSort.ExecuteNonQueryAsync(cancellationToken);
+        }
+
+        using var idxCmd = conn.CreateCommand();
+        idxCmd.CommandText = "CREATE INDEX IF NOT EXISTS idx_games_sort_order ON games(sort_order);";
+        await idxCmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static async Task EnsurePositionsIndexedAsync(SqliteConnection conn)
@@ -1442,6 +1650,15 @@ public class DatabaseManager : IDatabaseService
 
     private static GameHeader ReadGameHeader(SqliteDataReader reader)
     {
+        string pgn = reader.IsDBNull(12) ? "" : reader.GetString(12);
+        string note = reader.FieldCount > 13 && !reader.IsDBNull(13) ? reader.GetString(13) : "";
+        if (string.IsNullOrEmpty(note) && !string.IsNullOrEmpty(pgn))
+        {
+            note = GameHeader.ExtractNoteFromPgn(pgn);
+        }
+
+        int? sortOrder = reader.FieldCount > 14 && !reader.IsDBNull(14) ? reader.GetInt32(14) : null;
+
         return new GameHeader
         {
             Id = reader.GetInt64(0),
@@ -1456,7 +1673,9 @@ public class DatabaseManager : IDatabaseService
             Round = reader.IsDBNull(9) ? "" : reader.GetString(9),
             Eco = reader.IsDBNull(10) ? "" : reader.GetString(10),
             PlyCount = reader.IsDBNull(11) ? 0 : reader.GetInt32(11),
-            Pgn = reader.IsDBNull(12) ? "" : reader.GetString(12)
+            Pgn = pgn,
+            Note = note,
+            SortOrder = sortOrder
         };
     }
 }

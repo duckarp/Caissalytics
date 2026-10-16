@@ -185,6 +185,11 @@
 				<input class="filter-input" placeholder="@Loc["Db_Filter_EventPlaceholder"]" @bind="_filter.Event" @bind:event="oninput" @onkeydown="HandleFilterKeyDown" />
 			</div>
 
+			<div class="filter-group">
+				<label class="filter-label">@Loc["Db_Filter_Note"]</label>
+				<input class="filter-input" placeholder="@Loc["Db_Filter_NotePlaceholder"]" @bind="_filter.Note" @bind:event="oninput" @onkeydown="HandleFilterKeyDown" />
+			</div>
+
 			<div class="filter-actions">
 				<button class="btn-primary" @onclick="SearchAsync">@Loc["Db_Filter_Search"]</button>
 				<button class="btn-secondary" @onclick="ResetFilterAsync">@Loc["Db_Filter_Reset"]</button>
@@ -232,6 +237,7 @@
 				<table class="db-games-table">
 					<thead>
 						<tr>
+							<th class="col-index" title="@Loc["Db_DragToReorder"]">@Loc["Db_Col_Index"]</th>
 							@if (ShowPlatformColumn)
 							{
 								<th class="col-platform" title="Source platform">@Loc["Db_Col_Site"]</th>
@@ -245,14 +251,42 @@
 							<th class="col-date">@Loc["Db_Col_Date"]</th>
 							<th class="col-time">@Loc["Db_Col_Time"]</th>
 							<th class="col-event">@Loc["Db_Col_Event"]</th>
+							<th class="col-note">@Loc["Db_Col_Note"]</th>
 							<th class="col-moves">@Loc["Db_Col_Moves"]</th>
 							<th class="col-actions"></th>
 						</tr>
 					</thead>
 					<tbody>
-						@foreach (var game in _games)
+						@for (int i = 0; i < _games.Count; i++)
 						{
-							<tr class="db-game-row @(IsUserGame(game) ? "db-game-row-user" : "")" @ondblclick="() => OpenGameInAnalysis(game)">
+							int rowIndex = i;
+							var game = _games[rowIndex];
+							int rowNumber = (_filter.PageNumber - 1) * _filter.PageSize + rowIndex + 1;
+							bool isDragging = _draggedRowIndex == rowIndex;
+							bool isDragOverTop = _dragOverRowIndex == rowIndex && _draggedRowIndex.HasValue && _draggedRowIndex.Value > rowIndex;
+							bool isDragOverBottom = _dragOverRowIndex == rowIndex && _draggedRowIndex.HasValue && _draggedRowIndex.Value < rowIndex;
+
+							<tr @key="game.Id"
+								data-game-id="@game.Id"
+								draggable="@(_editingNoteGameId != game.Id ? "true" : "false")"
+								class="db-game-row @(IsUserGame(game) ? "db-game-row-user" : "") @(isDragging ? "row-dragging" : "") @(isDragOverTop ? "row-drag-over-top" : "") @(isDragOverBottom ? "row-drag-over-bottom" : "")"
+								@ondragstart="() => HandleRowDragStart(rowIndex, game)"
+								@ondragover="() => HandleRowDragOver(rowIndex)"
+								@ondragover:preventDefault="true"
+								@ondrop="() => HandleRowDropAsync(rowIndex)"
+								@ondragend="HandleRowDragEnd"
+								@ondblclick="() => OpenGameInAnalysis(game)">
+								<td class="col-index" @onclick:stopPropagation="true" @ondblclick:stopPropagation="true">
+									<div class="db-row-index-cell">
+										<span class="db-row-drag-handle @(isDragging ? "dragging" : "")"
+											  tabindex="0"
+											  title="@Loc["Db_DragToReorder"]"
+											  aria-label="@Loc["Db_DragToReorder"]"
+											  @onkeydown="(e) => HandleRowHandleKeyDownAsync(e, rowIndex)"
+											  @onkeydown:preventDefault="true">⠿</span>
+										<span class="db-row-number">@($"{rowNumber}.")</span>
+									</div>
+								</td>
 								@if (ShowPlatformColumn)
 								{
 									<td class="col-platform">
@@ -291,6 +325,33 @@
 									}
 								</td>
 								<td class="col-event" title="@game.Event">@game.Event</td>
+								<td class="col-note" @onclick:stopPropagation="true" @ondblclick:stopPropagation="true">
+									@if (_editingNoteGameId == game.Id)
+									{
+										<div class="db-note-edit-wrapper">
+											<input class="db-note-input"
+												   placeholder="@Loc["Db_NoteInputPlaceholder"]"
+												   @bind="_editingNoteValue"
+												   @bind:event="oninput"
+												   @onkeydown="(e) => HandleNoteKeyDownAsync(e, game)"
+												   @onblur="() => CommitNoteEditAsync(game)"
+												   autofocus />
+										</div>
+									}
+									else if (!string.IsNullOrWhiteSpace(game.Note))
+									{
+										<button type="button" class="db-note-badge" title="@Loc["Db_EditNote"]" @onclick="() => StartEditingNote(game)">
+											<span class="db-note-tag-icon">🏷️</span>
+											<span class="db-note-text">@game.Note</span>
+										</button>
+									}
+									else
+									{
+										<button type="button" class="db-note-add-btn" title="@Loc["Db_AddNote"]" @onclick="() => StartEditingNote(game)">
+											@Loc["Db_AddNote"]
+										</button>
+									}
+								</td>
 								<td class="col-moves">@game.PlyCount</td>
 								<td class="col-actions">
 									<div class="row-actions-group">
@@ -1437,16 +1498,22 @@
 	private async Task SelectDatabaseAsync(string dbName)
 	{
 		_showMaintenanceMenu = false;
+		_editingNoteGameId = null;
+		_draggedRowIndex = null;
+		_dragOverRowIndex = null;
 		_currentDbName = dbName;
 		await DatabaseService.SetActiveDatabaseAsync(dbName);
 		_filter.PageNumber = 1;
 		await LoadGamesAsync();
 	}
 
-	private async Task LoadGamesAsync()
+	private async Task LoadGamesAsync(bool showLoading = true)
 	{
-		_isLoading = true;
-		StateHasChanged();
+		if (showLoading)
+		{
+			_isLoading = true;
+			StateHasChanged();
+		}
 
 		try
 		{
@@ -1463,6 +1530,119 @@
 			_isLoading = false;
 			StateHasChanged();
 		}
+	}
+
+	private long? _editingNoteGameId = null;
+	private string _editingNoteValue = "";
+	private int? _draggedRowIndex = null;
+	private int? _dragOverRowIndex = null;
+
+	private void StartEditingNote(GameHeader game)
+	{
+		_editingNoteGameId = game.Id;
+		_editingNoteValue = game.Note ?? "";
+	}
+
+	private void CancelNoteEdit()
+	{
+		_editingNoteGameId = null;
+		_editingNoteValue = "";
+	}
+
+	private async Task CommitNoteEditAsync(GameHeader game)
+	{
+		if (_editingNoteGameId != game.Id) return;
+
+		string newNote = (_editingNoteValue ?? "").Trim();
+		_editingNoteGameId = null;
+		_editingNoteValue = "";
+
+		if (string.Equals(game.Note ?? "", newNote, StringComparison.Ordinal))
+		{
+			return;
+		}
+
+		game.Note = newNote;
+		game.Pgn = GameHeader.SetNoteInPgn(game.Pgn, newNote);
+		await DatabaseService.UpdateGameNoteAsync(_currentDbName, game.Id, newNote);
+	}
+
+	private async Task HandleNoteKeyDownAsync(KeyboardEventArgs e, GameHeader game)
+	{
+		if (e.Key == "Enter")
+		{
+			await CommitNoteEditAsync(game);
+		}
+		else if (e.Key == "Escape")
+		{
+			CancelNoteEdit();
+		}
+	}
+
+	private void HandleRowDragStart(int index, GameHeader game)
+	{
+		if (_editingNoteGameId == game.Id) return;
+		_draggedRowIndex = index;
+		_dragOverRowIndex = null;
+	}
+
+	private void HandleRowDragOver(int index)
+	{
+		if (!_draggedRowIndex.HasValue || _draggedRowIndex.Value == index)
+		{
+			_dragOverRowIndex = null;
+			return;
+		}
+		_dragOverRowIndex = index;
+	}
+
+	private void HandleRowDragEnd()
+	{
+		_draggedRowIndex = null;
+		_dragOverRowIndex = null;
+	}
+
+	private async Task HandleRowDropAsync(int targetIndex)
+	{
+		if (!_draggedRowIndex.HasValue)
+		{
+			_dragOverRowIndex = null;
+			return;
+		}
+
+		int sourceIndex = _draggedRowIndex.Value;
+		_draggedRowIndex = null;
+		_dragOverRowIndex = null;
+
+		await MoveRowAsync(sourceIndex, targetIndex);
+	}
+
+	private async Task HandleRowHandleKeyDownAsync(KeyboardEventArgs e, int rowIndex)
+	{
+		if (e.Key == "ArrowUp" && rowIndex > 0)
+		{
+			await MoveRowAsync(rowIndex, rowIndex - 1);
+		}
+		else if (e.Key == "ArrowDown" && rowIndex < _games.Count - 1)
+		{
+			await MoveRowAsync(rowIndex, rowIndex + 1);
+		}
+	}
+
+	private async Task MoveRowAsync(int sourceIndex, int targetIndex)
+	{
+		if (sourceIndex == targetIndex || sourceIndex < 0 || sourceIndex >= _games.Count || targetIndex < 0 || targetIndex >= _games.Count)
+		{
+			return;
+		}
+
+		var movedGame = _games[sourceIndex];
+		_games.RemoveAt(sourceIndex);
+		_games.Insert(targetIndex, movedGame);
+		StateHasChanged();
+
+		var orderedIds = _games.Select(g => g.Id).ToList();
+		await DatabaseService.ReorderGamesAsync(_currentDbName, orderedIds);
 	}
 
 	private async Task SearchAsync()
@@ -1634,7 +1814,7 @@
 			_databases = await DatabaseService.GetDatabasesAsync();
 			if (string.Equals(dbName, _currentDbName, StringComparison.OrdinalIgnoreCase))
 			{
-				await LoadGamesAsync();
+				await LoadGamesAsync(showLoading: false);
 			}
 			StateHasChanged();
 		});

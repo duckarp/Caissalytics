@@ -55,6 +55,8 @@ public class GameHeader
     public string Eco { get; set; } = string.Empty;
     public int PlyCount { get; set; }
     public string Pgn { get; set; } = string.Empty;
+    public string Note { get; set; } = string.Empty;
+    public int? SortOrder { get; set; }
 
     public string Platform
     {
@@ -123,6 +125,9 @@ public class GameHeader
     private static readonly Regex BoardTagRegex =
         new(@"^\[Board\s+""([^""]*)""\]", RegexOptions.Compiled | RegexOptions.Multiline);
 
+    private static readonly Regex NoteTagRegex =
+        new(@"^\[Note\s+""([^""]*)""\]\s*\r?\n?", RegexOptions.Compiled | RegexOptions.Multiline);
+
     /// <summary>
     /// Board number extracted from PGN [Board "..."] tag.
     /// </summary>
@@ -134,6 +139,44 @@ public class GameHeader
             var match = BoardTagRegex.Match(Pgn);
             return match.Success ? match.Groups[1].Value.Trim() : string.Empty;
         }
+    }
+
+    public static string ExtractNoteFromPgn(string? pgn)
+    {
+        if (string.IsNullOrEmpty(pgn)) return string.Empty;
+        var match = NoteTagRegex.Match(pgn);
+        return match.Success ? match.Groups[1].Value.Trim() : string.Empty;
+    }
+
+    public static string SetNoteInPgn(string? pgn, string? note)
+    {
+        string rawPgn = pgn ?? string.Empty;
+        string cleanNote = (note ?? string.Empty).Trim().Replace("\"", "'").Replace("\r", " ").Replace("\n", " ");
+
+        if (string.IsNullOrEmpty(cleanNote))
+        {
+            return NoteTagRegex.Replace(rawPgn, string.Empty);
+        }
+
+        string tagLine = $"[Note \"{cleanNote}\"]";
+        if (NoteTagRegex.IsMatch(rawPgn))
+        {
+            return NoteTagRegex.Replace(rawPgn, tagLine + Environment.NewLine, 1);
+        }
+
+        if (rawPgn.StartsWith('['))
+        {
+            int firstNewline = rawPgn.IndexOf('\n');
+            if (firstNewline >= 0)
+            {
+                return rawPgn.Substring(0, firstNewline + 1) + tagLine + Environment.NewLine + rawPgn.Substring(firstNewline + 1);
+            }
+            return rawPgn + Environment.NewLine + tagLine;
+        }
+
+        return string.IsNullOrWhiteSpace(rawPgn)
+            ? tagLine
+            : $"{tagLine}{Environment.NewLine}{Environment.NewLine}{rawPgn}";
     }
 }
 
@@ -193,6 +236,7 @@ public class GameFilter
     public int? MaxElo { get; set; }
     public string? Result { get; set; }
     public string? Event { get; set; }
+    public string? Note { get; set; }
     public string? TimeClass { get; set; }
     public int? YearFrom { get; set; }
     public int? YearTo { get; set; }
@@ -210,6 +254,7 @@ public class GameFilter
         MaxElo = MaxElo,
         Result = Result,
         Event = Event,
+        Note = Note,
         TimeClass = TimeClass,
         YearFrom = YearFrom,
         YearTo = YearTo,

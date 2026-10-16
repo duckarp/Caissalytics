@@ -130,6 +130,11 @@
 								<input class="modal-input" placeholder="e.g. B90" readonly value="@_eco" />
 							</div>
 						</div>
+
+						<div class="modal-form-group">
+							<label class="filter-label">@Loc["Db_Col_Note"]</label>
+							<input class="modal-input" placeholder="@Loc["Db_NoteInputPlaceholder"]" @bind="_note" />
+						</div>
 					</div>
 				</div>
 
@@ -181,6 +186,7 @@
 	private string _eco = "";
 	private string _round = "";
 	private string _board = "";
+	private string _note = "";
 	private string _selectedTimeClass = "";
 	private string _timeControlRaw = "";
 	private string _errorMessage = "";
@@ -230,6 +236,7 @@
 			if (_round == "?" || _round == "-") _round = "";
 			_board = Tree.Headers.GetValueOrDefault("Board", "");
 			if (_board == "?" || _board == "-") _board = "";
+			_note = Tree.Headers.GetValueOrDefault("Note", "");
 			_timeControlRaw = Tree.Headers.GetValueOrDefault("TimeControl", "");
 			_selectedTimeClass = TimeControlInfo.ClassifyFromRaw(_timeControlRaw);
 
@@ -289,6 +296,9 @@
 			if (!string.IsNullOrWhiteSpace(_board)) Tree.Headers["Board"] = _board.Trim();
 			else Tree.Headers.Remove("Board");
 
+			if (!string.IsNullOrWhiteSpace(_note)) Tree.Headers["Note"] = _note.Trim();
+			else Tree.Headers.Remove("Note");
+
 			if (!string.IsNullOrEmpty(_selectedTimeClass))
 			{
 				if (!string.IsNullOrEmpty(_timeControlRaw) &&
@@ -325,6 +335,7 @@
 				Site = Tree.Headers.GetValueOrDefault("Site", ""),
 				Round = _round.Trim(),
 				Eco = _eco,
+				Note = _note.Trim(),
 				Pgn = pgn
 			};
 

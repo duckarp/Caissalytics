@@ -312,6 +312,7 @@
 	private bool _isDisposed = false;
 	private ulong _lastRenderedZobrist;
 	private string _lastRenderedOrientation = "white";
+	private List<object>? _currentShapes;
 
 	private bool _showPromotionDialog = false;
 	private Square _pendingFrom = Square.None;
@@ -348,22 +349,37 @@
 				fen = fen,
 				orientation = Orientation,
 				turnColor = turnColor,
-				dests = dests
+				dests = dests,
+				shapes = _currentShapes
 			};
 
 			await _module.InvokeVoidAsync("initBoard", _elementId, _dotNetRef, config);
 			_lastRenderedZobrist = Position.ZobristKey;
 			_lastRenderedOrientation = Orientation;
 			_isInitialized = true;
+
+			if (_currentShapes != null && _currentShapes.Count > 0)
+			{
+				try
+				{
+					await _module.InvokeVoidAsync("drawShapes", _elementId, _currentShapes);
+				}
+				catch { }
+			}
 		}
 	}
 
 	public async Task UpdateBoardStateAsync(BoardPosition pos, Move? lastMove, List<object>? shapes = null)
 	{
-		if (_isDisposed || !_isInitialized || _module == null) return;
-
 		Position = pos;
 		LastMove = lastMove;
+		if (shapes != null)
+		{
+			_currentShapes = shapes;
+		}
+
+		if (_isDisposed || !_isInitialized || _module == null) return;
+
 		_lastRenderedZobrist = pos.ZobristKey;
 		_lastRenderedOrientation = Orientation;
 
@@ -378,12 +394,7 @@
 
 		try
 		{
-			await _module.InvokeVoidAsync("updateBoard", _elementId, fen, Orientation, turnColor, dests, lastMoveArr, inCheck);
-
-			if (shapes != null)
-			{
-				await _module.InvokeVoidAsync("drawShapes", _elementId, shapes);
-			}
+			await _module.InvokeVoidAsync("updateBoard", _elementId, fen, Orientation, turnColor, dests, lastMoveArr, inCheck, _currentShapes);
 
 			if (EnableSound && lastMove.HasValue && !lastMove.Value.IsEmpty && (_lastSoundMove == null || !_lastSoundMove.Value.Equals(lastMove.Value)))
 			{
@@ -410,6 +421,7 @@
 
 	public async Task SetShapesAsync(List<object>? shapes)
 	{
+		_currentShapes = shapes;
 		if (_isDisposed || !_isInitialized || _module == null) return;
 		try
 		{

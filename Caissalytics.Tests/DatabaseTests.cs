@@ -990,5 +990,135 @@ public class DatabaseTests : IDisposable
         Assert.Equal(12345, file.FileSize);
         Assert.Null(file.StreamRef);
     }
+
+    [Fact]
+    public async Task UpdateGameNoteAsync_SetsUpdatesAndClearsNote_AndSyncsPgnHeader()
+    {
+        await _dbManager.CreateDatabaseAsync("NotesDb");
+
+        string pgn = @"[Event ""Club Championship""]
+[White ""PlayerA""]
+[Black ""PlayerB""]
+[Date ""2026.03.10""]
+[Result ""1-0""]
+
+1. e4 e5 2. Nf3 Nc6 1-0";
+
+        await _dbManager.ImportPgnTextAsync("NotesDb", pgn);
+        var (games, _) = await _dbManager.SearchGamesAsync("NotesDb", new GameFilter());
+        Assert.Single(games);
+        long gameId = games[0].Id;
+        Assert.Equal("", games[0].Note);
+
+        // Set note
+        await _dbManager.UpdateGameNoteAsync("NotesDb", gameId, "Hlavná varianta - kritický 15. ťah");
+
+        var updated = await _dbManager.GetGameByIdAsync("NotesDb", gameId);
+        Assert.NotNull(updated);
+        Assert.Equal("Hlavná varianta - kritický 15. ťah", updated.Note);
+        Assert.Contains("[Note \"Hlavná varianta - kritický 15. ťah\"]", updated.Pgn);
+
+        // Filter by note
+        var (matched, matchedCount) = await _dbManager.SearchGamesAsync("NotesDb", new GameFilter { Note = "kritický" });
+        Assert.Equal(1, matchedCount);
+        Assert.Single(matched);
+
+        var (_, unmatchedCount) = await _dbManager.SearchGamesAsync("NotesDb", new GameFilter { Note = "neexistuje" });
+        Assert.Equal(0, unmatchedCount);
+
+        // Clear note
+        await _dbManager.UpdateGameNoteAsync("NotesDb", gameId, "   ");
+        var cleared = await _dbManager.GetGameByIdAsync("NotesDb", gameId);
+        Assert.NotNull(cleared);
+        Assert.Equal("", cleared.Note);
+        Assert.DoesNotContain("[Note ", cleared.Pgn);
+    }
+
+    [Fact]
+    public async Task ImportPgn_WithNoteHeader_PopulatesGameNote()
+    {
+        await _dbManager.CreateDatabaseAsync("ImportedNotesDb");
+
+        string pgn = @"[Event ""Study""]
+[White ""Morphy""]
+[Black ""Duke""]
+[Result ""1-0""]
+[Note ""Opera Game - model attack""]
+
+1. e4 e5 2. Nf3 d6 1-0";
+
+        await _dbManager.ImportPgnTextAsync("ImportedNotesDb", pgn);
+        var (games, _) = await _dbManager.SearchGamesAsync("ImportedNotesDb", new GameFilter());
+        Assert.Single(games);
+        Assert.Equal("Opera Game - model attack", games[0].Note);
+    }
+
+    [Fact]
+    public async Task ReorderGamesAsync_PersistsCustomDragAndDropOrder()
+    {
+        await _dbManager.CreateDatabaseAsync("ReorderDb");
+
+        string pgn = @"
+[Event ""Game 1""]
+[White ""Player1""]
+[Black ""Opponent1""]
+[Date ""2026.01.01""]
+[Result ""1-0""]
+
+1. e4 e5 1-0
+
+[Event ""Game 2""]
+[White ""Player2""]
+[Black ""Opponent2""]
+[Date ""2026.01.02""]
+[Result ""0-1""]
+
+1. d4 d5 0-1
+
+[Event ""Game 3""]
+[White ""Player3""]
+[Black ""Opponent3""]
+[Date ""2026.01.03""]
+[Result ""1/2-1/2""]
+
+1. c4 c5 1/2-1/2
+";
+
+        await _dbManager.ImportPgnTextAsync("ReorderDb", pgn);
+
+        // Default order is newest date first: Player3, Player2, Player1
+        var (initialGames, _) = await _dbManager.SearchGamesAsync("ReorderDb", new GameFilter());
+        Assert.Equal(new[] { "Player3", "Player2", "Player1" }, initialGames.Select(g => g.White).ToArray());
+
+        long id1 = initialGames.First(g => g.White == "Player1").Id;
+        long id2 = initialGames.First(g => g.White == "Player2").Id;
+        long id3 = initialGames.First(g => g.White == "Player3").Id;
+
+        // Reorder to: Player1 (1.), Player3 (2.), Player2 (3.)
+        await _dbManager.ReorderGamesAsync("ReorderDb", new[] { id1, id3, id2 });
+
+        var (reorderedGames, _) = await _dbManager.SearchGamesAsync("ReorderDb", new GameFilter());
+        Assert.Equal(new[] { "Player1", "Player3", "Player2" }, reorderedGames.Select(g => g.White).ToArray());
+        Assert.Equal(new int?[] { 1, 2, 3 }, reorderedGames.Select(g => g.SortOrder).ToArray());
+
+        // Verify GetAllGameHeadersAsync also respects custom order
+        var allHeaders = await _dbManager.GetAllGameHeadersAsync("ReorderDb");
+        Assert.Equal(new[] { "Player1", "Player3", "Player2" }, allHeaders.Select(g => g.White).ToArray());
+
+        // Adding a new game appends it at the end (sort_order = 4)
+        await _dbManager.SaveGameAsync("ReorderDb", new GameHeader
+        {
+            White = "Player4",
+            Black = "Opponent4",
+            Date = "2026.01.10",
+            Result = "1-0",
+            Note = "New study game",
+            Pgn = "1. Nf3 Nf6 1-0"
+        });
+
+        var (afterAdd, _) = await _dbManager.SearchGamesAsync("ReorderDb", new GameFilter());
+        Assert.Equal(new[] { "Player1", "Player3", "Player2", "Player4" }, afterAdd.Select(g => g.White).ToArray());
+        Assert.Equal("New study game", afterAdd[3].Note);
+    }
 }
 

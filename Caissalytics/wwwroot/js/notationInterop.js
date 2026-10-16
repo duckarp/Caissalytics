@@ -7,14 +7,15 @@ window.notationInterop = {
         }
     },
 
+    _listeners: new Map(),
     _keyboardHandler: null,
 
-    registerKeyboardListener: function (dotNetHelper) {
-        if (this._keyboardHandler) {
-            window.removeEventListener('keydown', this._keyboardHandler);
-        }
-
+    _ensureGlobalListener: function () {
+        if (this._keyboardHandler) return;
+        const self = this;
         this._keyboardHandler = function (e) {
+            if (self._listeners.size === 0) return;
+
             // Ignore if active element is an input, textarea, select, or contenteditable
             const tag = (document.activeElement && document.activeElement.tagName) ? document.activeElement.tagName.toUpperCase() : '';
             if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (document.activeElement && document.activeElement.isContentEditable)) {
@@ -33,19 +34,35 @@ window.notationInterop = {
                 e.preventDefault();
             }
 
-            dotNetHelper.invokeMethodAsync('OnGlobalKeyDown', {
+            const payload = {
                 key: e.key,
                 ctrlKey: e.ctrlKey || e.metaKey,
                 altKey: e.altKey,
                 shiftKey: e.shiftKey
-            });
-        };
+            };
 
+            for (const helper of self._listeners.values()) {
+                try {
+                    helper.invokeMethodAsync('OnGlobalKeyDown', payload);
+                } catch { }
+            }
+        };
         window.addEventListener('keydown', this._keyboardHandler);
     },
 
-    unregisterKeyboardListener: function () {
-        if (this._keyboardHandler) {
+    registerKeyboardListener: function (dotNetHelper, listenerId) {
+        const key = listenerId || 'default';
+        this._listeners.set(key, dotNetHelper);
+        this._ensureGlobalListener();
+    },
+
+    unregisterKeyboardListener: function (listenerId) {
+        if (listenerId) {
+            this._listeners.delete(listenerId);
+        } else {
+            this._listeners.clear();
+        }
+        if (this._listeners.size === 0 && this._keyboardHandler) {
             window.removeEventListener('keydown', this._keyboardHandler);
             this._keyboardHandler = null;
         }

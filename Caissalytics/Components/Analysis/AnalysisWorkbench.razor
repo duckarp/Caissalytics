@@ -220,6 +220,7 @@
 	private ElementReference _workbenchLayoutRef;
 	private IJSObjectReference? _dropModule;
 	private IJSObjectReference? _workbenchDropInstance;
+	private bool _wasActiveTab = false;
 
 	private async Task CopyFenAsync()
 	{
@@ -419,6 +420,8 @@
 
 	protected override async Task OnInitializedAsync()
 	{
+		_wasActiveTab = Workspace.ActiveTab == Tab;
+		Workspace.OnChange += HandleWorkspaceChanged;
 		Tab.Tree.PositionChanged += OnPositionChanged;
 		Loc.OnLanguageChanged += StateHasChanged;
 		AppearanceService.OnAppearanceChanged += HandleAppearanceChanged;
@@ -426,6 +429,40 @@
 		if (settings?.Shortcuts != null)
 		{
 			_shortcuts = settings.Shortcuts;
+		}
+	}
+
+	private void HandleWorkspaceChanged()
+	{
+		if (_isDisposed) return;
+
+		bool isActiveNow = Workspace.ActiveTab == Tab;
+		if (isActiveNow && !_wasActiveTab)
+		{
+			_wasActiveTab = true;
+			_ = InvokeAsync(async () =>
+			{
+				if (_isDisposed || Workspace.ActiveTab != Tab) return;
+				if (_boardRef != null)
+				{
+					var shapes = GenerateBestMoveShapes();
+					await _boardRef.SetShapesAsync(shapes);
+					await _boardRef.RedrawAsync();
+				}
+				if (Tab.IsAnalyzing)
+				{
+					await RestartEngineAnalysisAsync();
+				}
+			});
+		}
+		else if (!isActiveNow && _wasActiveTab)
+		{
+			_wasActiveTab = false;
+			try
+			{
+				_engineCts?.Cancel();
+			}
+			catch { }
 		}
 	}
 
@@ -445,7 +482,7 @@
 			_dotNetRef = DotNetObjectReference.Create(this);
 			try
 			{
-				await JS.InvokeVoidAsync("notationInterop.registerKeyboardListener", _dotNetRef);
+				await JS.InvokeVoidAsync("notationInterop.registerKeyboardListener", _dotNetRef, Tab.Id.ToString("N"));
 			}
 			catch { }
 
@@ -456,9 +493,13 @@
 			}
 			catch { }
 
-			if (Tab.IsAnalyzing)
+			if (Tab.IsAnalyzing && Workspace.ActiveTab == Tab)
 			{
 				await RestartEngineAnalysisAsync();
+			}
+			else if (_boardRef != null && Tab.CurrentEvalLines.Count > 0)
+			{
+				await _boardRef.SetShapesAsync(GenerateBestMoveShapes());
 			}
 		}
 	}
@@ -482,6 +523,12 @@
 
 	private async Task SyncBoardAndEngineAsync()
 	{
+		try
+		{
+			_engineCts?.Cancel();
+		}
+		catch { }
+
 		if (Tab.IsAnalyzing)
 		{
 			Tab.CurrentEvalLines.Clear();
@@ -497,7 +544,7 @@
 				shapes);
 		}
 
-		if (Tab.IsAnalyzing)
+		if (Tab.IsAnalyzing && Workspace.ActiveTab == Tab)
 		{
 			await RestartEngineAnalysisAsync();
 		}
@@ -602,7 +649,7 @@
 
 	private async Task RestartEngineAnalysisAsync()
 	{
-		if (_isDisposed) return;
+		if (_isDisposed || Workspace.ActiveTab != Tab) return;
 
 		try
 		{
@@ -611,7 +658,9 @@
 		}
 		catch { }
 
-		_engineCts = new CancellationTokenSource();
+		var cts = new CancellationTokenSource();
+		_engineCts = cts;
+		var token = cts.Token;
 		_lastRenderedMovesSig = null;
 		Tab.CurrentEvalLines.Clear();
 
@@ -619,35 +668,37 @@
 
 		try
 		{
-			await EngineService.StartAnalysisAsync(expectedFen, Tab.MultiPv, async lines =>
+			await EngineService.StartAnalysisAsync(expectedFen, Tab.MultiPv, lines =>
 			{
-				if (_isDisposed || !Tab.IsAnalyzing) return;
-				if (FenParser.ToFen(Tab.Tree.CurrentNode.Position) != expectedFen) return;
+				if (_isDisposed || token.IsCancellationRequested || !Tab.IsAnalyzing || Workspace.ActiveTab != Tab) return;
 
-				Tab.CurrentEvalLines = lines;
-				string currentMovesSig = string.Join(";", lines.Take(Tab.ArrowCount).Select(l => $"{l.BestMove}:{l.Centipawns}:{l.MateInMoves}"));
-
-				if (_boardRef != null && !_isDisposed && !string.Equals(currentMovesSig, _lastRenderedMovesSig, StringComparison.Ordinal))
+				_ = InvokeAsync(async () =>
 				{
-					_lastRenderedMovesSig = currentMovesSig;
-					var shapes = GenerateBestMoveShapes();
-					try
+					if (_isDisposed || token.IsCancellationRequested || !Tab.IsAnalyzing || Workspace.ActiveTab != Tab) return;
+					if (FenParser.ToFen(Tab.Tree.CurrentNode.Position) != expectedFen) return;
+
+					Tab.CurrentEvalLines = lines;
+					string currentMovesSig = string.Join(";", lines.Take(Tab.ArrowCount).Select(l => $"{l.BestMove}:{l.Centipawns}:{l.MateInMoves}"));
+
+					if (_boardRef != null && !string.Equals(currentMovesSig, _lastRenderedMovesSig, StringComparison.Ordinal))
 					{
-						await _boardRef.SetShapesAsync(shapes);
+						_lastRenderedMovesSig = currentMovesSig;
+						var shapes = GenerateBestMoveShapes();
+						try
+						{
+							await _boardRef.SetShapesAsync(shapes);
+						}
+						catch (ObjectDisposedException) { }
 					}
-					catch (ObjectDisposedException) { }
-				}
 
-				if (!_isDisposed)
-				{
 					try
 					{
-						await InvokeAsync(StateHasChanged);
+						StateHasChanged();
 					}
 					catch (ObjectDisposedException) { }
 					catch (InvalidOperationException) { }
-				}
-			}, Tab.MaxDepth, _engineCts.Token);
+				});
+			}, Tab.MaxDepth, token);
 		}
 		catch (OperationCanceledException) { }
 	}
@@ -765,6 +816,8 @@
 	[JSInvokable]
 	public void OnGlobalKeyDown(KeyEventDto e)
 	{
+		if (_isDisposed || Workspace.ActiveTab != Tab) return;
+		if (_showSaveModal || _showLoadModal || _showPlayVsPcModal || _showBoardEditorModal) return;
 		ProcessShortcut(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey);
 	}
 
@@ -835,12 +888,13 @@
 	public void Dispose()
 	{
 		_isDisposed = true;
+		Workspace.OnChange -= HandleWorkspaceChanged;
 		Tab.Tree.PositionChanged -= OnPositionChanged;
 		Loc.OnLanguageChanged -= StateHasChanged;
 		AppearanceService.OnAppearanceChanged -= HandleAppearanceChanged;
 		try
 		{
-			_ = JS.InvokeVoidAsync("notationInterop.unregisterKeyboardListener");
+			_ = JS.InvokeVoidAsync("notationInterop.unregisterKeyboardListener", Tab.Id.ToString("N"));
 		}
 		catch { }
 		if (_workbenchDropInstance != null)
@@ -860,6 +914,9 @@
 			_engineCts?.Dispose();
 		}
 		catch { }
-		_ = EngineService.StopAnalysisAsync();
+		if (_wasActiveTab && Tab.IsAnalyzing)
+		{
+			_ = EngineService.StopAnalysisAsync();
+		}
 	}
 }

@@ -467,6 +467,67 @@
   background-color: rgba(59, 130, 246, 0.09);
 }
 
+.db-game-row.row-dragging {
+  opacity: 0.45;
+  background-color: var(--bg-surface-hover);
+}
+
+.db-game-row.row-drag-over-top td {
+  border-top: 2px solid var(--accent-blue);
+}
+
+.db-game-row.row-drag-over-bottom td {
+  border-bottom: 2px solid var(--accent-blue);
+}
+
+.col-index {
+  width: 58px;
+  min-width: 52px;
+  padding: 6px 8px 6px 12px;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.db-row-index-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.db-row-drag-handle {
+  cursor: grab;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1;
+  padding: 2px 3px;
+  border-radius: 3px;
+  opacity: 0.55;
+  transition: opacity var(--transition-fast), color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.db-game-row:hover .db-row-drag-handle,
+.db-row-drag-handle:focus-visible {
+  opacity: 1;
+  color: var(--text-primary);
+  background-color: var(--bg-surface-elevated);
+}
+
+.db-row-drag-handle.dragging,
+.db-row-drag-handle:active {
+  cursor: grabbing;
+}
+
+.db-row-number {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 22px;
+}
+
 .col-players.player-name-user {
   color: var(--accent-blue);
   font-weight: 600;
@@ -570,7 +631,7 @@
 .col-players {
   font-weight: 600;
   color: var(--text-primary);
-  min-width: 220px;
+  min-width: 180px;
 }
 
 .col-elo {
@@ -646,10 +707,92 @@
 
 .col-event {
   color: var(--text-secondary);
-  max-width: 180px;
+  max-width: 160px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.col-note {
+  min-width: 140px;
+  max-width: 240px;
+}
+
+.db-note-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background-color: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+}
+
+.db-note-badge:hover {
+  background-color: rgba(59, 130, 246, 0.22);
+  border-color: var(--accent-blue);
+}
+
+.db-note-tag-icon {
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.db-note-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.db-note-add-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px dashed var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0.65;
+  transition: opacity var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.db-game-row:hover .db-note-add-btn,
+.db-note-add-btn:focus-visible {
+  opacity: 1;
+}
+
+.db-note-add-btn:hover {
+  color: var(--accent-blue);
+  border-color: var(--accent-blue);
+  background-color: rgba(59, 130, 246, 0.08);
+}
+
+.db-note-edit-wrapper {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.db-note-input {
+  width: 100%;
+  min-width: 120px;
+  height: 26px;
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--text-primary);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--accent-blue);
+  border-radius: 4px;
+  outline: none;
+  box-sizing: border-box;
 }
 
 .col-moves {

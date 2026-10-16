@@ -54,7 +54,8 @@ export function initBoard(elementId, dotNetHelper, config) {
     },
     drawable: {
       enabled: true,
-      visible: true
+      visible: true,
+      autoShapes: config.shapes || []
     }
   };
 
@@ -62,14 +63,14 @@ export function initBoard(elementId, dotNetHelper, config) {
   boards.set(elementId, { cg, dotNetHelper });
 }
 
-export function updateBoard(elementId, fen, orientation, turnColor, dests, lastMove, check) {
+export function updateBoard(elementId, fen, orientation, turnColor, dests, lastMove, check, shapes) {
   const instance = boards.get(elementId);
   if (!instance) return;
 
   const destsMap = convertDests(dests);
   const formattedLastMove = lastMove && lastMove.length === 2 ? lastMove : undefined;
 
-  instance.cg.set({
+  const patch = {
     fen: fen,
     orientation: orientation || 'white',
     turnColor: turnColor || 'white',
@@ -79,7 +80,13 @@ export function updateBoard(elementId, fen, orientation, turnColor, dests, lastM
       color: turnColor || 'white',
       dests: destsMap
     }
-  });
+  };
+
+  if (shapes !== undefined && shapes !== null) {
+    patch.drawable = { autoShapes: shapes };
+  }
+
+  instance.cg.set(patch);
 }
 
 export function drawShapes(elementId, shapes) {
@@ -94,6 +101,10 @@ export function redrawBoard(elementId) {
   if (!instance) return;
   window.requestAnimationFrame(() => {
     window.dispatchEvent(new Event('resize'));
+    if (instance.cg && instance.cg.state && instance.cg.state.dom) {
+      instance.cg.state.dom.bounds.clear();
+      instance.cg.state.dom.redrawNow();
+    }
   });
 }
 

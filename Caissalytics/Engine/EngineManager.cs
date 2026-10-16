@@ -18,6 +18,7 @@ public class EngineManager : IEngineService, IDisposable
     private UciProcessClient? _activeClient;
     private readonly HttpClient _httpClient;
     private readonly object _lock = new();
+    private readonly SemaphoreSlim _clientInitGate = new(1, 1);
 
     public event Action? OnEnginesChanged;
     public event Action<StockfishUpdateInfo>? OnStockfishUpdateChanged;
@@ -732,24 +733,37 @@ public class EngineManager : IEngineService, IDisposable
         if (engine == null || !engine.IsInstalled || string.IsNullOrEmpty(engine.ExecutablePath))
             return;
 
-        if (_activeClient == null || !_activeClient.IsRunning)
+        UciProcessClient? client;
+        await _clientInitGate.WaitAsync(ct);
+        try
         {
-            _activeClient?.Dispose();
-            _activeClient = new UciProcessClient();
-            bool started = await _activeClient.StartEngineAsync(engine.ExecutablePath);
-            if (!started) return;
-
-            if (!string.IsNullOrWhiteSpace(_syzygyPath))
+            if (_activeClient == null || !_activeClient.IsRunning)
             {
-                try
+                _activeClient?.Dispose();
+                _activeClient = new UciProcessClient();
+                bool started = await _activeClient.StartEngineAsync(engine.ExecutablePath);
+                if (!started) return;
+
+                if (!string.IsNullOrWhiteSpace(_syzygyPath))
                 {
-                    await _activeClient.SetOptionAsync("SyzygyPath", _syzygyPath);
+                    try
+                    {
+                        await _activeClient.SetOptionAsync("SyzygyPath", _syzygyPath);
+                    }
+                    catch { }
                 }
-                catch { }
             }
+            client = _activeClient;
+        }
+        finally
+        {
+            _clientInitGate.Release();
         }
 
-        await _activeClient.StartAnalysisAsync(fen, multiPv, onUpdate, maxDepth);
+        if (client != null && !ct.IsCancellationRequested)
+        {
+            await client.StartAnalysisAsync(fen, multiPv, onUpdate, maxDepth);
+        }
     }
 
     public async Task StopAnalysisAsync()

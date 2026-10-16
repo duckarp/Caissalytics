@@ -20,6 +20,7 @@ public class UciProcessClient : IDisposable
     private bool _hasPendingDispatch = false;
     private TaskCompletionSource<bool>? _readyTcs;
     private int _analysisSearchId = 0;
+    private readonly SemaphoreSlim _commandGate = new(1, 1);
 
     public bool IsRunning => _process != null && !_process.HasExited;
 
@@ -82,34 +83,54 @@ public class UciProcessClient : IDisposable
         }
 
         await SendCommandAsync("stop");
-        await WaitReadyAsync(500);
 
-        lock (_lock)
+        await _commandGate.WaitAsync();
+        try
         {
-            if (_analysisSearchId != searchId)
+            if (_process == null || _process.HasExited || _stdin == null)
                 return;
 
-            _currentLines.Clear();
-            _lastDispatchedDepth = 0;
-            _lastDispatchTimestamp = 0;
-            _onUpdate = onUpdate;
-        }
+            lock (_lock)
+            {
+                if (_analysisSearchId != searchId)
+                    return;
+            }
 
-        // Determine side to move from FEN for score normalization
-        var parts = fen.Trim().Split(' ');
-        _sideToMove = parts.Length > 1 && parts[1].Equals("b", StringComparison.OrdinalIgnoreCase)
-            ? PieceColor.Black
-            : PieceColor.White;
+            await SendCommandAsync("stop");
+            await WaitReadyAsync(500);
 
-        await SendCommandAsync($"setoption name MultiPV value {Math.Max(1, Math.Min(5, multiPv))}");
-        await SendCommandAsync($"position fen {fen}");
-        if (maxDepth > 0)
-        {
-            await SendCommandAsync($"go depth {maxDepth}");
+            // Determine side to move from FEN for score normalization
+            var parts = fen.Trim().Split(' ');
+            var sideToMove = parts.Length > 1 && parts[1].Equals("b", StringComparison.OrdinalIgnoreCase)
+                ? PieceColor.Black
+                : PieceColor.White;
+
+            lock (_lock)
+            {
+                if (_analysisSearchId != searchId)
+                    return;
+
+                _currentLines.Clear();
+                _lastDispatchedDepth = 0;
+                _lastDispatchTimestamp = 0;
+                _sideToMove = sideToMove;
+                _onUpdate = onUpdate;
+            }
+
+            await SendCommandAsync($"setoption name MultiPV value {Math.Max(1, Math.Min(5, multiPv))}");
+            await SendCommandAsync($"position fen {fen}");
+            if (maxDepth > 0)
+            {
+                await SendCommandAsync($"go depth {maxDepth}");
+            }
+            else
+            {
+                await SendCommandAsync("go infinite");
+            }
         }
-        else
+        finally
         {
-            await SendCommandAsync("go infinite");
+            _commandGate.Release();
         }
     }
 
