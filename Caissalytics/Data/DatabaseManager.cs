@@ -641,7 +641,7 @@ public class DatabaseManager : IDatabaseService
         using (var gameCmd = conn.CreateCommand())
         {
             gameCmd.CommandText = @"
-                SELECT DISTINCT g.id, g.white, g.black, g.white_elo, g.black_elo, g.result, g.date, g.event, g.site, g.round, g.eco, g.ply_count, g.pgn, g.note, g.sort_order
+                SELECT DISTINCT g.id, g.white, g.black, g.white_elo, g.black_elo, g.result, g.date, g.event, g.site, g.round, g.eco, g.ply_count, g.pgn, g.note, g.sort_order, g.folder_id
                 FROM positions p
                 JOIN games g ON g.id = p.game_id
                 WHERE p.zobrist_key = $zobrist
@@ -689,7 +689,7 @@ public class DatabaseManager : IDatabaseService
         using (var queryCmd = conn.CreateCommand())
         {
             queryCmd.CommandText = $@"
-                SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn, note, sort_order
+                SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn, note, sort_order, folder_id
                 FROM games
                 WHERE {whereSql}
                 ORDER BY CASE WHEN sort_order IS NOT NULL THEN 0 ELSE 1 END, sort_order ASC, date DESC, id DESC
@@ -886,6 +886,24 @@ public class DatabaseManager : IDatabaseService
             parameters.Add(new SqliteParameter("$zobrist", signedKey));
         }
 
+        if (filter.FilterByFolder)
+        {
+            if (filter.FolderId.HasValue)
+            {
+                whereClauses.Add("folder_id = $folderId");
+                parameters.Add(new SqliteParameter("$folderId", filter.FolderId.Value));
+            }
+            else
+            {
+                whereClauses.Add("folder_id IS NULL");
+            }
+        }
+        else if (filter.FolderId.HasValue)
+        {
+            whereClauses.Add("folder_id = $folderId");
+            parameters.Add(new SqliteParameter("$folderId", filter.FolderId.Value));
+        }
+
         return string.Join(" AND ", whereClauses);
     }
 
@@ -915,7 +933,7 @@ public class DatabaseManager : IDatabaseService
                     await conn.OpenAsync();
                     using var cmd = conn.CreateCommand();
                     cmd.CommandText = @"
-                        SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn, note, sort_order
+                        SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn, note, sort_order, folder_id
                         FROM games
                         ORDER BY CASE WHEN sort_order IS NOT NULL THEN 0 ELSE 1 END, sort_order ASC, date DESC, id DESC;";
                     using var reader = await cmd.ExecuteReaderAsync();
@@ -940,7 +958,7 @@ public class DatabaseManager : IDatabaseService
             await conn.OpenAsync();
             using var cmd = conn.CreateCommand();
             cmd.CommandText = @"
-                SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn, note, sort_order
+                SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn, note, sort_order, folder_id
                 FROM games
                 ORDER BY CASE WHEN sort_order IS NOT NULL THEN 0 ELSE 1 END, sort_order ASC, date DESC, id DESC;";
             using var reader = await cmd.ExecuteReaderAsync();
@@ -966,7 +984,7 @@ public class DatabaseManager : IDatabaseService
 
         using var cmd = conn.CreateCommand();
         cmd.CommandText = @"
-            SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn, note, sort_order
+            SELECT id, white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn, note, sort_order, folder_id
             FROM games
             WHERE id = $id;";
         cmd.Parameters.AddWithValue("$id", gameId);
@@ -1019,7 +1037,7 @@ public class DatabaseManager : IDatabaseService
                 UPDATE games 
                 SET white = $white, black = $black, white_elo = $white_elo, black_elo = $black_elo,
                     result = $result, date = $date, event = $event, site = $site, round = $round,
-                    eco = $eco, ply_count = $ply_count, pgn = $pgn, note = $note
+                    eco = $eco, ply_count = $ply_count, pgn = $pgn, note = $note, folder_id = $folder_id
                 WHERE id = $id;";
             updateGameCmd.Parameters.AddWithValue("$id", gameId);
             updateGameCmd.Parameters.AddWithValue("$white", game.White);
@@ -1035,6 +1053,7 @@ public class DatabaseManager : IDatabaseService
             updateGameCmd.Parameters.AddWithValue("$ply_count", game.PlyCount);
             updateGameCmd.Parameters.AddWithValue("$pgn", game.Pgn);
             updateGameCmd.Parameters.AddWithValue("$note", effectiveNote);
+            updateGameCmd.Parameters.AddWithValue("$folder_id", (object?)game.FolderId ?? DBNull.Value);
             await updateGameCmd.ExecuteNonQueryAsync();
         }
         else
@@ -1055,8 +1074,8 @@ public class DatabaseManager : IDatabaseService
             using var insertGameCmd = conn.CreateCommand();
             insertGameCmd.Transaction = tx;
             insertGameCmd.CommandText = @"
-                INSERT INTO games (white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn, note, sort_order)
-                VALUES ($white, $black, $white_elo, $black_elo, $result, $date, $event, $site, $round, $eco, $ply_count, $pgn, $note, $sort_order);
+                INSERT INTO games (white, black, white_elo, black_elo, result, date, event, site, round, eco, ply_count, pgn, note, sort_order, folder_id)
+                VALUES ($white, $black, $white_elo, $black_elo, $result, $date, $event, $site, $round, $eco, $ply_count, $pgn, $note, $sort_order, $folder_id);
                 SELECT last_insert_rowid();";
             insertGameCmd.Parameters.AddWithValue("$white", game.White);
             insertGameCmd.Parameters.AddWithValue("$black", game.Black);
@@ -1072,6 +1091,7 @@ public class DatabaseManager : IDatabaseService
             insertGameCmd.Parameters.AddWithValue("$pgn", game.Pgn);
             insertGameCmd.Parameters.AddWithValue("$note", effectiveNote);
             insertGameCmd.Parameters.AddWithValue("$sort_order", (object?)nextSortOrder ?? DBNull.Value);
+            insertGameCmd.Parameters.AddWithValue("$folder_id", (object?)game.FolderId ?? DBNull.Value);
             gameId = (long)(await insertGameCmd.ExecuteScalarAsync() ?? 0L);
         }
 
@@ -1253,6 +1273,380 @@ public class DatabaseManager : IDatabaseService
 
         await tx.CommitAsync();
         OnDatabaseModified?.Invoke(dbName);
+    }
+
+    public async Task<List<GameFolder>> GetFoldersAsync(string databaseName)
+    {
+        string dbName = string.IsNullOrWhiteSpace(databaseName) ? _activeDatabaseName : databaseName;
+        string path = GetDbPath(dbName);
+        if (!File.Exists(path)) return new List<GameFolder>();
+
+        await InitializeSchemaAsync(path);
+
+        var folders = new List<GameFolder>();
+        var directCounts = new Dictionary<long, int>();
+
+        using (var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly"))
+        {
+            await conn.OpenAsync();
+
+            using (var folderCmd = conn.CreateCommand())
+            {
+                folderCmd.CommandText = @"
+                    SELECT id, name, parent_id, COALESCE(sort_order, 0)
+                    FROM folders
+                    ORDER BY COALESCE(sort_order, 0) ASC, name COLLATE NOCASE ASC, id ASC;";
+                using var reader = await folderCmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    folders.Add(new GameFolder
+                    {
+                        Id = reader.GetInt64(0),
+                        Name = reader.GetString(1),
+                        ParentId = reader.IsDBNull(2) ? null : reader.GetInt64(2),
+                        SortOrder = reader.GetInt32(3)
+                    });
+                }
+            }
+
+            if (folders.Count > 0)
+            {
+                using var countCmd = conn.CreateCommand();
+                countCmd.CommandText = @"
+                    SELECT folder_id, COUNT(*)
+                    FROM games
+                    WHERE folder_id IS NOT NULL
+                    GROUP BY folder_id;";
+                using var countReader = await countCmd.ExecuteReaderAsync();
+                while (await countReader.ReadAsync())
+                {
+                    directCounts[countReader.GetInt64(0)] = countReader.GetInt32(1);
+                }
+            }
+        }
+
+        var folderMap = folders.ToDictionary(f => f.Id);
+
+        foreach (var f in folders)
+        {
+            f.DirectGameCount = directCounts.GetValueOrDefault(f.Id, 0);
+            f.SubfolderCount = folders.Count(c => c.ParentId == f.Id);
+
+            // Compute full path ("Parent / Child") with cycle guard
+            var parts = new List<string>();
+            var visited = new HashSet<long>();
+            GameFolder? current = f;
+            while (current != null && visited.Add(current.Id))
+            {
+                parts.Add(current.Name);
+                current = current.ParentId.HasValue && folderMap.TryGetValue(current.ParentId.Value, out var parent)
+                    ? parent
+                    : null;
+            }
+            parts.Reverse();
+            f.Path = string.Join(" / ", parts);
+        }
+
+        int ComputeTotalGames(long folderId, HashSet<long> visited)
+        {
+            if (!visited.Add(folderId) || !folderMap.TryGetValue(folderId, out var folder))
+                return 0;
+
+            int total = folder.DirectGameCount;
+            foreach (var child in folders.Where(c => c.ParentId == folderId))
+            {
+                total += ComputeTotalGames(child.Id, visited);
+            }
+            return total;
+        }
+
+        foreach (var f in folders)
+        {
+            f.TotalGameCount = ComputeTotalGames(f.Id, new HashSet<long>());
+        }
+
+        return folders;
+    }
+
+    public async Task<GameFolder> CreateFolderAsync(string databaseName, string name, long? parentFolderId = null)
+    {
+        string dbName = string.IsNullOrWhiteSpace(databaseName) ? _activeDatabaseName : databaseName;
+        string path = GetDbPath(dbName);
+        await InitializeSchemaAsync(path);
+
+        string cleanName = string.IsNullOrWhiteSpace(name) ? "New Folder" : name.Trim();
+
+        using var conn = new SqliteConnection($"Data Source={path}");
+        await conn.OpenAsync();
+
+        long? validParentId = null;
+        if (parentFolderId.HasValue)
+        {
+            using var checkParent = conn.CreateCommand();
+            checkParent.CommandText = "SELECT EXISTS(SELECT 1 FROM folders WHERE id = $pid);";
+            checkParent.Parameters.AddWithValue("$pid", parentFolderId.Value);
+            if (Convert.ToInt32(await checkParent.ExecuteScalarAsync() ?? 0) != 0)
+            {
+                validParentId = parentFolderId.Value;
+            }
+        }
+
+        int nextSortOrder = 1;
+        using (var maxCmd = conn.CreateCommand())
+        {
+            maxCmd.CommandText = validParentId.HasValue
+                ? "SELECT COALESCE(MAX(sort_order), 0) + 1 FROM folders WHERE parent_id = $pid;"
+                : "SELECT COALESCE(MAX(sort_order), 0) + 1 FROM folders WHERE parent_id IS NULL;";
+            if (validParentId.HasValue)
+            {
+                maxCmd.Parameters.AddWithValue("$pid", validParentId.Value);
+            }
+            nextSortOrder = Convert.ToInt32(await maxCmd.ExecuteScalarAsync() ?? 1);
+        }
+
+        long newId;
+        using (var insCmd = conn.CreateCommand())
+        {
+            insCmd.CommandText = @"
+                INSERT INTO folders (name, parent_id, sort_order)
+                VALUES ($name, $parent_id, $sort_order);
+                SELECT last_insert_rowid();";
+            insCmd.Parameters.AddWithValue("$name", cleanName);
+            insCmd.Parameters.AddWithValue("$parent_id", (object?)validParentId ?? DBNull.Value);
+            insCmd.Parameters.AddWithValue("$sort_order", nextSortOrder);
+            newId = (long)(await insCmd.ExecuteScalarAsync() ?? 0L);
+        }
+
+        OnDatabaseModified?.Invoke(dbName);
+
+        var allFolders = await GetFoldersAsync(dbName);
+        return allFolders.FirstOrDefault(f => f.Id == newId) ?? new GameFolder
+        {
+            Id = newId,
+            Name = cleanName,
+            ParentId = validParentId,
+            SortOrder = nextSortOrder,
+            Path = cleanName
+        };
+    }
+
+    public async Task<bool> RenameFolderAsync(string databaseName, long folderId, string newName)
+    {
+        if (string.IsNullOrWhiteSpace(newName)) return false;
+
+        string dbName = string.IsNullOrWhiteSpace(databaseName) ? _activeDatabaseName : databaseName;
+        string path = GetDbPath(dbName);
+        if (!File.Exists(path)) return false;
+
+        await InitializeSchemaAsync(path);
+
+        using var conn = new SqliteConnection($"Data Source={path}");
+        await conn.OpenAsync();
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE folders SET name = $name WHERE id = $id;";
+        cmd.Parameters.AddWithValue("$name", newName.Trim());
+        cmd.Parameters.AddWithValue("$id", folderId);
+        int rows = await cmd.ExecuteNonQueryAsync();
+
+        if (rows > 0)
+        {
+            OnDatabaseModified?.Invoke(dbName);
+            return true;
+        }
+        return false;
+    }
+
+    public async Task<bool> MoveFolderAsync(string databaseName, long folderId, long? targetParentFolderId)
+    {
+        if (targetParentFolderId.HasValue && targetParentFolderId.Value == folderId)
+        {
+            return false;
+        }
+
+        string dbName = string.IsNullOrWhiteSpace(databaseName) ? _activeDatabaseName : databaseName;
+        string path = GetDbPath(dbName);
+        if (!File.Exists(path)) return false;
+
+        var folders = await GetFoldersAsync(dbName);
+        var folderMap = folders.ToDictionary(f => f.Id);
+        if (!folderMap.ContainsKey(folderId)) return false;
+
+        if (targetParentFolderId.HasValue)
+        {
+            if (!folderMap.ContainsKey(targetParentFolderId.Value)) return false;
+
+            // Cycle check: ensure targetParentFolderId is not a descendant of folderId
+            long? cursor = targetParentFolderId;
+            var visited = new HashSet<long>();
+            while (cursor.HasValue && visited.Add(cursor.Value))
+            {
+                if (cursor.Value == folderId) return false;
+                cursor = folderMap.TryGetValue(cursor.Value, out var parentFolder) ? parentFolder.ParentId : null;
+            }
+        }
+
+        using var conn = new SqliteConnection($"Data Source={path}");
+        await conn.OpenAsync();
+
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE folders SET parent_id = $parent_id WHERE id = $id;";
+        cmd.Parameters.AddWithValue("$parent_id", (object?)targetParentFolderId ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$id", folderId);
+        int rows = await cmd.ExecuteNonQueryAsync();
+
+        if (rows > 0)
+        {
+            OnDatabaseModified?.Invoke(dbName);
+            return true;
+        }
+        return false;
+    }
+
+    public async Task<bool> DeleteFolderAsync(string databaseName, long folderId)
+    {
+        string dbName = string.IsNullOrWhiteSpace(databaseName) ? _activeDatabaseName : databaseName;
+        string path = GetDbPath(dbName);
+        if (!File.Exists(path)) return false;
+
+        await InitializeSchemaAsync(path);
+
+        using var conn = new SqliteConnection($"Data Source={path}");
+        await conn.OpenAsync();
+        using var tx = conn.BeginTransaction();
+
+        long? parentId = null;
+        bool exists = false;
+        using (var getCmd = conn.CreateCommand())
+        {
+            getCmd.Transaction = tx;
+            getCmd.CommandText = "SELECT parent_id FROM folders WHERE id = $id;";
+            getCmd.Parameters.AddWithValue("$id", folderId);
+            using var reader = await getCmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                exists = true;
+                parentId = reader.IsDBNull(0) ? null : reader.GetInt64(0);
+            }
+        }
+
+        if (!exists)
+        {
+            tx.Rollback();
+            return false;
+        }
+
+        // Re-parent child folders and games to the deleted folder's parent so no games or subfolders are lost
+        using (var reparentFoldersCmd = conn.CreateCommand())
+        {
+            reparentFoldersCmd.Transaction = tx;
+            reparentFoldersCmd.CommandText = "UPDATE folders SET parent_id = $newParent WHERE parent_id = $id;";
+            reparentFoldersCmd.Parameters.AddWithValue("$newParent", (object?)parentId ?? DBNull.Value);
+            reparentFoldersCmd.Parameters.AddWithValue("$id", folderId);
+            await reparentFoldersCmd.ExecuteNonQueryAsync();
+        }
+
+        using (var reparentGamesCmd = conn.CreateCommand())
+        {
+            reparentGamesCmd.Transaction = tx;
+            reparentGamesCmd.CommandText = "UPDATE games SET folder_id = $newParent WHERE folder_id = $id;";
+            reparentGamesCmd.Parameters.AddWithValue("$newParent", (object?)parentId ?? DBNull.Value);
+            reparentGamesCmd.Parameters.AddWithValue("$id", folderId);
+            await reparentGamesCmd.ExecuteNonQueryAsync();
+        }
+
+        using (var delCmd = conn.CreateCommand())
+        {
+            delCmd.Transaction = tx;
+            delCmd.CommandText = "DELETE FROM folders WHERE id = $id;";
+            delCmd.Parameters.AddWithValue("$id", folderId);
+            await delCmd.ExecuteNonQueryAsync();
+        }
+
+        await tx.CommitAsync();
+        OnDatabaseModified?.Invoke(dbName);
+        return true;
+    }
+
+    public async Task MoveGameToFolderAsync(string databaseName, long gameId, long? folderId)
+    {
+        await MoveGamesAsync(databaseName, new[] { gameId }, databaseName, folderId);
+    }
+
+    public async Task MoveGamesAsync(string sourceDbName, IReadOnlyList<long> gameIds, string targetDbName, long? targetFolderId)
+    {
+        if (gameIds == null || gameIds.Count == 0) return;
+
+        string src = string.IsNullOrWhiteSpace(sourceDbName) ? _activeDatabaseName : sourceDbName;
+        string dst = string.IsNullOrWhiteSpace(targetDbName) ? src : targetDbName;
+
+        if (string.Equals(dst, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(src, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidOperationException("Cannot manually move games into the protected online games database.");
+        }
+
+        if (string.Equals(src, dst, StringComparison.OrdinalIgnoreCase))
+        {
+            string path = GetDbPath(src);
+            if (!File.Exists(path)) return;
+
+            await InitializeSchemaAsync(path);
+
+            using var conn = new SqliteConnection($"Data Source={path}");
+            await conn.OpenAsync();
+
+            if (targetFolderId.HasValue)
+            {
+                using var checkCmd = conn.CreateCommand();
+                checkCmd.CommandText = "SELECT EXISTS(SELECT 1 FROM folders WHERE id = $fid);";
+                checkCmd.Parameters.AddWithValue("$fid", targetFolderId.Value);
+                if (Convert.ToInt32(await checkCmd.ExecuteScalarAsync() ?? 0) == 0)
+                {
+                    return;
+                }
+            }
+
+            using var tx = conn.BeginTransaction();
+            using var updateCmd = conn.CreateCommand();
+            updateCmd.Transaction = tx;
+            updateCmd.CommandText = "UPDATE games SET folder_id = $folder_id WHERE id = $id;";
+            updateCmd.Parameters.AddWithValue("$folder_id", (object?)targetFolderId ?? DBNull.Value);
+            var idParam = updateCmd.Parameters.Add("$id", SqliteType.Integer);
+
+            foreach (var id in gameIds)
+            {
+                idParam.Value = id;
+                await updateCmd.ExecuteNonQueryAsync();
+            }
+
+            await tx.CommitAsync();
+            OnDatabaseModified?.Invoke(src);
+        }
+        else
+        {
+            // Inter-database transfer: clone to destination, then delete from source
+            string dstPath = GetDbPath(dst);
+            if (!File.Exists(dstPath))
+            {
+                await CreateDatabaseAsync(dst);
+            }
+
+            foreach (var id in gameIds)
+            {
+                var header = await GetGameByIdAsync(src, id);
+                if (header != null)
+                {
+                    header.Id = 0;
+                    header.FolderId = targetFolderId;
+                    await SaveGameAsync(dst, header);
+                    await DeleteGameAsync(src, id);
+                }
+            }
+
+            OnDatabaseModified?.Invoke(src);
+            OnDatabaseModified?.Invoke(dst);
+        }
     }
 
     public async Task<bool> DeleteGameAsync(string databaseName, long gameId)
@@ -1485,6 +1879,15 @@ public class DatabaseManager : IDatabaseService
             PRAGMA journal_mode = WAL;
             PRAGMA synchronous = NORMAL;
 
+            CREATE TABLE IF NOT EXISTS folders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                parent_id INTEGER,
+                sort_order INTEGER DEFAULT 0
+            );
+
+            CREATE INDEX IF NOT EXISTS idx_folders_parent ON folders(parent_id);
+
             CREATE TABLE IF NOT EXISTS games (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 white TEXT NOT NULL,
@@ -1500,7 +1903,8 @@ public class DatabaseManager : IDatabaseService
                 ply_count INTEGER DEFAULT 0,
                 pgn TEXT NOT NULL,
                 note TEXT DEFAULT '',
-                sort_order INTEGER
+                sort_order INTEGER,
+                folder_id INTEGER
             );
 
             CREATE INDEX IF NOT EXISTS idx_games_white ON games(white);
@@ -1532,6 +1936,19 @@ public class DatabaseManager : IDatabaseService
 
     internal static async Task EnsureGameColumnsAsync(SqliteConnection conn, CancellationToken cancellationToken = default)
     {
+        using (var folderTableCmd = conn.CreateCommand())
+        {
+            folderTableCmd.CommandText = @"
+                CREATE TABLE IF NOT EXISTS folders (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    parent_id INTEGER,
+                    sort_order INTEGER DEFAULT 0
+                );
+                CREATE INDEX IF NOT EXISTS idx_folders_parent ON folders(parent_id);";
+            await folderTableCmd.ExecuteNonQueryAsync(cancellationToken);
+        }
+
         var existingCols = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         using (var infoCmd = conn.CreateCommand())
         {
@@ -1565,8 +1982,17 @@ public class DatabaseManager : IDatabaseService
             await alterSort.ExecuteNonQueryAsync(cancellationToken);
         }
 
+        if (!existingCols.Contains("folder_id"))
+        {
+            using var alterFolder = conn.CreateCommand();
+            alterFolder.CommandText = "ALTER TABLE games ADD COLUMN folder_id INTEGER;";
+            await alterFolder.ExecuteNonQueryAsync(cancellationToken);
+        }
+
         using var idxCmd = conn.CreateCommand();
-        idxCmd.CommandText = "CREATE INDEX IF NOT EXISTS idx_games_sort_order ON games(sort_order);";
+        idxCmd.CommandText = @"
+            CREATE INDEX IF NOT EXISTS idx_games_sort_order ON games(sort_order);
+            CREATE INDEX IF NOT EXISTS idx_games_folder_id ON games(folder_id);";
         await idxCmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
@@ -1658,6 +2084,7 @@ public class DatabaseManager : IDatabaseService
         }
 
         int? sortOrder = reader.FieldCount > 14 && !reader.IsDBNull(14) ? reader.GetInt32(14) : null;
+        long? folderId = reader.FieldCount > 15 && !reader.IsDBNull(15) ? reader.GetInt64(15) : null;
 
         return new GameHeader
         {
@@ -1675,7 +2102,8 @@ public class DatabaseManager : IDatabaseService
             PlyCount = reader.IsDBNull(11) ? 0 : reader.GetInt32(11),
             Pgn = pgn,
             Note = note,
-            SortOrder = sortOrder
+            SortOrder = sortOrder,
+            FolderId = folderId
         };
     }
 }

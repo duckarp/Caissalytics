@@ -347,6 +347,15 @@
 			await EngineService.StopAnalysisAsync();
 			Tab.CurrentEvalLines.Clear();
 
+			if (EngineService.PreserveEngineState)
+			{
+				Tab.IsAnalyzing = EngineService.LastEngineRunningState;
+			}
+			else
+			{
+				Tab.IsAnalyzing = false;
+			}
+
 			var newTree = PgnHandler.ImportPgn(result.Pgn);
 
 			Tab.Tree.PositionChanged -= OnPositionChanged;
@@ -599,6 +608,7 @@
 	private async Task HandleAnalyzingToggled(bool analyzing)
 	{
 		Tab.IsAnalyzing = analyzing;
+		await EngineService.SetLastEngineRunningStateAsync(analyzing);
 		if (analyzing)
 		{
 			await RestartEngineAnalysisAsync();
@@ -845,9 +855,17 @@
 		{
 			HandleFirst();
 		}
-		else if (_shortcuts.LastMove.Matches(key, ctrl, alt, shift))
+		else if (_shortcuts.FlipBoard.Matches(key, ctrl, alt, shift))
 		{
-			HandleLast();
+			if (_boardRef != null)
+			{
+				_ = _boardRef.ToggleOrientation();
+			}
+			else
+			{
+				Tab.Orientation = Tab.Orientation == "white" ? "black" : "white";
+				StateHasChanged();
+			}
 		}
 		else if (_shortcuts.CloseTab.Matches(key, ctrl, alt, shift))
 		{

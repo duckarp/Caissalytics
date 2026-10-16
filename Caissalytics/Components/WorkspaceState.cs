@@ -396,10 +396,12 @@ public class WorkspaceState
     public WorkspaceTab ActiveTab { get; private set; }
     public event Action? OnChange;
 
+    private readonly IEngineService? _engineService;
     private bool _isRestoring = false;
 
-    public WorkspaceState()
+    public WorkspaceState(IEngineService? engineService = null)
     {
+        _engineService = engineService;
         var dashboard = new DashboardTab();
         Tabs.Add(dashboard);
         ActiveTab = dashboard;
@@ -443,6 +445,10 @@ public class WorkspaceState
         string finalTitle = title ?? $"Analysis {analysisCount}";
 
         var tab = new AnalysisTab(finalTitle, pgn, startFen, targetDatabase, databaseGameId);
+        if (_engineService != null && _engineService.PreserveEngineState)
+        {
+            tab.IsAnalyzing = _engineService.LastEngineRunningState;
+        }
         RegisterTab(tab);
         Tabs.Add(tab);
         ActiveTab = tab;

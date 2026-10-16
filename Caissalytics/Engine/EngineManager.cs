@@ -15,6 +15,8 @@ public class EngineManager : IEngineService, IDisposable
     private readonly List<EngineInfo> _engines = new();
     private string _activeEngineId = "stockfish-17";
     private string? _syzygyPath;
+    private bool _preserveEngineState = false;
+    private bool _lastEngineRunningState = false;
     private UciProcessClient? _activeClient;
     private readonly HttpClient _httpClient;
     private readonly object _lock = new();
@@ -76,6 +78,8 @@ public class EngineManager : IEngineService, IDisposable
                     {
                         _activeEngineId = config.ActiveEngineId;
                         _syzygyPath = config.SyzygyPath;
+                        _preserveEngineState = config.PreserveEngineState;
+                        _lastEngineRunningState = config.LastEngineRunningState;
                         _engines.AddRange(config.Engines);
                     }
                 }
@@ -176,6 +180,8 @@ public class EngineManager : IEngineService, IDisposable
                 {
                     ActiveEngineId = _activeEngineId,
                     SyzygyPath = _syzygyPath,
+                    PreserveEngineState = _preserveEngineState,
+                    LastEngineRunningState = _lastEngineRunningState,
                     Engines = _engines.ToList()
                 };
                 var options = new JsonSerializerOptions { WriteIndented = true };
@@ -187,6 +193,33 @@ public class EngineManager : IEngineService, IDisposable
                 Console.WriteLine($"[EngineManager] Error saving config: {ex.Message}");
             }
         }
+    }
+
+    public bool PreserveEngineState => _preserveEngineState;
+    public bool LastEngineRunningState => _lastEngineRunningState;
+
+    public Task SetPreserveEngineStateAsync(bool preserve)
+    {
+        lock (_lock)
+        {
+            _preserveEngineState = preserve;
+            if (preserve && IsAnalyzing)
+            {
+                _lastEngineRunningState = true;
+            }
+            SaveConfig();
+        }
+        return Task.CompletedTask;
+    }
+
+    public Task SetLastEngineRunningStateAsync(bool isRunning)
+    {
+        lock (_lock)
+        {
+            _lastEngineRunningState = isRunning;
+            SaveConfig();
+        }
+        return Task.CompletedTask;
     }
 
     public async Task SetSyzygyPathAsync(string? path)

@@ -13,16 +13,43 @@
 			</div>
 
 			<div class="modal-body">
-				<!-- Target Database -->
-				<div class="modal-form-group">
-					<label class="filter-label">@Loc["SaveGame_TargetDb"]</label>
-					<select class="modal-input" value="@_selectedDb" @onchange="HandleTargetDbChanged">
-						@foreach (var db in _databases)
-						{
-							<option value="@db.Name">@db.Name (@db.GameCount games)</option>
-						}
-					</select>
-				</div>
+				<!-- Target Database & Optional Folder -->
+				@if (_folders.Count > 0)
+				{
+					<div class="modal-form-row">
+						<div class="modal-form-group">
+							<label class="filter-label">@Loc["SaveGame_TargetDb"]</label>
+							<select class="modal-input" value="@_selectedDb" @onchange="HandleTargetDbChanged">
+								@foreach (var db in _databases)
+								{
+									<option value="@db.Name">@db.Name (@db.GameCount games)</option>
+								}
+							</select>
+						</div>
+						<div class="modal-form-group">
+							<label class="filter-label">@Loc["Db_SaveGame_Folder"]</label>
+							<select class="modal-input" value="@(_selectedFolderId?.ToString() ?? "")" @onchange="HandleFolderChanged">
+								<option value="">🗄️ @Loc["Db_RootFolder"]</option>
+								@foreach (var f in _folders)
+								{
+									<option value="@f.Id">📁 @f.Path</option>
+								}
+							</select>
+						</div>
+					</div>
+				}
+				else
+				{
+					<div class="modal-form-group">
+						<label class="filter-label">@Loc["SaveGame_TargetDb"]</label>
+						<select class="modal-input" value="@_selectedDb" @onchange="HandleTargetDbChanged">
+							@foreach (var db in _databases)
+							{
+								<option value="@db.Name">@db.Name (@db.GameCount games)</option>
+							}
+						</select>
+					</div>
+				}
 
 				<!-- Save Mode: Overwrite vs New Game (if loaded from existing DB record) -->
 				@if (CanOverwrite)
@@ -174,7 +201,9 @@
 	[Parameter] public EventCallback OnClose { get; set; }
 
 	private List<DatabaseInfo> _databases = new();
+	private List<GameFolder> _folders = new();
 	private string _selectedDb = "";
+	private long? _selectedFolderId = null;
 	private string _saveMode = "update"; // "update" or "new"
 	private string _white = "White";
 	private string _black = "Black";
@@ -210,6 +239,14 @@
 			_selectedDb = isInitialValid
 				? InitialDatabase!
 				: (activeDb?.Name ?? "ClassicalMasters");
+
+			_folders = await DatabaseService.GetFoldersAsync(_selectedDb);
+			_selectedFolderId = null;
+			if (CanOverwrite && ExistingGameId.HasValue)
+			{
+				var existingGame = await DatabaseService.GetGameByIdAsync(_selectedDb, ExistingGameId.Value);
+				_selectedFolderId = existingGame?.FolderId;
+			}
 
 			_saveMode = CanOverwrite ? "update" : "new";
 			_white = Tree.Headers.GetValueOrDefault("White", "White");
@@ -251,12 +288,35 @@
 		}
 	}
 
-	private void HandleTargetDbChanged(ChangeEventArgs e)
+	private async Task HandleTargetDbChanged(ChangeEventArgs e)
 	{
 		_selectedDb = e.Value?.ToString() ?? "";
+		_folders = !string.IsNullOrWhiteSpace(_selectedDb)
+			? await DatabaseService.GetFoldersAsync(_selectedDb)
+			: new List<GameFolder>();
+		_selectedFolderId = null;
+
 		if (!CanOverwrite)
 		{
 			_saveMode = "new";
+		}
+		else if (ExistingGameId.HasValue)
+		{
+			var existingGame = await DatabaseService.GetGameByIdAsync(_selectedDb, ExistingGameId.Value);
+			_selectedFolderId = existingGame?.FolderId;
+		}
+	}
+
+	private void HandleFolderChanged(ChangeEventArgs e)
+	{
+		string val = e.Value?.ToString() ?? "";
+		if (long.TryParse(val, out long fid))
+		{
+			_selectedFolderId = fid;
+		}
+		else
+		{
+			_selectedFolderId = null;
 		}
 	}
 
@@ -336,6 +396,7 @@
 				Round = _round.Trim(),
 				Eco = _eco,
 				Note = _note.Trim(),
+				FolderId = _selectedFolderId,
 				Pgn = pgn
 			};
 

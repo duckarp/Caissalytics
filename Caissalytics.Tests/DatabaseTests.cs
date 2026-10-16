@@ -1120,5 +1120,184 @@ public class DatabaseTests : IDisposable
         Assert.Equal(new[] { "Player1", "Player3", "Player2", "Player4" }, afterAdd.Select(g => g.White).ToArray());
         Assert.Equal("New study game", afterAdd[3].Note);
     }
-}
 
+    [Fact]
+    public async Task PerDatabaseMultilevelFolders_CreateMoveFilterAndDelete_Works()
+    {
+        await _dbManager.CreateDatabaseAsync("FoldersDb");
+
+        // Create multilevel folder hierarchy:
+        // Repertoire -> White -> 1.e4 -> Sicilian
+        var repertoire = await _dbManager.CreateFolderAsync("FoldersDb", "Repertoire");
+        var whiteFolder = await _dbManager.CreateFolderAsync("FoldersDb", "White", repertoire.Id);
+        var e4Folder = await _dbManager.CreateFolderAsync("FoldersDb", "1.e4", whiteFolder.Id);
+        var sicilianFolder = await _dbManager.CreateFolderAsync("FoldersDb", "Sicilian", e4Folder.Id);
+
+        var folders = await _dbManager.GetFoldersAsync("FoldersDb");
+        Assert.Equal(4, folders.Count);
+
+        var sicilianMeta = folders.Single(f => f.Id == sicilianFolder.Id);
+        Assert.Equal("Repertoire / White / 1.e4 / Sicilian", sicilianMeta.Path);
+
+        // Add games: one in Root, one in White, one in Sicilian
+        long rootGameId = await _dbManager.SaveGameAsync("FoldersDb", new GameHeader
+        {
+            White = "RootPlayer",
+            Black = "Opponent",
+            Result = "1-0",
+            Pgn = "1. d4 d5 1-0"
+        });
+
+        long whiteGameId = await _dbManager.SaveGameAsync("FoldersDb", new GameHeader
+        {
+            White = "WhitePrep",
+            Black = "Opponent",
+            Result = "1-0",
+            FolderId = whiteFolder.Id,
+            Pgn = "1. e4 e5 1-0"
+        });
+
+        long sicilianGameId = await _dbManager.SaveGameAsync("FoldersDb", new GameHeader
+        {
+            White = "NajdorfPrep",
+            Black = "Opponent",
+            Result = "1-0",
+            Pgn = "1. e4 c5 2. Nf3 d6 1-0"
+        });
+        await _dbManager.MoveGameToFolderAsync("FoldersDb", sicilianGameId, sicilianFolder.Id);
+
+        // Verify direct and recursive game counts on folders
+        folders = await _dbManager.GetFoldersAsync("FoldersDb");
+        var repMeta = folders.Single(f => f.Id == repertoire.Id);
+        var whiteMeta = folders.Single(f => f.Id == whiteFolder.Id);
+        var e4Meta = folders.Single(f => f.Id == e4Folder.Id);
+        sicilianMeta = folders.Single(f => f.Id == sicilianFolder.Id);
+
+        Assert.Equal(0, repMeta.DirectGameCount);
+        Assert.Equal(2, repMeta.TotalGameCount); // whiteGame + sicilianGame
+        Assert.Equal(1, whiteMeta.DirectGameCount);
+        Assert.Equal(2, whiteMeta.TotalGameCount);
+        Assert.Equal(0, e4Meta.DirectGameCount);
+        Assert.Equal(1, e4Meta.TotalGameCount);
+        Assert.Equal(1, sicilianMeta.DirectGameCount);
+        Assert.Equal(1, sicilianMeta.TotalGameCount);
+
+        // Filter by Root (unfiled games only)
+        var (rootGames, rootCount) = await _dbManager.SearchGamesAsync("FoldersDb", new GameFilter
+        {
+            FilterByFolder = true,
+            FolderId = null
+        });
+        Assert.Equal(1, rootCount);
+        Assert.Equal(rootGameId, rootGames[0].Id);
+
+        // Filter by Sicilian folder
+        var (sicilianGames, sicilianCount) = await _dbManager.SearchGamesAsync("FoldersDb", new GameFilter
+        {
+            FilterByFolder = true,
+            FolderId = sicilianFolder.Id
+        });
+        Assert.Equal(1, sicilianCount);
+        Assert.Equal("NajdorfPrep", sicilianGames[0].White);
+
+        // Unfiltered ("All Games" view) returns all 3 games
+        var (allGames, allCount) = await _dbManager.SearchGamesAsync("FoldersDb", new GameFilter
+        {
+            FilterByFolder = false
+        });
+        Assert.Equal(3, allCount);
+
+        // Prevent moving a folder into itself or its descendant (cycle detection)
+        await _dbManager.MoveFolderAsync("FoldersDb", repertoire.Id, sicilianFolder.Id);
+        folders = await _dbManager.GetFoldersAsync("FoldersDb");
+        Assert.Null(folders.Single(f => f.Id == repertoire.Id).ParentId);
+
+        // Rename e4Folder to "King's Pawn"
+        await _dbManager.RenameFolderAsync("FoldersDb", e4Folder.Id, "King's Pawn");
+        folders = await _dbManager.GetFoldersAsync("FoldersDb");
+        Assert.Equal("Repertoire / White / King's Pawn / Sicilian", folders.Single(f => f.Id == sicilianFolder.Id).Path);
+
+        // Delete whiteFolder: its child folder ("King's Pawn") and its direct game (whiteGameId)
+        // should be safely re-parented to whiteFolder's parent (repertoire.Id)
+        await _dbManager.DeleteFolderAsync("FoldersDb", whiteFolder.Id);
+
+        folders = await _dbManager.GetFoldersAsync("FoldersDb");
+        Assert.Equal(3, folders.Count);
+        Assert.Equal(repertoire.Id, folders.Single(f => f.Id == e4Folder.Id).ParentId);
+        Assert.Equal("Repertoire / King's Pawn / Sicilian", folders.Single(f => f.Id == sicilianFolder.Id).Path);
+
+        var movedWhiteGame = await _dbManager.GetGameByIdAsync("FoldersDb", whiteGameId);
+        Assert.NotNull(movedWhiteGame);
+        Assert.Equal(repertoire.Id, movedWhiteGame.FolderId);
+    }
+
+    [Fact]
+    public async Task MoveGamesAsync_BatchIntraAndInterDatabaseMoves_Works()
+    {
+        await _dbManager.CreateDatabaseAsync("SourceDb");
+        await _dbManager.CreateDatabaseAsync("TargetDb");
+
+        var f1 = await _dbManager.CreateFolderAsync("SourceDb", "Study");
+        var targetF = await _dbManager.CreateFolderAsync("TargetDb", "Archive");
+
+        long id1 = await _dbManager.SaveGameAsync("SourceDb", new GameHeader
+        {
+            White = "Alpha",
+            Black = "Beta",
+            Result = "1-0",
+            Pgn = "1. e4 e5 1-0"
+        });
+
+        long id2 = await _dbManager.SaveGameAsync("SourceDb", new GameHeader
+        {
+            White = "Gamma",
+            Black = "Delta",
+            Result = "0-1",
+            Pgn = "1. d4 d5 0-1"
+        });
+
+        long id3 = await _dbManager.SaveGameAsync("SourceDb", new GameHeader
+        {
+            White = "Epsilon",
+            Black = "Zeta",
+            Result = "1/2-1/2",
+            Pgn = "1. c4 c5 1/2-1/2"
+        });
+
+        // 1. Intra-database batch move: Move games 1 and 2 into folder f1
+        await _dbManager.MoveGamesAsync("SourceDb", new[] { id1, id2 }, "SourceDb", f1.Id);
+
+        var g1 = await _dbManager.GetGameByIdAsync("SourceDb", id1);
+        var g2 = await _dbManager.GetGameByIdAsync("SourceDb", id2);
+        var g3 = await _dbManager.GetGameByIdAsync("SourceDb", id3);
+
+        Assert.Equal(f1.Id, g1?.FolderId);
+        Assert.Equal(f1.Id, g2?.FolderId);
+        Assert.Null(g3?.FolderId);
+
+        // 2. Inter-database batch move: Move games 1 and 3 from SourceDb to TargetDb into folder targetF
+        await _dbManager.MoveGamesAsync("SourceDb", new[] { id1, id3 }, "TargetDb", targetF.Id);
+
+        // SourceDb should only have game 2 left
+        var (sourceGames, sourceCount) = await _dbManager.SearchGamesAsync("SourceDb", new GameFilter());
+        Assert.Equal(1, sourceCount);
+        Assert.Equal("Gamma", sourceGames[0].White);
+
+        // TargetDb should now have 2 games, both filed under targetF
+        var (targetGames, targetCount) = await _dbManager.SearchGamesAsync("TargetDb", new GameFilter());
+        Assert.Equal(2, targetCount);
+        Assert.All(targetGames, g => Assert.Equal(targetF.Id, g.FolderId));
+        Assert.Contains(targetGames, g => g.White == "Alpha");
+        Assert.Contains(targetGames, g => g.White == "Epsilon");
+
+        // Verify position index in TargetDb works after moving
+        var rootPos = FenParser.Parse(BoardPosition.StartFen);
+        var e4Pos = MoveGenerator.ApplyMove(rootPos, SanParser.ParseSan(rootPos, "e4"));
+        var posResult = await _dbManager.QueryPositionAsync("TargetDb", e4Pos.ZobristKey);
+        Assert.Equal(1, posResult.TotalPositionGames);
+
+        // 3. Moving into protected online database should throw InvalidOperationException
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _dbManager.MoveGamesAsync("SourceDb", new[] { id2 }, IDatabaseService.ProtectedOnlineDatabaseName, null));
+    }
+}

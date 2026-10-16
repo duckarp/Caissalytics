@@ -216,8 +216,103 @@
 			</div>
 		}
 
-		<!-- Games Grid Table -->
+		<!-- Per-Database Folder Navigation & Action Bar -->
+		<div class="db-folder-bar">
+			<div class="db-folder-breadcrumbs">
+				<button type="button"
+						class="db-breadcrumb-item @(!_currentFolderId.HasValue && !_showAllGamesFlat ? "active" : "") @(_folderDropTargetId == -1 ? "drop-active" : "")"
+						@ondragover:preventDefault="true"
+						@ondragover="() => HandleDragOverFolder(null)"
+						@ondrop="() => HandleDropOnFolderAsync(null)"
+						@onclick="() => NavigateToFolderAsync(null)">
+					<span>🗄️ @_currentDbName</span>
+				</button>
+
+				@if (!_showAllGamesFlat && _currentFolderId.HasValue)
+				{
+					@foreach (var crumb in GetCurrentFolderBreadcrumbs())
+					{
+						<span class="db-breadcrumb-sep">/</span>
+						<button type="button"
+								class="db-breadcrumb-item @(crumb.Id == _currentFolderId ? "active" : "") @(_folderDropTargetId == crumb.Id ? "drop-active" : "")"
+								@ondragover:preventDefault="true"
+								@ondragover="() => HandleDragOverFolder(crumb.Id)"
+								@ondrop="() => HandleDropOnFolderAsync(crumb.Id)"
+								@onclick="() => NavigateToFolderAsync(crumb.Id)">
+							<span>📁 @crumb.Name</span>
+						</button>
+					}
+				}
+			</div>
+
+			<div class="db-folder-bar-actions">
+				@if (_folders.Count > 0)
+				{
+					<div class="db-folder-view-toggle">
+						<button type="button"
+								class="db-view-toggle-btn @(!_showAllGamesFlat ? "active" : "")"
+								@onclick="() => SetFolderViewModeAsync(false)">
+							📁 @Loc["Db_FoldersView"]
+						</button>
+						<button type="button"
+								class="db-view-toggle-btn @(_showAllGamesFlat ? "active" : "")"
+								@onclick="() => SetFolderViewModeAsync(true)">
+							📋 @Loc["Db_AllGamesView"]
+						</button>
+					</div>
+				}
+
+				<button type="button"
+						class="btn-secondary btn-new-folder"
+						title="@Loc["Db_NewFolder"]"
+						@onclick="() => StartCreatingFolder(_currentFolderId)">
+					@Loc["Db_NewFolder"]
+				</button>
+			</div>
+		</div>
+
+		<!-- Folders & Games Grid Container -->
 		<div class="db-grid-container">
+			@if (!_showAllGamesFlat && (_creatingFolder || _currentFolderId.HasValue || GetChildFolders(_currentFolderId).Count > 0))
+			{
+				<div class="db-folders-section">
+					@if (_creatingFolder && _creatingFolderParentId == _currentFolderId)
+					{
+						<div class="db-folder-inline-editor">
+							<span class="db-folder-row-icon">📁</span>
+							<input class="db-folder-inline-input"
+								   placeholder="@Loc["Db_FolderPlaceholder"]"
+								   @bind="_newFolderName"
+								   @bind:event="oninput"
+								   @onkeydown="HandleNewFolderKeyDownAsync" />
+							<button type="button" class="db-folder-inline-btn db-folder-inline-confirm" title="@Loc["Common_Save"]" @onclick="CommitCreateFolderAsync">✓</button>
+							<button type="button" class="db-folder-inline-btn" title="@Loc["Common_Cancel"]" @onclick="CancelCreateFolder">✕</button>
+						</div>
+					}
+
+					@if (_currentFolderId.HasValue)
+					{
+						long? parentId = CurrentFolder?.ParentId;
+						long parentDropKey = parentId ?? -1;
+						<div class="db-folder-row db-folder-row-parent @(_folderDropTargetId == parentDropKey ? "drop-active" : "")"
+							 @ondragover:preventDefault="true"
+							 @ondragover="() => HandleDragOverFolder(parentId)"
+							 @ondrop="() => HandleDropOnFolderAsync(parentId)"
+							 @onclick="() => NavigateToFolderAsync(parentId)">
+							<div class="db-folder-row-main">
+								<span class="db-folder-row-icon">↩️</span>
+								<span class="db-folder-row-name">@Loc["Db_ParentFolder"]</span>
+							</div>
+						</div>
+					}
+
+					@foreach (var folder in GetChildFolders(_currentFolderId))
+					{
+						@RenderFolderNode(folder, 0)
+					}
+				</div>
+			}
+
 			@if (_isLoading)
 			{
 				<div class="reference-empty-state">
@@ -226,17 +321,42 @@
 			}
 			else if (_games.Count == 0)
 			{
-				<div class="reference-empty-state">
-					<span class="empty-state-icon">♟️</span>
-					<h4>@Loc["Db_NoGamesMatch"]</h4>
-					<p>@Loc["Db_NoGamesMatchDesc"]</p>
-				</div>
+				@if (_showAllGamesFlat || (!_currentFolderId.HasValue && GetChildFolders(null).Count == 0))
+				{
+					<div class="reference-empty-state">
+						<span class="empty-state-icon">♟️</span>
+						<h4>@Loc["Db_NoGamesMatch"]</h4>
+						<p>@Loc["Db_NoGamesMatchDesc"]</p>
+					</div>
+				}
 			}
 			else
 			{
+				@if (_selectedGameIds.Count > 0)
+				{
+					<div class="db-bulk-bar">
+						<div class="db-bulk-left">
+							<span class="db-bulk-badge">☑️ @Loc["Db_SelectedGamesCount", _selectedGameIds.Count]</span>
+							<button type="button" class="btn-clear-link" @onclick="ClearSelection">@Loc["Db_DeselectAll"]</button>
+						</div>
+						<div class="db-bulk-right">
+							<button type="button" class="btn-primary-small btn-bulk-move" @onclick="OpenBulkMoveModal">
+								📁 @Loc["Db_MoveSelectedGames", _selectedGameIds.Count]
+							</button>
+						</div>
+					</div>
+				}
+
 				<table class="db-games-table">
 					<thead>
 						<tr>
+							<th class="col-select">
+								<input type="checkbox"
+									   class="db-game-checkbox"
+									   checked="@IsAllPageSelected"
+									   @onchange="ToggleSelectAllPage"
+									   title="@Loc["Db_Col_Select"]" />
+							</th>
 							<th class="col-index" title="@Loc["Db_DragToReorder"]">@Loc["Db_Col_Index"]</th>
 							@if (ShowPlatformColumn)
 							{
@@ -269,13 +389,19 @@
 							<tr @key="game.Id"
 								data-game-id="@game.Id"
 								draggable="@(_editingNoteGameId != game.Id ? "true" : "false")"
-								class="db-game-row @(IsUserGame(game) ? "db-game-row-user" : "") @(isDragging ? "row-dragging" : "") @(isDragOverTop ? "row-drag-over-top" : "") @(isDragOverBottom ? "row-drag-over-bottom" : "")"
+								class="db-game-row @(IsUserGame(game) ? "db-game-row-user" : "") @(_selectedGameIds.Contains(game.Id) ? "row-selected" : "") @(isDragging ? "row-dragging" : "") @(isDragOverTop ? "row-drag-over-top" : "") @(isDragOverBottom ? "row-drag-over-bottom" : "")"
 								@ondragstart="() => HandleRowDragStart(rowIndex, game)"
 								@ondragover="() => HandleRowDragOver(rowIndex)"
 								@ondragover:preventDefault="true"
 								@ondrop="() => HandleRowDropAsync(rowIndex)"
 								@ondragend="HandleRowDragEnd"
 								@ondblclick="() => OpenGameInAnalysis(game)">
+								<td class="col-select" @onclick:stopPropagation="true" @ondblclick:stopPropagation="true">
+									<input type="checkbox"
+										   class="db-game-checkbox"
+										   checked="@_selectedGameIds.Contains(game.Id)"
+										   @onchange="e => ToggleSelectGame(game.Id, e)" />
+								</td>
 								<td class="col-index" @onclick:stopPropagation="true" @ondblclick:stopPropagation="true">
 									<div class="db-row-index-cell">
 										<span class="db-row-drag-handle @(isDragging ? "dragging" : "")"
@@ -326,35 +452,69 @@
 								</td>
 								<td class="col-event" title="@game.Event">@game.Event</td>
 								<td class="col-note" @onclick:stopPropagation="true" @ondblclick:stopPropagation="true">
-									@if (_editingNoteGameId == game.Id)
-									{
-										<div class="db-note-edit-wrapper">
-											<input class="db-note-input"
-												   placeholder="@Loc["Db_NoteInputPlaceholder"]"
-												   @bind="_editingNoteValue"
-												   @bind:event="oninput"
-												   @onkeydown="(e) => HandleNoteKeyDownAsync(e, game)"
-												   @onblur="() => CommitNoteEditAsync(game)"
-												   autofocus />
-										</div>
-									}
-									else if (!string.IsNullOrWhiteSpace(game.Note))
-									{
-										<button type="button" class="db-note-badge" title="@Loc["Db_EditNote"]" @onclick="() => StartEditingNote(game)">
-											<span class="db-note-tag-icon">🏷️</span>
-											<span class="db-note-text">@game.Note</span>
-										</button>
-									}
-									else
-									{
-										<button type="button" class="db-note-add-btn" title="@Loc["Db_AddNote"]" @onclick="() => StartEditingNote(game)">
-											@Loc["Db_AddNote"]
-										</button>
-									}
+									<div class="db-note-cell-group">
+										@if (_showAllGamesFlat && game.FolderId.HasValue)
+										{
+											string folderPath = GetFolderPath(game.FolderId.Value);
+											if (!string.IsNullOrEmpty(folderPath))
+											{
+												<button type="button"
+														class="db-game-folder-pill"
+														title="@folderPath"
+														@onclick="() => NavigateToFolderAsync(game.FolderId)">
+													📁 @folderPath
+												</button>
+											}
+										}
+										@if (_editingNoteGameId == game.Id)
+										{
+											<div class="db-note-edit-wrapper">
+												<input class="db-note-input"
+													   placeholder="@Loc["Db_NoteInputPlaceholder"]"
+													   @bind="_editingNoteValue"
+													   @bind:event="oninput"
+													   @onkeydown="(e) => HandleNoteKeyDownAsync(e, game)"
+													   @onblur="() => CommitNoteEditAsync(game)"
+													   autofocus />
+											</div>
+										}
+										else if (!string.IsNullOrWhiteSpace(game.Note))
+										{
+											<button type="button" class="db-note-badge" title="@Loc["Db_EditNote"]" @onclick="() => StartEditingNote(game)">
+												<span class="db-note-tag-icon">🏷️</span>
+												<span class="db-note-text">@game.Note</span>
+											</button>
+										}
+										else
+										{
+											<button type="button" class="db-note-add-btn" title="@Loc["Db_AddNote"]" @onclick="() => StartEditingNote(game)">
+												@Loc["Db_AddNote"]
+											</button>
+										}
+									</div>
 								</td>
 								<td class="col-moves">@game.PlyCount</td>
-								<td class="col-actions">
+								<td class="col-actions" @onclick:stopPropagation="true" @ondblclick:stopPropagation="true">
 									<div class="row-actions-group">
+										@if (_folders.Count > 0)
+										{
+											@if (_movingGameId == game.Id)
+											{
+												<select class="db-row-folder-select"
+														value="@(game.FolderId?.ToString() ?? "")"
+														@onchange="e => HandleMoveGameSelectChangedAsync(game, e)">
+													<option value="">@Loc["Db_RootFolder"]</option>
+													@foreach (var opt in GetFlattenedFolderOptions())
+													{
+														<option value="@opt.Id">@opt.Label</option>
+													}
+												</select>
+											}
+											<button type="button"
+													class="btn-secondary-small btn-move-folder"
+													title="@Loc["Db_MoveToFolderTitle"]"
+													@onclick="() => ToggleMoveGameMenu(game.Id)">📁</button>
+										}
 										<button class="btn-secondary-small" title="@Loc["Db_OpenGame"]" @onclick="() => OpenGameInAnalysis(game)">@Loc["Db_OpenGame"]</button>
 										<button class="btn-danger-small" title="@Loc["Db_DeleteGame"]" @onclick="() => PromptDeleteGame(game)">🗑️</button>
 									</div>
@@ -877,6 +1037,175 @@
 			<div class="modal-footer">
 				<button class="btn-secondary" @onclick="CancelDeleteDatabase">@Loc["Common_Cancel"]</button>
 				<button class="btn-danger" @onclick="ConfirmDeleteDatabaseAsync">@Loc["Common_Delete"]</button>
+			</div>
+		</div>
+	</div>
+}
+
+<!-- Delete Folder Confirmation Modal -->
+@if (_showDeleteFolderModal && _folderToDelete != null)
+{
+	<div class="modal-backdrop" @onclick="CancelDeleteFolder">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<h3 class="modal-title">🗑️ @Loc["Db_DeleteFolderConfirm_Title"]</h3>
+				<button class="modal-close-btn" @onclick="CancelDeleteFolder">✕</button>
+			</div>
+			<div class="modal-body">
+				<div class="modal-warning-box">
+					<div class="modal-warning-title">@Loc["Db_DeleteFolderConfirm_Warning"]</div>
+					<div class="modal-game-summary">
+						<span>📁 @_folderToDelete.Name (@_folderToDelete.Path)</span>
+					</div>
+					<div>
+						@Loc["Db_DeleteFolderConfirm_Question", _folderToDelete.Name, GetTargetFolderName(_folderToDelete.ParentId)]
+					</div>
+					@if (_folderToDelete.TotalGameCount > 0 || _folderToDelete.SubfolderCount > 0)
+					{
+						<div class="clean-foreign-handles-list">
+							<span>@Loc["Db_GamesCount", _folderToDelete.TotalGameCount.ToString("N0")]</span>
+							@if (_folderToDelete.SubfolderCount > 0)
+							{
+								<span> • @Loc["Db_SubfoldersCount", _folderToDelete.SubfolderCount]</span>
+							}
+						</div>
+					}
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="CancelDeleteFolder">@Loc["Common_Cancel"]</button>
+				<button class="btn-danger" @onclick="ConfirmDeleteFolderAsync">@Loc["Common_Delete"]</button>
+			</div>
+		</div>
+	</div>
+}
+
+<!-- Move Game Confirmation Modal -->
+@if (_showMoveGameModal && _gameToMove != null)
+{
+	<div class="modal-backdrop" @onclick="CancelMoveGame">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<h3 class="modal-title">📁 @Loc["Db_MoveGameConfirm_Title"]</h3>
+				<button class="modal-close-btn" @onclick="CancelMoveGame">✕</button>
+			</div>
+			<div class="modal-body">
+				<div class="modal-info-box">
+					<div class="modal-info-title">@Loc["Db_MoveGameConfirm_Question", GetTargetFolderName(_targetFolderIdForGame)]</div>
+					<div class="modal-game-summary">
+						<PlatformIcon Game="_gameToMove" />
+						<span>@_gameToMove.White vs @_gameToMove.Black (@_gameToMove.FormattedDate) • @_gameToMove.Result</span>
+					</div>
+					<div class="clean-foreign-handles-list">
+						@Loc["Db_MoveGameConfirm_FromTo", GetTargetFolderName(_gameToMove.FolderId), GetTargetFolderName(_targetFolderIdForGame)]
+					</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="CancelMoveGame">@Loc["Common_Cancel"]</button>
+				<button class="btn-primary" @onclick="ConfirmMoveGameAsync">@Loc["Common_Move"]</button>
+			</div>
+		</div>
+	</div>
+}
+
+<!-- Move Folder Confirmation Modal -->
+@if (_showMoveFolderModal && _folderToMove != null)
+{
+	<div class="modal-backdrop" @onclick="CancelMoveFolder">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<h3 class="modal-title">📁 @Loc["Db_MoveFolderConfirm_Title"]</h3>
+				<button class="modal-close-btn" @onclick="CancelMoveFolder">✕</button>
+			</div>
+			<div class="modal-body">
+				<div class="modal-info-box">
+					<div class="modal-info-title">@Loc["Db_MoveFolderConfirm_Question", _folderToMove.Name, GetTargetFolderName(_targetParentIdForFolder)]</div>
+					<div class="modal-game-summary">
+						<span>📁 @_folderToMove.Name (@_folderToMove.Path)</span>
+					</div>
+					<div class="clean-foreign-handles-list">
+						@Loc["Db_MoveGameConfirm_FromTo", GetTargetFolderName(_folderToMove.ParentId), GetTargetFolderName(_targetParentIdForFolder)]
+					</div>
+					@if (_folderToMove.TotalGameCount > 0 || _folderToMove.SubfolderCount > 0)
+					{
+						<div class="clean-foreign-handles-list">
+							<span>@Loc["Db_GamesCount", _folderToMove.TotalGameCount.ToString("N0")]</span>
+							@if (_folderToMove.SubfolderCount > 0)
+							{
+								<span> • @Loc["Db_SubfoldersCount", _folderToMove.SubfolderCount]</span>
+							}
+						</div>
+					}
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="CancelMoveFolder">@Loc["Common_Cancel"]</button>
+				<button class="btn-primary" @onclick="ConfirmMoveFolderAsync">@Loc["Common_Move"]</button>
+			</div>
+		</div>
+	</div>
+}
+
+<!-- Bulk Move Games Modal -->
+@if (_showBulkMoveModal && _bulkMoveGameIds.Count > 0)
+{
+	<div class="modal-backdrop" @onclick="CloseBulkMoveModal">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<h3 class="modal-title">📁 @Loc["Db_BulkMove_Title", _bulkMoveGameIds.Count]</h3>
+				<button class="modal-close-btn" @onclick="CloseBulkMoveModal" disabled="@_isBulkMoving">✕</button>
+			</div>
+			<div class="modal-body">
+				<p class="modal-desc">
+					@Loc["Db_BulkMove_Desc", _bulkMoveGameIds.Count]
+				</p>
+
+				<div class="modal-form-group">
+					<label class="filter-label">@Loc["Db_BulkMove_TargetDb"]</label>
+					<select class="modal-input" value="@_bulkMoveTargetDb" @onchange="HandleBulkMoveTargetDbChangedAsync" disabled="@_isBulkMoving">
+						@foreach (var db in _databases.Where(d => !string.Equals(d.Name, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase)))
+						{
+							<option value="@db.Name">@db.Name (@db.GameCount games)</option>
+						}
+					</select>
+				</div>
+
+				<div class="modal-form-group">
+					<label class="filter-label">@Loc["Db_BulkMove_TargetFolder"]</label>
+					<select class="modal-input" value="@(_bulkMoveTargetFolderId?.ToString() ?? "")" @onchange="HandleBulkMoveFolderChanged" disabled="@_isBulkMoving">
+						<option value="">🗄️ @Loc["Db_RootFolder"]</option>
+						@foreach (var opt in _bulkMoveTargetFolderOptions)
+						{
+							<option value="@opt.Id">@opt.Label</option>
+						}
+					</select>
+				</div>
+
+				<div class="modal-info-box">
+					<div class="modal-info-title">@Loc["Db_BulkMove_Summary"]</div>
+					<div class="clean-foreign-handles-list">
+						@Loc["Db_MoveGameConfirm_FromTo", GetSourceSummary(), GetBulkTargetSummary()]
+					</div>
+				</div>
+
+				@if (!string.IsNullOrEmpty(_bulkMoveError))
+				{
+					<div class="ref-result-black">@_bulkMoveError</div>
+				}
+			</div>
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="CloseBulkMoveModal" disabled="@_isBulkMoving">@Loc["Common_Cancel"]</button>
+				<button class="btn-primary" @onclick="ConfirmBulkMoveAsync" disabled="@_isBulkMoving">
+					@if (_isBulkMoving)
+					{
+						<span>...</span>
+					}
+					else
+					{
+						<span>@Loc["Db_BulkMove_Btn", _bulkMoveGameIds.Count]</span>
+					}
+				</button>
 			</div>
 		</div>
 	</div>
@@ -1495,12 +1824,71 @@
 		});
 	}
 
+	private List<GameFolder> _folders = new();
+	private long? _currentFolderId = null;
+	private bool _showAllGamesFlat = false;
+	private readonly HashSet<long> _expandedFolderIds = new();
+	private bool _creatingFolder = false;
+	private long? _creatingFolderParentId = null;
+	private string _newFolderName = "";
+	private long? _renamingFolderId = null;
+	private string _renamingFolderName = "";
+	private long? _movingGameId = null;
+	private long? _movingFolderMenuId = null;
+	private long? _draggedGameId = null;
+	private long? _draggedFolderId = null;
+	private long? _folderDropTargetId = null;
+
+	private bool _showDeleteFolderModal = false;
+	private GameFolder? _folderToDelete = null;
+
+	private bool _showMoveGameModal = false;
+	private GameHeader? _gameToMove = null;
+	private long? _targetFolderIdForGame = null;
+
+	private bool _showMoveFolderModal = false;
+	private GameFolder? _folderToMove = null;
+	private long? _targetParentIdForFolder = null;
+
+	private readonly HashSet<long> _selectedGameIds = new();
+	private bool _showBulkMoveModal = false;
+	private List<long> _bulkMoveGameIds = new();
+	private string _bulkMoveTargetDb = "";
+	private long? _bulkMoveTargetFolderId = null;
+	private List<(long Id, string Label)> _bulkMoveTargetFolderOptions = new();
+	private bool _isBulkMoving = false;
+	private string _bulkMoveError = "";
+
+	private GameFolder? CurrentFolder =>
+		_currentFolderId.HasValue ? _folders.FirstOrDefault(f => f.Id == _currentFolderId.Value) : null;
+
 	private async Task SelectDatabaseAsync(string dbName)
 	{
 		_showMaintenanceMenu = false;
 		_editingNoteGameId = null;
 		_draggedRowIndex = null;
 		_dragOverRowIndex = null;
+		_draggedGameId = null;
+		_draggedFolderId = null;
+		_folderDropTargetId = null;
+		_currentFolderId = null;
+		_showAllGamesFlat = false;
+		_creatingFolder = false;
+		_renamingFolderId = null;
+		_movingGameId = null;
+		_movingFolderMenuId = null;
+		_showDeleteModal = false;
+		_showDeleteFolderModal = false;
+		_showMoveGameModal = false;
+		_showMoveFolderModal = false;
+		_folderToDelete = null;
+		_gameToMove = null;
+		_folderToMove = null;
+		_selectedGameIds.Clear();
+		_showBulkMoveModal = false;
+		_bulkMoveGameIds.Clear();
+		_bulkMoveError = "";
+		_expandedFolderIds.Clear();
 		_currentDbName = dbName;
 		await DatabaseService.SetActiveDatabaseAsync(dbName);
 		_filter.PageNumber = 1;
@@ -1517,6 +1905,23 @@
 
 		try
 		{
+			_folders = await DatabaseService.GetFoldersAsync(_currentDbName);
+			if (_currentFolderId.HasValue && !_folders.Any(f => f.Id == _currentFolderId.Value))
+			{
+				_currentFolderId = null;
+			}
+
+			if (_folders.Count > 0 && !_showAllGamesFlat)
+			{
+				_filter.FilterByFolder = true;
+				_filter.FolderId = _currentFolderId;
+			}
+			else
+			{
+				_filter.FilterByFolder = false;
+				_filter.FolderId = null;
+			}
+
 			var (games, count) = await DatabaseService.SearchGamesAsync(_currentDbName, _filter);
 			_games = games;
 			_totalCount = count;
@@ -1531,6 +1936,656 @@
 			StateHasChanged();
 		}
 	}
+
+	private List<GameFolder> GetChildFolders(long? parentId)
+	{
+		return _folders
+			.Where(f => f.ParentId == parentId)
+			.OrderBy(f => f.SortOrder)
+			.ThenBy(f => f.Name, StringComparer.OrdinalIgnoreCase)
+			.ToList();
+	}
+
+	private List<GameFolder> GetCurrentFolderBreadcrumbs()
+	{
+		var crumbs = new List<GameFolder>();
+		if (!_currentFolderId.HasValue) return crumbs;
+
+		var map = _folders.ToDictionary(f => f.Id);
+		var visited = new HashSet<long>();
+		long? cursor = _currentFolderId;
+		while (cursor.HasValue && visited.Add(cursor.Value) && map.TryGetValue(cursor.Value, out var folder))
+		{
+			crumbs.Add(folder);
+			cursor = folder.ParentId;
+		}
+		crumbs.Reverse();
+		return crumbs;
+	}
+
+	private string GetFolderPath(long folderId)
+	{
+		return _folders.FirstOrDefault(f => f.Id == folderId)?.Path ?? "";
+	}
+
+	private bool IsDescendantOrSelfFolder(long candidateFolderId, long ancestorFolderId)
+	{
+		var map = _folders.ToDictionary(f => f.Id);
+		var visited = new HashSet<long>();
+		long? cursor = candidateFolderId;
+		while (cursor.HasValue && visited.Add(cursor.Value))
+		{
+			if (cursor.Value == ancestorFolderId) return true;
+			cursor = map.TryGetValue(cursor.Value, out var folder) ? folder.ParentId : null;
+		}
+		return false;
+	}
+
+	private List<(long Id, string Label)> GetFlattenedFolderOptions(long? excludeFolderAndDescendantsId = null)
+	{
+		var result = new List<(long Id, string Label)>();
+		void Traverse(long? parentId)
+		{
+			foreach (var folder in GetChildFolders(parentId))
+			{
+				if (excludeFolderAndDescendantsId.HasValue &&
+					IsDescendantOrSelfFolder(folder.Id, excludeFolderAndDescendantsId.Value))
+				{
+					continue;
+				}
+				result.Add((folder.Id, $"📁 {folder.Path}"));
+				Traverse(folder.Id);
+			}
+		}
+		Traverse(null);
+		return result;
+	}
+
+	private async Task NavigateToFolderAsync(long? folderId)
+	{
+		_showAllGamesFlat = false;
+		_currentFolderId = folderId;
+		_creatingFolder = false;
+		_renamingFolderId = null;
+		_movingGameId = null;
+		_movingFolderMenuId = null;
+		_filter.PageNumber = 1;
+		await LoadGamesAsync();
+	}
+
+	private async Task SetFolderViewModeAsync(bool showAllFlat)
+	{
+		if (_showAllGamesFlat == showAllFlat) return;
+		_showAllGamesFlat = showAllFlat;
+		_creatingFolder = false;
+		_renamingFolderId = null;
+		_movingGameId = null;
+		_movingFolderMenuId = null;
+		_filter.PageNumber = 1;
+		await LoadGamesAsync();
+	}
+
+	private void ToggleFolderSubtreeExpanded(long folderId)
+	{
+		if (!_expandedFolderIds.Add(folderId))
+		{
+			_expandedFolderIds.Remove(folderId);
+		}
+	}
+
+	private void StartCreatingFolder(long? parentId)
+	{
+		_showAllGamesFlat = false;
+		_renamingFolderId = null;
+		_movingGameId = null;
+		_movingFolderMenuId = null;
+		_creatingFolder = true;
+		_creatingFolderParentId = parentId;
+		_newFolderName = "";
+		if (parentId.HasValue && parentId != _currentFolderId)
+		{
+			_expandedFolderIds.Add(parentId.Value);
+		}
+	}
+
+	private void CancelCreateFolder()
+	{
+		_creatingFolder = false;
+		_creatingFolderParentId = null;
+		_newFolderName = "";
+	}
+
+	private async Task CommitCreateFolderAsync()
+	{
+		if (!_creatingFolder) return;
+		string name = (_newFolderName ?? "").Trim();
+		long? parentId = _creatingFolderParentId;
+		_creatingFolder = false;
+		_creatingFolderParentId = null;
+		_newFolderName = "";
+
+		if (string.IsNullOrWhiteSpace(name))
+		{
+			return;
+		}
+
+		await DatabaseService.CreateFolderAsync(_currentDbName, name, parentId);
+		if (parentId.HasValue && parentId != _currentFolderId)
+		{
+			_expandedFolderIds.Add(parentId.Value);
+		}
+		await LoadGamesAsync(showLoading: false);
+	}
+
+	private async Task HandleNewFolderKeyDownAsync(KeyboardEventArgs e)
+	{
+		if (e.Key == "Enter")
+		{
+			await CommitCreateFolderAsync();
+		}
+		else if (e.Key == "Escape")
+		{
+			CancelCreateFolder();
+		}
+	}
+
+	private void StartRenamingFolder(GameFolder folder)
+	{
+		_creatingFolder = false;
+		_movingGameId = null;
+		_movingFolderMenuId = null;
+		_renamingFolderId = folder.Id;
+		_renamingFolderName = folder.Name;
+	}
+
+	private void CancelRenameFolder()
+	{
+		_renamingFolderId = null;
+		_renamingFolderName = "";
+	}
+
+	private async Task CommitRenameFolderAsync(long folderId)
+	{
+		if (_renamingFolderId != folderId) return;
+		string newName = (_renamingFolderName ?? "").Trim();
+		_renamingFolderId = null;
+		_renamingFolderName = "";
+
+		if (string.IsNullOrWhiteSpace(newName))
+		{
+			return;
+		}
+
+		await DatabaseService.RenameFolderAsync(_currentDbName, folderId, newName);
+		await LoadGamesAsync(showLoading: false);
+	}
+
+	private async Task HandleRenameFolderKeyDownAsync(KeyboardEventArgs e, long folderId)
+	{
+		if (e.Key == "Enter")
+		{
+			await CommitRenameFolderAsync(folderId);
+		}
+		else if (e.Key == "Escape")
+		{
+			CancelRenameFolder();
+		}
+	}
+
+	private void PromptDeleteFolder(GameFolder folder)
+	{
+		_folderToDelete = folder;
+		_showDeleteFolderModal = true;
+	}
+
+	private void CancelDeleteFolder()
+	{
+		_folderToDelete = null;
+		_showDeleteFolderModal = false;
+	}
+
+	private async Task ConfirmDeleteFolderAsync()
+	{
+		if (_folderToDelete != null)
+		{
+			long folderId = _folderToDelete.Id;
+			_expandedFolderIds.Remove(folderId);
+			if (_currentFolderId == folderId)
+			{
+				_currentFolderId = _folderToDelete.ParentId;
+			}
+			_folderToDelete = null;
+			_showDeleteFolderModal = false;
+			await DatabaseService.DeleteFolderAsync(_currentDbName, folderId);
+			await LoadGamesAsync(showLoading: false);
+		}
+	}
+
+	private void ToggleMoveGameMenu(long gameId)
+	{
+		_movingFolderMenuId = null;
+		_movingGameId = _movingGameId == gameId ? null : gameId;
+	}
+
+	private void ToggleMoveFolderMenu(long folderId)
+	{
+		_movingGameId = null;
+		_movingFolderMenuId = _movingFolderMenuId == folderId ? null : folderId;
+	}
+
+	private void HandleMoveGameSelectChangedAsync(GameHeader game, ChangeEventArgs e)
+	{
+		string? raw = e.Value?.ToString();
+		long? targetFolderId = long.TryParse(raw, out long parsed) ? parsed : null;
+		_movingGameId = null;
+		if (game.FolderId == targetFolderId)
+		{
+			return;
+		}
+		PromptMoveGame(game, targetFolderId);
+	}
+
+	private void HandleMoveFolderSelectChangedAsync(GameFolder folder, ChangeEventArgs e)
+	{
+		string? raw = e.Value?.ToString();
+		long? targetParentId = long.TryParse(raw, out long parsed) ? parsed : null;
+		_movingFolderMenuId = null;
+		if (folder.ParentId == targetParentId)
+		{
+			return;
+		}
+		PromptMoveFolder(folder, targetParentId);
+	}
+
+	private void PromptMoveGame(GameHeader game, long? targetFolderId)
+	{
+		_gameToMove = game;
+		_targetFolderIdForGame = targetFolderId;
+		_showMoveGameModal = true;
+	}
+
+	private void CancelMoveGame()
+	{
+		_gameToMove = null;
+		_targetFolderIdForGame = null;
+		_showMoveGameModal = false;
+	}
+
+	private async Task ConfirmMoveGameAsync()
+	{
+		if (_gameToMove != null)
+		{
+			long gameId = _gameToMove.Id;
+			long? targetFolderId = _targetFolderIdForGame;
+			_gameToMove = null;
+			_targetFolderIdForGame = null;
+			_showMoveGameModal = false;
+			await DatabaseService.MoveGameToFolderAsync(_currentDbName, gameId, targetFolderId);
+			await LoadGamesAsync(showLoading: false);
+		}
+	}
+
+	private void PromptMoveFolder(GameFolder folder, long? targetParentId)
+	{
+		_folderToMove = folder;
+		_targetParentIdForFolder = targetParentId;
+		_showMoveFolderModal = true;
+	}
+
+	private void CancelMoveFolder()
+	{
+		_folderToMove = null;
+		_targetParentIdForFolder = null;
+		_showMoveFolderModal = false;
+	}
+
+	private async Task ConfirmMoveFolderAsync()
+	{
+		if (_folderToMove != null)
+		{
+			long folderId = _folderToMove.Id;
+			long? targetParentId = _targetParentIdForFolder;
+			_folderToMove = null;
+			_targetParentIdForFolder = null;
+			_showMoveFolderModal = false;
+			await DatabaseService.MoveFolderAsync(_currentDbName, folderId, targetParentId);
+			await LoadGamesAsync(showLoading: false);
+		}
+	}
+
+	private string GetTargetFolderName(long? folderId)
+	{
+		if (!folderId.HasValue)
+		{
+			return Loc["Db_RootFolder"];
+		}
+		var folder = _folders.FirstOrDefault(f => f.Id == folderId.Value);
+		return folder != null ? folder.Path : Loc["Db_RootFolder"];
+	}
+
+	private void HandleFolderDragStart(long folderId)
+	{
+		_draggedFolderId = folderId;
+		_draggedGameId = null;
+		_draggedRowIndex = null;
+		_dragOverRowIndex = null;
+		_folderDropTargetId = null;
+	}
+
+	private void HandleDragOverFolder(long? targetFolderId)
+	{
+		if (!_draggedGameId.HasValue && !_draggedFolderId.HasValue)
+		{
+			_folderDropTargetId = null;
+			return;
+		}
+
+		if (_draggedFolderId.HasValue && targetFolderId.HasValue &&
+			IsDescendantOrSelfFolder(targetFolderId.Value, _draggedFolderId.Value))
+		{
+			_folderDropTargetId = null;
+			return;
+		}
+
+		_folderDropTargetId = targetFolderId ?? -1;
+	}
+
+	private async Task HandleDropOnFolderAsync(long? targetFolderId)
+	{
+		long? draggedGame = _draggedGameId;
+		long? draggedFolder = _draggedFolderId;
+		HandleRowDragEnd();
+
+		if (draggedGame.HasValue)
+		{
+			if (_selectedGameIds.Contains(draggedGame.Value) && _selectedGameIds.Count > 1)
+			{
+				_bulkMoveGameIds = _selectedGameIds.ToList();
+				_bulkMoveTargetDb = _currentDbName;
+				_bulkMoveTargetFolderId = targetFolderId;
+				_bulkMoveError = "";
+				_isBulkMoving = false;
+				await LoadBulkMoveTargetFoldersAsync(_bulkMoveTargetDb);
+				_showBulkMoveModal = true;
+			}
+			else
+			{
+				var game = _games.FirstOrDefault(g => g.Id == draggedGame.Value)
+					?? await DatabaseService.GetGameByIdAsync(_currentDbName, draggedGame.Value);
+				if (game != null && game.FolderId != targetFolderId)
+				{
+					PromptMoveGame(game, targetFolderId);
+				}
+			}
+		}
+		else if (draggedFolder.HasValue)
+		{
+			var folder = _folders.FirstOrDefault(f => f.Id == draggedFolder.Value);
+			if (folder != null && folder.ParentId != targetFolderId)
+			{
+				if (!targetFolderId.HasValue || !IsDescendantOrSelfFolder(targetFolderId.Value, draggedFolder.Value))
+				{
+					PromptMoveFolder(folder, targetFolderId);
+				}
+			}
+		}
+	}
+
+	private bool IsAllPageSelected => _games.Count > 0 && _games.All(g => _selectedGameIds.Contains(g.Id));
+
+	private void ToggleSelectGame(long gameId, ChangeEventArgs e)
+	{
+		bool isChecked = (bool)(e.Value ?? false);
+		if (isChecked)
+		{
+			_selectedGameIds.Add(gameId);
+		}
+		else
+		{
+			_selectedGameIds.Remove(gameId);
+		}
+	}
+
+	private void ToggleSelectAllPage(ChangeEventArgs e)
+	{
+		bool isChecked = (bool)(e.Value ?? false);
+		if (isChecked)
+		{
+			foreach (var g in _games)
+			{
+				_selectedGameIds.Add(g.Id);
+			}
+		}
+		else
+		{
+			foreach (var g in _games)
+			{
+				_selectedGameIds.Remove(g.Id);
+			}
+		}
+	}
+
+	private void ClearSelection()
+	{
+		_selectedGameIds.Clear();
+	}
+
+	private async Task OpenBulkMoveModal()
+	{
+		if (_selectedGameIds.Count == 0) return;
+		_bulkMoveGameIds = _selectedGameIds.ToList();
+		_bulkMoveTargetDb = _currentDbName;
+		_bulkMoveTargetFolderId = _currentFolderId;
+		_bulkMoveError = "";
+		_isBulkMoving = false;
+		await LoadBulkMoveTargetFoldersAsync(_bulkMoveTargetDb);
+		_showBulkMoveModal = true;
+	}
+
+	private void CloseBulkMoveModal()
+	{
+		if (_isBulkMoving) return;
+		_showBulkMoveModal = false;
+		_bulkMoveGameIds.Clear();
+		_bulkMoveError = "";
+	}
+
+	private async Task HandleBulkMoveTargetDbChangedAsync(ChangeEventArgs e)
+	{
+		_bulkMoveTargetDb = e.Value?.ToString() ?? _currentDbName;
+		_bulkMoveTargetFolderId = null;
+		await LoadBulkMoveTargetFoldersAsync(_bulkMoveTargetDb);
+	}
+
+	private void HandleBulkMoveFolderChanged(ChangeEventArgs e)
+	{
+		string val = e.Value?.ToString() ?? "";
+		_bulkMoveTargetFolderId = long.TryParse(val, out long fid) ? fid : null;
+	}
+
+	private async Task LoadBulkMoveTargetFoldersAsync(string dbName)
+	{
+		_bulkMoveTargetFolderOptions.Clear();
+		if (string.IsNullOrWhiteSpace(dbName)) return;
+
+		var folders = string.Equals(dbName, _currentDbName, StringComparison.OrdinalIgnoreCase)
+			? _folders
+			: await DatabaseService.GetFoldersAsync(dbName);
+
+		void AddNode(GameFolder folder, int depth)
+		{
+			string indent = new string(' ', depth * 3);
+			string prefix = depth > 0 ? $"{indent}↳ " : "";
+			_bulkMoveTargetFolderOptions.Add((folder.Id, $"{prefix}📁 {folder.Name}"));
+			foreach (var child in folders.Where(f => f.ParentId == folder.Id).OrderBy(f => f.SortOrder).ThenBy(f => f.Name))
+			{
+				AddNode(child, depth + 1);
+			}
+		}
+
+		foreach (var root in folders.Where(f => f.ParentId == null).OrderBy(f => f.SortOrder).ThenBy(f => f.Name))
+		{
+			AddNode(root, 0);
+		}
+	}
+
+	private string GetSourceSummary()
+	{
+		string folderName = _currentFolderId.HasValue ? GetTargetFolderName(_currentFolderId) : Loc["Db_RootFolder"];
+		return $"{_currentDbName} / {folderName}";
+	}
+
+	private string GetBulkTargetSummary()
+	{
+		string folderName = _bulkMoveTargetFolderId.HasValue
+			? (_bulkMoveTargetFolderOptions.FirstOrDefault(o => o.Id == _bulkMoveTargetFolderId.Value).Label ?? "Folder")
+			: Loc["Db_RootFolder"];
+		return $"{_bulkMoveTargetDb} / {folderName}";
+	}
+
+	private async Task ConfirmBulkMoveAsync()
+	{
+		if (_bulkMoveGameIds.Count == 0 || string.IsNullOrWhiteSpace(_bulkMoveTargetDb)) return;
+
+		_isBulkMoving = true;
+		_bulkMoveError = "";
+
+		try
+		{
+			await DatabaseService.MoveGamesAsync(_currentDbName, _bulkMoveGameIds, _bulkMoveTargetDb, _bulkMoveTargetFolderId);
+			foreach (var id in _bulkMoveGameIds)
+			{
+				_selectedGameIds.Remove(id);
+			}
+			_showBulkMoveModal = false;
+			_bulkMoveGameIds.Clear();
+			await LoadGamesAsync(showLoading: false);
+		}
+		catch (Exception ex)
+		{
+			_bulkMoveError = $"Error moving games: {ex.Message}";
+		}
+		finally
+		{
+			_isBulkMoving = false;
+			StateHasChanged();
+		}
+	}
+
+	private RenderFragment RenderFolderNode(GameFolder folder, int depth) => __builder =>
+	{
+		var childFolders = GetChildFolders(folder.Id);
+		bool isCreatingChildHere = _creatingFolder && _creatingFolderParentId == folder.Id;
+		bool isExpanded = _expandedFolderIds.Contains(folder.Id) || isCreatingChildHere;
+		bool isDropTarget = _folderDropTargetId == folder.Id;
+		var moveOptions = GetFlattenedFolderOptions(folder.Id);
+
+		<div class="db-folder-tree-item @(depth > 0 ? "db-folder-tree-nested" : "")" @key="folder.Id">
+			<div class="db-folder-row @(isDropTarget ? "drop-active" : "") @(_draggedFolderId == folder.Id ? "folder-dragging" : "")"
+				 draggable="@(_renamingFolderId != folder.Id ? "true" : "false")"
+				 @ondragstart:stopPropagation="true"
+				 @ondragstart="() => HandleFolderDragStart(folder.Id)"
+				 @ondragend="HandleRowDragEnd"
+				 @ondragover:preventDefault="true"
+				 @ondragover:stopPropagation="true"
+				 @ondragover="() => HandleDragOverFolder(folder.Id)"
+				 @ondrop:stopPropagation="true"
+				 @ondrop="() => HandleDropOnFolderAsync(folder.Id)"
+				 @onclick="() => NavigateToFolderAsync(folder.Id)">
+				<div class="db-folder-row-main">
+					@if (childFolders.Count > 0)
+					{
+						<button type="button"
+								class="db-folder-expand-btn"
+								title="@(isExpanded ? "Collapse subfolders" : "Expand subfolders")"
+								@onclick:stopPropagation="true"
+								@onclick="() => ToggleFolderSubtreeExpanded(folder.Id)">
+							@(isExpanded ? "▾" : "▸")
+						</button>
+					}
+					else
+					{
+						<span class="db-folder-expand-spacer"></span>
+					}
+
+					<span class="db-folder-row-icon">@(isExpanded && childFolders.Count > 0 ? "📂" : "📁")</span>
+
+					@if (_renamingFolderId == folder.Id)
+					{
+						<div class="db-folder-inline-rename" @onclick:stopPropagation="true">
+							<input class="db-folder-inline-input"
+								   @bind="_renamingFolderName"
+								   @bind:event="oninput"
+								   @onkeydown="e => HandleRenameFolderKeyDownAsync(e, folder.Id)" />
+							<button type="button" class="db-folder-inline-btn db-folder-inline-confirm" title="@Loc["Common_Save"]" @onclick="() => CommitRenameFolderAsync(folder.Id)">✓</button>
+							<button type="button" class="db-folder-inline-btn" title="@Loc["Common_Cancel"]" @onclick="CancelRenameFolder">✕</button>
+						</div>
+					}
+					else
+					{
+						<span class="db-folder-row-name">@folder.Name</span>
+					}
+				</div>
+
+				<div class="db-folder-row-right" @onclick:stopPropagation="true">
+					<div class="db-folder-row-badges">
+						@if (folder.SubfolderCount > 0)
+						{
+							<span class="db-folder-meta-badge">@Loc["Db_SubfoldersCount", folder.SubfolderCount]</span>
+						}
+						<span class="db-folder-meta-badge">@Loc["Db_GamesCount", folder.TotalGameCount.ToString("N0")]</span>
+					</div>
+
+					@if (_movingFolderMenuId == folder.Id)
+					{
+						<select class="db-row-folder-select"
+								value="@(folder.ParentId?.ToString() ?? "")"
+								@onchange="e => HandleMoveFolderSelectChangedAsync(folder, e)">
+							<option value="">@Loc["Db_RootFolder"]</option>
+							@foreach (var opt in moveOptions)
+							{
+								<option value="@opt.Id">@opt.Label</option>
+							}
+						</select>
+					}
+
+					<div class="db-folder-row-actions">
+						<button type="button" class="db-folder-action-btn" title="@Loc["Db_NewSubfolder"]" @onclick="() => StartCreatingFolder(folder.Id)">+📁</button>
+						<button type="button" class="db-folder-action-btn" title="@Loc["Db_RenameFolder"]" @onclick="() => StartRenamingFolder(folder)">✎</button>
+						@if (moveOptions.Count > 0 || folder.ParentId.HasValue)
+						{
+							<button type="button" class="db-folder-action-btn" title="@Loc["Db_MoveToFolderTitle"]" @onclick="() => ToggleMoveFolderMenu(folder.Id)">⇄</button>
+						}
+						<button type="button" class="db-folder-action-btn db-folder-action-danger" title="@Loc["Db_DeleteFolder"]" @onclick="() => PromptDeleteFolder(folder)">🗑️</button>
+					</div>
+				</div>
+			</div>
+
+			@if (isExpanded && (childFolders.Count > 0 || isCreatingChildHere))
+			{
+				<div class="db-folder-subtree-children">
+					@if (isCreatingChildHere)
+					{
+						<div class="db-folder-inline-editor">
+							<span class="db-folder-row-icon">📁</span>
+							<input class="db-folder-inline-input"
+								   placeholder="@Loc["Db_FolderPlaceholder"]"
+								   @bind="_newFolderName"
+								   @bind:event="oninput"
+								   @onkeydown="HandleNewFolderKeyDownAsync" />
+							<button type="button" class="db-folder-inline-btn db-folder-inline-confirm" title="@Loc["Common_Save"]" @onclick="CommitCreateFolderAsync">✓</button>
+							<button type="button" class="db-folder-inline-btn" title="@Loc["Common_Cancel"]" @onclick="CancelCreateFolder">✕</button>
+						</div>
+					}
+
+					@foreach (var sub in childFolders)
+					{
+						@RenderFolderNode(sub, depth + 1)
+					}
+				</div>
+			}
+		</div>
+	};
 
 	private long? _editingNoteGameId = null;
 	private string _editingNoteValue = "";
@@ -1583,11 +2638,15 @@
 	{
 		if (_editingNoteGameId == game.Id) return;
 		_draggedRowIndex = index;
+		_draggedGameId = game.Id;
+		_draggedFolderId = null;
 		_dragOverRowIndex = null;
+		_folderDropTargetId = null;
 	}
 
 	private void HandleRowDragOver(int index)
 	{
+		_folderDropTargetId = null;
 		if (!_draggedRowIndex.HasValue || _draggedRowIndex.Value == index)
 		{
 			_dragOverRowIndex = null;
@@ -1600,19 +2659,21 @@
 	{
 		_draggedRowIndex = null;
 		_dragOverRowIndex = null;
+		_draggedGameId = null;
+		_draggedFolderId = null;
+		_folderDropTargetId = null;
 	}
 
 	private async Task HandleRowDropAsync(int targetIndex)
 	{
 		if (!_draggedRowIndex.HasValue)
 		{
-			_dragOverRowIndex = null;
+			HandleRowDragEnd();
 			return;
 		}
 
 		int sourceIndex = _draggedRowIndex.Value;
-		_draggedRowIndex = null;
-		_dragOverRowIndex = null;
+		HandleRowDragEnd();
 
 		await MoveRowAsync(sourceIndex, targetIndex);
 	}
@@ -1730,6 +2791,7 @@
 
 		var db = await DatabaseService.CreateDatabaseAsync(name);
 		_currentDbName = db.Name;
+		_currentFolderId = null;
 		await LoadDatabasesAsync();
 	}
 
@@ -1780,6 +2842,7 @@
 					if (remaining != null)
 					{
 						_currentDbName = remaining.Name;
+						_currentFolderId = null;
 					}
 				}
 				await LoadDatabasesAsync();
@@ -1801,6 +2864,7 @@
 			if (active != null && active.Name != _currentDbName)
 			{
 				_currentDbName = active.Name;
+				_currentFolderId = null;
 			}
 			await LoadGamesAsync();
 			StateHasChanged();

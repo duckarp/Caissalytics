@@ -128,6 +128,8 @@ public class EnginesConfigFile
     public string ActiveEngineId { get; set; } = "stockfish-17";
     public string? SyzygyPath { get; set; }
     public string? CustomLc0Path { get; set; }
+    public bool PreserveEngineState { get; set; } = false;
+    public bool LastEngineRunningState { get; set; } = false;
     public List<EngineInfo> Engines { get; set; } = new();
 }
 

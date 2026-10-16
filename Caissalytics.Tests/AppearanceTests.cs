@@ -208,6 +208,24 @@ public class AppearanceTests
         Assert.Null(exception);
     }
 
+    [Fact]
+    public void KeyboardShortcutSettings_FlipBoard_DefaultAndMatching()
+    {
+        var settings = new KeyboardShortcutSettings();
+        Assert.NotNull(settings.FlipBoard);
+        Assert.Equal("f", settings.FlipBoard.Key);
+        Assert.False(settings.FlipBoard.Ctrl);
+        Assert.False(settings.FlipBoard.Alt);
+        Assert.False(settings.FlipBoard.Shift);
+
+        // Matches 'f' and 'F' case-insensitively without modifiers
+        Assert.True(settings.FlipBoard.Matches("f", false, false, false));
+        Assert.True(settings.FlipBoard.Matches("F", false, false, false));
+        Assert.False(settings.FlipBoard.Matches("f", true, false, false));
+        Assert.False(settings.FlipBoard.Matches("g", false, false, false));
+        Assert.Equal("F", settings.FlipBoard.ToDisplayString());
+    }
+
     private class DummyJs : Microsoft.JSInterop.IJSRuntime
     {
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => default;

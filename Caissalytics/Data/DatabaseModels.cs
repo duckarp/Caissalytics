@@ -57,6 +57,7 @@ public class GameHeader
     public string Pgn { get; set; } = string.Empty;
     public string Note { get; set; } = string.Empty;
     public int? SortOrder { get; set; }
+    public long? FolderId { get; set; }
 
     public string Platform
     {
@@ -227,6 +228,18 @@ public class PositionReferenceResult
     public string? ErrorMessage { get; set; }
 }
 
+public class GameFolder
+{
+    public long Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public long? ParentId { get; set; }
+    public int SortOrder { get; set; }
+    public int DirectGameCount { get; set; }
+    public int TotalGameCount { get; set; }
+    public int SubfolderCount { get; set; }
+    public string Path { get; set; } = string.Empty;
+}
+
 public class GameFilter
 {
     public string? Player { get; set; }
@@ -242,6 +255,8 @@ public class GameFilter
     public int? YearTo { get; set; }
     public ulong? PositionZobristKey { get; set; }
     public string? PositionFen { get; set; }
+    public bool FilterByFolder { get; set; }
+    public long? FolderId { get; set; }
     public int PageNumber { get; set; } = 1;
     public int PageSize { get; set; } = 50;
 
@@ -260,6 +275,8 @@ public class GameFilter
         YearTo = YearTo,
         PositionZobristKey = PositionZobristKey,
         PositionFen = PositionFen,
+        FilterByFolder = FilterByFolder,
+        FolderId = FolderId,
         PageNumber = PageNumber,
         PageSize = PageSize
     };
@@ -278,3 +295,4 @@ public class PgnImportProgress
     public int PercentComplete => TotalBytes > 0 ? Math.Clamp((int)(BytesProcessed * 100 / TotalBytes), 0, 100) : 0;
     public double GamesPerSecond => Elapsed.TotalSeconds > 0 ? GamesSaved / Elapsed.TotalSeconds : 0;
 }
+

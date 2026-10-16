@@ -23,14 +23,16 @@ window.notationInterop = {
             }
 
             // Only intercept shortcut-relevant keys
-            const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'Space'];
-            if (!keys.includes(e.key) && !e.ctrlKey) {
+            const keys = ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'Space', ' '];
+            const isLetterOrDigit = (e.key && e.key.length === 1);
+            if (!keys.includes(e.key) && !isLetterOrDigit && !e.ctrlKey) {
                 return;
             }
 
-            // Prevent default scrolling for arrow keys, home, end, or default window close for Ctrl+W
-            if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', ' '].includes(e.key) ||
-                (e.ctrlKey && (e.key === 'w' || e.key === 'W'))) {
+            // Prevent default scrolling for arrow keys, home, end, space, or default window close for Ctrl+W
+            if (keys.includes(e.key) ||
+                (e.ctrlKey && (e.key === 'w' || e.key === 'W')) ||
+                (!e.ctrlKey && !e.altKey && (e.key === 'f' || e.key === 'F'))) {
                 e.preventDefault();
             }
 

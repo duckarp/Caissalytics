@@ -496,7 +496,7 @@
 		}
 	}
 
-	private async Task ToggleOrientation()
+	public async Task ToggleOrientation()
 	{
 		Orientation = Orientation == "white" ? "black" : "white";
 		await OrientationChanged.InvokeAsync(Orientation);

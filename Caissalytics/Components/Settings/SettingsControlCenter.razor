@@ -511,6 +511,26 @@
 						<p class="card-section-desc">Manage installed engines, select the active engine for live analysis and game reports, or add custom binaries.</p>
 					</div>
 
+					<!-- Engine State Persistence Setting -->
+					<div class="engine-pref-row">
+						<div class="toggle-switch-wrapper">
+							<input type="checkbox" id="preserveEngineStateToggle" class="switch-input"
+								   checked="@_preserveEngineState"
+								   @onchange="TogglePreserveEngineStateAsync" />
+							<label for="preserveEngineStateToggle" class="switch-slider"></label>
+						</div>
+						<div class="engine-pref-label">
+							<div class="engine-pref-title-row">
+								<span class="engine-pref-title">@Loc["Settings_Engine_PreserveState"]</span>
+								@if (_preserveEngineState)
+								{
+									<span class="badge-active-pill">@Loc["Common_Active"]</span>
+								}
+							</div>
+							<span class="engine-pref-desc">@Loc["Settings_Engine_PreserveState_Desc"]</span>
+						</div>
+					</div>
+
 					<!-- Stockfish Spotlight & 1-Click Update Card -->
 					<div class="stockfish-spotlight-card">
 						<div class="stockfish-spotlight-header">
@@ -1623,6 +1643,10 @@
 
 						<div class="section-divider" style="margin: 6px 0;"></div>
 
+						@RenderShortcutRow("FlipBoard", Loc["Settings_Shortcuts_FlipBoard"], _appearanceSettings.Shortcuts.FlipBoard)
+
+						<div class="section-divider" style="margin: 6px 0;"></div>
+
 						@RenderShortcutRow("CloseTab", Loc["Settings_Shortcuts_CloseTab"], _appearanceSettings.Shortcuts.CloseTab)
 					</div>
 
@@ -1730,6 +1754,7 @@
 
 	// Engines State
 	private List<EngineInfo> _engines = new();
+	private bool _preserveEngineState = false;
 	private bool _isInstalling = false;
 	private string _installingEngineId = "";
 	private int _installProgress = 0;
@@ -1911,6 +1936,14 @@
 	{
 		var list = await EngineService.GetEnginesAsync();
 		_engines = list.ToList();
+		_preserveEngineState = EngineService.PreserveEngineState;
+	}
+
+	private async Task TogglePreserveEngineStateAsync(ChangeEventArgs e)
+	{
+		bool val = e.Value is bool b && b;
+		_preserveEngineState = val;
+		await EngineService.SetPreserveEngineStateAsync(val);
 	}
 
 	private async Task LoadSyncConfigAsync()
@@ -2543,6 +2576,7 @@
 			case "PreviousVariation": _appearanceSettings.Shortcuts.PreviousVariation = newBinding; break;
 			case "AltNextVariation": _appearanceSettings.Shortcuts.AlternateNextVariation = newBinding; break;
 			case "AltPreviousVariation": _appearanceSettings.Shortcuts.AlternatePreviousVariation = newBinding; break;
+			case "FlipBoard": _appearanceSettings.Shortcuts.FlipBoard = newBinding; break;
 			case "CloseTab": _appearanceSettings.Shortcuts.CloseTab = newBinding; break;
 		}
 

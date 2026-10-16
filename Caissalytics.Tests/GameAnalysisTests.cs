@@ -23,6 +23,10 @@ public class FakeEngineService : IEngineService
     public bool IsAnalyzing => false;
     public string? SyzygyPath { get; set; }
     public Task SetSyzygyPathAsync(string? path) { SyzygyPath = path; return Task.CompletedTask; }
+    public bool PreserveEngineState { get; set; } = false;
+    public bool LastEngineRunningState { get; set; } = false;
+    public Task SetPreserveEngineStateAsync(bool preserve) { PreserveEngineState = preserve; return Task.CompletedTask; }
+    public Task SetLastEngineRunningStateAsync(bool isRunning) { LastEngineRunningState = isRunning; return Task.CompletedTask; }
     public Task<StockfishUpdateInfo> CheckStockfishUpdateAsync(bool force = false, CancellationToken ct = default) => Task.FromResult(new StockfishUpdateInfo());
     public Task<bool> UpdateStockfishAsync(IProgress<int>? progress = null, CancellationToken ct = default) => Task.FromResult(true);
     public StockfishUpdateInfo? CachedStockfishUpdate => null;

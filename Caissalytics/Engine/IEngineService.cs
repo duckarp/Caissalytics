@@ -18,6 +18,11 @@ public interface IEngineService
     string? SyzygyPath { get; }
     Task SetSyzygyPathAsync(string? path);
 
+    bool PreserveEngineState { get; }
+    bool LastEngineRunningState { get; }
+    Task SetPreserveEngineStateAsync(bool preserve);
+    Task SetLastEngineRunningStateAsync(bool isRunning);
+
     Task<StockfishUpdateInfo> CheckStockfishUpdateAsync(bool force = false, CancellationToken ct = default);
     Task<bool> UpdateStockfishAsync(IProgress<int>? progress = null, CancellationToken ct = default);
     StockfishUpdateInfo? CachedStockfishUpdate { get; }

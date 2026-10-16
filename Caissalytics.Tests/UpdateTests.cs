@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Caissalytics.Data;
+using Caissalytics.Localization;
 using Xunit;
 
 namespace Caissalytics.Tests;
@@ -336,6 +337,22 @@ public class UpdateTests
         Assert.Contains("Add edit position capability", update.ReleaseNotes);
     }
 
+
+    [Theory]
+    [InlineData("en", "Nav_CheckUpdate_Tooltip", "Click to check for updates")]
+    [InlineData("en", "Nav_CheckingUpdates", "Checking for updates...")]
+    [InlineData("en", "Nav_UpToDate", "Up to date")]
+    [InlineData("en", "Nav_UpToDate_Tooltip", "Caissalytics is up to date")]
+    [InlineData("sk", "Nav_CheckUpdate_Tooltip", "Kliknite pre kontrolu aktualizácií")]
+    [InlineData("sk", "Nav_CheckingUpdates", "Kontrola aktualizácií...")]
+    [InlineData("sk", "Nav_UpToDate", "Aktuálna verzia")]
+    [InlineData("sk", "Nav_UpToDate_Tooltip", "Caissalytics je aktuálny")]
+    public async Task Localization_ContainsVersionCheckKeys(string lang, string key, string expected)
+    {
+        var loc = new LocalizationService();
+        await loc.SetLanguageAsync(lang);
+        Assert.Equal(expected, loc[key]);
+    }
 
     private class TestHttpMessageHandler : HttpMessageHandler
     {

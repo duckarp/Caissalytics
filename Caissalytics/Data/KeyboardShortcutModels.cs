@@ -41,7 +41,7 @@ public class ShortcutBinding
             "Home" => "Home",
             "End" => "End",
             "Space" => "Space",
-            _ => Key
+            _ => Key.Length == 1 ? Key.ToUpperInvariant() : Key
         };
         parts.Add(keyDisplay);
 
@@ -61,6 +61,9 @@ public class KeyboardShortcutSettings
     public ShortcutBinding PreviousVariation { get; set; } = new("ArrowLeft", ctrl: true);
     public ShortcutBinding AlternateNextVariation { get; set; } = new("ArrowDown");
     public ShortcutBinding AlternatePreviousVariation { get; set; } = new("ArrowUp");
+
+    // Board Navigation
+    public ShortcutBinding FlipBoard { get; set; } = new("f");
 
     // Tab Management
     public ShortcutBinding CloseTab { get; set; } = new("w", ctrl: true);

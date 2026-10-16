@@ -1,5 +1,7 @@
+using Caissalytics.Components;
 using Caissalytics.Core;
 using Caissalytics.Engine;
+using Caissalytics.Localization;
 using Xunit;
 
 namespace Caissalytics.Tests;
@@ -455,5 +457,77 @@ public class EngineTests
         var whiteMove = legal.FirstOrDefault(m => m.From == Square.B2 && m.To == Square.B4);
         Assert.True(whiteMove.IsEmpty);
         Assert.Equal("", SanParser.ToSan(pos, whiteMove));
+    }
+
+    [Fact]
+    public async Task EngineManager_PreserveEngineState_SavesAndRestores()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), "caissalytics_eng_test_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            using (var manager1 = new EngineManager(tempDir))
+            {
+                Assert.False(manager1.PreserveEngineState);
+                Assert.False(manager1.LastEngineRunningState);
+
+                await manager1.SetPreserveEngineStateAsync(true);
+                await manager1.SetLastEngineRunningStateAsync(true);
+
+                Assert.True(manager1.PreserveEngineState);
+                Assert.True(manager1.LastEngineRunningState);
+            }
+
+            // Create new manager instance pointing to the same storage dir
+            using (var manager2 = new EngineManager(tempDir))
+            {
+                Assert.True(manager2.PreserveEngineState);
+                Assert.True(manager2.LastEngineRunningState);
+
+                await manager2.SetLastEngineRunningStateAsync(false);
+                Assert.False(manager2.LastEngineRunningState);
+            }
+
+            using (var manager3 = new EngineManager(tempDir))
+            {
+                Assert.True(manager3.PreserveEngineState);
+                Assert.False(manager3.LastEngineRunningState);
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, true)]
+    public void WorkspaceState_PreserveEngineState_RestoresOnNewGame(bool preserveState, bool lastRunning, bool expectedAnalyzing)
+    {
+        var fakeEngine = new FakeEngineService
+        {
+            PreserveEngineState = preserveState,
+            LastEngineRunningState = lastRunning
+        };
+
+        var ws = new WorkspaceState(fakeEngine);
+        var tab = ws.CreateAnalysisTab("Test Game");
+
+        Assert.Equal(expectedAnalyzing, tab.IsAnalyzing);
+    }
+
+    [Theory]
+    [InlineData("en", "Settings_Engine_PreserveState", "Preserve Engine State")]
+    [InlineData("sk", "Settings_Engine_PreserveState", "Zachovať stav motora")]
+    public async Task Localization_ContainsEnginePreserveStateKeys(string lang, string key, string expected)
+    {
+        var loc = new LocalizationService();
+        await loc.SetLanguageAsync(lang);
+        Assert.Equal(expected, loc[key]);
     }
 }
