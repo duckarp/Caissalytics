@@ -13,8 +13,21 @@ window.notationInterop = {
     _ensureGlobalListener: function () {
         if (this._keyboardHandler) return;
         const self = this;
+        this._altHeld = false;
+        this._notifyAlt = function(held) {
+            if (self._altHeld === held) return;
+            self._altHeld = held;
+            for (const helper of self._listeners.values()) {
+                helper.invokeMethodAsync('OnGlobalAltChanged', held).catch(() => {});
+            }
+        };
+        this._keyUpHandler = function(e) { if (!e.altKey) self._notifyAlt(false); };
+        this._blurHandler = function() { self._notifyAlt(false); };
+        window.addEventListener('keyup', this._keyUpHandler);
+        window.addEventListener('blur', this._blurHandler);
         this._keyboardHandler = function (e) {
             if (self._listeners.size === 0) return;
+            self._notifyAlt(e.altKey);
 
             // Ignore if active element is an input, textarea, select, or contenteditable
             const tag = (document.activeElement && document.activeElement.tagName) ? document.activeElement.tagName.toUpperCase() : '';
@@ -37,6 +50,7 @@ window.notationInterop = {
             }
 
             const payload = {
+                code: e.code,
                 key: e.key,
                 ctrlKey: e.ctrlKey || e.metaKey,
                 altKey: e.altKey,
@@ -66,6 +80,8 @@ window.notationInterop = {
         }
         if (this._listeners.size === 0 && this._keyboardHandler) {
             window.removeEventListener('keydown', this._keyboardHandler);
+            window.removeEventListener('keyup', this._keyUpHandler);
+            window.removeEventListener('blur', this._blurHandler);
             this._keyboardHandler = null;
         }
     }

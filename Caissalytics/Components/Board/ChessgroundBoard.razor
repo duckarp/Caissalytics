@@ -43,6 +43,65 @@
 		}
 		<div class="board-wrapper @($"board-theme-{_appearanceSettings.BoardTheme}")">
 			<div id="@_elementId" class="chessground-target"></div>
+            @if (ShowVariationArrows && VariationBadges.Count > 1)
+            {
+                <svg class="board-variation-arrows" viewBox="0 0 800 800" preserveAspectRatio="none" aria-hidden="true">
+                    <defs>
+                        <marker id="variation-arrow-head" markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto" markerUnits="strokeWidth">
+                            <path d="M0 0 L5 2.5 L0 5 Z" fill="#39a7ff" />
+                        </marker>
+                    </defs>
+                    @foreach (var badge in VariationBadges)
+                    {
+                        var from = badge.Node.Move.From;
+                        var to = badge.Node.Move.To;
+                        var x1 = (Orientation == "white" ? from.File() : 7 - from.File()) * 100 + 50;
+                        var y1 = (Orientation == "white" ? 7 - from.Rank() : from.Rank()) * 100 + 50;
+                        var x2 = (Orientation == "white" ? to.File() : 7 - to.File()) * 100 + 50;
+                        var y2 = (Orientation == "white" ? 7 - to.Rank() : to.Rank()) * 100 + 50;
+                        var dx = x2 - x1;
+                        var dy = y2 - y1;
+                        var distance = Math.Sqrt(dx * dx + dy * dy);
+                        var shorten = Math.Min(32, distance * 0.28);
+                        var endX = x2 - dx / distance * shorten;
+                        var endY = y2 - dy / distance * shorten;
+                        <line x1="@x1" y1="@y1" x2="@(endX.ToString(System.Globalization.CultureInfo.InvariantCulture))" y2="@(endY.ToString(System.Globalization.CultureInfo.InvariantCulture))" class="board-variation-arrow" />
+                    }
+                </svg>
+            }
+            @if (VariationBadges.Count > 1)
+            {
+                <div class="board-variation-overlay">
+                    @foreach (var group in VariationBadges.GroupBy(x => x.Node.Move.From))
+                    {
+                        var file = group.Key.File();
+                        var rank = group.Key.Rank();
+                        var x = (Orientation == "white" ? file : 7 - file) * 12.5;
+                        var y = (Orientation == "white" ? 7 - rank : rank) * 12.5;
+                        <div class="board-variation-square" style="left:@(x.ToString(System.Globalization.CultureInfo.InvariantCulture))%;top:@(y.ToString(System.Globalization.CultureInfo.InvariantCulture))%">
+                            @foreach (var badge in group)
+                            {
+                                <button type="button" class="board-variation-badge" title="Variation @badge.Number: @badge.Node.San" aria-label="Variation @badge.Number: @badge.Node.San" @onclick="() => OnVariationSelected.InvokeAsync(badge.Node)">>@badge.Number</button>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
+
+            @if (SelectedVariationNumber is int selectedNumber && Tree?.CurrentNode is { } selectedNode)
+            {
+                var target = selectedNode.Move.To;
+                var selectedFile = target.File();
+                var selectedRank = target.Rank();
+                var selectedX = (Orientation == "white" ? selectedFile : 7 - selectedFile) * 12.5;
+                var selectedY = (Orientation == "white" ? 7 - selectedRank : selectedRank) * 12.5;
+                <div class="board-selected-variation-overlay" aria-hidden="true">
+                    <div class="board-selected-variation-square" style="left:@(selectedX.ToString(System.Globalization.CultureInfo.InvariantCulture))%;top:@(selectedY.ToString(System.Globalization.CultureInfo.InvariantCulture))%">
+                        <span class="board-selected-variation-badge" title="Selected variation @selectedNumber">@selectedNumber</span>
+                    </div>
+                </div>
+            }
 
 			@if (_showPromotionDialog)
 			{
@@ -164,6 +223,23 @@
 	[Parameter] public bool EnableSound { get; set; } = true;
 
 	[Parameter] public GameTree? Tree { get; set; }
+    [Parameter] public EventCallback<MoveNode> OnVariationSelected { get; set; }
+    [Parameter] public bool ShowVariationArrows { get; set; }
+    private List<(int Number, MoveNode Node)> VariationBadges => Tree?.CurrentNode.Children
+        .Select((node, index) => (Number: index + 1, Node: node)).ToList() ?? new();
+    // Only identify a move as a selected variation when its parent offered multiple continuations.
+    // This naturally disappears on the next move and reappears when navigating back.
+    private int? SelectedVariationNumber
+    {
+        get
+        {
+            var node = Tree?.CurrentNode;
+            if (node == null || node.IsRoot || node.Parent == null || node.Parent.Children.Count <= 1)
+                return null;
+            var index = node.Parent.Children.IndexOf(node);
+            return index >= 0 ? index + 1 : null;
+        }
+    }
 	[Parameter] public RenderFragment? SideGauge { get; set; }
 	[Parameter] public EventCallback OnEditPosition { get; set; }
 

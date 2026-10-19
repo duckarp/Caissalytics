@@ -1300,4 +1300,105 @@ public class DatabaseTests : IDisposable
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _dbManager.MoveGamesAsync("SourceDb", new[] { id2 }, IDatabaseService.ProtectedOnlineDatabaseName, null));
     }
+
+    [Fact]
+    public void SetTagInPgn_HandlesUpdateAddRemove()
+    {
+        string pgn = @"[Event ""Old Event""]
+[Site ""Old Site""]
+[Date ""2020.01.01""]
+
+1. e4 e5 *";
+
+        // Update existing tag
+        string updatedEvent = GameHeader.SetTagInPgn(pgn, "Event", "Tata Steel 2026");
+        Assert.Contains(@"[Event ""Tata Steel 2026""]", updatedEvent);
+        Assert.DoesNotContain(@"[Event ""Old Event""]", updatedEvent);
+        Assert.Contains("1. e4 e5 *", updatedEvent);
+
+        // Add new tag (TimeControl)
+        string withTc = GameHeader.SetTagInPgn(updatedEvent, "TimeControl", "180+2");
+        Assert.Contains(@"[TimeControl ""180+2""]", withTc);
+        Assert.Contains(@"[Event ""Tata Steel 2026""]", withTc);
+
+        // Remove tag by passing empty string
+        string removedTc = GameHeader.SetTagInPgn(withTc, "TimeControl", "");
+        Assert.DoesNotContain("TimeControl", removedTc);
+        Assert.Contains(@"[Event ""Tata Steel 2026""]", removedTc);
+    }
+
+    [Fact]
+    public async Task BulkUpdateGamesMetadataAsync_UpdatesSpecifiedFieldsOnly()
+    {
+        string db = "BulkEditDb";
+        await _dbManager.CreateDatabaseAsync(db);
+
+        var g1 = new GameHeader
+        {
+            White = "Carlsen",
+            Black = "Nakamura",
+            Event = "Event A",
+            Date = "2024.01.01",
+            Pgn = @"[Event ""Event A""]
+[Date ""2024.01.01""]
+[TimeControl ""blitz""]
+
+1. e4 e5 *"
+        };
+
+        var g2 = new GameHeader
+        {
+            White = "Kasparov",
+            Black = "Karpov",
+            Event = "Event B",
+            Date = "1985.10.10",
+            Pgn = @"[Event ""Event B""]
+[Date ""1985.10.10""]
+[TimeControl ""standard""]
+
+1. d4 d5 *"
+        };
+
+        long id1 = await _dbManager.SaveGameAsync(db, g1);
+        long id2 = await _dbManager.SaveGameAsync(db, g2);
+
+        // Update only Event and TimeControl, leave Date unchanged
+        var update = new BulkGameMetadataUpdate
+        {
+            UpdateEvent = true,
+            Event = "World Championship 2026",
+            UpdateDate = false,
+            Date = "2026.12.31",
+            UpdateTimeControl = true,
+            TimeControl = "rapid"
+        };
+
+        await _dbManager.BulkUpdateGamesMetadataAsync(db, new[] { id1, id2 }, update);
+
+        var loaded1 = await _dbManager.GetGameByIdAsync(db, id1);
+        var loaded2 = await _dbManager.GetGameByIdAsync(db, id2);
+
+        Assert.NotNull(loaded1);
+        Assert.NotNull(loaded2);
+
+        // Event should be updated
+        Assert.Equal("World Championship 2026", loaded1.Event);
+        Assert.Equal("World Championship 2026", loaded2.Event);
+        Assert.Contains(@"[Event ""World Championship 2026""]", loaded1.Pgn);
+        Assert.Contains(@"[Event ""World Championship 2026""]", loaded2.Pgn);
+
+        // Date should be untouched
+        Assert.Equal("2024.01.01", loaded1.Date);
+        Assert.Equal("1985.10.10", loaded2.Date);
+        Assert.Contains(@"[Date ""2024.01.01""]", loaded1.Pgn);
+        Assert.Contains(@"[Date ""1985.10.10""]", loaded2.Pgn);
+
+        // TimeControl should be updated
+        Assert.Equal("rapid", loaded1.TimeControl);
+        Assert.Equal("rapid", loaded2.TimeControl);
+        Assert.Equal("rapid", loaded1.TimeClass);
+        Assert.Equal("rapid", loaded2.TimeClass);
+        Assert.Contains(@"[TimeControl ""rapid""]", loaded1.Pgn);
+        Assert.Contains(@"[TimeControl ""rapid""]", loaded2.Pgn);
+    }
 }

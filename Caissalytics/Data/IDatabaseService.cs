@@ -35,6 +35,7 @@ public interface IDatabaseService
     Task<bool> DeleteFolderAsync(string databaseName, long folderId) => Task.FromResult(false);
     Task MoveGameToFolderAsync(string databaseName, long gameId, long? folderId) => Task.CompletedTask;
     Task MoveGamesAsync(string sourceDbName, IReadOnlyList<long> gameIds, string targetDbName, long? targetFolderId) => Task.CompletedTask;
+    Task BulkUpdateGamesMetadataAsync(string databaseName, IReadOnlyList<long> gameIds, BulkGameMetadataUpdate update) => Task.CompletedTask;
 
     Task ImportPgnStreamAsync(string databaseName, Stream stream, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false, bool allowProtectedDatabase = false);
     Task ImportPgnStreamAsync(string databaseName, Stream stream, string? fileName, IProgress<PgnImportProgress>? progress = null, CancellationToken cancellationToken = default, bool deduplicate = false, bool allowProtectedDatabase = false)

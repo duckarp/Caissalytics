@@ -340,6 +340,9 @@
 							<button type="button" class="btn-clear-link" @onclick="ClearSelection">@Loc["Db_DeselectAll"]</button>
 						</div>
 						<div class="db-bulk-right">
+							<button type="button" class="btn-secondary-small btn-bulk-edit" @onclick="OpenBulkEditModal" title="@Loc["Db_ModifySelectedTooltip"]">
+								✏️ @Loc["Db_ModifySelected"]
+							</button>
 							<button type="button" class="btn-primary-small btn-bulk-move" @onclick="OpenBulkMoveModal">
 								📁 @Loc["Db_MoveSelectedGames", _selectedGameIds.Count]
 							</button>
@@ -1211,6 +1214,106 @@
 	</div>
 }
 
+<!-- Bulk Edit Selected Games Modal -->
+@if (_showBulkEditModal)
+{
+	<div class="modal-backdrop" @onclick="CloseBulkEditModal">
+		<div class="modal-dialog" @onclick:stopPropagation="true">
+			<div class="modal-header">
+				<h3 class="modal-title">✏️ @Loc["Db_BulkEdit_Title", _bulkEditGameIds.Count]</h3>
+				<button class="modal-close-btn" @onclick="CloseBulkEditModal" disabled="@_isBulkEditing">✕</button>
+			</div>
+			<div class="modal-body">
+				<p class="modal-desc">
+					@Loc["Db_BulkEdit_Desc", _bulkEditGameIds.Count]
+				</p>
+
+				<div class="modal-form-group">
+					<div class="bulk-edit-field-header">
+						<label class="bulk-edit-chk-label">
+							<input type="checkbox" @bind="_updateEvent" disabled="@_isBulkEditing" />
+							<span>@Loc["Db_BulkEdit_UpdateEvent"]</span>
+						</label>
+					</div>
+					<input class="modal-input"
+						   placeholder="e.g. World Championship 2026"
+						   value="@_bulkEditEvent"
+						   @oninput="HandleBulkEditEventInput"
+						   disabled="@(!_updateEvent || _isBulkEditing)" />
+				</div>
+
+				<div class="modal-form-group">
+					<div class="bulk-edit-field-header">
+						<label class="bulk-edit-chk-label">
+							<input type="checkbox" @bind="_updateDate" disabled="@_isBulkEditing" />
+							<span>@Loc["Db_BulkEdit_UpdateDate"] (DD.MM.YYYY)</span>
+						</label>
+					</div>
+					<input class="modal-input"
+						   placeholder="DD.MM.YYYY or YYYY.MM.DD"
+						   value="@_bulkEditDate"
+						   @oninput="HandleBulkEditDateInput"
+						   disabled="@(!_updateDate || _isBulkEditing)" />
+				</div>
+
+				<div class="modal-form-group">
+					<div class="bulk-edit-field-header">
+						<label class="bulk-edit-chk-label">
+							<input type="checkbox" @bind="_updateTimeControl" disabled="@_isBulkEditing" />
+							<span>@Loc["Db_BulkEdit_UpdateTimeControl"]</span>
+						</label>
+					</div>
+					<select class="modal-input"
+							value="@_bulkEditTimeClass"
+							@onchange="HandleBulkEditTimeClassChanged"
+							disabled="@(!_updateTimeControl || _isBulkEditing)">
+						<option value="">(Unspecified / Remove)</option>
+						<option value="bullet">Bullet (&lt; 3 min)</option>
+						<option value="blitz">Blitz (3 - 10 min)</option>
+						<option value="rapid">Rapid (10 - 60 min)</option>
+						<option value="standard">Standard / Classical (60+ min)</option>
+						<option value="custom">Custom value...</option>
+					</select>
+					@if (_bulkEditTimeClass == "custom")
+					{
+						<input class="modal-input"
+							   style="margin-top: 6px;"
+							   placeholder="e.g. 180+2 or 900+10"
+							   value="@_bulkEditCustomTc"
+							   @oninput="HandleBulkEditCustomTcInput"
+							   disabled="@(!_updateTimeControl || _isBulkEditing)" />
+					}
+				</div>
+
+				@if (!_updateEvent && !_updateDate && !_updateTimeControl)
+				{
+					<div class="modal-info-box" style="margin-top: 4px;">
+						<div class="modal-info-title">ℹ️ @Loc["Db_BulkEdit_NoFieldsSelected"]</div>
+					</div>
+				}
+
+				@if (!string.IsNullOrEmpty(_bulkEditError))
+				{
+					<div class="ref-result-black">@_bulkEditError</div>
+				}
+			</div>
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="CloseBulkEditModal" disabled="@_isBulkEditing">@Loc["Common_Cancel"]</button>
+				<button class="btn-primary" @onclick="ConfirmBulkEditAsync" disabled="@(_isBulkEditing || (!_updateEvent && !_updateDate && !_updateTimeControl))">
+					@if (_isBulkEditing)
+					{
+						<span>...</span>
+					}
+					else
+					{
+						<span>@Loc["Db_BulkEdit_Btn", _bulkEditGameIds.Count]</span>
+					}
+				</button>
+			</div>
+		</div>
+	</div>
+}
+
 <!-- Online Games Sync Dialog -->
 <OnlineGamesSyncDialog IsOpen="_showOnlineSyncModal"
 					   OnClose="HandleSyncDialogClosed"
@@ -1859,6 +1962,18 @@
 	private bool _isBulkMoving = false;
 	private string _bulkMoveError = "";
 
+	private bool _showBulkEditModal = false;
+	private List<long> _bulkEditGameIds = new();
+	private bool _isBulkEditing = false;
+	private string _bulkEditError = "";
+	private bool _updateEvent = false;
+	private string _bulkEditEvent = "";
+	private bool _updateDate = false;
+	private string _bulkEditDate = "";
+	private bool _updateTimeControl = false;
+	private string _bulkEditTimeClass = "";
+	private string _bulkEditCustomTc = "";
+
 	private GameFolder? CurrentFolder =>
 		_currentFolderId.HasValue ? _folders.FirstOrDefault(f => f.Id == _currentFolderId.Value) : null;
 
@@ -1888,6 +2003,9 @@
 		_showBulkMoveModal = false;
 		_bulkMoveGameIds.Clear();
 		_bulkMoveError = "";
+		_showBulkEditModal = false;
+		_bulkEditGameIds.Clear();
+		_bulkEditError = "";
 		_expandedFolderIds.Clear();
 		_currentDbName = dbName;
 		await DatabaseService.SetActiveDatabaseAsync(dbName);
@@ -2468,6 +2586,121 @@
 		finally
 		{
 			_isBulkMoving = false;
+			StateHasChanged();
+		}
+	}
+
+	private void OpenBulkEditModal()
+	{
+		if (_selectedGameIds.Count == 0) return;
+		_bulkEditGameIds = _selectedGameIds.ToList();
+		_bulkEditError = "";
+		_isBulkEditing = false;
+
+		var selectedGames = _games.Where(g => _selectedGameIds.Contains(g.Id)).ToList();
+		var events = selectedGames.Select(g => g.Event ?? "").Distinct().ToList();
+		_bulkEditEvent = events.Count == 1 ? events[0] : "";
+		_updateEvent = false;
+
+		var dates = selectedGames.Select(g => g.FormattedDate).Distinct().ToList();
+		_bulkEditDate = dates.Count == 1 ? dates[0] : "";
+		_updateDate = false;
+
+		var tcs = selectedGames.Select(g => g.TimeControl).Distinct().ToList();
+		if (tcs.Count == 1 && !string.IsNullOrEmpty(tcs[0]))
+		{
+			string raw = tcs[0];
+			string cls = TimeControlInfo.ClassifyFromRaw(raw);
+			if (cls is "bullet" or "blitz" or "rapid" or "standard" && raw.Equals(cls, StringComparison.OrdinalIgnoreCase))
+			{
+				_bulkEditTimeClass = cls;
+				_bulkEditCustomTc = "";
+			}
+			else
+			{
+				_bulkEditTimeClass = "custom";
+				_bulkEditCustomTc = raw;
+			}
+		}
+		else
+		{
+			_bulkEditTimeClass = "";
+			_bulkEditCustomTc = "";
+		}
+		_updateTimeControl = false;
+
+		_showBulkEditModal = true;
+	}
+
+	private void CloseBulkEditModal()
+	{
+		if (_isBulkEditing) return;
+		_showBulkEditModal = false;
+		_bulkEditGameIds.Clear();
+		_bulkEditError = "";
+	}
+
+	private void HandleBulkEditEventInput(ChangeEventArgs e)
+	{
+		_bulkEditEvent = e.Value?.ToString() ?? "";
+		_updateEvent = true;
+	}
+
+	private void HandleBulkEditDateInput(ChangeEventArgs e)
+	{
+		_bulkEditDate = e.Value?.ToString() ?? "";
+		_updateDate = true;
+	}
+
+	private void HandleBulkEditTimeClassChanged(ChangeEventArgs e)
+	{
+		_bulkEditTimeClass = e.Value?.ToString() ?? "";
+		_updateTimeControl = true;
+	}
+
+	private void HandleBulkEditCustomTcInput(ChangeEventArgs e)
+	{
+		_bulkEditCustomTc = e.Value?.ToString() ?? "";
+		_updateTimeControl = true;
+	}
+
+	private async Task ConfirmBulkEditAsync()
+	{
+		if (_bulkEditGameIds.Count == 0 || string.IsNullOrWhiteSpace(_currentDbName)) return;
+		if (!_updateEvent && !_updateDate && !_updateTimeControl) return;
+
+		_isBulkEditing = true;
+		_bulkEditError = "";
+
+		try
+		{
+			string tcValue = _bulkEditTimeClass == "custom"
+				? _bulkEditCustomTc
+				: _bulkEditTimeClass;
+
+			var update = new BulkGameMetadataUpdate
+			{
+				UpdateEvent = _updateEvent,
+				Event = _bulkEditEvent,
+				UpdateDate = _updateDate,
+				Date = _bulkEditDate,
+				UpdateTimeControl = _updateTimeControl,
+				TimeControl = tcValue
+			};
+
+			await DatabaseService.BulkUpdateGamesMetadataAsync(_currentDbName, _bulkEditGameIds, update);
+			_showBulkEditModal = false;
+			_bulkEditGameIds.Clear();
+			_selectedGameIds.Clear();
+			await LoadGamesAsync(showLoading: false);
+		}
+		catch (Exception ex)
+		{
+			_bulkEditError = $"Error modifying games: {ex.Message}";
+		}
+		finally
+		{
+			_isBulkEditing = false;
 			StateHasChanged();
 		}
 	}

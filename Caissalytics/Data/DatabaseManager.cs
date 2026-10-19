@@ -1178,6 +1178,83 @@ public class DatabaseManager : IDatabaseService
         OnDatabaseModified?.Invoke(dbName);
     }
 
+    public async Task BulkUpdateGamesMetadataAsync(string databaseName, IReadOnlyList<long> gameIds, BulkGameMetadataUpdate update)
+    {
+        if (gameIds == null || gameIds.Count == 0 || update == null) return;
+        if (!update.UpdateEvent && !update.UpdateDate && !update.UpdateTimeControl) return;
+
+        string dbName = string.IsNullOrWhiteSpace(databaseName) ? _activeDatabaseName : databaseName;
+        string path = GetDbPath(dbName);
+        if (!File.Exists(path)) return;
+
+        await InitializeSchemaAsync(path);
+
+        string cleanEvent = (update.Event ?? string.Empty).Trim();
+        string pgnDate = DateHelper.ToPgnDate(update.Date);
+        string cleanTimeControl = (update.TimeControl ?? string.Empty).Trim();
+
+        using var conn = new SqliteConnection($"Data Source={path}");
+        await conn.OpenAsync();
+        using var tx = conn.BeginTransaction();
+
+        using var selectCmd = conn.CreateCommand();
+        selectCmd.Transaction = tx;
+        selectCmd.CommandText = "SELECT id, event, date, pgn FROM games WHERE id = $id;";
+        var pSelectId = selectCmd.Parameters.Add("$id", SqliteType.Integer);
+
+        using var updateCmd = conn.CreateCommand();
+        updateCmd.Transaction = tx;
+        updateCmd.CommandText = @"
+            UPDATE games 
+            SET event = $event, 
+                date = $date, 
+                pgn = $pgn 
+            WHERE id = $id;";
+        var pEvent = updateCmd.Parameters.Add("$event", SqliteType.Text);
+        var pDate = updateCmd.Parameters.Add("$date", SqliteType.Text);
+        var pPgn = updateCmd.Parameters.Add("$pgn", SqliteType.Text);
+        var pUpdateId = updateCmd.Parameters.Add("$id", SqliteType.Integer);
+
+        foreach (var gameId in gameIds)
+        {
+            pSelectId.Value = gameId;
+            using var reader = await selectCmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                string currentEvent = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+                string currentDate = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
+                string currentPgn = reader.IsDBNull(3) ? string.Empty : reader.GetString(3);
+
+                string effectiveEvent = update.UpdateEvent ? cleanEvent : currentEvent;
+                string effectiveDate = update.UpdateDate ? pgnDate : currentDate;
+                string effectivePgn = currentPgn;
+
+                if (update.UpdateEvent)
+                {
+                    effectivePgn = GameHeader.SetTagInPgn(effectivePgn, "Event", cleanEvent);
+                }
+                if (update.UpdateDate)
+                {
+                    effectivePgn = GameHeader.SetTagInPgn(effectivePgn, "Date", pgnDate);
+                }
+                if (update.UpdateTimeControl)
+                {
+                    effectivePgn = GameHeader.SetTagInPgn(effectivePgn, "TimeControl", cleanTimeControl);
+                }
+
+                pEvent.Value = effectiveEvent;
+                pDate.Value = effectiveDate;
+                pPgn.Value = effectivePgn;
+                pUpdateId.Value = gameId;
+
+                await updateCmd.ExecuteNonQueryAsync();
+            }
+        }
+
+        await tx.CommitAsync();
+        OnDatabaseModified?.Invoke(dbName);
+    }
+
     public async Task ReorderGamesAsync(string databaseName, IReadOnlyList<long> orderedGameIds)
     {
         if (orderedGameIds == null || orderedGameIds.Count < 2) return;

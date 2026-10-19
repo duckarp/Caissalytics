@@ -179,6 +179,50 @@ public class GameHeader
             ? tagLine
             : $"{tagLine}{Environment.NewLine}{Environment.NewLine}{rawPgn}";
     }
+
+    public static string SetTagInPgn(string? pgn, string tagName, string? tagValue)
+    {
+        string rawPgn = pgn ?? string.Empty;
+        string cleanVal = (tagValue ?? string.Empty).Trim().Replace("\"", "'").Replace("\r", " ").Replace("\n", " ");
+        var tagRegex = new Regex(@"^\[" + Regex.Escape(tagName) + @"\s+""([^""]*)""\]\s*\r?\n?", RegexOptions.Compiled | RegexOptions.Multiline);
+
+        if (string.IsNullOrEmpty(cleanVal))
+        {
+            return tagRegex.Replace(rawPgn, string.Empty);
+        }
+
+        string tagLine = $"[{tagName} \"{cleanVal}\"]";
+        if (tagRegex.IsMatch(rawPgn))
+        {
+            return tagRegex.Replace(rawPgn, tagLine + Environment.NewLine, 1);
+        }
+
+        if (rawPgn.StartsWith('['))
+        {
+            int firstNewline = rawPgn.IndexOf('\n');
+            if (firstNewline >= 0)
+            {
+                return rawPgn.Substring(0, firstNewline + 1) + tagLine + Environment.NewLine + rawPgn.Substring(firstNewline + 1);
+            }
+            return rawPgn + Environment.NewLine + tagLine;
+        }
+
+        return string.IsNullOrWhiteSpace(rawPgn)
+            ? tagLine
+            : $"{tagLine}{Environment.NewLine}{Environment.NewLine}{rawPgn}";
+    }
+}
+
+public class BulkGameMetadataUpdate
+{
+    public bool UpdateEvent { get; set; }
+    public string? Event { get; set; }
+
+    public bool UpdateDate { get; set; }
+    public string? Date { get; set; }
+
+    public bool UpdateTimeControl { get; set; }
+    public string? TimeControl { get; set; }
 }
 
 public class PositionMoveStat

@@ -25,6 +25,8 @@
 							  CanGoBack="@Tab.Tree.CanGoBack"
 							  CanGoForward="@Tab.Tree.CanGoForward"
 							  OnMoveMade="HandleUserMove"
+                              OnVariationSelected="HandleVariationBadge"
+                              ShowVariationArrows="true"
 							  OrientationChanged="HandleOrientationChanged"
 							  OnFirst="HandleFirst"
 							  OnPrev="HandlePrev"
@@ -585,6 +587,12 @@
 		Tab.Tree.NavigateTo(node);
 	}
 
+    private void HandleVariationBadge(MoveNode node)
+    {
+        if (node.Parent == Tab.Tree.CurrentNode)
+            Tab.Tree.NavigateTo(node);
+    }
+
 	private void HandleFirst() => Tab.Tree.GoToStart();
 	private void HandlePrev() => Tab.Tree.GoBack();
 	private void HandleNext() => Tab.Tree.GoForward();
@@ -821,14 +829,36 @@
 		public bool CtrlKey { get; set; }
 		public bool AltKey { get; set; }
 		public bool ShiftKey { get; set; }
+        public string Code { get; set; } = "";
 	}
+
+	private bool _altHeld;
+
+    [JSInvokable]
+    public void OnGlobalAltChanged(bool held)
+    {
+        if (_isDisposed || Workspace.ActiveTab != Tab) return;
+        _altHeld = held;
+        _ = InvokeAsync(StateHasChanged);
+    }
 
 	[JSInvokable]
 	public void OnGlobalKeyDown(KeyEventDto e)
 	{
 		if (_isDisposed || Workspace.ActiveTab != Tab) return;
 		if (_showSaveModal || _showLoadModal || _showPlayVsPcModal || _showBoardEditorModal) return;
-		ProcessShortcut(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey);
+		if (!e.AltKey && !e.ShiftKey &&
+            ((e.Code.StartsWith("Numpad") && e.Code.Length == 7 && char.IsDigit(e.Code[6])) ||
+             (e.CtrlKey && e.Code.StartsWith("Digit") && e.Code.Length == 6 && char.IsDigit(e.Code[5]))))
+        {
+            var digit = e.Code[^1] - '0';
+            if (digit >= 1 && digit <= 9 && digit <= Tab.Tree.CurrentNode.Children.Count)
+            {
+                HandleVariationBadge(Tab.Tree.CurrentNode.Children[digit - 1]);
+                return;
+            }
+        }
+        ProcessShortcut(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey);
 	}
 
 	private void ProcessShortcut(string key, bool ctrl, bool alt, bool shift)
