@@ -304,4 +304,31 @@ public class WorkspacePersistenceTests
         Assert.NotNull(restoredTab);
         Assert.Equal(20, restoredTab.MaxDepth);
     }
+
+    [Fact]
+    public void Restore_FailingPartWay_LeavesCurrentWorkspaceUntouched()
+    {
+        var ws = new WorkspaceState();
+        var existing = ws.CreateAnalysisTab("Existing Game");
+        existing.Tree.AddMoveSan("d4");
+        int tabCountBefore = ws.Tabs.Count;
+
+        // A valid analysis tab followed by a practice tab whose start FEN cannot be parsed
+        var dto = new WorkspaceStateDto
+        {
+            Tabs =
+            [
+                new WorkspaceTabDto { Id = Guid.NewGuid(), Type = "analysis", Title = "Stored Game", Pgn = "1. e4 e5 *" },
+                new WorkspaceTabDto { Id = Guid.NewGuid(), Type = "practice", StartFen = "this is not a fen" }
+            ]
+        };
+        string json = System.Text.Json.JsonSerializer.Serialize(dto);
+
+        bool restored = ws.RestoreStateFromJson(json);
+
+        Assert.False(restored);
+        Assert.Equal(tabCountBefore, ws.Tabs.Count);
+        Assert.Contains(existing, ws.Tabs);
+        Assert.Contains(ws.ActiveTab, ws.Tabs);
+    }
 }

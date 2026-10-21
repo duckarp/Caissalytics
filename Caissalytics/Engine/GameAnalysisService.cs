@@ -106,7 +106,7 @@ public class GameAnalysisService : IGameAnalysisService
                     winAfter = evalAfter?.WhiteWinPercentage ?? 50.0;
                 }
 
-                bool isWhite = plyIndex % 2 == 0;
+                bool isWhite = positions[i - 1].ActiveColor == PieceColor.White;
                 double playerWinBefore = isWhite ? winBefore : 100.0 - winBefore;
                 double playerWinAfter = isWhite ? winAfter : 100.0 - winAfter;
                 double winLoss = Math.Max(0.0, playerWinBefore - playerWinAfter);
@@ -179,6 +179,8 @@ public class GameAnalysisService : IGameAnalysisService
                 var ply = new PlyAnalysis
                 {
                     Ply = plyIndex,
+                    IsWhiteMove = isWhite,
+                    MoveNumber = node.MoveNumber,
                     MoveSan = node.San,
                     Move = node.Move,
                     FenBefore = FenParser.ToFen(positions[i - 1]),

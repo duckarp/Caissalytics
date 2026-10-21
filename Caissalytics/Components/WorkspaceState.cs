@@ -888,6 +888,120 @@ public class WorkspaceState
             if (dto == null || dto.Tabs == null || dto.Tabs.Count == 0)
                 return false;
 
+            // Build the restored tabs off to the side so a failure part-way through
+            // leaves the current workspace untouched instead of half-replaced.
+            var restored = new List<WorkspaceTab>();
+            foreach (var tabDto in dto.Tabs)
+            {
+                if (tabDto.Type == "dashboard")
+                {
+                    var dash = new DashboardTab { Id = tabDto.Id };
+                    restored.Add(dash);
+                }
+                else if (tabDto.Type == "analysis")
+                {
+                    var analysisTab = new AnalysisTab(
+                        title: tabDto.Title,
+                        pgn: tabDto.Pgn,
+                        targetDatabase: tabDto.TargetDatabase,
+                        databaseGameId: tabDto.DatabaseGameId)
+                    {
+                        Id = tabDto.Id,
+                        Orientation = tabDto.Orientation ?? "white",
+                        IsAnalyzing = tabDto.IsAnalyzing,
+                        MultiPv = tabDto.MultiPv > 0 ? tabDto.MultiPv : 3,
+                        ArrowCount = tabDto.ArrowCount >= 0 ? tabDto.ArrowCount : 3,
+                        MaxDepth = tabDto.MaxDepth >= 0 ? tabDto.MaxDepth : 25,
+                        AnalysisReport = tabDto.AnalysisReport
+                    };
+
+                    if (tabDto.CurrentNodePath != null && tabDto.CurrentNodePath.Count > 0)
+                    {
+                        analysisTab.Tree.NavigatePath(tabDto.CurrentNodePath);
+                    }
+
+                    restored.Add(analysisTab);
+                }
+                else if (tabDto.Type == "database")
+                {
+                    var dbTab = new DatabaseBrowserTab { Id = tabDto.Id };
+                    restored.Add(dbTab);
+                }
+                else if (tabDto.Type == "settings")
+                {
+                    var settingsTab = new SettingsTab { Id = tabDto.Id };
+                    restored.Add(settingsTab);
+                }
+                else if (tabDto.Type == "analytics")
+                {
+                    var analyticsTab = new AnalyticsTab(tabDto.DatabaseScope) { Id = tabDto.Id };
+                    restored.Add(analyticsTab);
+                }
+                else if (tabDto.Type == "puzzles")
+                {
+                    var puzzlesTab = new PuzzleTrainerTab { Id = tabDto.Id };
+                    restored.Add(puzzlesTab);
+                }
+                else if (tabDto.Type == "repertoire")
+                {
+                    var repertoireTab = new RepertoireExplorerTab(tabDto.DatabaseScope) { Id = tabDto.Id };
+                    restored.Add(repertoireTab);
+                }
+                else if (tabDto.Type == "dossier")
+                {
+                    var dossierTab = new OpponentDossierTab(tabDto.Player) { Id = tabDto.Id };
+                    restored.Add(dossierTab);
+                }
+                else if (tabDto.Type == "endgames")
+                {
+                    var endgamesTab = new EndgameTrainerTab(tabDto.PositionId) { Id = tabDto.Id };
+                    restored.Add(endgamesTab);
+                }
+                else if (tabDto.Type == "homework")
+                {
+                    var hwTab = new HomeworkTab { Id = tabDto.Id };
+                    restored.Add(hwTab);
+                }
+                else if (tabDto.Type == "club_homework")
+                {
+                    var clubHwTab = new ClubHomeworkTab { Id = tabDto.Id };
+                    restored.Add(clubHwTab);
+                }
+                else if (tabDto.Type == "club_messages")
+                {
+                    var msgTab = new ClubMessagesTab { Id = tabDto.Id };
+                    restored.Add(msgTab);
+                }
+                else if (tabDto.Type == "practice")
+                {
+                    var color = Enum.TryParse<PieceColor>(tabDto.PlayerColor, out var c) ? c : PieceColor.White;
+                    var elo = tabDto.OpponentElo ?? 1500;
+                    var botType = Enum.TryParse<PracticeBotType>(tabDto.BotType, out var bt) ? bt : PracticeBotType.Stockfish;
+                    var practiceTab = new PracticeTab(tabDto.StartFen, color, elo, botType: botType)
+                    {
+                        Id = tabDto.Id
+                    };
+                    if (!string.IsNullOrWhiteSpace(tabDto.Pgn))
+                    {
+                        practiceTab.Tree = PgnHandler.ImportPgn(tabDto.Pgn);
+                        if (tabDto.CurrentNodePath != null && tabDto.CurrentNodePath.Count > 0)
+                        {
+                            practiceTab.Tree.NavigatePath(tabDto.CurrentNodePath);
+                        }
+                        else
+                        {
+                            practiceTab.Tree.GoToEnd();
+                        }
+                    }
+                    restored.Add(practiceTab);
+                }
+            }
+
+            if (!restored.Any(t => t is DashboardTab))
+            {
+                restored.Insert(0, new DashboardTab());
+            }
+
             _isRestoring = true;
             try
             {
@@ -896,119 +1010,10 @@ public class WorkspaceState
                     UnregisterTab(tab);
                 }
                 Tabs.Clear();
-
-                foreach (var tabDto in dto.Tabs)
+                foreach (var tab in restored)
                 {
-                    if (tabDto.Type == "dashboard")
-                    {
-                        var dash = new DashboardTab { Id = tabDto.Id };
-                        Tabs.Add(dash);
-                    }
-                    else if (tabDto.Type == "analysis")
-                    {
-                        var analysisTab = new AnalysisTab(
-                            title: tabDto.Title,
-                            pgn: tabDto.Pgn,
-                            targetDatabase: tabDto.TargetDatabase,
-                            databaseGameId: tabDto.DatabaseGameId)
-                        {
-                            Id = tabDto.Id,
-                            Orientation = tabDto.Orientation ?? "white",
-                            IsAnalyzing = tabDto.IsAnalyzing,
-                            MultiPv = tabDto.MultiPv > 0 ? tabDto.MultiPv : 3,
-                            ArrowCount = tabDto.ArrowCount >= 0 ? tabDto.ArrowCount : 3,
-                            MaxDepth = tabDto.MaxDepth >= 0 ? tabDto.MaxDepth : 25,
-                            AnalysisReport = tabDto.AnalysisReport
-                        };
-
-                        if (tabDto.CurrentNodePath != null && tabDto.CurrentNodePath.Count > 0)
-                        {
-                            analysisTab.Tree.NavigatePath(tabDto.CurrentNodePath);
-                        }
-
-                        RegisterTab(analysisTab);
-                        Tabs.Add(analysisTab);
-                    }
-                    else if (tabDto.Type == "database")
-                    {
-                        var dbTab = new DatabaseBrowserTab { Id = tabDto.Id };
-                        Tabs.Add(dbTab);
-                    }
-                    else if (tabDto.Type == "settings")
-                    {
-                        var settingsTab = new SettingsTab { Id = tabDto.Id };
-                        Tabs.Add(settingsTab);
-                    }
-                    else if (tabDto.Type == "analytics")
-                    {
-                        var analyticsTab = new AnalyticsTab(tabDto.DatabaseScope) { Id = tabDto.Id };
-                        Tabs.Add(analyticsTab);
-                    }
-                    else if (tabDto.Type == "puzzles")
-                    {
-                        var puzzlesTab = new PuzzleTrainerTab { Id = tabDto.Id };
-                        Tabs.Add(puzzlesTab);
-                    }
-                    else if (tabDto.Type == "repertoire")
-                    {
-                        var repertoireTab = new RepertoireExplorerTab(tabDto.DatabaseScope) { Id = tabDto.Id };
-                        Tabs.Add(repertoireTab);
-                    }
-                    else if (tabDto.Type == "dossier")
-                    {
-                        var dossierTab = new OpponentDossierTab(tabDto.Player) { Id = tabDto.Id };
-                        Tabs.Add(dossierTab);
-                    }
-                    else if (tabDto.Type == "endgames")
-                    {
-                        var endgamesTab = new EndgameTrainerTab(tabDto.PositionId) { Id = tabDto.Id };
-                        Tabs.Add(endgamesTab);
-                    }
-                    else if (tabDto.Type == "homework")
-                    {
-                        var hwTab = new HomeworkTab { Id = tabDto.Id };
-                        Tabs.Add(hwTab);
-                    }
-                    else if (tabDto.Type == "club_homework")
-                    {
-                        var clubHwTab = new ClubHomeworkTab { Id = tabDto.Id };
-                        Tabs.Add(clubHwTab);
-                    }
-                    else if (tabDto.Type == "club_messages")
-                    {
-                        var msgTab = new ClubMessagesTab { Id = tabDto.Id };
-                        Tabs.Add(msgTab);
-                    }
-                    else if (tabDto.Type == "practice")
-                    {
-                        var color = Enum.TryParse<PieceColor>(tabDto.PlayerColor, out var c) ? c : PieceColor.White;
-                        var elo = tabDto.OpponentElo ?? 1500;
-                        var botType = Enum.TryParse<PracticeBotType>(tabDto.BotType, out var bt) ? bt : PracticeBotType.Stockfish;
-                        var practiceTab = new PracticeTab(tabDto.StartFen, color, elo, botType: botType)
-                        {
-                            Id = tabDto.Id
-                        };
-                        if (!string.IsNullOrWhiteSpace(tabDto.Pgn))
-                        {
-                            practiceTab.Tree = PgnHandler.ImportPgn(tabDto.Pgn);
-                            if (tabDto.CurrentNodePath != null && tabDto.CurrentNodePath.Count > 0)
-                            {
-                                practiceTab.Tree.NavigatePath(tabDto.CurrentNodePath);
-                            }
-                            else
-                            {
-                                practiceTab.Tree.GoToEnd();
-                            }
-                        }
-                        RegisterTab(practiceTab);
-                        Tabs.Add(practiceTab);
-                    }
-                }
-
-                if (!Tabs.Any(t => t is DashboardTab))
-                {
-                    var dash = new DashboardTab();
-                    Tabs.Insert(0, dash);
+                    RegisterTab(tab);
+                    Tabs.Add(tab);
                 }
 
                 var active = Tabs.FirstOrDefault(t => t.Id == dto.ActiveTabId);

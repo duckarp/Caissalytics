@@ -16,8 +16,12 @@ public enum MoveClassification
 public class PlyAnalysis
 {
     public int Ply { get; set; }
-    public int MoveNumber => (Ply / 2) + 1;
-    public bool IsWhiteMove => Ply % 2 == 0;
+    // Set from the actual position so games starting from a Black-to-move FEN are attributed correctly.
+    // Falls back to ply parity for reports persisted before these were stored.
+    private int? _moveNumber;
+    private bool? _isWhiteMove;
+    public int MoveNumber { get => _moveNumber ?? (Ply / 2) + 1; set => _moveNumber = value; }
+    public bool IsWhiteMove { get => _isWhiteMove ?? Ply % 2 == 0; set => _isWhiteMove = value; }
     public string MoveSan { get; set; } = "";
     public Move Move { get; set; }
     public string FenBefore { get; set; } = "";

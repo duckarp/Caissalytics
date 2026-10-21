@@ -304,6 +304,7 @@ public class LocalizationService : ILocalizationService
         ["Common_MoveDown"] = "Move Down",
         ["Common_Undo"] = "Undo",
         ["Common_PreferencesSaved"] = "✓ Preferences saved!",
+        ["Common_Copied"] = "Copied",
 
         // Engine Removal Dialog
         // Engine Removal Dialog
@@ -886,6 +887,7 @@ public class LocalizationService : ILocalizationService
         ["Homework_NotesTop"] = "Top (Above diagrams)",
         ["Homework_NotesBottom"] = "Bottom (Below diagrams)",
         ["Homework_NotesHide"] = "Do not show",
+        ["Homework_NotesPlaceholder"] = "Write notes or instructions for students here (Markdown supported)...",
         ["Homework_DiagramSize"] = "Diagram Size",
         ["Homework_SizeSmall"] = "Small (Compact)",
         ["Homework_SizeMedium"] = "Medium (Standard)",
@@ -1224,6 +1226,7 @@ public class LocalizationService : ILocalizationService
         ["Common_MoveDown"] = "Posunúť nadol",
         ["Common_Undo"] = "Vrátiť ťah",
         ["Common_PreferencesSaved"] = "✓ Nastavenia boli uložené!",
+        ["Common_Copied"] = "Skopírované",
 
         // Engine Removal Dialog
         ["Engine_RemoveConfirm_Title"] = "Odstránenie šachového motora",
@@ -1805,6 +1808,7 @@ public class LocalizationService : ILocalizationService
         ["Homework_NotesTop"] = "Hore (nad diagramami)",
         ["Homework_NotesBottom"] = "Dole (pod diagramami)",
         ["Homework_NotesHide"] = "Nezobrazovať",
+        ["Homework_NotesPlaceholder"] = "Sem napíšte poznámky alebo inštrukcie pre študentov (podporuje Markdown)...",
         ["Homework_DiagramSize"] = "Veľkosť diagramov",
         ["Homework_SizeSmall"] = "Malá (kompaktná)",
         ["Homework_SizeMedium"] = "Stredná (štandardná)",

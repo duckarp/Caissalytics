@@ -104,13 +104,19 @@ public static class SanParser
         san = san.Trim().TrimEnd('+', '#', '!', '?');
         var legalMoves = MoveGenerator.GenerateLegalMoves(pos);
 
-        // Quick exact match against generated SANs
-        foreach (var m in legalMoves)
+        // Exact match against generated SANs. Case matters: "bxc6" (pawn) and
+        // "Bxc6" (bishop) can both be legal in the same position.
+        var generated = legalMoves.Select(m => (Move: m, San: ToSan(pos, m).TrimEnd('+', '#', '!', '?'))).ToList();
+        foreach (var g in generated)
         {
-            string s = ToSan(pos, m).TrimEnd('+', '#', '!', '?');
-            if (s.Equals(san, StringComparison.OrdinalIgnoreCase))
-                return m;
+            if (g.San.Equals(san, StringComparison.Ordinal))
+                return g.Move;
         }
+
+        // Lenient fallback for sloppy sources (e.g. "e8=q", "nf3"), accepted only when unambiguous
+        var caseInsensitive = generated.Where(g => g.San.Equals(san, StringComparison.OrdinalIgnoreCase)).ToList();
+        if (caseInsensitive.Count == 1)
+            return caseInsensitive[0].Move;
 
         // Castling fallback
         if (san.Equals("O-O", StringComparison.OrdinalIgnoreCase) || san.Equals("0-0", StringComparison.OrdinalIgnoreCase))

@@ -10,7 +10,8 @@ namespace Caissalytics.Tests;
 public class FakeEngineService : IEngineService
 {
     public Task<IReadOnlyList<EngineInfo>> GetEnginesAsync() => Task.FromResult<IReadOnlyList<EngineInfo>>([]);
-    public Task<EngineInfo?> GetActiveEngineAsync() => Task.FromResult<EngineInfo?>(null);
+    public EngineInfo? ActiveEngine { get; set; }
+    public Task<EngineInfo?> GetActiveEngineAsync() => Task.FromResult(ActiveEngine);
     public Task SetActiveEngineAsync(string engineId) => Task.CompletedTask;
     public Task<bool> InstallEngineAsync(string engineId, IProgress<int>? progress = null) => Task.FromResult(true);
     public Task<EngineProbeResult> ProbeEngineFileAsync(string executablePath) => Task.FromResult(new EngineProbeResult { Success = true, Name = "FakeEngine" });
@@ -124,6 +125,70 @@ public class GameAnalysisTests
         // Verify subsequent moves in refutation
         Assert.Single(refutationChild.Children);
         Assert.Equal("Qf3", refutationChild.Children[0].San);
+    }
+
+    [Fact]
+    public async Task AnalyzeGame_FromBlackToMoveFen_AttributesPliesToCorrectSide()
+    {
+        // Needs a shell script standing in for a UCI engine
+        if (OperatingSystem.IsWindows()) return;
+
+        string dir = Path.Combine(Path.GetTempPath(), "caissalytics_fake_engine_" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        string script = Path.Combine(dir, "fake_engine.sh");
+        File.WriteAllText(script, """
+            #!/bin/sh
+            while read -r line; do
+              case "$line" in
+                uci) echo "id name FakeEngine"; echo "uciok" ;;
+                isready) echo "readyok" ;;
+                go*) echo "info depth 1 score cp 0 pv 0000"; echo "bestmove 0000" ;;
+                quit) exit 0 ;;
+              esac
+            done
+            """.Replace("\r\n", "\n"));
+        File.SetUnixFileMode(script, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+
+        try
+        {
+            var engines = new FakeEngineService
+            {
+                ActiveEngine = new EngineInfo { Id = "fake", Name = "Fake", ExecutablePath = script, IsInstalled = true }
+            };
+            var service = new GameAnalysisService(engines);
+
+            // After 1.e4: Black moves first, so the plies are Black, White, Black
+            var tree = new GameTree("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1");
+            tree.AddMoveSan("e5");
+            tree.AddMoveSan("Nf3");
+            tree.AddMoveSan("Nc6");
+
+            var report = await service.AnalyzeGameAsync(tree, GameAnalysisOptions.Quick);
+
+            Assert.Equal(3, report.Plies.Count);
+            Assert.False(report.Plies[0].IsWhiteMove);
+            Assert.True(report.Plies[1].IsWhiteMove);
+            Assert.False(report.Plies[2].IsWhiteMove);
+            Assert.Equal(1, report.Plies[0].MoveNumber);
+            Assert.Equal(2, report.Plies[1].MoveNumber);
+            Assert.Equal(2, report.Plies[2].MoveNumber);
+            Assert.Equal(1, report.WhiteBestCount);
+            Assert.Equal(2, report.BlackBestCount);
+        }
+        finally
+        {
+            try { Directory.Delete(dir, true); } catch { }
+        }
+    }
+
+    [Fact]
+    public void PlyAnalysis_WithoutStoredSide_FallsBackToPlyParity()
+    {
+        // Reports persisted before IsWhiteMove/MoveNumber were stored
+        var restored = System.Text.Json.JsonSerializer.Deserialize<PlyAnalysis>("""{"Ply":3,"MoveSan":"Nc6"}""")!;
+
+        Assert.False(restored.IsWhiteMove);
+        Assert.Equal(2, restored.MoveNumber);
     }
 
     [Fact]

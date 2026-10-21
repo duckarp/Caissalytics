@@ -241,6 +241,30 @@ public class CoreTests
     }
 
     [Fact]
+    public void ParseSan_PawnAndBishopCaptureOnSameSquare_AreDistinguishedByCase()
+    {
+        // Both the b5 pawn and the e4 bishop can capture on c6.
+        var pos = FenParser.Parse("4k3/8/2n5/1P6/4B3/8/8/4K3 w - - 0 1");
+
+        var pawnCapture = SanParser.ParseSan(pos, "bxc6");
+        var bishopCapture = SanParser.ParseSan(pos, "Bxc6");
+
+        Assert.Equal(Square.B5, pawnCapture.From);
+        Assert.Equal(Square.E4, bishopCapture.From);
+    }
+
+    [Fact]
+    public void ParseSan_LowercaseInput_AcceptedWhenUnambiguous()
+    {
+        var pos = FenParser.Parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+
+        var move = SanParser.ParseSan(pos, "nf3");
+
+        Assert.Equal(Square.G1, move.From);
+        Assert.Equal(Square.F3, move.To);
+    }
+
+    [Fact]
     public void GameTree_VariationNavigation_NextAndPreviousVariation_Work()
     {
         // 1. e4 e5 (1... c5)
