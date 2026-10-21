@@ -12,7 +12,7 @@ public static class PgnHandler
         // 1. Headers
         foreach (var (k, v) in tree.Headers)
         {
-            sb.AppendLine($"[{k} \"{v}\"]");
+            sb.AppendLine($"[{k} \"{EscapeHeaderValue(v)}\"]");
         }
         sb.AppendLine();
 
@@ -33,7 +33,7 @@ public static class PgnHandler
     {
         if (parent.IsRoot && !string.IsNullOrWhiteSpace(parent.Comment))
         {
-            sb.Append($"{{{parent.Comment.Trim()}}}");
+            sb.Append($"{{{SanitizeComment(parent.Comment)}}}");
         }
 
         if (parent.Children.Count == 0) return;
@@ -81,7 +81,7 @@ public static class PgnHandler
 
         if (!string.IsNullOrWhiteSpace(node.Clock) && !string.IsNullOrWhiteSpace(node.Comment))
         {
-            sb.Append($" {{[%clk {node.Clock}] {node.Comment.Trim()}}}");
+            sb.Append($" {{[%clk {node.Clock}] {SanitizeComment(node.Comment)}}}");
         }
         else if (!string.IsNullOrWhiteSpace(node.Clock))
         {
@@ -89,36 +89,47 @@ public static class PgnHandler
         }
         else if (!string.IsNullOrWhiteSpace(node.Comment))
         {
-            sb.Append($" {{{node.Comment.Trim()}}}");
+            sb.Append($" {{{SanitizeComment(node.Comment)}}}");
         }
     }
+
+    // PGN header values escape '"' and '\' with a backslash
+    private static string EscapeHeaderValue(string value) => value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+
+    private static string UnescapeHeaderValue(string value) => Regex.Replace(value, @"\\(.)", "$1");
+
+    // A brace comment ends at the first '}' and PGN has no escape for it, so it can't appear inside
+    private static string SanitizeComment(string comment) => comment.Trim().Replace('}', ')');
 
     public static GameTree ImportPgn(string pgnText)
     {
         if (string.IsNullOrWhiteSpace(pgnText))
             return new GameTree();
 
-        var headerRegex = new Regex(@"\[(\w+)\s+""([^""]*)""\]");
-        var matches = headerRegex.Matches(pgnText);
-
-        string? startFen = null;
-        foreach (Match m in matches)
+        // Read the tag pairs at the start of the game; tags inside comments or later games are not headers
+        var headers = new List<(string Key, string Value)>();
+        int pos = 0;
+        while (true)
         {
-            if (string.Equals(m.Groups[1].Value, "FEN", StringComparison.OrdinalIgnoreCase))
-            {
-                startFen = m.Groups[2].Value;
-                break;
-            }
+            var m = LeadingHeaderRegex.Match(pgnText, pos);
+            if (!m.Success) break;
+            headers.Add((m.Groups[1].Value, UnescapeHeaderValue(m.Groups[2].Value)));
+            pos = m.Index + m.Length;
         }
+
+        string? startFen = headers
+            .Where(h => string.Equals(h.Key, "FEN", StringComparison.OrdinalIgnoreCase))
+            .Select(h => h.Value)
+            .FirstOrDefault();
 
         var tree = new GameTree(startFen);
-        foreach (Match m in matches)
+        foreach (var (key, value) in headers)
         {
-            tree.Headers[m.Groups[1].Value] = m.Groups[2].Value;
+            tree.Headers[key] = value;
         }
 
-        // Remove headers
-        string movetext = headerRegex.Replace(pgnText, "").Trim();
+        // Any other whole-line tags (e.g. a following game's headers) are dropped as before
+        string movetext = StandaloneHeaderLineRegex.Replace(pgnText[pos..], "").Trim();
 
         // Tokenize movetext
         var tokens = TokenizeMovetext(movetext);
@@ -143,6 +154,24 @@ public static class PgnHandler
                 continue;
             }
 
+            if (c == '%' && (i == 0 || text[i - 1] == '\n'))
+            {
+                // Escape line: ignored entirely
+                int eol = text.IndexOf('\n', i);
+                i = eol == -1 ? len : eol + 1;
+                continue;
+            }
+
+            if (c == ';')
+            {
+                // Rest-of-line comment, stored like a brace comment
+                int eol = text.IndexOf('\n', i);
+                if (eol == -1) eol = len;
+                tokens.Add("{" + text.Substring(i + 1, eol - i - 1).Trim().Replace('}', ')') + "}");
+                i = eol;
+                continue;
+            }
+
             if (c == '{')
             {
                 int end = text.IndexOf('}', i);
@@ -158,7 +187,7 @@ public static class PgnHandler
             else
             {
                 int start = i;
-                while (i < len && !char.IsWhiteSpace(text[i]) && text[i] != '(' && text[i] != ')' && text[i] != '{')
+                while (i < len && !char.IsWhiteSpace(text[i]) && text[i] != '(' && text[i] != ')' && text[i] != '{' && text[i] != ';')
                 {
                     i++;
                 }
@@ -172,9 +201,30 @@ public static class PgnHandler
     private static void ParseTokensIntoTree(GameTree tree, List<string> tokens)
     {
         var branchStack = new Stack<MoveNode>();
+        // > 0 while inside a line that hit an illegal move: its remaining moves would be replayed
+        // from the wrong position, so they are skipped until that variation closes
+        int skipDepth = 0;
 
         foreach (var tok in tokens)
         {
+            if (skipDepth > 0)
+            {
+                if (tok == "(")
+                {
+                    skipDepth++;
+                    continue;
+                }
+                if (tok != ")")
+                {
+                    if (tok == "1-0" || tok == "0-1" || tok == "1/2-1/2" || tok == "*")
+                        tree.Headers["Result"] = tok;
+                    continue;
+                }
+                skipDepth--;
+                if (skipDepth > 0) continue;
+                // This ')' closes the broken variation: handle it normally below
+            }
+
             if (tok == "(")
             {
                 // Push current parent onto stack to branch
@@ -228,6 +278,11 @@ public static class PgnHandler
                 {
                     tree.AddMove(move);
                 }
+                else if (SanLikeRegex.IsMatch(san))
+                {
+                    // A real move that is illegal here (corrupt or mis-transcribed game)
+                    skipDepth = 1;
+                }
             }
         }
     }
@@ -236,6 +291,10 @@ public static class PgnHandler
     private static readonly Regex EvalRegex = new(@"\[%eval\s+([#+-]?[0-9.]+)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex MachineTagRegex = new(@"\[%[a-zA-Z0-9_]+(?:\s+[^\]]*)?\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex MoveNumberPrefixRegex = new(@"^\d+\.+", RegexOptions.Compiled);
+    private static readonly Regex LeadingHeaderRegex = new(@"\G\s*\[(\w+)\s+""((?:[^""\\]|\\.)*)""\]", RegexOptions.Compiled);
+    private static readonly Regex StandaloneHeaderLineRegex = new(@"^[ \t]*\[\w+\s+""(?:[^""\\]|\\.)*""\][ \t]*\r?$", RegexOptions.Compiled | RegexOptions.Multiline);
+    // Tokens shaped like a SAN move; other unparseable tokens (stray annotations etc.) are just ignored
+    private static readonly Regex SanLikeRegex = new(@"^(?:[KQRBN][a-h]?[1-8]?x?[a-h][1-8]|[a-h](?:x[a-h])?[1-8](?:=?[QRBNqrbn])?|O-O(?:-O)?|0-0(?:-0)?)[+#]?[!?]*$", RegexOptions.Compiled);
 
     private static void ParseAndAttachComment(MoveNode node, string rawComment)
     {

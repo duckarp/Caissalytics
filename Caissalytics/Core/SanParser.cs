@@ -118,6 +118,17 @@ public static class SanParser
         if (caseInsensitive.Count == 1)
             return caseInsensitive[0].Move;
 
+        // Promotion written without '=' ("e8Q", "dxe1N")
+        if (san.Length >= 3 && "QRBNqrbn".Contains(san[^1]) && (san[^2] == '1' || san[^2] == '8') && char.IsLower(san[0]))
+        {
+            string withEquals = $"{san[..^1]}={char.ToUpperInvariant(san[^1])}";
+            foreach (var g in generated)
+            {
+                if (g.San.Equals(withEquals, StringComparison.Ordinal))
+                    return g.Move;
+            }
+        }
+
         // Castling fallback
         if (san.Equals("O-O", StringComparison.OrdinalIgnoreCase) || san.Equals("0-0", StringComparison.OrdinalIgnoreCase))
             return legalMoves.FirstOrDefault(m => m.IsCastling && m.To.File() == 6);
