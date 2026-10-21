@@ -58,7 +58,7 @@ public class EngineTests
     [Fact]
     public async Task ProbeEngineFile_NonExistentFile_ReturnsFailure()
     {
-        using var manager = new EngineManager();
+        using var manager = new EngineManager(Path.Combine(Path.GetTempPath(), "caissalytics_probe_" + Guid.NewGuid().ToString("N")));
         var result = await manager.ProbeEngineFileAsync("/non/existent/path/to/engine");
 
         Assert.False(result.Success);
@@ -68,7 +68,7 @@ public class EngineTests
     [Fact]
     public async Task ProbeEngineFile_EmptyPath_ReturnsFailure()
     {
-        using var manager = new EngineManager();
+        using var manager = new EngineManager(Path.Combine(Path.GetTempPath(), "caissalytics_probe_" + Guid.NewGuid().ToString("N")));
         var result = await manager.ProbeEngineFileAsync("");
 
         Assert.False(result.Success);

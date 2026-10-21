@@ -5,8 +5,16 @@ using Xunit;
 
 namespace Caissalytics.Tests;
 
-public class UpdateTests
+public class UpdateTests : IDisposable
 {
+    // Keeps the service's update_settings.json out of the real app data folder
+    private readonly string _dir = Path.Combine(Path.GetTempPath(), "caissalytics_update_tests_" + Guid.NewGuid().ToString("N"));
+
+    public void Dispose()
+    {
+        try { Directory.Delete(_dir, true); } catch { }
+    }
+
     [Theory]
     [InlineData("v1.2.3", "1.2.3")]
     [InlineData("V2.0.0", "2.0.0")]
@@ -159,7 +167,7 @@ public class UpdateTests
     {
         bool requested = false;
         var handler = new TestHttpMessageHandler(_ => { requested = true; return new HttpResponseMessage(System.Net.HttpStatusCode.OK); });
-        var service = new UpdateService(new HttpClient(handler));
+        var service = new UpdateService(new HttpClient(handler), _dir);
         var update = new UpdateInfo { AssetDownloadUrl = "https://example.invalid/w.zip", AssetFileName = "w.zip" };
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.DownloadUpdateAsync(update));
@@ -245,7 +253,7 @@ public class UpdateTests
         });
 
         using var httpClient = new HttpClient(mockHandler);
-        var service = new UpdateService(httpClient);
+        var service = new UpdateService(httpClient, _dir);
         var update = await service.CheckForUpdatesAsync(force: true);
 
         Assert.NotNull(update);
@@ -271,7 +279,7 @@ public class UpdateTests
     {
         var mockHandler = new TestHttpMessageHandler(_ => new HttpResponseMessage(System.Net.HttpStatusCode.Forbidden));
         using var httpClient = new HttpClient(mockHandler);
-        var service = new UpdateService(httpClient);
+        var service = new UpdateService(httpClient, _dir);
         var update = await service.CheckForUpdatesAsync(force: true);
 
         Assert.NotNull(update);
@@ -417,7 +425,7 @@ public class UpdateTests
         });
 
         using var httpClient = new HttpClient(mockHandler);
-        var service = new UpdateService(httpClient);
+        var service = new UpdateService(httpClient, _dir);
         var update = await service.CheckForUpdatesAsync(force: true);
 
         Assert.NotNull(update);

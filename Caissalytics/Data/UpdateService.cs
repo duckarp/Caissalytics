@@ -18,7 +18,7 @@ public class UpdateService : IUpdateService
     public UpdateInfo? CachedUpdate { get; private set; }
     private string? _stagedFilePath;
 
-    public UpdateService(HttpClient? httpClient = null)
+    public UpdateService(HttpClient? httpClient = null, string? storageDirectory = null)
     {
         _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
         if (!_httpClient.DefaultRequestHeaders.UserAgent.Any())
@@ -26,7 +26,7 @@ public class UpdateService : IUpdateService
             _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Caissalytics-Desktop/1.0");
         }
 
-        string baseDir = Path.Combine(
+        string baseDir = storageDirectory ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Caissalytics");
         Directory.CreateDirectory(baseDir);

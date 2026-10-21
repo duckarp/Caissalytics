@@ -75,9 +75,9 @@ graph TD
 The core chess library contains zero UI dependencies, zero native bindings, and is designed for high-performance move validation and game tree manipulation.
 
 ### Board Representation & Moves
-- **[`Square`](file:///home/tomask/projects/Caissalytics/Caissalytics/Core/Square.cs)**: An 8-bit integer (`0` to `63`) mapping files `a-h` (`0..7`) and ranks `1-8` (`0..7`).
-- **[`BoardPosition`](file:///home/tomask/projects/Caissalytics/Caissalytics/Core/BoardPosition.cs)**: Lightweight 64-square board array with active turn color, castling availability rights, en-passant target square, and halfmove/fullmove clocks.
-- **[`Move`](file:///home/tomask/projects/Caissalytics/Caissalytics/Core/Move.cs)**: A 32-bit readonly record struct containing:
+- **[`Square`](../Caissalytics/Core/Square.cs)**: An 8-bit integer (`0` to `63`) mapping files `a-h` (`0..7`) and ranks `1-8` (`0..7`).
+- **[`BoardPosition`](../Caissalytics/Core/BoardPosition.cs)**: Lightweight 64-square board array with active turn color, castling availability rights, en-passant target square, and halfmove/fullmove clocks.
+- **[`Move`](../Caissalytics/Core/Move.cs)**: A 32-bit readonly record struct containing:
   - `From` & `To` squares.
   - `Promotion` piece type (`Queen`, `Rook`, `Bishop`, `Knight`).
   - `Flags`: Bitflags for `Capture`, `Castling`, `EnPassant`, and `Promotion`.
@@ -102,7 +102,7 @@ The core chess library contains zero UI dependencies, zero native bindings, and 
 ## 3. UCI Chess Engine Integration (`Caissalytics.Engine`)
 
 ### Process Management & UCI Protocol
-- **[`EngineManager.cs`](file:///home/tomask/projects/Caissalytics/Caissalytics/Engine/EngineManager.cs)**:
+- **[`EngineManager.cs`](../Caissalytics/Engine/EngineManager.cs)**:
   - Spawns background OS engine processes (e.g. `stockfish`) using asynchronous standard input/output pipes.
   - Implements the standard Universal Chess Interface (UCI) protocol (`uci`, `isready`, `ucinewgame`, `position fen ... moves ...`, `go multipv ...`, `stop`).
   - Parses real-time engine evaluation streams: depth, selective depth, score (`cp` / `mate`), nodes per second (NPS), and Principal Variation (PV) candidate lines.
@@ -192,7 +192,7 @@ The Opponent Preparation subsystem extracts structured tactical and opening inte
 - Scans opponent games across the target database (matching White or Black player names).
 - For White games, isolates 1st move weapons (`1.e4`, `1.d4`, `1.c4`, `1.Nf3`) and groups them by frequency and win rate.
 - For Black games, identifies responses against `1.e4`, `1.d4`, and flank systems.
-- Resolves ECO codes to standard opening names using [`OpeningCatalog.ResolveOpeningName`](file:///home/tomask/projects/Caissalytics/Caissalytics/Data/OpeningCatalog.cs).
+- Resolves ECO codes to standard opening names using [`OpeningCatalog.ResolveOpeningName`](../Caissalytics/Data/OpeningCatalog.cs).
 
 ### Playing Style & Duration Tendencies
 - Groups games by move count:
