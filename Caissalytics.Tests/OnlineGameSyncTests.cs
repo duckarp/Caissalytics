@@ -302,6 +302,53 @@ public class OnlineGameSyncTests : IDisposable
         Assert.DoesNotContain(allAfter, g => g.White == "PlayerA");
     }
 
+    [Fact]
+    public async Task SyncGamesAsync_ReportsOnlyNewlyAddedGames()
+    {
+        const string pgn = """
+            [Event "Rated blitz game"]
+            [Site "https://lichess.org/abc12345"]
+            [White "syncuser"]
+            [Black "rival"]
+            [Result "1-0"]
+            [UTCDate "2026.10.01"]
+
+            1. e4 e5 2. Nf3 Nc6 1-0
+
+            [Event "Rated blitz game"]
+            [Site "https://lichess.org/def67890"]
+            [White "rival"]
+            [Black "syncuser"]
+            [Result "0-1"]
+            [UTCDate "2026.10.02"]
+
+            1. d4 d5 2. c4 e6 0-1
+
+            """;
+        var service = new OnlineGameSyncService(_dbManager, new StaticPgnHttpClientFactory(pgn), _testConfigFile);
+        var config = new OnlineSyncConfig { LichessUsername = "syncuser", MaxGamesPerPlatform = 50 };
+
+        var first = await service.SyncGamesAsync(config);
+        var second = await service.SyncGamesAsync(config);
+
+        Assert.Equal(2, first.TotalLichessGames);
+        Assert.Equal(2, first.TotalImported);
+        // Same games again: nothing new, even though the database now holds 2 games
+        Assert.Equal(0, second.TotalLichessGames);
+        Assert.Equal(0, second.TotalImported);
+    }
+
+    private class StaticPgnHttpClientFactory(string pgn) : IHttpClientFactory
+    {
+        public HttpClient CreateClient(string name) => new(new StaticPgnHandler(pgn));
+    }
+
+    private class StaticPgnHandler(string pgn) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(pgn) });
+    }
+
     private class DummyHttpClientFactory : IHttpClientFactory
     {
         public HttpClient CreateClient(string name)

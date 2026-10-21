@@ -187,6 +187,12 @@ public class OnlineGameSyncService : IOnlineGameSyncService
         return result;
     }
 
+    private async Task<int> CountOnlineGamesAsync()
+    {
+        var (_, totalCount) = await _databaseService.SearchGamesAsync(OnlineGamesDatabaseName, new GameFilter { PageSize = 1 });
+        return totalCount;
+    }
+
     private async Task EnsureOnlineGamesDatabaseExistsAsync()
     {
         var existingDbs = await _databaseService.GetDatabasesAsync();
@@ -234,6 +240,7 @@ public class OnlineGameSyncService : IOnlineGameSyncService
 
         int startImported = result.TotalImported;
         int startSkipped = result.TotalSkipped;
+        int countBefore = await CountOnlineGamesAsync();
 
         var importProgress = new Progress<PgnImportProgress>(p =>
         {
@@ -257,11 +264,10 @@ public class OnlineGameSyncService : IOnlineGameSyncService
             deduplicate: true,
             allowProtectedDatabase: true);
 
-        // Fetch difference to account for games
-        var (games, totalCount) = await _databaseService.SearchGamesAsync(OnlineGamesDatabaseName, new GameFilter { PageSize = 1 });
-        int lichessAdded = Math.Max(0, totalCount - startImported);
+        // New games = growth of the database (duplicates are skipped by the importer)
+        int lichessAdded = Math.Max(0, await CountOnlineGamesAsync() - countBefore);
         result.TotalLichessGames = lichessAdded;
-        result.TotalImported = totalCount;
+        result.TotalImported += lichessAdded;
     }
 
     private async Task SyncChessComAsync(
@@ -332,7 +338,7 @@ public class OnlineGameSyncService : IOnlineGameSyncService
         };
 
         var selectedArchives = archiveUrls.Take(monthsToInspect).ToList();
-        int chessComGamesBefore = result.TotalImported;
+        int chessComAdded = 0;
 
         for (int i = 0; i < selectedArchives.Count; i++)
         {
@@ -371,7 +377,7 @@ public class OnlineGameSyncService : IOnlineGameSyncService
             }
 
             using var stream = await pgnResponse.Content.ReadAsStreamAsync(cancellationToken);
-            int batchBefore = result.TotalImported;
+            int countBefore = await CountOnlineGamesAsync();
 
             var importProgress = new Progress<PgnImportProgress>(p =>
             {
@@ -393,11 +399,12 @@ public class OnlineGameSyncService : IOnlineGameSyncService
                 deduplicate: true,
                 allowProtectedDatabase: true);
 
-            var (games, currentCount) = await _databaseService.SearchGamesAsync(OnlineGamesDatabaseName, new GameFilter { PageSize = 1 });
-            result.TotalImported = currentCount;
+            int added = Math.Max(0, await CountOnlineGamesAsync() - countBefore);
+            chessComAdded += added;
+            result.TotalImported += added;
         }
 
-        result.TotalChessComGames = Math.Max(0, result.TotalImported - chessComGamesBefore);
+        result.TotalChessComGames = chessComAdded;
     }
 
     public async Task<int> PurgeNonSyncedGamesAsync(UserProfile profile, CancellationToken cancellationToken = default)

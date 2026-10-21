@@ -570,6 +570,11 @@ public class SkppIntegrationService : ISkppIntegrationService, IDisposable
         _pollTimer?.Dispose();
     }
 
+    private static bool IsRefreshTokenRejected(System.Net.HttpStatusCode status)
+        => status is System.Net.HttpStatusCode.BadRequest
+            or System.Net.HttpStatusCode.Unauthorized
+            or System.Net.HttpStatusCode.Forbidden;
+
     public async Task<string?> GetValidAccessTokenAsync()
     {
         await _lock.WaitAsync();
@@ -599,8 +604,17 @@ public class SkppIntegrationService : ISkppIntegrationService, IDisposable
                     "application/json");
 
                 string refreshUrl = $"{session.ApiUrl}/api/auth/refresh";
-                using var response = await _httpClient.PostAsync(refreshUrl, jsonContent);
-                string responseBody = await response.Content.ReadAsStringAsync();
+                // Bounded: this runs while holding the session lock
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+                using var response = await _httpClient.PostAsync(refreshUrl, jsonContent, timeout.Token);
+                string responseBody = await response.Content.ReadAsStringAsync(timeout.Token);
+
+                if (!response.IsSuccessStatusCode && !IsRefreshTokenRejected(response.StatusCode))
+                {
+                    // Server trouble (5xx, 429, ...): keep the session and try again later
+                    _lastError = $"Club portal is temporarily unavailable (HTTP {(int)response.StatusCode}).";
+                    return null;
+                }
 
                 if (!response.IsSuccessStatusCode)
                 {

@@ -58,6 +58,12 @@ public class TablebaseService : ITablebaseService, IDisposable
             _ownsHttpClient = true;
         }
 
+        if (!_httpClient.DefaultRequestHeaders.UserAgent.Any())
+        {
+            // Lichess asks API clients to identify themselves
+            _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Caissalytics/1.0 (chess analysis app; https://github.com/duckarp/Caissalytics)");
+        }
+
         string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
         string configDir = Path.Combine(localAppData, "Caissalytics");
         Directory.CreateDirectory(configDir);

@@ -679,6 +679,9 @@ public class OpponentDossierService : IOpponentDossierService
 
         var client = _httpClientFactory.CreateClient();
         client.Timeout = TimeSpan.FromSeconds(30);
+        // Lichess asks API clients to identify themselves
+        client.DefaultRequestHeaders.UserAgent.Clear();
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("Caissalytics/1.0 (chess analysis app; https://github.com/duckarp/Caissalytics)");
 
         string pgnText = "";
 
@@ -687,7 +690,7 @@ public class OpponentDossierService : IOpponentDossierService
             string url = $"https://lichess.org/api/games/user/{Uri.EscapeDataString(username.Trim())}?max={maxGames}&clocks=false&evals=false&opening=true";
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Accept.ParseAdd("application/x-chess-pgn");
-            var response = await client.SendAsync(request, cancellationToken);
+            using var response = await client.SendAsync(request, cancellationToken);
 
             if (response.StatusCode == HttpStatusCode.NotFound)
             {

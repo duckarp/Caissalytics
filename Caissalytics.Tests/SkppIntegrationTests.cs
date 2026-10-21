@@ -200,6 +200,54 @@ public class SkppIntegrationTests : IDisposable
         Assert.False(state.IsConnected);
     }
 
+    [Theory]
+    [InlineData(HttpStatusCode.InternalServerError, true)]
+    [InlineData(HttpStatusCode.BadGateway, true)]
+    [InlineData(HttpStatusCode.TooManyRequests, true)]
+    [InlineData(HttpStatusCode.Unauthorized, false)]
+    public async Task SkppService_RefreshFailure_LogsOutOnlyWhenTokenIsRejected(HttpStatusCode refreshStatus, bool staysConnected)
+    {
+        var handler = new MockHttpHandler
+        {
+            HandlerFunc = req =>
+            {
+                if (req.RequestUri!.AbsolutePath.Contains("/api/auth/token"))
+                {
+                    var tokens = new SkppTokenResponse
+                    {
+                        AccessToken = "access-1",
+                        RefreshToken = "refresh-1",
+                        ExpiresIn = 900,
+                        User = new SkppUserDto { Role = "student", FullName = "Student 1" }
+                    };
+                    return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                    {
+                        Content = new StringContent(JsonSerializer.Serialize(tokens), Encoding.UTF8, "application/json")
+                    });
+                }
+                if (req.RequestUri.AbsolutePath.Contains("/api/auth/refresh"))
+                {
+                    return Task.FromResult(new HttpResponseMessage(refreshStatus));
+                }
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+            }
+        };
+        var service = new SkppIntegrationService(new HttpClient(handler), _testDir);
+        await service.ConnectAsync("http://localhost:5000", "student@skpp.sk", "Password123");
+
+        // Expire the access token so the next call has to refresh
+        string sessionFile = Path.Combine(_testDir, "skpp_session.json");
+        var session = System.Text.Json.Nodes.JsonNode.Parse(await File.ReadAllTextAsync(sessionFile))!;
+        session["AccessTokenExpiresAtUtc"] = DateTime.UtcNow.AddMinutes(-5);
+        await File.WriteAllTextAsync(sessionFile, session.ToJsonString());
+        var restarted = new SkppIntegrationService(new HttpClient(handler), _testDir); // session is cached per instance
+
+        var token = await restarted.GetValidAccessTokenAsync();
+
+        Assert.Null(token);
+        Assert.Equal(staysConnected, (await restarted.GetConnectionStateAsync()).IsConnected);
+    }
+
     [Fact]
     public async Task SkppService_DisconnectAsync_RevokesTokenAndClearsSession()
     {
