@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -429,18 +430,19 @@ public class UpdateService : IUpdateService
             string assetName = asset.TryGetProperty("name", out var name) ? name.GetString() ?? "" : "";
             int score = 0;
 
+            // Only archive formats the apply scripts know how to extract are candidates
             if (isWin)
             {
+                if (!assetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) continue;
                 if (assetName.Contains("win", StringComparison.OrdinalIgnoreCase)) score += 10;
-                if (assetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) score += 5;
-                if (assetName.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)) score += 4;
             }
             else if (isLinux)
             {
+                bool isTarGz = assetName.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase);
+                bool isZip = assetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+                if (!isTarGz && !isZip) continue;
                 if (assetName.Contains("linux", StringComparison.OrdinalIgnoreCase)) score += 10;
-                if (assetName.EndsWith(".tar.gz", StringComparison.OrdinalIgnoreCase)) score += 5;
-                if (assetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)) score += 4;
-                if (assetName.EndsWith(".AppImage", StringComparison.OrdinalIgnoreCase)) score += 6;
+                score += isTarGz ? 5 : 4;
             }
 
             if (score > bestScore)
@@ -450,19 +452,48 @@ public class UpdateService : IUpdateService
             }
         }
 
-        // Fallback to first asset if none scored platform match
-        if (bestAsset == null && assets.GetArrayLength() > 0)
-        {
-            bestAsset = assets[0];
-        }
-
         if (bestAsset.HasValue)
         {
             var el = bestAsset.Value;
             updateInfo.AssetFileName = el.TryGetProperty("name", out var n) ? n.GetString() : null;
             updateInfo.AssetDownloadUrl = el.TryGetProperty("browser_download_url", out var dl) ? dl.GetString() : null;
             updateInfo.AssetSizeBytes = el.TryGetProperty("size", out var s) ? s.GetInt64() : 0;
+            updateInfo.AssetSha256 = ParseSha256Digest(el.TryGetProperty("digest", out var d) ? d.GetString() : null);
         }
+    }
+
+    /// <summary>Parses GitHub's "sha256:&lt;hex&gt;" asset digest; null when absent or another algorithm.</summary>
+    public static string? ParseSha256Digest(string? digest)
+    {
+        const string prefix = "sha256:";
+        if (string.IsNullOrWhiteSpace(digest) || !digest.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        string hex = digest[prefix.Length..].Trim().ToLowerInvariant();
+        return hex.Length == 64 && hex.All(Uri.IsHexDigit) ? hex : null;
+    }
+
+    /// <summary>
+    /// Per-user staging folder (not the shared system temp dir, where another local user
+    /// could pre-create it and swap the package or apply script). Recreated empty, owner-only.
+    /// </summary>
+    public static string PrepareUpdateStagingDirectory(string baseDir)
+    {
+        string updateDir = Path.Combine(baseDir, "update_staging");
+        if (Directory.Exists(updateDir))
+        {
+            Directory.Delete(updateDir, recursive: true);
+        }
+
+        if (OperatingSystem.IsWindows())
+        {
+            Directory.CreateDirectory(updateDir);
+        }
+        else
+        {
+            Directory.CreateDirectory(updateDir, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        }
+        return updateDir;
     }
 
     public async Task DownloadUpdateAsync(
@@ -475,10 +506,17 @@ public class UpdateService : IUpdateService
             throw new InvalidOperationException("No download asset is available for this release.");
         }
 
-        string updateDir = Path.Combine(Path.GetTempPath(), "Caissalytics_Update");
-        Directory.CreateDirectory(updateDir);
+        if (string.IsNullOrEmpty(update.AssetSha256))
+        {
+            throw new InvalidOperationException("This release does not publish a SHA-256 checksum for its download, so it cannot be verified. Please download it manually from the release page.");
+        }
 
-        string fileName = update.AssetFileName ?? "update_package.zip";
+        _stagedFilePath = null;
+        string updateDir = PrepareUpdateStagingDirectory(Path.GetDirectoryName(_settingsPath)!);
+
+        // The asset name comes from the network: keep only the file name part
+        string fileName = Path.GetFileName(update.AssetFileName ?? "");
+        if (string.IsNullOrWhiteSpace(fileName)) fileName = "update_package.zip";
         string targetFile = Path.Combine(updateDir, fileName);
 
         progress?.Report((5, 100, $"Connecting to download server..."));
@@ -490,6 +528,7 @@ public class UpdateService : IUpdateService
         long totalBytes = response.Content.Headers.ContentLength ?? update.AssetSizeBytes;
         long bytesRead = 0;
 
+        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         using (var source = await response.Content.ReadAsStreamAsync(ct))
         using (var dest = File.Create(targetFile))
         {
@@ -498,6 +537,7 @@ public class UpdateService : IUpdateService
             while ((read = await source.ReadAsync(buffer, 0, buffer.Length, ct)) > 0)
             {
                 await dest.WriteAsync(buffer, 0, read, ct);
+                hash.AppendData(buffer, 0, read);
                 bytesRead += read;
 
                 if (totalBytes > 0)
@@ -508,8 +548,22 @@ public class UpdateService : IUpdateService
             }
         }
 
+        string actualSha256 = Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
+        if (!VerifyDownload(actualSha256, bytesRead, update))
+        {
+            try { File.Delete(targetFile); } catch { }
+            throw new InvalidDataException("The downloaded update failed checksum verification and was discarded. Please try again.");
+        }
+
         _stagedFilePath = targetFile;
         progress?.Report((100, 100, "Download complete! Ready to apply and restart."));
+    }
+
+    public static bool VerifyDownload(string actualSha256, long actualSize, UpdateInfo update)
+    {
+        if (string.IsNullOrEmpty(update.AssetSha256)) return false;
+        if (update.AssetSizeBytes > 0 && actualSize != update.AssetSizeBytes) return false;
+        return string.Equals(actualSha256, update.AssetSha256, StringComparison.OrdinalIgnoreCase);
     }
 
     public Task ApplyUpdateAndRestartAsync()
@@ -550,7 +604,7 @@ if not errorlevel 1 (
     goto waitloop
 )
 
-tar -xf %ARCHIVE% -C %APP_DIR% >nul 2>&1
+tar -xf %ARCHIVE% -C %APP_DIR% > ""%~dp0apply_update.log"" 2>&1
 start """" %EXE%
 del ""%~f0""
 ";
@@ -580,7 +634,11 @@ while kill -0 $PID 2>/dev/null; do
     sleep 1
 done
 
-unzip -o ""$ARCHIVE"" -d ""$APP_DIR"" 2>/dev/null || tar -xzf ""$ARCHIVE"" -C ""$APP_DIR"" 2>/dev/null
+LOG=""$(dirname ""$0"")/apply_update.log""
+case ""$ARCHIVE"" in
+    *.zip) unzip -o ""$ARCHIVE"" -d ""$APP_DIR"" > ""$LOG"" 2>&1 ;;
+    *) tar -xzf ""$ARCHIVE"" -C ""$APP_DIR"" > ""$LOG"" 2>&1 ;;
+esac
 chmod +x ""$EXE""
 ""$EXE"" &
 rm -f ""$0""

@@ -92,6 +92,107 @@ public class UpdateTests
     }
 
     [Fact]
+    public void ParseReleaseElement_CapturesSha256Digest_AndSkipsUnsupportedAssets()
+    {
+        const string sha = "e6f661ece4b1451a5c746bba1d47a11916e1f647c5b4a2811d0fcdebada658cb";
+        string json = $$"""
+        {
+            "tag_name": "v9.9.9",
+            "assets": [
+                { "name": "Caissalytics-x86_64.AppImage", "browser_download_url": "https://example.invalid/a.AppImage", "size": 1, "digest": "sha256:{{sha}}" },
+                { "name": "Caissalytics-win-x64.exe", "browser_download_url": "https://example.invalid/a.exe", "size": 1, "digest": "sha256:{{sha}}" },
+                { "name": "Caissalytics-linux-x64.tar.gz", "browser_download_url": "https://example.invalid/l.tar.gz", "size": 2, "digest": "sha256:{{sha.ToUpperInvariant()}}" },
+                { "name": "Caissalytics-win-x64.zip", "browser_download_url": "https://example.invalid/w.zip", "size": 3, "digest": "sha256:{{sha}}" }
+            ]
+        }
+        """;
+
+        using var doc = JsonDocument.Parse(json);
+        var info = new UpdateInfo();
+        UpdateService.ParseReleaseElement(doc.RootElement, info, currentVer: "1.0.0");
+
+        string expected = OperatingSystem.IsWindows() ? "Caissalytics-win-x64.zip" : "Caissalytics-linux-x64.tar.gz";
+        Assert.Equal(expected, info.AssetFileName);
+        Assert.Equal(sha, info.AssetSha256);
+    }
+
+    [Fact]
+    public void ParseReleaseElement_OnlyUnsupportedAssets_LeavesNoDownload()
+    {
+        string json = """
+        { "tag_name": "v9.9.9", "assets": [ { "name": "Caissalytics.AppImage", "browser_download_url": "https://example.invalid/a", "size": 1 } ] }
+        """;
+
+        using var doc = JsonDocument.Parse(json);
+        var info = new UpdateInfo();
+        UpdateService.ParseReleaseElement(doc.RootElement, info, currentVer: "1.0.0");
+
+        Assert.Null(info.AssetDownloadUrl);
+    }
+
+    [Theory]
+    [InlineData(null, null)]
+    [InlineData("", null)]
+    [InlineData("md5:0123", null)]
+    [InlineData("sha256:xyz", null)]
+    [InlineData("sha256:E6F661ECE4B1451A5C746BBA1D47A11916E1F647C5B4A2811D0FCDEBADA658CB", "e6f661ece4b1451a5c746bba1d47a11916e1f647c5b4a2811d0fcdebada658cb")]
+    public void ParseSha256Digest_AcceptsOnlyWellFormedSha256(string? digest, string? expected)
+    {
+        Assert.Equal(expected, UpdateService.ParseSha256Digest(digest));
+    }
+
+    [Fact]
+    public void VerifyDownload_RequiresMatchingHashAndSize()
+    {
+        byte[] payload = "caissalytics-update"u8.ToArray();
+        string sha = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(payload)).ToLowerInvariant();
+        var update = new UpdateInfo { AssetSha256 = sha, AssetSizeBytes = payload.Length };
+
+        Assert.True(UpdateService.VerifyDownload(sha, payload.Length, update));
+        Assert.False(UpdateService.VerifyDownload(new string('0', 64), payload.Length, update));
+        Assert.False(UpdateService.VerifyDownload(sha, payload.Length + 1, update));
+        Assert.False(UpdateService.VerifyDownload(sha, payload.Length, new UpdateInfo { AssetSizeBytes = payload.Length }));
+    }
+
+    [Fact]
+    public async Task DownloadUpdateAsync_WithoutPublishedChecksum_RefusesBeforeDownloading()
+    {
+        bool requested = false;
+        var handler = new TestHttpMessageHandler(_ => { requested = true; return new HttpResponseMessage(System.Net.HttpStatusCode.OK); });
+        var service = new UpdateService(new HttpClient(handler));
+        var update = new UpdateInfo { AssetDownloadUrl = "https://example.invalid/w.zip", AssetFileName = "w.zip" };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.DownloadUpdateAsync(update));
+        Assert.False(requested);
+    }
+
+    [Fact]
+    public void PrepareUpdateStagingDirectory_RecreatesEmptyOwnerOnlyFolder()
+    {
+        string baseDir = Path.Combine(Path.GetTempPath(), "caissalytics_update_test_" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            string first = UpdateService.PrepareUpdateStagingDirectory(baseDir);
+            File.WriteAllText(Path.Combine(first, "apply_update.sh"), "stale");
+
+            string second = UpdateService.PrepareUpdateStagingDirectory(baseDir);
+
+            Assert.Equal(first, second);
+            Assert.StartsWith(baseDir, second);
+            Assert.Empty(Directory.EnumerateFileSystemEntries(second));
+            if (!OperatingSystem.IsWindows())
+            {
+                Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute,
+                    File.GetUnixFileMode(second));
+            }
+        }
+        finally
+        {
+            try { Directory.Delete(baseDir, true); } catch { }
+        }
+    }
+
+    [Fact]
     public void ParseReleaseElement_SameOrOlderRelease_SetsUpdateUnavailable()
     {
         string json = """
