@@ -1,5 +1,6 @@
 using System.IO.Compression;
 using System.Runtime.InteropServices;
+using Caissalytics.Data;
 
 namespace Caissalytics.Engine;
 
@@ -85,7 +86,7 @@ public class MaiaModelService : IMaiaModelService
             {
                 ["CustomLc0Path"] = CustomLc0Path
             };
-            File.WriteAllText(_configFilePath, System.Text.Json.JsonSerializer.Serialize(dict));
+            AtomicFile.WriteAllText(_configFilePath, System.Text.Json.JsonSerializer.Serialize(dict));
         }
         catch { }
     }

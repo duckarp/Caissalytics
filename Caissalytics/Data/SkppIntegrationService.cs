@@ -685,7 +685,7 @@ public class SkppIntegrationService : ISkppIntegrationService, IDisposable
     {
         _cachedSession = CloneSession(session);
         string json = JsonSerializer.Serialize(session, JsonOptions);
-        await File.WriteAllTextAsync(_sessionFilePath, json);
+        await AtomicFile.WriteAllTextAsync(_sessionFilePath, json, ownerOnly: true);
     }
 
     private static string CleanUrl(string? url)

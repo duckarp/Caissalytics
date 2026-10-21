@@ -48,7 +48,7 @@ public class PuzzleService : IPuzzleService
             try
             {
                 string json = JsonSerializer.Serialize(_stats, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(_statsFilePath, json);
+                AtomicFile.WriteAllText(_statsFilePath, json);
             }
             catch (Exception ex)
             {
@@ -108,7 +108,7 @@ public class PuzzleService : IPuzzleService
             try
             {
                 string json = JsonSerializer.Serialize(_stats, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(_statsFilePath, json);
+                AtomicFile.WriteAllText(_statsFilePath, json);
             }
             catch { }
         }
@@ -386,7 +386,7 @@ public class PuzzleService : IPuzzleService
         try
         {
             string json = JsonSerializer.Serialize(_cachedExtractedPuzzles, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(_extractedPuzzlesPath, json);
+            AtomicFile.WriteAllText(_extractedPuzzlesPath, json);
         }
         catch { }
     }

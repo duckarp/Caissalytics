@@ -52,7 +52,16 @@ public class UserProfileService : IUserProfileService
             if (File.Exists(_profileFilePath))
             {
                 string json = await File.ReadAllTextAsync(_profileFilePath);
-                var profile = JsonSerializer.Deserialize<UserProfile>(json);
+                UserProfile? profile = null;
+                try
+                {
+                    profile = JsonSerializer.Deserialize<UserProfile>(json);
+                }
+                catch (JsonException)
+                {
+                    // Keep the unreadable profile (it may hold the Lichess token) instead of letting the next save replace it
+                    AtomicFile.Quarantine(_profileFilePath);
+                }
                 if (profile != null)
                 {
                     return profile;
@@ -91,7 +100,7 @@ public class UserProfileService : IUserProfileService
         {
             var options = new JsonSerializerOptions { WriteIndented = true };
             string json = JsonSerializer.Serialize(profile, options);
-            await File.WriteAllTextAsync(_profileFilePath, json);
+            await AtomicFile.WriteAllTextAsync(_profileFilePath, json, ownerOnly: true);
 
             // Also keep OnlineSyncConfig handles in sync
             if (_syncService != null)

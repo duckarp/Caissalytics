@@ -110,7 +110,7 @@ public class DatabaseManager : IDatabaseService
                     ReferenceDatabase = _referenceDatabaseName
                 };
                 string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(_configFilePath, json);
+                AtomicFile.WriteAllText(_configFilePath, json);
             }
             catch { }
         }

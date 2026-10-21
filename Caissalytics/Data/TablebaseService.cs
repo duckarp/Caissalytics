@@ -97,7 +97,7 @@ public class TablebaseService : ITablebaseService, IDisposable
                 IsOnlineProbeEnabled = _isOnlineProbeEnabled
             };
             string json = JsonSerializer.Serialize(dto, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(_configFilePath, json);
+            AtomicFile.WriteAllText(_configFilePath, json);
         }
         catch (Exception ex)
         {

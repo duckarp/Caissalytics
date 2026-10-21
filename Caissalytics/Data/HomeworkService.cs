@@ -203,7 +203,11 @@ public class HomeworkService : IHomeworkService
                     }
                 }
             }
-            catch { }
+            catch
+            {
+                // Keep the unreadable file so seeding the starter templates below doesn't overwrite it
+                AtomicFile.Quarantine(_filePath);
+            }
 
             // Initialize default starter coaching templates if empty
             _sheets = CreateStarterTemplates();
@@ -216,7 +220,7 @@ public class HomeworkService : IHomeworkService
         try
         {
             string json = JsonSerializer.Serialize(_sheets, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(_filePath, json);
+            AtomicFile.WriteAllText(_filePath, json);
         }
         catch { }
     }

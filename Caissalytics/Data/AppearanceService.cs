@@ -80,7 +80,7 @@ public class AppearanceService : IAppearanceService
         {
             _cachedSettings = settings;
             string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(_settingsFilePath, json);
+            await AtomicFile.WriteAllTextAsync(_settingsFilePath, json);
         }
         finally
         {

@@ -243,7 +243,11 @@ public class RepertoireService : IRepertoireService
                         return;
                     }
                 }
-                catch { }
+                catch
+                {
+                    // Neither format could be read: keep the file so seeding the defaults below doesn't overwrite it
+                    AtomicFile.Quarantine(_repertoireFilePath);
+                }
             }
 
             // Pre-seed default repertoire entries
@@ -283,7 +287,7 @@ public class RepertoireService : IRepertoireService
         try
         {
             string json = JsonSerializer.Serialize(_collection, new JsonSerializerOptions { WriteIndented = true });
-            File.WriteAllText(_repertoireFilePath, json);
+            AtomicFile.WriteAllText(_repertoireFilePath, json);
         }
         catch (Exception ex)
         {

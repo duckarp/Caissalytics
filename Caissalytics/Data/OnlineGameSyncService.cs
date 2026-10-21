@@ -83,7 +83,7 @@ public class OnlineGameSyncService : IOnlineGameSyncService
         try
         {
             string json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
-            await File.WriteAllTextAsync(_configFilePath, json);
+            await AtomicFile.WriteAllTextAsync(_configFilePath, json);
         }
         catch (Exception ex)
         {

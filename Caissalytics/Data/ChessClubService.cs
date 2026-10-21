@@ -72,7 +72,7 @@ public class ChessClubService : IChessClubService
             _cachedSettings = CloneSettings(settings);
             var options = new JsonSerializerOptions { WriteIndented = true };
             string json = JsonSerializer.Serialize(settings, options);
-            await File.WriteAllTextAsync(_settingsFilePath, json);
+            await AtomicFile.WriteAllTextAsync(_settingsFilePath, json);
         }
         finally
         {

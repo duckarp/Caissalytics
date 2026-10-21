@@ -69,7 +69,7 @@ public class UpdateService : IUpdateService
             try
             {
                 string json = JsonSerializer.Serialize(_settings, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(_settingsPath, json);
+                AtomicFile.WriteAllText(_settingsPath, json);
             }
             catch (Exception ex)
             {

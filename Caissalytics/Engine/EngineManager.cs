@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Caissalytics.Core;
+using Caissalytics.Data;
 
 namespace Caissalytics.Engine;
 
@@ -186,7 +187,7 @@ public class EngineManager : IEngineService, IDisposable
                 };
                 var options = new JsonSerializerOptions { WriteIndented = true };
                 string json = JsonSerializer.Serialize(config, options);
-                File.WriteAllText(_configFilePath, json);
+                AtomicFile.WriteAllText(_configFilePath, json);
             }
             catch (Exception ex)
             {

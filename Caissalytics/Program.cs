@@ -244,7 +244,7 @@ internal class Program
                     Directory.CreateDirectory(dir);
                 }
                 string output = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(settingsFilePath, output);
+                AtomicFile.WriteAllText(settingsFilePath, output);
             }
         }
         catch { }
