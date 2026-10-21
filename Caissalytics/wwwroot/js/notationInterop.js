@@ -9,6 +9,19 @@ window.notationInterop = {
 
     _listeners: new Map(),
     _keyboardHandler: null,
+    // Id of the visible workspace tab (null until the page reports it). Hidden tabs stay mounted
+    // and keep their listeners, so keys are only claimed when the visible tab has one.
+    _activeTabId: null,
+
+    setActiveTab: function (tabId) {
+        this._activeTabId = tabId || null;
+    },
+
+    _targetListeners: function () {
+        if (this._activeTabId === null) return Array.from(this._listeners.values());
+        const helper = this._listeners.get(this._activeTabId);
+        return helper ? [helper] : [];
+    },
 
     _ensureGlobalListener: function () {
         if (this._keyboardHandler) return;
@@ -28,6 +41,10 @@ window.notationInterop = {
         this._keyboardHandler = function (e) {
             if (self._listeners.size === 0) return;
             self._notifyAlt(e.altKey);
+
+            // Let tabs without board shortcuts (database, settings, homework...) scroll normally
+            const targets = self._targetListeners();
+            if (targets.length === 0) return;
 
             // Ignore if active element is an input, textarea, select, or contenteditable
             const tag = (document.activeElement && document.activeElement.tagName) ? document.activeElement.tagName.toUpperCase() : '';
@@ -57,10 +74,9 @@ window.notationInterop = {
                 shiftKey: e.shiftKey
             };
 
-            for (const helper of self._listeners.values()) {
-                try {
-                    helper.invokeMethodAsync('OnGlobalKeyDown', payload);
-                } catch { }
+            for (const helper of targets) {
+                // A listener being disposed rejects asynchronously; try/catch can't see that
+                helper.invokeMethodAsync('OnGlobalKeyDown', payload).catch(() => { });
             }
         };
         window.addEventListener('keydown', this._keyboardHandler);

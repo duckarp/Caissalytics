@@ -2213,39 +2213,67 @@
 
 	private async void HandleEnginesChanged()
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			await LoadEnginesAsync();
-			StateHasChanged();
-		});
+			await InvokeAsync(async () =>
+			{
+				await LoadEnginesAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[SettingsControlCenter] HandleEnginesChanged failed: {ex.Message}");
+		}
 	}
 
 	private async void HandleProfileChanged()
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			await LoadProfileAsync();
-			await LoadSyncConfigAsync();
-			StateHasChanged();
-		});
+			await InvokeAsync(async () =>
+			{
+				await LoadProfileAsync();
+				await LoadSyncConfigAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[SettingsControlCenter] HandleProfileChanged failed: {ex.Message}");
+		}
 	}
 
 	private async void HandleClubSettingsChanged()
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			await LoadClubSettingsAsync();
-			StateHasChanged();
-		});
+			await InvokeAsync(async () =>
+			{
+				await LoadClubSettingsAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[SettingsControlCenter] HandleClubSettingsChanged failed: {ex.Message}");
+		}
 	}
 
 	private async void HandleSkppStateChanged()
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			await LoadSkppStateAsync();
-			StateHasChanged();
-		});
+			await InvokeAsync(async () =>
+			{
+				await LoadSkppStateAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[SettingsControlCenter] HandleSkppStateChanged failed: {ex.Message}");
+		}
 	}
 
 	public void Dispose()
@@ -2415,11 +2443,18 @@
 
 	private async void HandleStockfishUpdateChanged(StockfishUpdateInfo info)
 	{
-		await InvokeAsync(() =>
+		try
 		{
-			_sfUpdate = info;
-			StateHasChanged();
-		});
+			await InvokeAsync(() =>
+			{
+				_sfUpdate = info;
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[SettingsControlCenter] HandleStockfishUpdateChanged failed: {ex.Message}");
+		}
 	}
 
 	private async Task CheckForUpdatesNowAsync()
@@ -2446,11 +2481,18 @@
 
 	private async void HandleUpdateChanged(UpdateInfo update)
 	{
-		await InvokeAsync(() =>
+		try
 		{
-			_latestUpdate = update;
-			StateHasChanged();
-		});
+			await InvokeAsync(() =>
+			{
+				_latestUpdate = update;
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[SettingsControlCenter] HandleUpdateChanged failed: {ex.Message}");
+		}
 	}
 
 	private static string GetThemeDisplayName(string theme) => theme switch

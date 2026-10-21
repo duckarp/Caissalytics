@@ -728,11 +728,18 @@
 
 	private async void HandleSheetsChanged()
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			await LoadSheetsAsync();
-			StateHasChanged();
-		});
+			await InvokeAsync(async () =>
+			{
+				await LoadSheetsAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[HomeworkWorkbench] HandleSheetsChanged failed: {ex.Message}");
+		}
 	}
 
 	private void OpenEditor(HomeworkSheet sheet)

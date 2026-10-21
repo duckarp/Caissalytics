@@ -180,6 +180,27 @@ else
 			_isAutosaveEnabled = safeToSave;
 			await InvokeAsync(StateHasChanged);
 		}
+
+		await SyncActiveTabToKeyboardInteropAsync();
+	}
+
+	private Guid? _keyboardActiveTabId;
+
+	// Board workbenches register keyboard listeners per tab and stay mounted while hidden;
+	// the script needs the visible tab so it doesn't swallow keys on other tabs.
+	private async Task SyncActiveTabToKeyboardInteropAsync()
+	{
+		var activeId = Workspace.ActiveTab?.Id;
+		if (activeId == null || activeId == _keyboardActiveTabId) return;
+		try
+		{
+			await JS.InvokeVoidAsync("notationInterop.setActiveTab", activeId.Value.ToString("N"));
+			_keyboardActiveTabId = activeId;
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error syncing active tab to keyboard interop: {ex.Message}");
+		}
 	}
 
 	private void HandleWorkspaceChanged()

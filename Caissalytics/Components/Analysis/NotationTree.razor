@@ -221,11 +221,6 @@
 		return CommentSplitRegex.Replace(comment, "\n");
 	}
 
-	protected override void OnInitialized()
-	{
-		SubscribeToTree(Tree);
-	}
-
 	protected override void OnParametersSet()
 	{
 		if (Tree != _lastTree)
@@ -254,7 +249,7 @@
 
 	public void Dispose()
 	{
-		UnsubscribeFromTree(Tree);
+		UnsubscribeFromTree(_lastTree);
 	}
 
 	private void SubscribeToTree(GameTree? tree)

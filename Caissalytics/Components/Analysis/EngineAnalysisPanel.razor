@@ -170,11 +170,18 @@
 
 	private async void HandleEnginesChanged()
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			await LoadEnginesAsync();
-			StateHasChanged();
-		});
+			await InvokeAsync(async () =>
+			{
+				await LoadEnginesAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[EngineAnalysisPanel] HandleEnginesChanged failed: {ex.Message}");
+		}
 	}
 
 	private async Task ToggleEngineAnalysis()
@@ -261,11 +268,18 @@
 
 	private async void HandleStockfishUpdateChanged(StockfishUpdateInfo info)
 	{
-		await InvokeAsync(() =>
+		try
 		{
-			_stockfishUpdate = info;
-			StateHasChanged();
-		});
+			await InvokeAsync(() =>
+			{
+				_stockfishUpdate = info;
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[EngineAnalysisPanel] HandleStockfishUpdateChanged failed: {ex.Message}");
+		}
 	}
 
 	public void Dispose()

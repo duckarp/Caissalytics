@@ -1680,11 +1680,18 @@
 
 	private async void HandleProfileChanged()
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			await LoadProfileAsync();
-			StateHasChanged();
-		});
+			await InvokeAsync(async () =>
+			{
+				await LoadProfileAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[DatabaseBrowser] HandleProfileChanged failed: {ex.Message}");
+		}
 	}
 
 	private async Task LoadDatabasesAsync()
@@ -1971,12 +1978,19 @@
 
 	private async void HandleReferenceDatabaseChanged()
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			_referenceDbName = await DatabaseService.GetReferenceDatabaseAsync();
-			_databases = await DatabaseService.GetDatabasesAsync();
-			StateHasChanged();
-		});
+			await InvokeAsync(async () =>
+			{
+				_referenceDbName = await DatabaseService.GetReferenceDatabaseAsync();
+				_databases = await DatabaseService.GetDatabasesAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[DatabaseBrowser] HandleReferenceDatabaseChanged failed: {ex.Message}");
+		}
 	}
 
 	private List<GameFolder> _folders = new();
@@ -3263,31 +3277,45 @@
 
 	private async void HandleActiveDatabaseChanged()
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			_databases = await DatabaseService.GetDatabasesAsync();
-			var active = _databases.FirstOrDefault(d => d.IsActive);
-			if (active != null && active.Name != _currentDbName)
+			await InvokeAsync(async () =>
 			{
-				_currentDbName = active.Name;
-				_currentFolderId = null;
-			}
-			await LoadGamesAsync();
-			StateHasChanged();
-		});
+				_databases = await DatabaseService.GetDatabasesAsync();
+				var active = _databases.FirstOrDefault(d => d.IsActive);
+				if (active != null && active.Name != _currentDbName)
+				{
+					_currentDbName = active.Name;
+					_currentFolderId = null;
+				}
+				await LoadGamesAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[DatabaseBrowser] HandleActiveDatabaseChanged failed: {ex.Message}");
+		}
 	}
 
 	private async void HandleDatabaseModified(string dbName)
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			_databases = await DatabaseService.GetDatabasesAsync();
-			if (string.Equals(dbName, _currentDbName, StringComparison.OrdinalIgnoreCase))
+			await InvokeAsync(async () =>
 			{
-				await LoadGamesAsync(showLoading: false);
-			}
-			StateHasChanged();
-		});
+				_databases = await DatabaseService.GetDatabasesAsync();
+				if (string.Equals(dbName, _currentDbName, StringComparison.OrdinalIgnoreCase))
+				{
+					await LoadGamesAsync(showLoading: false);
+				}
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[DatabaseBrowser] HandleDatabaseModified failed: {ex.Message}");
+		}
 	}
 
 	private void AddNewGame()

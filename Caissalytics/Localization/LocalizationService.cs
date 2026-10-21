@@ -66,6 +66,11 @@ public class LocalizationService : ILocalizationService
                     }
                     else
                     {
+                        // Components subscribe with a bare StateHasChanged, which must run on the UI's
+                        // synchronization context; the service is created there, so continue on it.
+                        var scheduler = SynchronizationContext.Current != null
+                            ? TaskScheduler.FromCurrentSynchronizationContext()
+                            : TaskScheduler.Default;
                         _ = settingsTask.ContinueWith(t =>
                         {
                             if (t.IsCompletedSuccessfully && !string.IsNullOrWhiteSpace(t.Result.Language) && _languages.ContainsKey(t.Result.Language))
@@ -73,10 +78,10 @@ public class LocalizationService : ILocalizationService
                                 if (_currentLanguage != t.Result.Language)
                                 {
                                     _currentLanguage = t.Result.Language;
-                                    OnLanguageChanged?.Invoke();
+                                    RaiseLanguageChanged();
                                 }
                             }
-                        });
+                        }, CancellationToken.None, TaskContinuationOptions.None, scheduler);
                     }
                 }
                 catch { }
@@ -149,7 +154,26 @@ public class LocalizationService : ILocalizationService
             catch { }
         }
 
-        OnLanguageChanged?.Invoke();
+        RaiseLanguageChanged();
+    }
+
+    /// <summary>Notifies each subscriber separately so one failing handler can't stop the others from updating.</summary>
+    private void RaiseLanguageChanged()
+    {
+        var handlers = OnLanguageChanged;
+        if (handlers == null) return;
+
+        foreach (Action handler in handlers.GetInvocationList())
+        {
+            try
+            {
+                handler();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[LocalizationService] Language change handler failed: {ex.Message}");
+            }
+        }
     }
 
     public void RegisterLanguage(LanguageInfo info, IReadOnlyDictionary<string, string> strings)

@@ -163,29 +163,50 @@
 
 	private async void HandleDatabaseChanged()
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			await LoadActiveDatabaseAsync();
-			StateHasChanged();
-		});
+			await InvokeAsync(async () =>
+			{
+				await LoadActiveDatabaseAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[WorkspaceTabs] HandleDatabaseChanged failed: {ex.Message}");
+		}
 	}
 
 	private async void HandleDatabaseModified(string dbName)
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			await LoadActiveDatabaseAsync();
-			StateHasChanged();
-		});
+			await InvokeAsync(async () =>
+			{
+				await LoadActiveDatabaseAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[WorkspaceTabs] HandleDatabaseModified failed: {ex.Message}");
+		}
 	}
 
 	private async void HandleUpdateStateChanged(UpdateInfo update)
 	{
-		await InvokeAsync(() =>
+		try
 		{
-			_availableUpdate = update;
-			StateHasChanged();
-		});
+			await InvokeAsync(() =>
+			{
+				_availableUpdate = update;
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[WorkspaceTabs] HandleUpdateStateChanged failed: {ex.Message}");
+		}
 	}
 
 	private string GetTabTitle(WorkspaceTab tab) => tab switch

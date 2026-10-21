@@ -354,20 +354,27 @@
 
 	private async void HandleConnectionStateChanged()
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			_clubState = await SkppService.GetConnectionStateAsync();
-			if (_clubState.IsConnected)
+			await InvokeAsync(async () =>
 			{
-				await LoadMessagesAsync();
-			}
-			else
-			{
-				_messages.Clear();
-				_selectedMessage = null;
-			}
-			StateHasChanged();
-		});
+				_clubState = await SkppService.GetConnectionStateAsync();
+				if (_clubState.IsConnected)
+				{
+					await LoadMessagesAsync();
+				}
+				else
+				{
+					_messages.Clear();
+					_selectedMessage = null;
+				}
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[ClubMessagesWorkbench] HandleConnectionStateChanged failed: {ex.Message}");
+		}
 	}
 
 	private void HandleUnreadCountChanged(int count)

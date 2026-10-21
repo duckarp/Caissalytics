@@ -193,11 +193,18 @@
 
 	private async void HandleProfileChanged()
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			await LoadProfileAsync();
-			StateHasChanged();
-		});
+			await InvokeAsync(async () =>
+			{
+				await LoadProfileAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[ReferenceTreePanel] HandleProfileChanged failed: {ex.Message}");
+		}
 	}
 
 	protected override async Task OnParametersSetAsync()
@@ -311,20 +318,34 @@
 
 	private async void HandleActiveDatabaseChanged()
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			_databases = await DatabaseService.GetDatabasesAsync();
-			StateHasChanged();
-		});
+			await InvokeAsync(async () =>
+			{
+				_databases = await DatabaseService.GetDatabasesAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[ReferenceTreePanel] HandleActiveDatabaseChanged failed: {ex.Message}");
+		}
 	}
 
 	private async void HandleReferenceDatabaseChanged()
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			await RefreshDatabasesAsync();
-			StateHasChanged();
-		});
+			await InvokeAsync(async () =>
+			{
+				await RefreshDatabasesAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[ReferenceTreePanel] HandleReferenceDatabaseChanged failed: {ex.Message}");
+		}
 	}
 
 	private async Task PlayCandidateMove(string moveSan)

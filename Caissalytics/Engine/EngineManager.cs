@@ -22,16 +22,18 @@ public class EngineManager : IEngineService, IDisposable
     private readonly HttpClient _httpClient;
     private readonly object _lock = new();
     private readonly SemaphoreSlim _clientInitGate = new(1, 1);
+    private readonly bool _ownsHttpClient;
 
     public event Action? OnEnginesChanged;
     public event Action<StockfishUpdateInfo>? OnStockfishUpdateChanged;
     public StockfishUpdateInfo? CachedStockfishUpdate { get; private set; }
 
-    public bool IsAnalyzing => _activeClient != null && _activeClient.IsRunning;
+    public bool IsAnalyzing => _activeClient is { IsRunning: true };
     public string? SyzygyPath => _syzygyPath;
 
     public EngineManager(HttpClient? httpClient = null)
     {
+        _ownsHttpClient = httpClient == null;
         _httpClient = httpClient ?? new HttpClient();
         if (!_httpClient.DefaultRequestHeaders.UserAgent.Any())
         {
@@ -49,6 +51,7 @@ public class EngineManager : IEngineService, IDisposable
 
     public EngineManager(string customStorageDir, HttpClient? httpClient = null)
     {
+        _ownsHttpClient = httpClient == null;
         _httpClient = httpClient ?? new HttpClient();
         if (!_httpClient.DefaultRequestHeaders.UserAgent.Any())
         {
@@ -231,11 +234,12 @@ public class EngineManager : IEngineService, IDisposable
             SaveConfig();
         }
 
-        if (_activeClient != null && _activeClient.IsRunning && !string.IsNullOrWhiteSpace(_syzygyPath))
+        var activeClient = _activeClient;
+        if (activeClient != null && activeClient.IsRunning && !string.IsNullOrWhiteSpace(_syzygyPath))
         {
             try
             {
-                await _activeClient.SetOptionAsync("SyzygyPath", _syzygyPath);
+                await activeClient.SetOptionAsync("SyzygyPath", _syzygyPath);
             }
             catch
             {
@@ -348,12 +352,7 @@ public class EngineManager : IEngineService, IDisposable
             SaveConfig();
         }
 
-        if (_activeClient != null)
-        {
-            await _activeClient.StopAnalysisAsync();
-            _activeClient.Dispose();
-            _activeClient = null;
-        }
+        await ShutDownActiveClientAsync();
 
         OnEnginesChanged?.Invoke();
     }
@@ -653,18 +652,9 @@ public class EngineManager : IEngineService, IDisposable
         }
 
         // Stop active UCI client if it was running the removed engine
-        if (wasActive && _activeClient != null)
+        if (wasActive)
         {
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await _activeClient.StopAnalysisAsync();
-                    _activeClient.Dispose();
-                    _activeClient = null;
-                }
-                catch { }
-            });
+            _ = ShutDownActiveClientAsync();
         }
 
         OnEnginesChanged?.Invoke();
@@ -802,10 +792,38 @@ public class EngineManager : IEngineService, IDisposable
 
     public async Task StopAnalysisAsync()
     {
-        if (_activeClient != null)
+        var client = _activeClient;
+        if (client != null)
         {
-            await _activeClient.StopAnalysisAsync();
+            await client.StopAnalysisAsync();
         }
+    }
+
+    /// <summary>
+    /// Detaches and shuts down the shared analysis engine. Taken under the same gate that creates it,
+    /// so a concurrent StartAnalysisAsync can't have its fresh client disposed underneath it.
+    /// </summary>
+    private async Task ShutDownActiveClientAsync()
+    {
+        UciProcessClient? client;
+        await _clientInitGate.WaitAsync();
+        try
+        {
+            client = _activeClient;
+            _activeClient = null;
+        }
+        finally
+        {
+            _clientInitGate.Release();
+        }
+
+        if (client == null) return;
+        try
+        {
+            await client.StopAnalysisAsync();
+        }
+        catch { }
+        client.Dispose();
     }
 
     public async Task<StockfishUpdateInfo> CheckStockfishUpdateAsync(bool force = false, CancellationToken ct = default)
@@ -1032,12 +1050,7 @@ public class EngineManager : IEngineService, IDisposable
                 SaveConfig();
             }
 
-            if (_activeClient != null)
-            {
-                await _activeClient.StopAnalysisAsync();
-                _activeClient.Dispose();
-                _activeClient = null;
-            }
+            await ShutDownActiveClientAsync();
 
             update.IsUpdateAvailable = false;
             update.CurrentVersion = finalName;
@@ -1061,6 +1074,9 @@ public class EngineManager : IEngineService, IDisposable
     {
         _activeClient?.Dispose();
         _activeClient = null;
-        _httpClient.Dispose();
+        if (_ownsHttpClient)
+        {
+            _httpClient.Dispose();
+        }
     }
 }

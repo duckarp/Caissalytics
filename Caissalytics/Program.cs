@@ -218,6 +218,23 @@ internal class Program
         };
 
         app.Run();
+
+        // Dispose singletons after the window closes so engine processes are shut down cleanly
+        try
+        {
+            if (app.Services is IAsyncDisposable asyncDisposable)
+            {
+                asyncDisposable.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(5));
+            }
+            else if (app.Services is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"[Caissalytics] Error during shutdown: {ex.Message}");
+        }
     }
 
     private static void SaveWindowMaximizedState(string settingsFilePath, bool isMaximized)

@@ -309,20 +309,34 @@
 
 	private async void HandleProfileChanged()
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			await LoadProfileAsync();
-			StateHasChanged();
-		});
+			await InvokeAsync(async () =>
+			{
+				await LoadProfileAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[ChessgroundBoard] HandleProfileChanged failed: {ex.Message}");
+		}
 	}
 
 	private async void HandleAppearanceChanged(AppearanceSettings settings)
 	{
-		await InvokeAsync(() =>
+		try
 		{
-			_appearanceSettings = settings;
-			StateHasChanged();
-		});
+			await InvokeAsync(() =>
+			{
+				_appearanceSettings = settings;
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[ChessgroundBoard] HandleAppearanceChanged failed: {ex.Message}");
+		}
 	}
 
 	private static RenderFragment RenderCapturedMaterial(List<CapturedPiece> captured, int advantage) => builder =>

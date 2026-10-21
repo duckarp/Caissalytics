@@ -542,19 +542,36 @@
 
 	private async void HandleRepertoireChanged()
 	{
-		_repertoireTree = await RepertoireService.GetRepertoireAsync();
-		_lines = await RepertoireService.GetLinesAsync();
-		await InvokeAsync(async () =>
+		try
 		{
-			await AnnotateCandidateMovesWithRepertoireAsync();
-			StateHasChanged();
-		});
+			await InvokeAsync(async () =>
+			{
+				_repertoireTree = await RepertoireService.GetRepertoireAsync();
+				_lines = await RepertoireService.GetLinesAsync();
+				await AnnotateCandidateMovesWithRepertoireAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[RepertoireWorkbench] HandleRepertoireChanged failed: {ex.Message}");
+		}
 	}
 
 	private async void HandleActiveDatabaseChanged()
 	{
-		_databases = await DatabaseService.GetDatabasesAsync();
-		await InvokeAsync(StateHasChanged);
+		try
+		{
+			await InvokeAsync(async () =>
+			{
+				_databases = await DatabaseService.GetDatabasesAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[RepertoireWorkbench] HandleActiveDatabaseChanged failed: {ex.Message}");
+		}
 	}
 
 	private async Task HandleSourceChanged(ChangeEventArgs e)

@@ -397,11 +397,18 @@
 
 	private async void HandleSkppStateChanged()
 	{
-		await InvokeAsync(async () =>
+		try
 		{
-			await LoadClubStateAndTasksAsync();
-			StateHasChanged();
-		});
+			await InvokeAsync(async () =>
+			{
+				await LoadClubStateAndTasksAsync();
+				StateHasChanged();
+			});
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[ClubHomeworkWorkbench] HandleSkppStateChanged failed: {ex.Message}");
+		}
 	}
 
 	private async Task LoadClubStateAndTasksAsync()
