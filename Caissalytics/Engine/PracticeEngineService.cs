@@ -85,7 +85,7 @@ public class PracticeEngineService : IPracticeEngineService
             int delayMs = Random.Shared.Next(350, 750);
             await Task.Delay(delayMs, ct);
 
-            string? chosenUci = SelectMoveFromLines(lines, bestMoveUci, clampedElo);
+            string? chosenUci = SelectMoveFromLines(lines, bestMoveUci, clampedElo, pos.ActiveColor);
 
             if (!string.IsNullOrEmpty(chosenUci))
             {
@@ -311,8 +311,14 @@ public class PracticeEngineService : IPracticeEngineService
         return false;
     }
 
-    private static string? SelectMoveFromLines(List<EngineEvaluationLine> lines, string? bestMoveUci, int elo)
+    /// <param name="sideToMove">The bot's colour. Engine scores arrive from White's point of view.</param>
+    public static string? SelectMoveFromLines(List<EngineEvaluationLine> lines, string? bestMoveUci, int elo, PieceColor sideToMove)
     {
+        int sign = sideToMove == PieceColor.White ? 1 : -1;
+        int? MateForBot(EngineEvaluationLine l) => l.MateInMoves * sign;
+        // A weaker alternative is fine, but never one that walks into a forced mate
+        bool IsSafeAlternative(EngineEvaluationLine l) => !(MateForBot(l) is int m && m <= 0);
+
         var validCandidates = lines
             .Where(l => l.PvMoves.Count > 0 && !string.IsNullOrEmpty(l.PvMoves[0]))
             .OrderBy(l => l.MultiPvIndex)
@@ -331,7 +337,7 @@ public class PracticeEngineService : IPracticeEngineService
         var top = validCandidates[0];
 
         // Never play a lower move if top move is a forced checkmate
-        if (top.MateInMoves.HasValue && top.MateInMoves.Value > 0)
+        if (MateForBot(top) is int topMate && topMate > 0)
         {
             return top.PvMoves[0];
         }
@@ -346,7 +352,7 @@ public class PracticeEngineService : IPracticeEngineService
             {
                 var cand2 = validCandidates[1];
                 double delta = Math.Abs((cand2.Centipawns ?? 0) - topCp);
-                if (delta <= 250 && (!cand2.MateInMoves.HasValue || cand2.MateInMoves.Value > 0))
+                if (delta <= 250 && IsSafeAlternative(cand2))
                 {
                     return cand2.PvMoves[0];
                 }
@@ -355,7 +361,7 @@ public class PracticeEngineService : IPracticeEngineService
             {
                 var cand3 = validCandidates[2];
                 double delta = Math.Abs((cand3.Centipawns ?? 0) - topCp);
-                if (delta <= 300 && (!cand3.MateInMoves.HasValue || cand3.MateInMoves.Value > 0))
+                if (delta <= 300 && IsSafeAlternative(cand3))
                 {
                     return cand3.PvMoves[0];
                 }
@@ -368,7 +374,7 @@ public class PracticeEngineService : IPracticeEngineService
             {
                 var cand2 = validCandidates[1];
                 double delta = Math.Abs((cand2.Centipawns ?? 0) - topCp);
-                if (delta <= 120)
+                if (delta <= 120 && IsSafeAlternative(cand2))
                 {
                     return cand2.PvMoves[0];
                 }
@@ -377,7 +383,7 @@ public class PracticeEngineService : IPracticeEngineService
             {
                 var cand3 = validCandidates[2];
                 double delta = Math.Abs((cand3.Centipawns ?? 0) - topCp);
-                if (delta <= 180)
+                if (delta <= 180 && IsSafeAlternative(cand3))
                 {
                     return cand3.PvMoves[0];
                 }
@@ -390,7 +396,7 @@ public class PracticeEngineService : IPracticeEngineService
             {
                 var cand2 = validCandidates[1];
                 double delta = Math.Abs((cand2.Centipawns ?? 0) - topCp);
-                if (delta <= 60)
+                if (delta <= 60 && IsSafeAlternative(cand2))
                 {
                     return cand2.PvMoves[0];
                 }
@@ -413,6 +419,6 @@ public class PracticeEngineService : IPracticeEngineService
         _client = null;
         _lc0Client?.Dispose();
         _lc0Client = null;
-        _gate.Dispose();
+        // _gate is intentionally not disposed: a call still in flight would throw when releasing it
     }
 }

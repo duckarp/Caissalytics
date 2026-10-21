@@ -6,12 +6,17 @@ namespace Caissalytics.Engine;
 
 public class UciProcessClient : IDisposable
 {
+    // One entry per "go" sent. UCI answers every "go" with exactly one "bestmove" (even after
+    // "stop"), in order, so the head of this queue is always the search producing the current
+    // output. This lets a late "bestmove" from a cancelled search be told apart from the answer
+    // to the request that replaced it.
+    private sealed record PendingSearch(int Id, PieceColor SideToMove);
+
     private Process? _process;
     private StreamWriter? _stdin;
     private readonly object _lock = new();
     private readonly Dictionary<int, EngineEvaluationLine> _currentLines = new();
     private Action<List<EngineEvaluationLine>>? _onUpdate;
-    private PieceColor _sideToMove = PieceColor.White;
     private TaskCompletionSource<EngineEvaluationLine?>? _evalTcs;
     private TaskCompletionSource<(string? BestMove, List<EngineEvaluationLine> Lines)>? _searchTcs;
     private int _lastDispatchedDepth = 0;
@@ -19,10 +24,33 @@ public class UciProcessClient : IDisposable
     private Timer? _throttleTimer;
     private bool _hasPendingDispatch = false;
     private TaskCompletionSource<bool>? _readyTcs;
+    private TaskCompletionSource<bool>? _uciOkTcs;
+    private TaskCompletionSource<bool>? _idleTcs;
+    private readonly Queue<PendingSearch> _pendingSearches = new();
+    private int _searchIdCounter = 0;
+    private int _activeSearchId = 0; // search whose output is wanted; 0 = none
     private int _analysisSearchId = 0;
+    // _commandGate serializes setting up searches; _writeGate serializes writes to stdin
     private readonly SemaphoreSlim _commandGate = new(1, 1);
+    private readonly SemaphoreSlim _writeGate = new(1, 1);
 
-    public bool IsRunning => _process != null && !_process.HasExited;
+    private const int StopTimeoutMs = 2000;
+
+    public bool IsRunning
+    {
+        get
+        {
+            var process = _process;
+            try
+            {
+                return process != null && !process.HasExited;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
+        }
+    }
 
     public async Task<bool> StartEngineAsync(string executablePath)
     {
@@ -43,8 +71,15 @@ public class UciProcessClient : IDisposable
 
         try
         {
-            _process = new Process { StartInfo = psi };
+            var uciOk = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            lock (_lock)
+            {
+                _uciOkTcs = uciOk;
+            }
+
+            _process = new Process { StartInfo = psi, EnableRaisingEvents = true };
             _process.OutputDataReceived += OnOutputDataReceived;
+            _process.Exited += OnProcessExited;
             _process.Start();
             _process.BeginOutputReadLine();
             _process.BeginErrorReadLine();
@@ -52,10 +87,15 @@ public class UciProcessClient : IDisposable
             _stdin = _process.StandardInput;
 
             await SendCommandAsync("uci");
-            await Task.Delay(200);
-            await SendCommandAsync("isready");
+            await Task.WhenAny(uciOk.Task, Task.Delay(5000));
+            if (!IsRunning)
+            {
+                Stop();
+                return false;
+            }
 
-            return true;
+            await WaitReadyAsync(3000);
+            return IsRunning;
         }
         catch
         {
@@ -66,67 +106,63 @@ public class UciProcessClient : IDisposable
 
     public async Task StartAnalysisAsync(string fen, int multiPv, Action<List<EngineEvaluationLine>> onUpdate, int maxDepth = 0)
     {
-        if (_process == null || _process.HasExited || _stdin == null)
+        if (!IsRunning || _stdin == null)
             return;
 
-        int searchId;
+        int requestId;
         lock (_lock)
         {
             _analysisSearchId++;
-            searchId = _analysisSearchId;
+            requestId = _analysisSearchId;
             _throttleTimer?.Change(Timeout.Infinite, Timeout.Infinite);
             _hasPendingDispatch = false;
-            _lastDispatchedDepth = 0;
-            _lastDispatchTimestamp = 0;
             _currentLines.Clear();
             _onUpdate = null;
+            _activeSearchId = 0;
         }
 
+        // Stop the current search right away so stale lines stop arriving while we wait for the gate
         await SendCommandAsync("stop");
 
         await _commandGate.WaitAsync();
         try
         {
-            if (_process == null || _process.HasExited || _stdin == null)
+            if (!IsRunning || _stdin == null)
                 return;
 
             lock (_lock)
             {
-                if (_analysisSearchId != searchId)
+                if (_analysisSearchId != requestId)
                     return;
             }
 
-            await SendCommandAsync("stop");
-            await WaitReadyAsync(500);
-
-            // Determine side to move from FEN for score normalization
-            var parts = fen.Trim().Split(' ');
-            var sideToMove = parts.Length > 1 && parts[1].Equals("b", StringComparison.OrdinalIgnoreCase)
-                ? PieceColor.Black
-                : PieceColor.White;
+            await PrepareForNewSearchAsync();
 
             lock (_lock)
             {
-                if (_analysisSearchId != searchId)
+                if (_analysisSearchId != requestId)
                     return;
 
-                _currentLines.Clear();
+                SupersedePendingRequestsLocked();
                 _lastDispatchedDepth = 0;
                 _lastDispatchTimestamp = 0;
-                _sideToMove = sideToMove;
                 _onUpdate = onUpdate;
             }
 
             await SendCommandAsync($"setoption name MultiPV value {Math.Max(1, Math.Min(5, multiPv))}");
             await SendCommandAsync($"position fen {fen}");
-            if (maxDepth > 0)
+
+            lock (_lock)
             {
-                await SendCommandAsync($"go depth {maxDepth}");
+                if (_analysisSearchId != requestId)
+                {
+                    _onUpdate = null;
+                    return;
+                }
+                RegisterSearchLocked(SideToMoveFromFen(fen));
             }
-            else
-            {
-                await SendCommandAsync("go infinite");
-            }
+
+            await SendCommandAsync(maxDepth > 0 ? $"go depth {maxDepth}" : "go infinite");
         }
         finally
         {
@@ -136,46 +172,47 @@ public class UciProcessClient : IDisposable
 
     public async Task<EngineEvaluationLine?> EvaluatePositionAsync(string fen, int movetimeMs, int maxDepth, CancellationToken ct = default)
     {
-        if (_process == null || _process.HasExited || _stdin == null)
+        if (!IsRunning || _stdin == null)
             return null;
 
         var tcs = new TaskCompletionSource<EngineEvaluationLine?>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        using var reg = ct.Register(() =>
-        {
-            _ = SendCommandAsync("stop");
-            tcs.TrySetCanceled(ct);
-        });
-
-        lock (_lock)
-        {
-            _currentLines.Clear();
-            _evalTcs = tcs;
-        }
-
-        var parts = fen.Trim().Split(' ');
-        _sideToMove = parts.Length > 1 && parts[1].Equals("b", StringComparison.OrdinalIgnoreCase)
-            ? PieceColor.Black
-            : PieceColor.White;
-
-        await SendCommandAsync("stop");
-        await SendCommandAsync("setoption name MultiPV value 1");
-        await SendCommandAsync($"position fen {fen}");
 
         string goCommand = (maxDepth > 0 && movetimeMs > 0)
             ? $"go depth {maxDepth} movetime {movetimeMs}"
             : (movetimeMs > 0 ? $"go movetime {movetimeMs}" : $"go depth {maxDepth}");
 
-        await SendCommandAsync(goCommand);
+        await _commandGate.WaitAsync(ct);
+        try
+        {
+            await PrepareForNewSearchAsync();
+            lock (_lock)
+            {
+                SupersedePendingRequestsLocked();
+                _evalTcs = tcs;
+            }
+
+            await SendCommandAsync("setoption name MultiPV value 1");
+            await SendCommandAsync($"position fen {fen}");
+            lock (_lock)
+            {
+                RegisterSearchLocked(SideToMoveFromFen(fen));
+            }
+            await SendCommandAsync(goCommand);
+        }
+        finally
+        {
+            _commandGate.Release();
+        }
+
+        using var reg = ct.Register(() =>
+        {
+            tcs.TrySetCanceled(ct);
+            _ = SendCommandAsync("stop");
+        });
 
         try
         {
             return await tcs.Task;
-        }
-        catch (OperationCanceledException)
-        {
-            await SendCommandAsync("stop");
-            throw;
         }
         finally
         {
@@ -202,31 +239,10 @@ public class UciProcessClient : IDisposable
         int nodes = 0,
         CancellationToken ct = default)
     {
-        if (_process == null || _process.HasExited || _stdin == null)
+        if (!IsRunning || _stdin == null)
             return (null, new List<EngineEvaluationLine>());
 
         var tcs = new TaskCompletionSource<(string? BestMove, List<EngineEvaluationLine> Lines)>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        using var reg = ct.Register(() =>
-        {
-            _ = SendCommandAsync("stop");
-            tcs.TrySetCanceled(ct);
-        });
-
-        lock (_lock)
-        {
-            _currentLines.Clear();
-            _searchTcs = tcs;
-        }
-
-        var parts = fen.Trim().Split(' ');
-        _sideToMove = parts.Length > 1 && parts[1].Equals("b", StringComparison.OrdinalIgnoreCase)
-            ? PieceColor.Black
-            : PieceColor.White;
-
-        await SendCommandAsync("stop");
-        await SendCommandAsync($"setoption name MultiPV value {Math.Max(1, Math.Min(5, multiPv))}");
-        await SendCommandAsync($"position fen {fen}");
 
         string goCommand;
         if (nodes > 0)
@@ -246,16 +262,38 @@ public class UciProcessClient : IDisposable
             goCommand = $"go depth {maxDepth}";
         }
 
-        await SendCommandAsync(goCommand);
+        await _commandGate.WaitAsync(ct);
+        try
+        {
+            await PrepareForNewSearchAsync();
+            lock (_lock)
+            {
+                SupersedePendingRequestsLocked();
+                _searchTcs = tcs;
+            }
+
+            await SendCommandAsync($"setoption name MultiPV value {Math.Max(1, Math.Min(5, multiPv))}");
+            await SendCommandAsync($"position fen {fen}");
+            lock (_lock)
+            {
+                RegisterSearchLocked(SideToMoveFromFen(fen));
+            }
+            await SendCommandAsync(goCommand);
+        }
+        finally
+        {
+            _commandGate.Release();
+        }
+
+        using var reg = ct.Register(() =>
+        {
+            tcs.TrySetCanceled(ct);
+            _ = SendCommandAsync("stop");
+        });
 
         try
         {
             return await tcs.Task;
-        }
-        catch (OperationCanceledException)
-        {
-            await SendCommandAsync("stop");
-            throw;
         }
         finally
         {
@@ -283,6 +321,10 @@ public class UciProcessClient : IDisposable
             }
             _onUpdate = null;
             _currentLines.Clear();
+            if (_evalTcs == null && _searchTcs == null)
+            {
+                _activeSearchId = 0;
+            }
         }
 
         if (_stdin != null && IsRunning)
@@ -321,19 +363,87 @@ public class UciProcessClient : IDisposable
         }
     }
 
+    /// <summary>Stops any running search and waits (bounded) for its "bestmove" so it cannot answer the next request.</summary>
+    private async Task PrepareForNewSearchAsync()
+    {
+        Task idle;
+        lock (_lock)
+        {
+            _activeSearchId = 0;
+            if (_pendingSearches.Count == 0) return;
+            _idleTcs ??= new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            idle = _idleTcs.Task;
+        }
+
+        await SendCommandAsync("stop");
+        await Task.WhenAny(idle, Task.Delay(StopTimeoutMs));
+    }
+
+    /// <summary>Completes requests replaced by a new one, so their callers don't wait forever.</summary>
+    private void SupersedePendingRequestsLocked()
+    {
+        _evalTcs?.TrySetResult(null);
+        _evalTcs = null;
+        _searchTcs?.TrySetResult((null, new List<EngineEvaluationLine>()));
+        _searchTcs = null;
+        _onUpdate = null;
+    }
+
+    private void RegisterSearchLocked(PieceColor sideToMove)
+    {
+        int id = ++_searchIdCounter;
+        _pendingSearches.Enqueue(new PendingSearch(id, sideToMove));
+        _activeSearchId = id;
+        _currentLines.Clear();
+    }
+
+    private void FailPendingRequestsLocked()
+    {
+        _pendingSearches.Clear();
+        _activeSearchId = 0;
+        _idleTcs?.TrySetResult(true);
+        _idleTcs = null;
+        _uciOkTcs?.TrySetResult(false);
+        _uciOkTcs = null;
+        _readyTcs?.TrySetResult(false);
+        SupersedePendingRequestsLocked();
+    }
+
+    private static PieceColor SideToMoveFromFen(string fen)
+    {
+        var parts = fen.Trim().Split(' ');
+        return parts.Length > 1 && parts[1].Equals("b", StringComparison.OrdinalIgnoreCase)
+            ? PieceColor.Black
+            : PieceColor.White;
+    }
+
     private async Task SendCommandAsync(string command)
     {
-        if (_stdin != null && IsRunning)
+        var stdin = _stdin;
+        if (stdin == null || !IsRunning) return;
+
+        await _writeGate.WaitAsync();
+        try
         {
-            try
-            {
-                await _stdin.WriteLineAsync(command);
-                await _stdin.FlushAsync();
-            }
-            catch
-            {
-                // Process may have exited
-            }
+            await stdin.WriteLineAsync(command);
+            await stdin.FlushAsync();
+        }
+        catch
+        {
+            // Process may have exited
+        }
+        finally
+        {
+            _writeGate.Release();
+        }
+    }
+
+    private void OnProcessExited(object? sender, EventArgs e)
+    {
+        lock (_lock)
+        {
+            if (!ReferenceEquals(sender, _process)) return;
+            FailPendingRequestsLocked();
         }
     }
 
@@ -342,6 +452,16 @@ public class UciProcessClient : IDisposable
         if (string.IsNullOrWhiteSpace(e.Data)) return;
 
         string line = e.Data.Trim();
+        if (line == "uciok")
+        {
+            lock (_lock)
+            {
+                _uciOkTcs?.TrySetResult(true);
+                _uciOkTcs = null;
+            }
+            return;
+        }
+
         if (line == "readyok")
         {
             lock (_lock)
@@ -362,6 +482,18 @@ public class UciProcessClient : IDisposable
 
             lock (_lock)
             {
+                if (_pendingSearches.Count == 0) return;
+
+                var finished = _pendingSearches.Dequeue();
+                if (_pendingSearches.Count == 0)
+                {
+                    _idleTcs?.TrySetResult(true);
+                    _idleTcs = null;
+                }
+
+                // A late answer to a search that was stopped and replaced
+                if (finished.Id != _activeSearchId) return;
+
                 if (_evalTcs != null)
                 {
                     _currentLines.TryGetValue(1, out var top);
@@ -389,11 +521,21 @@ public class UciProcessClient : IDisposable
 
     private void ParseInfoLine(string line)
     {
+        int searchId;
+        PieceColor sideToMove;
         lock (_lock)
         {
             if (_onUpdate == null && _evalTcs == null && _searchTcs == null)
                 return;
+            if (_pendingSearches.Count == 0 || _pendingSearches.Peek().Id != _activeSearchId)
+                return; // output of a search nobody is waiting for any more
+            searchId = _activeSearchId;
+            sideToMove = _pendingSearches.Peek().SideToMove;
         }
+
+        // Bound scores are provisional (fail-high/low) and would make the eval flicker
+        if (line.Contains(" lowerbound") || line.Contains(" upperbound"))
+            return;
 
         int multiPv = 1;
         var mpvMatch = Regex.Match(line, @"multipv\s+(\d+)");
@@ -401,7 +543,7 @@ public class UciProcessClient : IDisposable
             multiPv = int.Parse(mpvMatch.Groups[1].Value);
 
         int depth = 0;
-        var depthMatch = Regex.Match(line, @"depth\s+(\d+)");
+        var depthMatch = Regex.Match(line, @"\bdepth\s+(\d+)");
         if (depthMatch.Success)
             depth = int.Parse(depthMatch.Groups[1].Value);
 
@@ -428,14 +570,14 @@ public class UciProcessClient : IDisposable
         {
             double val = double.Parse(cpMatch.Groups[1].Value);
             // In UCI, score is side-to-move relative. Normalize to White perspective:
-            cp = _sideToMove == PieceColor.White ? val : -val;
+            cp = sideToMove == PieceColor.White ? val : -val;
         }
 
         var mateMatch = Regex.Match(line, @"score\s+mate\s+(-?\d+)");
         if (mateMatch.Success)
         {
             int val = int.Parse(mateMatch.Groups[1].Value);
-            mate = _sideToMove == PieceColor.White ? val : -val;
+            mate = sideToMove == PieceColor.White ? val : -val;
         }
 
         var pvMoves = new List<string>();
@@ -460,6 +602,9 @@ public class UciProcessClient : IDisposable
 
         lock (_lock)
         {
+            if (searchId != _activeSearchId || _pendingSearches.Count == 0 || _pendingSearches.Peek().Id != searchId)
+                return;
+
             _currentLines[multiPv] = evalLine;
 
             if (_onUpdate != null)
@@ -527,28 +672,48 @@ public class UciProcessClient : IDisposable
             }
         }
 
+        var process = _process;
+        var stdin = _stdin;
+
         try
         {
-            if (_stdin != null && IsRunning)
+            if (stdin != null && IsRunning && _writeGate.Wait(500))
             {
-                _stdin.WriteLine("quit");
-                _stdin.Flush();
+                try
+                {
+                    stdin.WriteLine("quit");
+                    stdin.Flush();
+                }
+                finally
+                {
+                    _writeGate.Release();
+                }
             }
         }
         catch { }
 
-        try
+        if (process != null)
         {
-            if (_process != null && !_process.HasExited)
+            // Late output or exit notifications from this process must not reach a restarted one
+            process.OutputDataReceived -= OnOutputDataReceived;
+            process.Exited -= OnProcessExited;
+            try
             {
-                _process.Kill(true);
+                if (!process.HasExited)
+                {
+                    process.Kill(true);
+                }
             }
+            catch { }
+            process.Dispose();
         }
-        catch { }
 
-        _process?.Dispose();
-        _process = null;
-        _stdin = null;
+        lock (_lock)
+        {
+            _process = null;
+            _stdin = null;
+            FailPendingRequestsLocked();
+        }
     }
 
     public void Dispose()
