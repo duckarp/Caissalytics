@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -177,7 +178,7 @@ public class DatabaseManager : IDatabaseService
 
                 try
                 {
-                    using var conn = new SqliteConnection($"Data Source={file};Mode=ReadOnly");
+                    using var conn = new SqliteConnection(ConnectionString(file, readOnly: true));
                     await conn.OpenAsync();
                     using var cmd = conn.CreateCommand();
                     cmd.CommandText = "SELECT COUNT(*) FROM games;";
@@ -445,7 +446,7 @@ public class DatabaseManager : IDatabaseService
                                     int currentPct = basePct + (int)(p.PercentComplete * (nextPct - basePct) / 100.0);
                                     progress?.Report((currentPct, 100, $"Importing {name}: {p.GamesSaved:N0} games indexed..."));
                                 });
-                                await _importer.ImportAsync($"Data Source={dbPath}", reader, entry.Length, subProgress, cancellationToken, deduplicate: true);
+                                await _importer.ImportAsync(ConnectionString(dbPath), reader, entry.Length, subProgress, cancellationToken, deduplicate: true);
                                 downloadedAny = true;
                             }
                         }
@@ -537,16 +538,22 @@ public class DatabaseManager : IDatabaseService
             string shmPath = $"{path}-shm";
             if (File.Exists(shmPath)) File.Delete(shmPath);
 
-            var remaining = Directory.GetFiles(_storageDir, "*.db");
-            if (remaining.Length > 0)
+            ForgetSchema(path);
+
+            bool deletedActive = string.Equals(safeName, _activeDatabaseName, StringComparison.OrdinalIgnoreCase);
+            if (deletedActive || !File.Exists(GetDbPath(_activeDatabaseName)))
             {
-                _activeDatabaseName = Path.GetFileNameWithoutExtension(remaining[0]);
-            }
-            else
-            {
-                _activeDatabaseName = "Default";
-                string defPath = GetDbPath(_activeDatabaseName);
-                await InitializeSchemaAsync(defPath);
+                var remaining = Directory.GetFiles(_storageDir, "*.db");
+                if (remaining.Length > 0)
+                {
+                    _activeDatabaseName = Path.GetFileNameWithoutExtension(remaining[0]);
+                }
+                else
+                {
+                    _activeDatabaseName = "Default";
+                    string defPath = GetDbPath(_activeDatabaseName);
+                    await InitializeSchemaAsync(defPath);
+                }
             }
 
             if (string.Equals(safeName, _referenceDatabaseName, StringComparison.OrdinalIgnoreCase))
@@ -613,6 +620,8 @@ public class DatabaseManager : IDatabaseService
             GC.WaitForPendingFinalizers();
 
             bool isCaseOnlyRename = string.Equals(oldPath, newPath, StringComparison.OrdinalIgnoreCase);
+            ForgetSchema(oldPath);
+            ForgetSchema(newPath);
 
             if (isCaseOnlyRename)
             {
@@ -689,7 +698,7 @@ public class DatabaseManager : IDatabaseService
 
         long signedKey = unchecked((long)zobristKey);
 
-        using var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly");
+        using var conn = new SqliteConnection(ConnectionString(path, readOnly: true));
         await conn.OpenAsync();
 
         // 1. Candidate move frequencies, win rates, avg ratings & year ranges
@@ -781,7 +790,7 @@ public class DatabaseManager : IDatabaseService
         var games = new List<GameHeader>();
         int totalCount = 0;
 
-        using var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly");
+        using var conn = new SqliteConnection(ConnectionString(path, readOnly: true));
         await conn.OpenAsync();
         RegisterTimeClassFunction(conn);
 
@@ -837,7 +846,7 @@ public class DatabaseManager : IDatabaseService
 
         string whereSql = BuildGameFilterWhereSql(filter, out var parameters);
 
-        using var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly");
+        using var conn = new SqliteConnection(ConnectionString(path, readOnly: true));
         await conn.OpenAsync(cancellationToken);
         RegisterTimeClassFunction(conn);
 
@@ -1040,7 +1049,7 @@ public class DatabaseManager : IDatabaseService
                 try
                 {
                     await InitializeSchemaAsync(file);
-                    using var conn = new SqliteConnection($"Data Source={file};Mode=ReadOnly");
+                    using var conn = new SqliteConnection(ConnectionString(file, readOnly: true));
                     await conn.OpenAsync();
                     using var cmd = conn.CreateCommand();
                     cmd.CommandText = @"
@@ -1064,7 +1073,7 @@ public class DatabaseManager : IDatabaseService
 
         await InitializeSchemaAsync(path);
 
-        using (var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly"))
+        using (var conn = new SqliteConnection(ConnectionString(path, readOnly: true)))
         {
             await conn.OpenAsync();
             using var cmd = conn.CreateCommand();
@@ -1090,7 +1099,7 @@ public class DatabaseManager : IDatabaseService
 
         await InitializeSchemaAsync(path);
 
-        using var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly");
+        using var conn = new SqliteConnection(ConnectionString(path, readOnly: true));
         await conn.OpenAsync();
 
         using var cmd = conn.CreateCommand();
@@ -1128,7 +1137,7 @@ public class DatabaseManager : IDatabaseService
             game.Pgn = GameHeader.SetNoteInPgn(game.Pgn, effectiveNote);
         }
 
-        using var conn = new SqliteConnection($"Data Source={path}");
+        using var conn = new SqliteConnection(ConnectionString(path));
         await conn.OpenAsync();
         using var tx = conn.BeginTransaction();
 
@@ -1206,9 +1215,19 @@ public class DatabaseManager : IDatabaseService
             gameId = (long)(await insertGameCmd.ExecuteScalarAsync() ?? 0L);
         }
 
-        // Trace positions and index into positions table
+        // Trace positions and index into positions table (from the game's own start position, if any)
         var moveTokens = StreamingPgnImporter.ExtractMainlineMoveTokens(game.Pgn);
-        var pos = FenParser.Parse(BoardPosition.StartFen);
+        BoardPosition pos;
+        try
+        {
+            pos = FenParser.Parse(StreamingPgnImporter.ExtractStartFen(game.Pgn) ?? BoardPosition.StartFen);
+        }
+        catch
+        {
+            // Unusable [FEN]: store the game but don't index positions from a wrong board
+            pos = FenParser.Parse(BoardPosition.StartFen);
+            moveTokens.Clear();
+        }
         int ply = 0;
 
         using var insertPosCmd = conn.CreateCommand();
@@ -1262,7 +1281,7 @@ public class DatabaseManager : IDatabaseService
 
         string cleanNote = (note ?? string.Empty).Trim();
 
-        using var conn = new SqliteConnection($"Data Source={path}");
+        using var conn = new SqliteConnection(ConnectionString(path));
         await conn.OpenAsync();
 
         string currentPgn = string.Empty;
@@ -1304,7 +1323,7 @@ public class DatabaseManager : IDatabaseService
         string pgnDate = DateHelper.ToPgnDate(update.Date);
         string cleanTimeControl = (update.TimeControl ?? string.Empty).Trim();
 
-        using var conn = new SqliteConnection($"Data Source={path}");
+        using var conn = new SqliteConnection(ConnectionString(path));
         await conn.OpenAsync();
         using var tx = conn.BeginTransaction();
 
@@ -1376,7 +1395,7 @@ public class DatabaseManager : IDatabaseService
 
         await InitializeSchemaAsync(path);
 
-        using var conn = new SqliteConnection($"Data Source={path}");
+        using var conn = new SqliteConnection(ConnectionString(path));
         await conn.OpenAsync();
         using var tx = conn.BeginTransaction();
 
@@ -1474,7 +1493,7 @@ public class DatabaseManager : IDatabaseService
         var folders = new List<GameFolder>();
         var directCounts = new Dictionary<long, int>();
 
-        using (var conn = new SqliteConnection($"Data Source={path};Mode=ReadOnly"))
+        using (var conn = new SqliteConnection(ConnectionString(path, readOnly: true)))
         {
             await conn.OpenAsync();
 
@@ -1564,7 +1583,7 @@ public class DatabaseManager : IDatabaseService
 
         string cleanName = string.IsNullOrWhiteSpace(name) ? "New Folder" : name.Trim();
 
-        using var conn = new SqliteConnection($"Data Source={path}");
+        using var conn = new SqliteConnection(ConnectionString(path));
         await conn.OpenAsync();
 
         long? validParentId = null;
@@ -1628,7 +1647,7 @@ public class DatabaseManager : IDatabaseService
 
         await InitializeSchemaAsync(path);
 
-        using var conn = new SqliteConnection($"Data Source={path}");
+        using var conn = new SqliteConnection(ConnectionString(path));
         await conn.OpenAsync();
 
         using var cmd = conn.CreateCommand();
@@ -1674,7 +1693,7 @@ public class DatabaseManager : IDatabaseService
             }
         }
 
-        using var conn = new SqliteConnection($"Data Source={path}");
+        using var conn = new SqliteConnection(ConnectionString(path));
         await conn.OpenAsync();
 
         using var cmd = conn.CreateCommand();
@@ -1699,7 +1718,7 @@ public class DatabaseManager : IDatabaseService
 
         await InitializeSchemaAsync(path);
 
-        using var conn = new SqliteConnection($"Data Source={path}");
+        using var conn = new SqliteConnection(ConnectionString(path));
         await conn.OpenAsync();
         using var tx = conn.BeginTransaction();
 
@@ -1781,7 +1800,7 @@ public class DatabaseManager : IDatabaseService
 
             await InitializeSchemaAsync(path);
 
-            using var conn = new SqliteConnection($"Data Source={path}");
+            using var conn = new SqliteConnection(ConnectionString(path));
             await conn.OpenAsync();
 
             if (targetFolderId.HasValue)
@@ -1843,7 +1862,7 @@ public class DatabaseManager : IDatabaseService
         string path = GetDbPath(dbName);
         if (!File.Exists(path)) return false;
 
-        using var conn = new SqliteConnection($"Data Source={path}");
+        using var conn = new SqliteConnection(ConnectionString(path));
         await conn.OpenAsync();
 
         using var cmd = conn.CreateCommand();
@@ -1922,7 +1941,7 @@ public class DatabaseManager : IDatabaseService
                         {
                             using var entryStream = entry.Open();
                             using var reader = new StreamReader(entryStream, Encoding.UTF8);
-                            await _importer.ImportAsync($"Data Source={path}", reader, entry.Length, progress, cancellationToken, deduplicate);
+                            await _importer.ImportAsync(ConnectionString(path), reader, entry.Length, progress, cancellationToken, deduplicate);
                         }
                     }
                 }
@@ -1936,7 +1955,7 @@ public class DatabaseManager : IDatabaseService
                         {
                             using var entryStream = entry.OpenEntryStream();
                             using var reader = new StreamReader(entryStream, Encoding.UTF8);
-                            await _importer.ImportAsync($"Data Source={path}", reader, entry.Size, progress, cancellationToken, deduplicate);
+                            await _importer.ImportAsync(ConnectionString(path), reader, entry.Size, progress, cancellationToken, deduplicate);
                         }
                     }
                 }
@@ -1950,7 +1969,7 @@ public class DatabaseManager : IDatabaseService
         {
             using var reader = new StreamReader(stream, Encoding.UTF8);
             long totalBytes = stream.CanSeek ? stream.Length : 0;
-            await _importer.ImportAsync($"Data Source={path}", reader, totalBytes, progress, cancellationToken, deduplicate);
+            await _importer.ImportAsync(ConnectionString(path), reader, totalBytes, progress, cancellationToken, deduplicate);
         }
 
         OnDatabaseModified?.Invoke(databaseName);
@@ -1975,7 +1994,7 @@ public class DatabaseManager : IDatabaseService
 
         using var reader = new StringReader(pgnText);
         long totalBytes = Encoding.UTF8.GetByteCount(pgnText);
-        await _importer.ImportAsync($"Data Source={path}", reader, totalBytes, progress, cancellationToken, deduplicate);
+        await _importer.ImportAsync(ConnectionString(path), reader, totalBytes, progress, cancellationToken, deduplicate);
         OnDatabaseModified?.Invoke(databaseName);
         OnActiveDatabaseChanged?.Invoke();
     }
@@ -1995,7 +2014,7 @@ public class DatabaseManager : IDatabaseService
 
         const string missingFilter = "eco IS NULL OR TRIM(COALESCE(eco, '')) IN ('', '???')";
 
-        using var conn = new SqliteConnection($"Data Source={path}");
+        using var conn = new SqliteConnection(ConnectionString(path));
         await conn.OpenAsync(cancellationToken);
         using var tx = conn.BeginTransaction();
 
@@ -2057,9 +2076,35 @@ public class DatabaseManager : IDatabaseService
         return filled;
     }
 
+    private static readonly ConcurrentDictionary<string, bool> _schemaReady =
+        new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
+
+    internal static string ConnectionString(string dbPath, bool readOnly = false)
+    {
+        // The builder quotes the path, so names containing ';' or '=' can't break the connection string
+        var builder = new SqliteConnectionStringBuilder { DataSource = dbPath };
+        if (readOnly) builder.Mode = SqliteOpenMode.ReadOnly;
+        return builder.ToString();
+    }
+
+    /// <summary>
+    /// Creates/migrates the schema and finishes any position-index backfill, once per database
+    /// file per run. Later calls for the same existing file return immediately.
+    /// </summary>
     private static async Task InitializeSchemaAsync(string dbPath)
     {
-        using var conn = new SqliteConnection($"Data Source={dbPath}");
+        string key = Path.GetFullPath(dbPath);
+        if (_schemaReady.ContainsKey(key) && File.Exists(key)) return;
+
+        await InitializeSchemaCoreAsync(dbPath);
+        _schemaReady[key] = true;
+    }
+
+    private static void ForgetSchema(string dbPath) => _schemaReady.TryRemove(Path.GetFullPath(dbPath), out _);
+
+    private static async Task InitializeSchemaCoreAsync(string dbPath)
+    {
+        using var conn = new SqliteConnection(ConnectionString(dbPath));
         await conn.OpenAsync();
 
         using var cmd = conn.CreateCommand();
@@ -2184,82 +2229,103 @@ public class DatabaseManager : IDatabaseService
         await idxCmd.ExecuteNonQueryAsync(cancellationToken);
     }
 
-    private static async Task EnsurePositionsIndexedAsync(SqliteConnection conn)
+    /// <summary>
+    /// Indexes positions for games stored without them (databases created before the position
+    /// index existed). Walks the games by id in batches, so every game is visited at most once
+    /// per call even if it has no indexable moves.
+    /// </summary>
+    internal static async Task EnsurePositionsIndexedAsync(SqliteConnection conn)
     {
-        var gamesToIndex = new List<(long Id, string Pgn, string Result)>();
-        using (var checkCmd = conn.CreateCommand())
+        long lastId = 0;
+        while (true)
         {
-            checkCmd.CommandText = @"
-                SELECT g.id, g.pgn, g.result
-                FROM games g
-                WHERE g.id NOT IN (SELECT DISTINCT game_id FROM positions WHERE ply > 0)
-                LIMIT 500;";
-
-            using var reader = await checkCmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
+            var gamesToIndex = new List<(long Id, string Pgn, string Result)>();
+            using (var checkCmd = conn.CreateCommand())
             {
-                gamesToIndex.Add((reader.GetInt64(0), reader.GetString(1), reader.GetString(2)));
+                checkCmd.CommandText = @"
+                    SELECT g.id, g.pgn, g.result
+                    FROM games g
+                    WHERE g.id > $lastId
+                      AND NOT EXISTS (SELECT 1 FROM positions p WHERE p.game_id = g.id AND p.ply > 0)
+                    ORDER BY g.id
+                    LIMIT 500;";
+                checkCmd.Parameters.AddWithValue("$lastId", lastId);
+
+                using var reader = await checkCmd.ExecuteReaderAsync();
+                while (await reader.ReadAsync())
+                {
+                    gamesToIndex.Add((reader.GetInt64(0), reader.GetString(1), reader.GetString(2)));
+                }
             }
-        }
 
-        if (gamesToIndex.Count == 0) return;
+            if (gamesToIndex.Count == 0) return;
+            lastId = gamesToIndex[^1].Id;
 
-        using var tx = conn.BeginTransaction();
-        using var delCmd = conn.CreateCommand();
-        delCmd.Transaction = tx;
-        delCmd.CommandText = "DELETE FROM positions WHERE game_id = $id;";
-        var pDelId = delCmd.Parameters.Add("$id", SqliteType.Integer);
+            using var tx = conn.BeginTransaction();
+            using var delCmd = conn.CreateCommand();
+            delCmd.Transaction = tx;
+            delCmd.CommandText = "DELETE FROM positions WHERE game_id = $id;";
+            var pDelId = delCmd.Parameters.Add("$id", SqliteType.Integer);
 
-        using var insCmd = conn.CreateCommand();
-        insCmd.Transaction = tx;
-        insCmd.CommandText = @"
-            INSERT OR IGNORE INTO positions (game_id, ply, zobrist_key, next_move_san, next_move_uci, result)
-            VALUES ($game_id, $ply, $zobrist_key, $next_move_san, $next_move_uci, $result);";
-        var pGameId = insCmd.Parameters.Add("$game_id", SqliteType.Integer);
-        var pPly = insCmd.Parameters.Add("$ply", SqliteType.Integer);
-        var pZobrist = insCmd.Parameters.Add("$zobrist_key", SqliteType.Integer);
-        var pSan = insCmd.Parameters.Add("$next_move_san", SqliteType.Text);
-        var pUci = insCmd.Parameters.Add("$next_move_uci", SqliteType.Text);
-        var pRes = insCmd.Parameters.Add("$result", SqliteType.Text);
+            using var insCmd = conn.CreateCommand();
+            insCmd.Transaction = tx;
+            insCmd.CommandText = @"
+                INSERT OR IGNORE INTO positions (game_id, ply, zobrist_key, next_move_san, next_move_uci, result)
+                VALUES ($game_id, $ply, $zobrist_key, $next_move_san, $next_move_uci, $result);";
+            var pGameId = insCmd.Parameters.Add("$game_id", SqliteType.Integer);
+            var pPly = insCmd.Parameters.Add("$ply", SqliteType.Integer);
+            var pZobrist = insCmd.Parameters.Add("$zobrist_key", SqliteType.Integer);
+            var pSan = insCmd.Parameters.Add("$next_move_san", SqliteType.Text);
+            var pUci = insCmd.Parameters.Add("$next_move_uci", SqliteType.Text);
+            var pRes = insCmd.Parameters.Add("$result", SqliteType.Text);
 
-        foreach (var (gameId, pgn, result) in gamesToIndex)
-        {
-            var moveTokens = StreamingPgnImporter.ExtractMainlineMoveTokens(pgn);
-            if (moveTokens.Count == 0) continue;
-
-            pDelId.Value = gameId;
-            await delCmd.ExecuteNonQueryAsync();
-
-            pGameId.Value = gameId;
-            pRes.Value = result;
-
-            var pos = FenParser.Parse(BoardPosition.StartFen);
-            int ply = 0;
-
-            foreach (var tok in moveTokens)
+            foreach (var (gameId, pgn, result) in gamesToIndex)
             {
-                var move = SanParser.ParseSan(pos, tok);
-                if (move.IsEmpty) break;
+                var moveTokens = StreamingPgnImporter.ExtractMainlineMoveTokens(pgn);
+                if (moveTokens.Count == 0) continue;
 
-                pPly.Value = ply;
-                pZobrist.Value = unchecked((long)pos.ZobristKey);
-                pSan.Value = tok;
-                pUci.Value = move.ToUci();
-                await insCmd.ExecuteNonQueryAsync();
+                BoardPosition pos;
+                try
+                {
+                    pos = FenParser.Parse(StreamingPgnImporter.ExtractStartFen(pgn) ?? BoardPosition.StartFen);
+                }
+                catch
+                {
+                    continue; // unusable start position: leave the game unindexed rather than index it wrongly
+                }
 
-                pos = MoveGenerator.ApplyMove(pos, move);
-                ply++;
+                pDelId.Value = gameId;
+                await delCmd.ExecuteNonQueryAsync();
+
+                pGameId.Value = gameId;
+                pRes.Value = result;
+
+                int ply = 0;
+                foreach (var tok in moveTokens)
+                {
+                    var move = SanParser.ParseSan(pos, tok);
+                    if (move.IsEmpty) break;
+
+                    pPly.Value = ply;
+                    pZobrist.Value = unchecked((long)pos.ZobristKey);
+                    pSan.Value = tok;
+                    pUci.Value = move.ToUci();
+                    await insCmd.ExecuteNonQueryAsync();
+
+                    pos = MoveGenerator.ApplyMove(pos, move);
+                    ply++;
+                }
             }
-        }
 
-        await tx.CommitAsync();
+            await tx.CommitAsync();
+        }
     }
 
     private async Task SeedSampleGamesAsync(string dbPath)
     {
         string pgn = CuratedMasterGames.GetWorldChampionsPgn();
         using var reader = new StringReader(pgn);
-        await _importer.ImportAsync($"Data Source={dbPath}", reader);
+        await _importer.ImportAsync(ConnectionString(dbPath), reader);
     }
 
     private static GameHeader ReadGameHeader(SqliteDataReader reader)

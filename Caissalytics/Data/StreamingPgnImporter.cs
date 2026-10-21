@@ -298,9 +298,7 @@ public class StreamingPgnImporter
             gamesSaved++;
 
             // Trace positions and record Zobrist hashes
-            string? startFen = headers.TryGetValue("SetUp", out var setup) && setup == "1" && headers.TryGetValue("FEN", out var fenVal)
-                ? fenVal
-                : null;
+            string? startFen = StartFenFromHeaders(headers);
 
             BoardPosition pos;
             try
@@ -361,6 +359,26 @@ public class StreamingPgnImporter
                 await Task.Yield();
             }
         }
+    }
+
+    /// <summary>Custom start position of a game ([SetUp "1"] with [FEN]), or null for the standard start.</summary>
+    public static string? StartFenFromHeaders(IReadOnlyDictionary<string, string> headers)
+        => headers.TryGetValue("SetUp", out var setup) && setup == "1" && headers.TryGetValue("FEN", out var fen)
+            ? fen
+            : null;
+
+    /// <summary>Start FEN from the header section of a stored game's PGN text, or null for the standard start.</summary>
+    public static string? ExtractStartFen(string pgn)
+    {
+        var headerLines = new List<string>();
+        foreach (var raw in pgn.Split('\n'))
+        {
+            string line = raw.Trim();
+            if (line.Length == 0) continue;
+            if (!line.StartsWith('[')) break;
+            headerLines.Add(line);
+        }
+        return StartFenFromHeaders(ParseHeaders(headerLines));
     }
 
     private static Dictionary<string, string> ParseHeaders(List<string> lines)
