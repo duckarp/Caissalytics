@@ -6,6 +6,8 @@
 @inject ITablebaseService TablebaseService
 @inject IAppearanceService AppearanceService
 @inject IEngineService EngineService
+@inject WorkspaceState Workspace
+@inject IJSRuntime JS
 @implements IDisposable
 
 <div class="endgames-workbench-container">
@@ -217,6 +219,8 @@
 	private TablebaseResult? _tbResult;
 	private int _consecutiveCorrectMoves = 0;
 	private bool _isDisposed = false;
+	private DotNetObjectReference<EndgameTrainerWorkbench>? _dotNetRef;
+	private KeyboardShortcutSettings _shortcuts = new();
 
 	private IEnumerable<EndgamePosition> FilteredPositions =>
 		_selectedCategory == "all"
@@ -226,6 +230,13 @@
 	protected override async Task OnInitializedAsync()
 	{
 		Loc.OnLanguageChanged += StateHasChanged;
+		AppearanceService.OnAppearanceChanged += HandleAppearanceChanged;
+		var settings = await AppearanceService.GetSettingsAsync();
+		if (settings?.Shortcuts != null)
+		{
+			_shortcuts = settings.Shortcuts;
+		}
+
 		if (!string.IsNullOrEmpty(Tab.SelectedPositionId))
 		{
 			var match = EndgameCurriculum.GetById(Tab.SelectedPositionId);
@@ -475,9 +486,80 @@
 	private void HandleNext() => _tree.GoForward();
 	private void HandleLast() => _tree.GoToEnd();
 
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			_dotNetRef = DotNetObjectReference.Create(this);
+			try
+			{
+				await JS.InvokeVoidAsync("notationInterop.registerKeyboardListener", _dotNetRef, Tab.Id.ToString("N"));
+			}
+			catch { }
+		}
+	}
+
+	private void HandleAppearanceChanged(AppearanceSettings settings)
+	{
+		if (settings?.Shortcuts != null)
+		{
+			_shortcuts = settings.Shortcuts;
+			InvokeAsync(StateHasChanged);
+		}
+	}
+
+	[JSInvokable]
+	public void OnGlobalAltChanged(bool held) { }
+
+	[JSInvokable]
+	public void OnGlobalKeyDown(KeyEventDto e)
+	{
+		if (_isDisposed || Workspace.ActiveTab != Tab) return;
+
+		if (_shortcuts.MatchesNextMove(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			if (_tree.CanGoForward) HandleNext();
+		}
+		else if (_shortcuts.MatchesPreviousMove(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			if (_tree.CanGoBack) HandlePrev();
+		}
+		else if (_shortcuts.MatchesFirstMove(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			if (_tree.CanGoBack) HandleFirst();
+		}
+		else if (_shortcuts.MatchesLastMove(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			if (_tree.CanGoForward) HandleLast();
+		}
+		else if (_shortcuts.MatchesFlipBoard(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			if (_boardRef != null)
+			{
+				_ = _boardRef.ToggleOrientation();
+			}
+			else
+			{
+				_orientation = _orientation == "white" ? "black" : "white";
+				StateHasChanged();
+			}
+		}
+		else if (_shortcuts.MatchesCloseTab(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			Workspace.CloseActiveTab();
+		}
+	}
+
 	public void Dispose()
 	{
 		_isDisposed = true;
+		AppearanceService.OnAppearanceChanged -= HandleAppearanceChanged;
+		try
+		{
+			_ = JS.InvokeVoidAsync("notationInterop.unregisterKeyboardListener", Tab.Id.ToString("N"));
+		}
+		catch { }
+		_dotNetRef?.Dispose();
 		Loc.OnLanguageChanged -= StateHasChanged;
 	}
 }

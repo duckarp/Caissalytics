@@ -226,6 +226,73 @@ public class AppearanceTests
         Assert.Equal("F", settings.FlipBoard.ToDisplayString());
     }
 
+    [Fact]
+    public void KeyboardShortcutSettings_Defaults_IncludeAlternativesAndNewActions()
+    {
+        var settings = new KeyboardShortcutSettings();
+
+        // FirstMove primary and alternative
+        Assert.Equal("Home", settings.FirstMove.Key);
+        Assert.Equal("ArrowUp", settings.FirstMoveAlt.Key);
+        Assert.True(settings.MatchesFirstMove("Home", false, false, false));
+        Assert.True(settings.MatchesFirstMove("ArrowUp", false, false, false));
+
+        // LastMove primary and alternative
+        Assert.Equal("End", settings.LastMove.Key);
+        Assert.Equal("ArrowDown", settings.LastMoveAlt.Key);
+        Assert.True(settings.MatchesLastMove("End", false, false, false));
+        Assert.True(settings.MatchesLastMove("ArrowDown", false, false, false));
+
+        // ToggleEngine (l / L)
+        Assert.Equal("l", settings.ToggleEngine.Key);
+        Assert.True(settings.MatchesToggleEngine("l", false, false, false));
+        Assert.True(settings.MatchesToggleEngine("L", false, false, false));
+        Assert.False(settings.ToggleEngineAlt.IsConfigured);
+        Assert.Equal("—", settings.ToggleEngineAlt.ToDisplayString());
+
+        // BestMove (Space)
+        Assert.Equal("Space", settings.BestMove.Key);
+        Assert.True(settings.MatchesBestMove(" ", false, false, false));
+        Assert.True(settings.MatchesBestMove("Space", false, false, false));
+        Assert.False(settings.BestMoveAlt.IsConfigured);
+
+        // NextMove and PreviousMove
+        Assert.True(settings.MatchesNextMove("ArrowRight", false, false, false));
+        Assert.True(settings.MatchesPreviousMove("ArrowLeft", false, false, false));
+
+        // Setting custom alternative
+        settings.NextMoveAlt = new ShortcutBinding("n");
+        Assert.True(settings.MatchesNextMove("n", false, false, false));
+        Assert.True(settings.MatchesNextMove("ArrowRight", false, false, false));
+    }
+
+    [Fact]
+    public async Task AppearanceSettings_WindowMaximized_RoundtripsCleanly()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), $"appearance_max_test_{Guid.NewGuid():N}");
+        string settingsFile = Path.Combine(tempDir, "appearance_settings.json");
+
+        try
+        {
+            var service = new AppearanceService(settingsFile);
+            var initial = await service.GetSettingsAsync();
+            Assert.False(initial.WindowMaximized);
+
+            initial.WindowMaximized = true;
+            await service.SaveSettingsAsync(initial);
+
+            var loaded = await service.GetSettingsAsync();
+            Assert.True(loaded.WindowMaximized);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, true);
+            }
+        }
+    }
+
     private class DummyJs : Microsoft.JSInterop.IJSRuntime
     {
         public ValueTask<TValue> InvokeAsync<TValue>(string identifier, object?[]? args) => default;

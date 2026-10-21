@@ -10,6 +10,7 @@
 @inject IUserProfileService ProfileService
 @inject WorkspaceState Workspace
 @inject IMaiaModelService MaiaService
+@inject IJSRuntime JS
 @implements IDisposable
 
 <div class="practice-workbench-container">
@@ -60,7 +61,7 @@
 				<SideGauge>
 					@if (Tab.ShowEval)
 					{
-						<EvaluationGauge TopLine="@_currentEval" IsAnalyzing="true" />
+						<EvaluationGauge TopLine="@_currentEval" IsAnalyzing="true" Orientation="@Tab.Orientation" />
 					}
 				</SideGauge>
 			</ChessgroundBoard>
@@ -339,10 +340,19 @@
 
 	private record MovePlyItem(MoveNode Node, string San, bool IsActive);
 	private List<MovePlyItem> _plies = new();
+	private DotNetObjectReference<PracticeWorkbench>? _dotNetRef;
+	private KeyboardShortcutSettings _shortcuts = new();
 
 	protected override async Task OnInitializedAsync()
 	{
 		_cts = new CancellationTokenSource();
+		AppearanceService.OnAppearanceChanged += HandleAppearanceChanged;
+		var settings = await AppearanceService.GetSettingsAsync();
+		if (settings?.Shortcuts != null)
+		{
+			_shortcuts = settings.Shortcuts;
+		}
+
 		UpdateMoveHistory();
 		CheckGameOverState();
 
@@ -778,9 +788,99 @@
 		return list;
 	}
 
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			_dotNetRef = DotNetObjectReference.Create(this);
+			try
+			{
+				await JS.InvokeVoidAsync("notationInterop.registerKeyboardListener", _dotNetRef, Tab.Id.ToString("N"));
+			}
+			catch { }
+		}
+	}
+
+	private void HandleAppearanceChanged(AppearanceSettings settings)
+	{
+		if (settings?.Shortcuts != null)
+		{
+			_shortcuts = settings.Shortcuts;
+			InvokeAsync(StateHasChanged);
+		}
+	}
+
+	[JSInvokable]
+	public void OnGlobalAltChanged(bool held) { }
+
+	[JSInvokable]
+	public async Task OnGlobalKeyDown(KeyEventDto e)
+	{
+		if (_isDisposed || Workspace.ActiveTab != Tab) return;
+
+		if (_shortcuts.MatchesNextMove(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			if (!_isComputerThinking && Tab.Tree.CanGoForward)
+			{
+				Tab.Tree.GoForward();
+				UpdateMoveHistory();
+				StateHasChanged();
+				await UpdateEvaluationAsync();
+			}
+		}
+		else if (_shortcuts.MatchesPreviousMove(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			if (!_isComputerThinking && Tab.Tree.CanGoBack)
+			{
+				Tab.Tree.GoBack();
+				UpdateMoveHistory();
+				StateHasChanged();
+				await UpdateEvaluationAsync();
+			}
+		}
+		else if (_shortcuts.MatchesFirstMove(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			if (!_isComputerThinking && Tab.Tree.CanGoBack)
+			{
+				Tab.Tree.GoToStart();
+				UpdateMoveHistory();
+				StateHasChanged();
+				await UpdateEvaluationAsync();
+			}
+		}
+		else if (_shortcuts.MatchesLastMove(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			if (!_isComputerThinking && Tab.Tree.CanGoForward)
+			{
+				Tab.Tree.GoToEnd();
+				UpdateMoveHistory();
+				StateHasChanged();
+				await UpdateEvaluationAsync();
+			}
+		}
+		else if (_shortcuts.MatchesFlipBoard(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			if (_boardRef != null)
+			{
+				_ = _boardRef.ToggleOrientation();
+			}
+		}
+		else if (_shortcuts.MatchesCloseTab(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			Workspace.CloseActiveTab();
+		}
+	}
+
 	public void Dispose()
 	{
 		_isDisposed = true;
+		AppearanceService.OnAppearanceChanged -= HandleAppearanceChanged;
+		try
+		{
+			_ = JS.InvokeVoidAsync("notationInterop.unregisterKeyboardListener", Tab.Id.ToString("N"));
+		}
+		catch { }
+		_dotNetRef?.Dispose();
 		_cts?.Cancel();
 		_cts?.Dispose();
 		_evalCts?.Cancel();

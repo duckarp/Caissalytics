@@ -1401,4 +1401,94 @@ public class DatabaseTests : IDisposable
         Assert.Contains(@"[TimeControl ""rapid""]", loaded1.Pgn);
         Assert.Contains(@"[TimeControl ""rapid""]", loaded2.Pgn);
     }
+
+    [Fact]
+    public async Task RenameDatabaseAsync_SuccessfullyRenamesDatabaseAndPreservesContent()
+    {
+        await _dbManager.CreateDatabaseAsync("OldDb");
+
+        var folder = await _dbManager.CreateFolderAsync("OldDb", "Tournaments");
+        var game = new GameHeader
+        {
+            White = "Carlsen, Magnus",
+            Black = "Nakamura, Hikaru",
+            Result = "1-0",
+            Date = "2024.01.01",
+            Pgn = "1. e4 e5 2. Nf3 Nc6 1-0",
+            FolderId = folder.Id
+        };
+        long gameId = await _dbManager.SaveGameAsync("OldDb", game);
+        Assert.True(gameId > 0);
+
+        bool renamed = await _dbManager.RenameDatabaseAsync("OldDb", "NewDb");
+        Assert.True(renamed);
+
+        var dbs = await _dbManager.GetDatabasesAsync();
+        Assert.Contains(dbs, d => d.Name == "NewDb");
+        Assert.DoesNotContain(dbs, d => d.Name == "OldDb");
+
+        // Verify content preserved
+        var loadedGame = await _dbManager.GetGameByIdAsync("NewDb", gameId);
+        Assert.NotNull(loadedGame);
+        Assert.Equal("Carlsen, Magnus", loadedGame.White);
+        Assert.Equal("Nakamura, Hikaru", loadedGame.Black);
+        Assert.Equal(folder.Id, loadedGame.FolderId);
+
+        var folders = await _dbManager.GetFoldersAsync("NewDb");
+        Assert.Single(folders);
+        Assert.Equal("Tournaments", folders[0].Name);
+    }
+
+    [Fact]
+    public async Task RenameDatabaseAsync_UpdatesActiveAndReferenceSettings_AndFiresEvents()
+    {
+        await _dbManager.CreateDatabaseAsync("OriginalDb");
+        await _dbManager.SetActiveDatabaseAsync("OriginalDb");
+        await _dbManager.SetReferenceDatabaseAsync("OriginalDb");
+
+        bool activeFired = false;
+        bool refFired = false;
+        string? modifiedDb = null;
+
+        _dbManager.OnActiveDatabaseChanged += () => activeFired = true;
+        _dbManager.OnReferenceDatabaseChanged += () => refFired = true;
+        _dbManager.OnDatabaseModified += db => modifiedDb = db;
+
+        bool renamed = await _dbManager.RenameDatabaseAsync("OriginalDb", "UpdatedDb");
+        Assert.True(renamed);
+
+        Assert.True(activeFired);
+        Assert.True(refFired);
+        Assert.Equal("UpdatedDb", modifiedDb);
+
+        var active = await _dbManager.GetActiveDatabaseAsync();
+        Assert.Equal("UpdatedDb", active.Name);
+
+        var refDb = await _dbManager.GetReferenceDatabaseAsync();
+        Assert.Equal("UpdatedDb", refDb);
+    }
+
+    [Fact]
+    public async Task RenameDatabaseAsync_Validations_HandleEdgeCases()
+    {
+        await _dbManager.CreateDatabaseAsync("ExistingDb1");
+        await _dbManager.CreateDatabaseAsync("ExistingDb2");
+
+        // Fails if source does not exist
+        Assert.False(await _dbManager.RenameDatabaseAsync("NoSuchDb", "SomeTarget"));
+
+        // Fails if destination exists
+        Assert.False(await _dbManager.RenameDatabaseAsync("ExistingDb1", "ExistingDb2"));
+
+        // Fails if null, empty, or whitespace
+        Assert.False(await _dbManager.RenameDatabaseAsync("", "ValidName"));
+        Assert.False(await _dbManager.RenameDatabaseAsync("ExistingDb1", "  "));
+
+        // Fails if protected database
+        Assert.False(await _dbManager.RenameDatabaseAsync(IDatabaseService.ProtectedOnlineDatabaseName, "SomethingElse"));
+        Assert.False(await _dbManager.RenameDatabaseAsync("ExistingDb1", IDatabaseService.ProtectedOnlineDatabaseName));
+
+        // Same name returns true (no-op)
+        Assert.True(await _dbManager.RenameDatabaseAsync("ExistingDb1", "ExistingDb1"));
+    }
 }

@@ -1,6 +1,8 @@
-export function setEval(elementId, whitePct, scoreText) {
+export function setEval(elementId, whitePct, scoreText, isFlipped) {
   const container = document.getElementById(elementId);
   if (!container) return;
+
+  container.classList.toggle('flipped', !!isFlipped);
 
   const whiteBar = container.querySelector('.eval-gauge-white-bar');
   const labelWhite = container.querySelector('.label-white-side');

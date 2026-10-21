@@ -1628,26 +1628,37 @@
 						<p class="card-section-desc">@Loc["Settings_Shortcuts_Desc"]</p>
 					</div>
 
-					<div class="shortcuts-grid" style="display: flex; flex-direction: column; gap: 12px; margin-top: 14px;">
-						@RenderShortcutRow("NextMove", Loc["Settings_Shortcuts_NextMove"], _appearanceSettings.Shortcuts.NextMove)
-						@RenderShortcutRow("PreviousMove", Loc["Settings_Shortcuts_PrevMove"], _appearanceSettings.Shortcuts.PreviousMove)
-						@RenderShortcutRow("FirstMove", Loc["Settings_Shortcuts_FirstMove"], _appearanceSettings.Shortcuts.FirstMove)
-						@RenderShortcutRow("LastMove", Loc["Settings_Shortcuts_LastMove"], _appearanceSettings.Shortcuts.LastMove)
+					<div class="shortcuts-grid" style="display: flex; flex-direction: column; gap: 8px; margin-top: 14px;">
+						<div class="shortcuts-header-row" style="display: flex; justify-content: space-between; align-items: center; padding: 4px 14px; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">
+							<span>@Loc["Settings_Shortcuts_ColAction"]</span>
+							<div style="display: flex; gap: 10px; width: 220px; justify-content: flex-end;">
+								<span style="width: 100px; text-align: center;">@Loc["Settings_Shortcuts_ColPrimary"]</span>
+								<span style="width: 100px; text-align: center;">@Loc["Settings_Shortcuts_ColAlternative"]</span>
+							</div>
+						</div>
 
-						<div class="section-divider" style="margin: 6px 0;"></div>
+						@RenderShortcutActionRow("NextMove", Loc["Settings_Shortcuts_NextMove"], _appearanceSettings.Shortcuts.NextMove, _appearanceSettings.Shortcuts.NextMoveAlt)
+						@RenderShortcutActionRow("PreviousMove", Loc["Settings_Shortcuts_PrevMove"], _appearanceSettings.Shortcuts.PreviousMove, _appearanceSettings.Shortcuts.PreviousMoveAlt)
+						@RenderShortcutActionRow("FirstMove", Loc["Settings_Shortcuts_FirstMove"], _appearanceSettings.Shortcuts.FirstMove, _appearanceSettings.Shortcuts.FirstMoveAlt)
+						@RenderShortcutActionRow("LastMove", Loc["Settings_Shortcuts_LastMove"], _appearanceSettings.Shortcuts.LastMove, _appearanceSettings.Shortcuts.LastMoveAlt)
 
-						@RenderShortcutRow("NextVariation", Loc["Settings_Shortcuts_NextVar"], _appearanceSettings.Shortcuts.NextVariation)
-						@RenderShortcutRow("PreviousVariation", Loc["Settings_Shortcuts_PrevVar"], _appearanceSettings.Shortcuts.PreviousVariation)
-						@RenderShortcutRow("AltNextVariation", Loc["Settings_Shortcuts_AltNextVar"], _appearanceSettings.Shortcuts.AlternateNextVariation)
-						@RenderShortcutRow("AltPreviousVariation", Loc["Settings_Shortcuts_AltPrevVar"], _appearanceSettings.Shortcuts.AlternatePreviousVariation)
+						<div class="section-divider" style="margin: 4px 0;"></div>
 
-						<div class="section-divider" style="margin: 6px 0;"></div>
+						@RenderShortcutActionRow("NextVariation", Loc["Settings_Shortcuts_NextVar"], _appearanceSettings.Shortcuts.NextVariation, _appearanceSettings.Shortcuts.NextVariationAlt)
+						@RenderShortcutActionRow("PreviousVariation", Loc["Settings_Shortcuts_PrevVar"], _appearanceSettings.Shortcuts.PreviousVariation, _appearanceSettings.Shortcuts.PreviousVariationAlt)
 
-						@RenderShortcutRow("FlipBoard", Loc["Settings_Shortcuts_FlipBoard"], _appearanceSettings.Shortcuts.FlipBoard)
+						<div class="section-divider" style="margin: 4px 0;"></div>
 
-						<div class="section-divider" style="margin: 6px 0;"></div>
+						@RenderShortcutActionRow("ToggleEngine", Loc["Settings_Shortcuts_ToggleEngine"], _appearanceSettings.Shortcuts.ToggleEngine, _appearanceSettings.Shortcuts.ToggleEngineAlt)
+						@RenderShortcutActionRow("BestMove", Loc["Settings_Shortcuts_BestMove"], _appearanceSettings.Shortcuts.BestMove, _appearanceSettings.Shortcuts.BestMoveAlt)
 
-						@RenderShortcutRow("CloseTab", Loc["Settings_Shortcuts_CloseTab"], _appearanceSettings.Shortcuts.CloseTab)
+						<div class="section-divider" style="margin: 4px 0;"></div>
+
+						@RenderShortcutActionRow("FlipBoard", Loc["Settings_Shortcuts_FlipBoard"], _appearanceSettings.Shortcuts.FlipBoard, _appearanceSettings.Shortcuts.FlipBoardAlt)
+
+						<div class="section-divider" style="margin: 4px 0;"></div>
+
+						@RenderShortcutActionRow("CloseTab", Loc["Settings_Shortcuts_CloseTab"], _appearanceSettings.Shortcuts.CloseTab, _appearanceSettings.Shortcuts.CloseTabAlt)
 					</div>
 
 					<div class="form-action-row" style="margin-top: 20px; display: flex; align-items: center; gap: 12px;">
@@ -2526,62 +2537,95 @@
 
 	private string? _recordingShortcutKey;
 
-	private RenderFragment RenderShortcutRow(string propertyName, string label, ShortcutBinding binding) => __builder =>
+	private RenderFragment RenderShortcutActionRow(string actionName, string label, ShortcutBinding primary, ShortcutBinding alt) => __builder =>
 	{
-		bool isRecording = _recordingShortcutKey == propertyName;
+		string primaryKey = actionName + "_Primary";
+		string altKey = actionName + "_Alt";
+		bool isRecordingPrimary = _recordingShortcutKey == primaryKey;
+		bool isRecordingAlt = _recordingShortcutKey == altKey;
 
-		<div class="shortcut-setting-row" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 6px;">
+		<div class="shortcut-setting-row" style="display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; background: var(--bg-surface-elevated); border: 1px solid var(--border-subtle); border-radius: 6px;">
 			<div style="display: flex; flex-direction: column;">
 				<span style="font-size: 13.5px; font-weight: 600; color: var(--text-primary);">@label</span>
 			</div>
-			<div style="display: flex; align-items: center; gap: 8px;">
+			<div style="display: flex; align-items: center; gap: 10px; width: 220px; justify-content: flex-end;">
 				<button type="button"
-						class="shortcut-key-badge @(isRecording ? "recording" : "")"
-						style="font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; padding: 5px 12px; border-radius: 4px; border: 1px solid @(isRecording ? "var(--accent-blue)" : "var(--border-subtle)"); background: @(isRecording ? "rgba(56, 139, 253, 0.15)" : "rgba(0, 0, 0, 0.2)"); color: @(isRecording ? "var(--accent-blue)" : "var(--text-primary)"); cursor: pointer; min-width: 90px; text-align: center;"
+						class="shortcut-key-badge @(isRecordingPrimary ? "recording" : "")"
+						style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; padding: 5px 8px; border-radius: 4px; border: 1px solid @(isRecordingPrimary ? "var(--accent-blue)" : "var(--border-subtle)"); background: @(isRecordingPrimary ? "rgba(56, 139, 253, 0.15)" : "rgba(0, 0, 0, 0.2)"); color: @(isRecordingPrimary ? "var(--accent-blue)" : (primary.IsConfigured ? "var(--text-primary)" : "var(--text-muted)")); cursor: pointer; width: 100px; text-align: center; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"
 						tabindex="0"
-						@onkeydown="(e) => HandleShortcutKeyDown(propertyName, e)"
-						@onclick="() => StartRecordingShortcut(propertyName)">
-					@(isRecording ? Loc["Settings_Shortcuts_PressKey"] : binding.ToDisplayString())
+						title="@(primary.IsConfigured ? primary.ToDisplayString() : Loc["Settings_Shortcuts_ClickToSet"])"
+						@onkeydown="(e) => HandleShortcutKeyDown(actionName, true, e)"
+						@onclick="() => StartRecordingShortcut(primaryKey)">
+					@(isRecordingPrimary ? Loc["Settings_Shortcuts_PressKey"] : primary.ToDisplayString())
+				</button>
+				<button type="button"
+						class="shortcut-key-badge @(isRecordingAlt ? "recording" : "")"
+						style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; padding: 5px 8px; border-radius: 4px; border: 1px solid @(isRecordingAlt ? "var(--accent-blue)" : "var(--border-subtle)"); background: @(isRecordingAlt ? "rgba(56, 139, 253, 0.15)" : "rgba(0, 0, 0, 0.2)"); color: @(isRecordingAlt ? "var(--accent-blue)" : (alt.IsConfigured ? "var(--text-primary)" : "var(--text-muted)")); cursor: pointer; width: 100px; text-align: center; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"
+						tabindex="0"
+						title="@(alt.IsConfigured ? alt.ToDisplayString() : Loc["Settings_Shortcuts_ClickToSet"])"
+						@onkeydown="(e) => HandleShortcutKeyDown(actionName, false, e)"
+						@onclick="() => StartRecordingShortcut(altKey)">
+					@(isRecordingAlt ? Loc["Settings_Shortcuts_PressKey"] : alt.ToDisplayString())
 				</button>
 			</div>
 		</div>
 	};
 
-	private void StartRecordingShortcut(string propertyName)
+	private void StartRecordingShortcut(string key)
 	{
-		_recordingShortcutKey = propertyName;
+		_recordingShortcutKey = key;
 	}
 
-	private void HandleShortcutKeyDown(string propertyName, KeyboardEventArgs e)
+	private void HandleShortcutKeyDown(string actionName, bool isPrimary, KeyboardEventArgs e)
 	{
-		if (_recordingShortcutKey != propertyName) return;
+		string targetKey = actionName + (isPrimary ? "_Primary" : "_Alt");
+		if (_recordingShortcutKey != targetKey) return;
+
+		if (e.Key == "Escape")
+		{
+			_recordingShortcutKey = null;
+			return;
+		}
 
 		// Ignore standalone modifier presses
 		if (e.Key is "Control" or "Shift" or "Alt" or "Meta") return;
 
-		var newBinding = new ShortcutBinding(
-			e.Key,
-			ctrl: e.CtrlKey,
-			alt: e.AltKey,
-			shift: e.ShiftKey
-		);
-
-		switch (propertyName)
+		ShortcutBinding newBinding;
+		if (e.Key is "Backspace" or "Delete")
 		{
-			case "NextMove": _appearanceSettings.Shortcuts.NextMove = newBinding; break;
-			case "PreviousMove": _appearanceSettings.Shortcuts.PreviousMove = newBinding; break;
-			case "FirstMove": _appearanceSettings.Shortcuts.FirstMove = newBinding; break;
-			case "LastMove": _appearanceSettings.Shortcuts.LastMove = newBinding; break;
-			case "NextVariation": _appearanceSettings.Shortcuts.NextVariation = newBinding; break;
-			case "PreviousVariation": _appearanceSettings.Shortcuts.PreviousVariation = newBinding; break;
-			case "AltNextVariation": _appearanceSettings.Shortcuts.AlternateNextVariation = newBinding; break;
-			case "AltPreviousVariation": _appearanceSettings.Shortcuts.AlternatePreviousVariation = newBinding; break;
-			case "FlipBoard": _appearanceSettings.Shortcuts.FlipBoard = newBinding; break;
-			case "CloseTab": _appearanceSettings.Shortcuts.CloseTab = newBinding; break;
+			newBinding = new ShortcutBinding();
+		}
+		else
+		{
+			newBinding = new ShortcutBinding(
+				e.Key,
+				ctrl: e.CtrlKey,
+				alt: e.AltKey,
+				shift: e.ShiftKey
+			);
 		}
 
+		SetShortcutBinding(actionName, isPrimary, newBinding);
 		_recordingShortcutKey = null;
 		StateHasChanged();
+	}
+
+	private void SetShortcutBinding(string actionName, bool isPrimary, ShortcutBinding binding)
+	{
+		var s = _appearanceSettings.Shortcuts;
+		switch (actionName)
+		{
+			case "NextMove": if (isPrimary) s.NextMove = binding; else s.NextMoveAlt = binding; break;
+			case "PreviousMove": if (isPrimary) s.PreviousMove = binding; else s.PreviousMoveAlt = binding; break;
+			case "FirstMove": if (isPrimary) s.FirstMove = binding; else s.FirstMoveAlt = binding; break;
+			case "LastMove": if (isPrimary) s.LastMove = binding; else s.LastMoveAlt = binding; break;
+			case "NextVariation": if (isPrimary) s.NextVariation = binding; else s.NextVariationAlt = binding; break;
+			case "PreviousVariation": if (isPrimary) s.PreviousVariation = binding; else s.PreviousVariationAlt = binding; break;
+			case "ToggleEngine": if (isPrimary) s.ToggleEngine = binding; else s.ToggleEngineAlt = binding; break;
+			case "BestMove": if (isPrimary) s.BestMove = binding; else s.BestMoveAlt = binding; break;
+			case "FlipBoard": if (isPrimary) s.FlipBoard = binding; else s.FlipBoardAlt = binding; break;
+			case "CloseTab": if (isPrimary) s.CloseTab = binding; else s.CloseTabAlt = binding; break;
+		}
 	}
 
 	private async Task ResetShortcutsToDefaultAsync()

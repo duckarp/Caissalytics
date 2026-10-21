@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using Caissalytics.Components;
 using Caissalytics.Data;
 using Caissalytics.Engine;
@@ -170,7 +171,83 @@ internal class Program
             }
         }
 
+        // Configure window maximized state persistence
+        string configDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Caissalytics");
+        string settingsFilePath = Path.Combine(configDir, "appearance_settings.json");
+
+        bool launchMaximized = false;
+        try
+        {
+            if (File.Exists(settingsFilePath))
+            {
+                var json = File.ReadAllText(settingsFilePath);
+                var settings = JsonSerializer.Deserialize<AppearanceSettings>(json);
+                if (settings != null && settings.WindowMaximized)
+                {
+                    launchMaximized = true;
+                }
+            }
+        }
+        catch { }
+
+        if (launchMaximized)
+        {
+            app.MainWindow.SetMaximized(true);
+        }
+
+        app.MainWindow.RegisterWindowClosingHandler((sender, e) =>
+        {
+            try
+            {
+                SaveWindowMaximizedState(settingsFilePath, app.MainWindow.Maximized);
+            }
+            catch { }
+            return false;
+        });
+
+        app.MainWindow.WindowMaximized += (sender, e) =>
+        {
+            try { SaveWindowMaximizedState(settingsFilePath, true); } catch { }
+        };
+
+        app.MainWindow.WindowRestored += (sender, e) =>
+        {
+            try { SaveWindowMaximizedState(settingsFilePath, false); } catch { }
+        };
+
         app.Run();
+    }
+
+    private static void SaveWindowMaximizedState(string settingsFilePath, bool isMaximized)
+    {
+        try
+        {
+            AppearanceSettings settings;
+            if (File.Exists(settingsFilePath))
+            {
+                string json = File.ReadAllText(settingsFilePath);
+                settings = JsonSerializer.Deserialize<AppearanceSettings>(json) ?? new AppearanceSettings();
+            }
+            else
+            {
+                settings = new AppearanceSettings();
+            }
+
+            if (settings.WindowMaximized != isMaximized)
+            {
+                settings.WindowMaximized = isMaximized;
+                string? dir = Path.GetDirectoryName(settingsFilePath);
+                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+                string output = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
+                File.WriteAllText(settingsFilePath, output);
+            }
+        }
+        catch { }
     }
 
     private static void SetLinuxProgramName(string name)

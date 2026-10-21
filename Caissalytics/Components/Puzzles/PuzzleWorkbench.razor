@@ -7,6 +7,7 @@
 @inject IDatabaseService DatabaseService
 @inject IAppearanceService AppearanceService
 @inject WorkspaceState Workspace
+@inject IJSRuntime JS
 @implements IDisposable
 
 <div class="puzzles-workbench-container">
@@ -302,11 +303,21 @@
 	private bool _isExtracting = false;
 	private string? _extractStatus;
 	private readonly Stopwatch _stopwatch = new();
+	private DotNetObjectReference<PuzzleWorkbench>? _dotNetRef;
+	private KeyboardShortcutSettings _shortcuts = new();
+	private bool _isDisposed = false;
 
 	protected override async Task OnInitializedAsync()
 	{
 		Loc.OnLanguageChanged += StateHasChanged;
 		PuzzleService.OnPuzzleStatsChanged += HandleStatsChanged;
+		AppearanceService.OnAppearanceChanged += HandleAppearanceChanged;
+		var settings = await AppearanceService.GetSettingsAsync();
+		if (settings?.Shortcuts != null)
+		{
+			_shortcuts = settings.Shortcuts;
+		}
+
 		_stats = await PuzzleService.GetStatsAsync();
 
 		if (!string.IsNullOrEmpty(Tab.InitialMode))
@@ -552,8 +563,64 @@
 		}
 	}
 
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			_dotNetRef = DotNetObjectReference.Create(this);
+			try
+			{
+				await JS.InvokeVoidAsync("notationInterop.registerKeyboardListener", _dotNetRef, Tab.Id.ToString("N"));
+			}
+			catch { }
+		}
+	}
+
+	private void HandleAppearanceChanged(AppearanceSettings settings)
+	{
+		if (settings?.Shortcuts != null)
+		{
+			_shortcuts = settings.Shortcuts;
+			InvokeAsync(StateHasChanged);
+		}
+	}
+
+	[JSInvokable]
+	public void OnGlobalAltChanged(bool held) { }
+
+	[JSInvokable]
+	public void OnGlobalKeyDown(KeyEventDto e)
+	{
+		if (_isDisposed || Workspace.ActiveTab != Tab) return;
+
+		if (_shortcuts.MatchesFlipBoard(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			if (_boardRef != null)
+			{
+				_ = _boardRef.ToggleOrientation();
+			}
+			else
+			{
+				_orientation = _orientation == "white" ? "black" : "white";
+				StateHasChanged();
+			}
+		}
+		else if (_shortcuts.MatchesCloseTab(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			Workspace.CloseActiveTab();
+		}
+	}
+
 	public void Dispose()
 	{
+		_isDisposed = true;
+		AppearanceService.OnAppearanceChanged -= HandleAppearanceChanged;
+		try
+		{
+			_ = JS.InvokeVoidAsync("notationInterop.unregisterKeyboardListener", Tab.Id.ToString("N"));
+		}
+		catch { }
+		_dotNetRef?.Dispose();
 		Loc.OnLanguageChanged -= StateHasChanged;
 		PuzzleService.OnPuzzleStatsChanged -= HandleStatsChanged;
 	}

@@ -15,6 +15,7 @@ public interface IDatabaseService
     Task SetReferenceDatabaseAsync(string name);
     Task<DatabaseInfo> CreateDatabaseAsync(string name);
     Task<bool> DeleteDatabaseAsync(string name);
+    Task<bool> RenameDatabaseAsync(string oldName, string newName) => Task.FromResult(false);
 
     Task<List<MasterCatalogItem>> GetMasterCatalogAsync();
     Task InstallMasterDatabaseAsync(string catalogId, IProgress<(int current, int total, string status)>? progress = null, CancellationToken cancellationToken = default);

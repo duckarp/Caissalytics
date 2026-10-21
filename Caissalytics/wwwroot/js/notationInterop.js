@@ -45,7 +45,7 @@ window.notationInterop = {
             // Prevent default scrolling for arrow keys, home, end, space, or default window close for Ctrl+W
             if (keys.includes(e.key) ||
                 (e.ctrlKey && (e.key === 'w' || e.key === 'W')) ||
-                (!e.ctrlKey && !e.altKey && (e.key === 'f' || e.key === 'F'))) {
+                (!e.ctrlKey && !e.altKey && (e.key === 'f' || e.key === 'F' || e.key === 'l' || e.key === 'L'))) {
                 e.preventDefault();
             }
 

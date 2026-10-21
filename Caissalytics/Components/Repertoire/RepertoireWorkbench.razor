@@ -9,6 +9,7 @@
 @inject IAppearanceService AppearanceService
 @inject LichessExplorerClient LichessClient
 @inject WorkspaceState Workspace
+@inject IJSRuntime JS
 @implements IDisposable
 
 <div class="repertoire-workbench-container">
@@ -508,11 +509,22 @@
 		}
 	}
 
+	private DotNetObjectReference<RepertoireWorkbench>? _dotNetRef;
+	private KeyboardShortcutSettings _shortcuts = new();
+	private bool _isDisposed = false;
+
 	protected override async Task OnInitializedAsync()
 	{
 		Loc.OnLanguageChanged += StateHasChanged;
 		RepertoireService.OnRepertoireChanged += HandleRepertoireChanged;
 		DatabaseService.OnActiveDatabaseChanged += HandleActiveDatabaseChanged;
+		AppearanceService.OnAppearanceChanged += HandleAppearanceChanged;
+
+		var settings = await AppearanceService.GetSettingsAsync();
+		if (settings?.Shortcuts != null)
+		{
+			_shortcuts = settings.Shortcuts;
+		}
 
 		_repertoireTree = await RepertoireService.GetRepertoireAsync();
 		_databases = await DatabaseService.GetDatabasesAsync();
@@ -1222,11 +1234,102 @@
 		};
 	}
 
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			_dotNetRef = DotNetObjectReference.Create(this);
+			try
+			{
+				await JS.InvokeVoidAsync("notationInterop.registerKeyboardListener", _dotNetRef, Tab.Id.ToString("N"));
+			}
+			catch { }
+		}
+	}
+
+	private void HandleAppearanceChanged(AppearanceSettings settings)
+	{
+		if (settings?.Shortcuts != null)
+		{
+			_shortcuts = settings.Shortcuts;
+			InvokeAsync(StateHasChanged);
+		}
+	}
+
+	[JSInvokable]
+	public void OnGlobalAltChanged(bool held) { }
+
+	[JSInvokable]
+	public async Task OnGlobalKeyDown(KeyEventDto e)
+	{
+		if (_isDisposed || Workspace.ActiveTab != Tab) return;
+		if (_showNoteModal || _showSaveLineModal) return;
+
+		if (_shortcuts.MatchesNextVariation(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			if (!_trainingMode && _tree.GoToNextVariation())
+			{
+				StopReplay();
+				if (_boardRef != null) await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, _tree.CurrentNode.IsRoot ? null : _tree.CurrentNode.Move);
+				await QueryStatsForCurrentPositionAsync();
+			}
+		}
+		else if (_shortcuts.MatchesPreviousVariation(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			if (!_trainingMode && _tree.GoToPreviousVariation())
+			{
+				StopReplay();
+				if (_boardRef != null) await _boardRef.UpdateBoardStateAsync(_tree.CurrentNode.Position, _tree.CurrentNode.IsRoot ? null : _tree.CurrentNode.Move);
+				await QueryStatsForCurrentPositionAsync();
+			}
+		}
+		else if (_shortcuts.MatchesNextMove(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			await HandleNext();
+		}
+		else if (_shortcuts.MatchesPreviousMove(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			await HandlePrev();
+		}
+		else if (_shortcuts.MatchesFirstMove(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			await HandleFirst();
+		}
+		else if (_shortcuts.MatchesLastMove(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			await HandleLast();
+		}
+		else if (_shortcuts.MatchesFlipBoard(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			if (_boardRef != null)
+			{
+				_ = _boardRef.ToggleOrientation();
+			}
+			else
+			{
+				_orientation = _orientation == "white" ? "black" : "white";
+				StateHasChanged();
+			}
+		}
+		else if (_shortcuts.MatchesCloseTab(e.Key, e.CtrlKey, e.AltKey, e.ShiftKey))
+		{
+			Workspace.CloseActiveTab();
+		}
+	}
+
 	public void Dispose()
 	{
+		_isDisposed = true;
 		StopReplay();
 		Loc.OnLanguageChanged -= StateHasChanged;
 		RepertoireService.OnRepertoireChanged -= HandleRepertoireChanged;
 		DatabaseService.OnActiveDatabaseChanged -= HandleActiveDatabaseChanged;
+		AppearanceService.OnAppearanceChanged -= HandleAppearanceChanged;
+		try
+		{
+			_ = JS.InvokeVoidAsync("notationInterop.unregisterKeyboardListener", Tab.Id.ToString("N"));
+		}
+		catch { }
+		_dotNetRef?.Dispose();
 	}
 }

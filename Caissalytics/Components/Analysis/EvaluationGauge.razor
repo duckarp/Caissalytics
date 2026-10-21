@@ -14,12 +14,14 @@
 @code {
 	[Parameter] public EngineEvaluationLine? TopLine { get; set; }
 	[Parameter] public bool IsAnalyzing { get; set; }
+	[Parameter] public string Orientation { get; set; } = "white";
 
 	private readonly string _elementId = $"eval_{Guid.NewGuid():N}";
 	private IJSObjectReference? _evalModule;
 	private bool _isDisposed = false;
 	private double _lastWhitePct = -1.0;
 	private string _lastScoreText = "";
+	private bool _lastFlipped = false;
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
@@ -44,17 +46,20 @@
 			scoreText = TopLine.FormattedScore;
 		}
 
-		if (Math.Abs(whitePct - _lastWhitePct) < 0.05 && scoreText == _lastScoreText)
+		bool isFlipped = string.Equals(Orientation, "black", StringComparison.OrdinalIgnoreCase);
+
+		if (Math.Abs(whitePct - _lastWhitePct) < 0.05 && scoreText == _lastScoreText && isFlipped == _lastFlipped)
 		{
 			return;
 		}
 
 		_lastWhitePct = whitePct;
 		_lastScoreText = scoreText;
+		_lastFlipped = isFlipped;
 
 		try
 		{
-			await _evalModule.InvokeVoidAsync("setEval", _elementId, whitePct, scoreText);
+			await _evalModule.InvokeVoidAsync("setEval", _elementId, whitePct, scoreText, isFlipped);
 		}
 		catch (ObjectDisposedException) { }
 		catch (JSDisconnectedException) { }

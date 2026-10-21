@@ -36,7 +36,8 @@
 							  Tree="@Tab.Tree">
 				<SideGauge>
 					<EvaluationGauge TopLine="@(Tab.CurrentEvalLines.Count > 0 ? Tab.CurrentEvalLines[0] : null)"
-									 IsAnalyzing="@Tab.IsAnalyzing" />
+									 IsAnalyzing="@Tab.IsAnalyzing"
+									 Orientation="@Tab.Orientation" />
 				</SideGauge>
 			</ChessgroundBoard>
 		</div>
@@ -823,15 +824,6 @@
 		Tab.Tree.NavigateTo(baseNode);
 	}
 
-	public class KeyEventDto
-	{
-		public string Key { get; set; } = "";
-		public bool CtrlKey { get; set; }
-		public bool AltKey { get; set; }
-		public bool ShiftKey { get; set; }
-        public string Code { get; set; } = "";
-	}
-
 	private bool _altHeld;
 
     [JSInvokable]
@@ -863,29 +855,39 @@
 
 	private void ProcessShortcut(string key, bool ctrl, bool alt, bool shift)
 	{
-		if (_shortcuts.NextVariation.Matches(key, ctrl, alt, shift) ||
-			_shortcuts.AlternateNextVariation.Matches(key, ctrl, alt, shift))
+		if (_shortcuts.MatchesToggleEngine(key, ctrl, alt, shift))
+		{
+			_ = HandleAnalyzingToggled(!Tab.IsAnalyzing);
+		}
+		else if (_shortcuts.MatchesBestMove(key, ctrl, alt, shift))
+		{
+			_ = HandlePlayBestMoveAsync();
+		}
+		else if (_shortcuts.MatchesNextVariation(key, ctrl, alt, shift))
 		{
 			Tab.Tree.GoToNextVariation();
 		}
-		else if (_shortcuts.PreviousVariation.Matches(key, ctrl, alt, shift) ||
-				 _shortcuts.AlternatePreviousVariation.Matches(key, ctrl, alt, shift))
+		else if (_shortcuts.MatchesPreviousVariation(key, ctrl, alt, shift))
 		{
 			Tab.Tree.GoToPreviousVariation();
 		}
-		else if (_shortcuts.NextMove.Matches(key, ctrl, alt, shift))
+		else if (_shortcuts.MatchesNextMove(key, ctrl, alt, shift))
 		{
 			HandleNext();
 		}
-		else if (_shortcuts.PreviousMove.Matches(key, ctrl, alt, shift))
+		else if (_shortcuts.MatchesPreviousMove(key, ctrl, alt, shift))
 		{
 			HandlePrev();
 		}
-		else if (_shortcuts.FirstMove.Matches(key, ctrl, alt, shift))
+		else if (_shortcuts.MatchesFirstMove(key, ctrl, alt, shift))
 		{
 			HandleFirst();
 		}
-		else if (_shortcuts.FlipBoard.Matches(key, ctrl, alt, shift))
+		else if (_shortcuts.MatchesLastMove(key, ctrl, alt, shift))
+		{
+			HandleLast();
+		}
+		else if (_shortcuts.MatchesFlipBoard(key, ctrl, alt, shift))
 		{
 			if (_boardRef != null)
 			{
@@ -897,9 +899,35 @@
 				StateHasChanged();
 			}
 		}
-		else if (_shortcuts.CloseTab.Matches(key, ctrl, alt, shift))
+		else if (_shortcuts.MatchesCloseTab(key, ctrl, alt, shift))
 		{
 			Workspace.CloseActiveTab();
+		}
+	}
+
+	private async Task HandlePlayBestMoveAsync()
+	{
+		if (!Tab.IsAnalyzing || Tab.CurrentEvalLines.Count == 0) return;
+		string uci = Tab.CurrentEvalLines[0].BestMove;
+		if (string.IsNullOrWhiteSpace(uci) || uci.Length < 4) return;
+
+		var from = SquareExtensions.Parse(uci.Substring(0, 2));
+		var to = SquareExtensions.Parse(uci.Substring(2, 2));
+		if (from == Square.None || to == Square.None || from == to) return;
+		var promo = uci.Length > 4 ? uci[4] switch
+		{
+			'q' => PieceType.Queen,
+			'r' => PieceType.Rook,
+			'b' => PieceType.Bishop,
+			'n' => PieceType.Knight,
+			_ => PieceType.None
+		} : PieceType.None;
+
+		var legal = MoveGenerator.GenerateLegalMoves(Tab.Tree.CurrentNode.Position);
+		var move = legal.FirstOrDefault(m => m.From == from && m.To == to && (promo == PieceType.None || m.Promotion == promo));
+		if (!move.IsEmpty)
+		{
+			await HandleUserMove(move);
 		}
 	}
 

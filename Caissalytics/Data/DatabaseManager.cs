@@ -517,6 +517,11 @@ public class DatabaseManager : IDatabaseService
 
     public async Task<bool> DeleteDatabaseAsync(string name)
     {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return false;
+        }
+
         string safeName = SanitizeDatabaseName(name);
         string path = GetDbPath(safeName);
 
@@ -557,6 +562,112 @@ public class DatabaseManager : IDatabaseService
         catch (Exception ex)
         {
             Console.WriteLine($"[DatabaseManager] Error deleting DB {name}: {ex.Message}");
+            return false;
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
+    public async Task<bool> RenameDatabaseAsync(string oldName, string newName)
+    {
+        if (string.IsNullOrWhiteSpace(oldName) || string.IsNullOrWhiteSpace(newName))
+        {
+            return false;
+        }
+
+        if (string.Equals(oldName.Trim(), IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(newName.Trim(), IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        string safeOldName = SanitizeDatabaseName(oldName);
+        string safeNewName = SanitizeDatabaseName(newName);
+
+        if (string.Equals(safeOldName, safeNewName, StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        string oldPath = GetDbPath(safeOldName);
+        string newPath = GetDbPath(safeNewName);
+
+        if (!File.Exists(oldPath))
+        {
+            return false;
+        }
+
+        if (File.Exists(newPath) && !string.Equals(oldPath, newPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        await _lock.WaitAsync();
+        try
+        {
+            // Clear SQLite connection pools and release locks
+            SqliteConnection.ClearAllPools();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+
+            bool isCaseOnlyRename = string.Equals(oldPath, newPath, StringComparison.OrdinalIgnoreCase);
+
+            if (isCaseOnlyRename)
+            {
+                string tempPath = Path.Combine(_storageDir, $"__caissa_rename_{Guid.NewGuid():N}.db");
+                File.Move(oldPath, tempPath);
+                File.Move(tempPath, newPath);
+            }
+            else
+            {
+                File.Move(oldPath, newPath);
+            }
+
+            string[] sidecarExts = { "-wal", "-shm", "-journal" };
+            foreach (var ext in sidecarExts)
+            {
+                string oldSidecar = oldPath + ext;
+                string newSidecar = newPath + ext;
+                if (File.Exists(oldSidecar))
+                {
+                    if (isCaseOnlyRename)
+                    {
+                        string tempSidecar = Path.Combine(_storageDir, $"__caissa_rename_{Guid.NewGuid():N}{ext}");
+                        File.Move(oldSidecar, tempSidecar);
+                        File.Move(tempSidecar, newSidecar);
+                    }
+                    else
+                    {
+                        if (File.Exists(newSidecar))
+                        {
+                            File.Delete(newSidecar);
+                        }
+                        File.Move(oldSidecar, newSidecar);
+                    }
+                }
+            }
+
+            if (string.Equals(safeOldName, _activeDatabaseName, StringComparison.OrdinalIgnoreCase))
+            {
+                _activeDatabaseName = safeNewName;
+            }
+
+            if (string.Equals(safeOldName, _referenceDatabaseName, StringComparison.OrdinalIgnoreCase))
+            {
+                _referenceDatabaseName = safeNewName;
+                OnReferenceDatabaseChanged?.Invoke();
+            }
+
+            SaveSettings();
+            OnActiveDatabaseChanged?.Invoke();
+            OnDatabaseModified?.Invoke(safeNewName);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[DatabaseManager] Error renaming DB {oldName} to {newName}: {ex.Message}");
             return false;
         }
         finally

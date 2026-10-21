@@ -49,3 +49,17 @@
   top: 4px;
   color: #eee;
 }
+
+.eval-gauge-container.flipped .eval-gauge-track {
+  flex-direction: column;
+}
+
+.eval-gauge-container.flipped .label-white-side {
+  top: 4px;
+  bottom: auto;
+}
+
+.eval-gauge-container.flipped .label-black-side {
+  bottom: 4px;
+  top: auto;
+}
