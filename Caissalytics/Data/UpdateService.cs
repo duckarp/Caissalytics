@@ -9,7 +9,20 @@ namespace Caissalytics.Data;
 
 public class UpdateService : IUpdateService
 {
+    /// <summary>
+    /// Public half of the release signing key (ECDSA P-256). The release workflow signs every archive with the
+    /// private half (GitHub secret RELEASE_SIGNING_KEY) and uploads "&lt;archive&gt;.sig"; updates without a valid
+    /// signature are refused. Must match release-signing-public-key.pem in the repository root.
+    /// </summary>
+    public const string ReleaseSigningPublicKeyPem = """
+        -----BEGIN PUBLIC KEY-----
+        MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE9296DTjqQbPLucJQ/hXt9hKKg9B4
+        c8ajPT4K3JQl6OKJFBpCnwRl4xTT1lQz/KP5+T8HoAhmBr/cZp+ytbyudw==
+        -----END PUBLIC KEY-----
+        """;
+
     private readonly HttpClient _httpClient;
+    private readonly string _signingPublicKeyPem;
     private readonly string _settingsPath;
     private UpdateSettings _settings = new();
     private readonly object _lock = new();
@@ -18,8 +31,9 @@ public class UpdateService : IUpdateService
     public UpdateInfo? CachedUpdate { get; private set; }
     private string? _stagedFilePath;
 
-    public UpdateService(HttpClient? httpClient = null, string? storageDirectory = null)
+    public UpdateService(HttpClient? httpClient = null, string? storageDirectory = null, string? signingPublicKeyPem = null)
     {
+        _signingPublicKeyPem = signingPublicKeyPem ?? ReleaseSigningPublicKeyPem;
         _httpClient = httpClient ?? new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
         if (!_httpClient.DefaultRequestHeaders.UserAgent.Any())
         {
@@ -459,6 +473,16 @@ public class UpdateService : IUpdateService
             updateInfo.AssetDownloadUrl = el.TryGetProperty("browser_download_url", out var dl) ? dl.GetString() : null;
             updateInfo.AssetSizeBytes = el.TryGetProperty("size", out var s) ? s.GetInt64() : 0;
             updateInfo.AssetSha256 = ParseSha256Digest(el.TryGetProperty("digest", out var d) ? d.GetString() : null);
+
+            string signatureName = $"{updateInfo.AssetFileName}.sig";
+            foreach (var asset in assets.EnumerateArray())
+            {
+                if (asset.TryGetProperty("name", out var sigName) && sigName.GetString() == signatureName)
+                {
+                    updateInfo.SignatureDownloadUrl = asset.TryGetProperty("browser_download_url", out var sigUrl) ? sigUrl.GetString() : null;
+                    break;
+                }
+            }
         }
     }
 
@@ -510,6 +534,10 @@ public class UpdateService : IUpdateService
         {
             throw new InvalidOperationException("This release does not publish a SHA-256 checksum for its download, so it cannot be verified. Please download it manually from the release page.");
         }
+        if (string.IsNullOrEmpty(update.SignatureDownloadUrl))
+        {
+            throw new InvalidOperationException("This release is not signed, so it cannot be verified. Please download it manually from the release page.");
+        }
 
         _stagedFilePath = null;
         string updateDir = PrepareUpdateStagingDirectory(Path.GetDirectoryName(_settingsPath)!);
@@ -555,8 +583,45 @@ public class UpdateService : IUpdateService
             throw new InvalidDataException("The downloaded update failed checksum verification and was discarded. Please try again.");
         }
 
+        // The checksum only proves the file matches GitHub's copy; the signature proves it was released by us
+        progress?.Report((97, 100, "Verifying signature..."));
+        byte[] signature = await DownloadSignatureAsync(update.SignatureDownloadUrl, ct);
+        if (!VerifyReleaseSignature(targetFile, signature, _signingPublicKeyPem))
+        {
+            try { File.Delete(targetFile); } catch { }
+            throw new InvalidDataException("The downloaded update is not signed by the Caissalytics release key and was discarded.");
+        }
+
         _stagedFilePath = targetFile;
         progress?.Report((100, 100, "Download complete! Ready to apply and restart."));
+    }
+
+    private async Task<byte[]> DownloadSignatureAsync(string url, CancellationToken ct)
+    {
+        using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
+        response.EnsureSuccessStatusCode();
+        // A DER-encoded P-256 signature is at most 72 bytes; refuse anything that is clearly not one
+        if (response.Content.Headers.ContentLength > 1024)
+        {
+            throw new InvalidDataException("The update signature file is not valid.");
+        }
+        return await response.Content.ReadAsByteArrayAsync(ct);
+    }
+
+    /// <summary>Checks a detached ECDSA P-256 / SHA-256 signature in DER form (what "openssl dgst -sha256 -sign" writes).</summary>
+    public static bool VerifyReleaseSignature(string filePath, byte[] signature, string publicKeyPem)
+    {
+        try
+        {
+            using var ecdsa = ECDsa.Create();
+            ecdsa.ImportFromPem(publicKeyPem);
+            using var file = File.OpenRead(filePath);
+            return ecdsa.VerifyData(file, signature, HashAlgorithmName.SHA256, DSASignatureFormat.Rfc3279DerSequence);
+        }
+        catch (CryptographicException)
+        {
+            return false;
+        }
     }
 
     public static bool VerifyDownload(string actualSha256, long actualSize, UpdateInfo update)

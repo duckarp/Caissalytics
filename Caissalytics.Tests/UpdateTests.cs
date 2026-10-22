@@ -230,6 +230,103 @@ public class UpdateTests : IDisposable
     }
 
     [Fact]
+    public void EmbeddedSigningKey_MatchesTheKeyFileUsedByTheReleaseWorkflow()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Caissalytics.slnx"))) dir = dir.Parent;
+        Assert.NotNull(dir);
+
+        string repoKey = File.ReadAllText(Path.Combine(dir.FullName, "release-signing-public-key.pem"));
+        static string Normalize(string pem) => string.Concat(pem.Where(c => !char.IsWhiteSpace(c)));
+        Assert.Equal(Normalize(repoKey), Normalize(UpdateService.ReleaseSigningPublicKeyPem));
+    }
+
+    [Fact]
+    public void VerifyReleaseSignature_AcceptsOpensslSignatures_AndRejectsOthers()
+    {
+        if (OperatingSystem.IsWindows()) return; // uses the openssl CLI exactly like the release workflow
+
+        string dir = Path.Combine(_dir, "sig");
+        Directory.CreateDirectory(dir);
+        string key = Path.Combine(dir, "key.pem"), pub = Path.Combine(dir, "pub.pem");
+        string file = Path.Combine(dir, "Caissalytics-linux-x64.tar.gz"), sig = file + ".sig";
+        File.WriteAllBytes(file, System.Security.Cryptography.RandomNumberGenerator.GetBytes(50_000));
+
+        RunOpenssl($"ecparam -name prime256v1 -genkey -noout -out \"{key}\"");
+        RunOpenssl($"ec -in \"{key}\" -pubout -out \"{pub}\"");
+        RunOpenssl($"dgst -sha256 -sign \"{key}\" -out \"{sig}\" \"{file}\"");
+
+        string publicKey = File.ReadAllText(pub);
+        byte[] signature = File.ReadAllBytes(sig);
+        Assert.True(UpdateService.VerifyReleaseSignature(file, signature, publicKey));
+
+        // Signed by a different key (e.g. the real release key) or a modified file: rejected
+        Assert.False(UpdateService.VerifyReleaseSignature(file, signature, UpdateService.ReleaseSigningPublicKeyPem));
+        File.AppendAllText(file, "x");
+        Assert.False(UpdateService.VerifyReleaseSignature(file, signature, publicKey));
+        Assert.False(UpdateService.VerifyReleaseSignature(file, [1, 2, 3], publicKey));
+    }
+
+    private static void RunOpenssl(string args)
+    {
+        using var p = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("openssl", args) { RedirectStandardError = true })!;
+        p.WaitForExit();
+        Assert.True(p.ExitCode == 0, $"openssl {args} failed: {p.StandardError.ReadToEnd()}");
+    }
+
+    [Theory]
+    [InlineData("valid")]
+    [InlineData("wrong-key")]
+    [InlineData("missing")]
+    public async Task DownloadUpdateAsync_RequiresAValidReleaseSignature(string signatureCase)
+    {
+        byte[] package = System.Security.Cryptography.RandomNumberGenerator.GetBytes(10_000);
+        string sha = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(package)).ToLowerInvariant();
+
+        using var releaseKey = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+        using var otherKey = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+        var signer = signatureCase == "wrong-key" ? otherKey : releaseKey;
+        byte[] signature = signer.SignData(package, System.Security.Cryptography.HashAlgorithmName.SHA256,
+            System.Security.Cryptography.DSASignatureFormat.Rfc3279DerSequence);
+
+        string sigAsset = signatureCase == "missing" ? "" : """
+            , { "name": "Caissalytics-linux-x64.tar.gz.sig", "browser_download_url": "https://example.invalid/pkg.sig", "size": 72 },
+              { "name": "Caissalytics-win-x64.zip.sig", "browser_download_url": "https://example.invalid/pkg.sig", "size": 72 }
+            """;
+        string release = $$"""
+            { "tag_name": "v99.0.0", "assets": [
+              { "name": "Caissalytics-linux-x64.tar.gz", "browser_download_url": "https://example.invalid/pkg", "size": {{package.Length}}, "digest": "sha256:{{sha}}" },
+              { "name": "Caissalytics-win-x64.zip", "browser_download_url": "https://example.invalid/pkg", "size": {{package.Length}}, "digest": "sha256:{{sha}}" }
+              {{sigAsset}}
+            ] }
+            """;
+        using var doc = JsonDocument.Parse(release);
+        var update = new UpdateInfo();
+        UpdateService.ParseReleaseElement(doc.RootElement, update, currentVer: "1.0.0");
+
+        var handler = new TestHttpMessageHandler(req => new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+        {
+            Content = new ByteArrayContent(req.RequestUri!.AbsolutePath.EndsWith(".sig") ? signature : package)
+        });
+        var service = new UpdateService(new HttpClient(handler), _dir, releaseKey.ExportSubjectPublicKeyInfoPem());
+
+        switch (signatureCase)
+        {
+            case "valid":
+                await service.DownloadUpdateAsync(update);
+                break;
+            case "wrong-key":
+                await Assert.ThrowsAsync<InvalidDataException>(() => service.DownloadUpdateAsync(update));
+                Assert.Empty(Directory.GetFiles(Path.Combine(_dir, "update_staging")));
+                break;
+            case "missing":
+                Assert.Null(update.SignatureDownloadUrl);
+                await Assert.ThrowsAsync<InvalidOperationException>(() => service.DownloadUpdateAsync(update));
+                break;
+        }
+    }
+
+    [Fact]
     public void PrepareUpdateStagingDirectory_RecreatesEmptyOwnerOnlyFolder()
     {
         string baseDir = Path.Combine(Path.GetTempPath(), "caissalytics_update_test_" + Guid.NewGuid().ToString("N"));

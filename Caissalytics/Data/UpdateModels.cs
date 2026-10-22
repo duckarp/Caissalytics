@@ -14,6 +14,8 @@ public class UpdateInfo
     public long AssetSizeBytes { get; set; }
     /// <summary>Lowercase hex SHA-256 published by GitHub for the asset (the "digest" field).</summary>
     public string? AssetSha256 { get; set; }
+    /// <summary>Download URL of the asset's detached signature ("&lt;asset name&gt;.sig").</summary>
+    public string? SignatureDownloadUrl { get; set; }
     public bool IsUpdateAvailable { get; set; }
     public string StatusMessage { get; set; } = string.Empty;
     public List<ReleaseChangelogItem> ChangelogItems { get; set; } = new();

@@ -12,6 +12,8 @@ permissions:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    # Holds the RELEASE_SIGNING_KEY secret; protect it with required reviewers in the repo settings
+    environment: release
 
     steps:
       - name: Checkout repository
@@ -50,10 +52,29 @@ jobs:
             -o ./publish-win-x64
           cd publish-win-x64 && zip ../Caissalytics-win-x64.zip Caissalytics.exe && cd ..
 
+      - name: Sign release archives
+        env:
+          RELEASE_SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          if [ -z "$RELEASE_SIGNING_KEY" ]; then
+            echo "::error::RELEASE_SIGNING_KEY is not set. The app's updater rejects unsigned releases, so none is published."
+            exit 1
+          fi
+          umask 077
+          printf '%s\n' "$RELEASE_SIGNING_KEY" > signing-key.pem
+          for f in Caissalytics-linux-x64.tar.gz Caissalytics-win-x64.zip; do
+            openssl dgst -sha256 -sign signing-key.pem -out "$f.sig" "$f"
+            # Must verify with the public key the app embeds, or installed copies would refuse the update
+            openssl dgst -sha256 -verify release-signing-public-key.pem -signature "$f.sig" "$f"
+          done
+          rm -f signing-key.pem
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             Caissalytics-linux-x64.tar.gz
+            Caissalytics-linux-x64.tar.gz.sig
             Caissalytics-win-x64.zip
+            Caissalytics-win-x64.zip.sig
           generate_release_notes: true

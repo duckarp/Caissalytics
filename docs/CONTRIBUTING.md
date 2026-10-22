@@ -143,3 +143,28 @@ dotnet test
 4. **Push your branch and open a Pull Request**:
    - Provide a clear summary of your changes.
    - Attach screenshots or recordings for any UI changes.
+
+---
+
+## 🚀 Releasing
+
+Pushing a `v*` tag runs `.github/workflows/release.yml`, which tests, publishes the Linux and Windows archives, **signs them**, and creates the GitHub release.
+
+### Release signing
+
+The in-app updater only installs an update whose archive has a valid detached signature (`<archive>.sig`, ECDSA P-256 / SHA-256), on top of the SHA-256 checksum GitHub publishes. The checksum proves the file matches GitHub's copy; the signature proves it was released with the project's key.
+
+- **Public key**: `release-signing-public-key.pem` in the repository root, also embedded as `UpdateService.ReleaseSigningPublicKeyPem` (a test checks they match).
+- **Private key**: stored as the `RELEASE_SIGNING_KEY` secret of the `release` environment (repo *Settings → Environments → release*). Add yourself as a required reviewer there so a tag alone can't use the key.
+- **Offline backup**: keep a copy of the private key somewhere safe outside GitHub (password manager or encrypted storage). If it is lost, installed copies can no longer verify updates and users must reinstall manually.
+
+The workflow fails instead of publishing if the secret is missing or doesn't match the committed public key, because the updater would reject such a release.
+
+To sign or check a file by hand:
+
+```bash
+openssl dgst -sha256 -sign release-signing-key.pem -out Caissalytics-linux-x64.tar.gz.sig Caissalytics-linux-x64.tar.gz
+openssl dgst -sha256 -verify release-signing-public-key.pem -signature Caissalytics-linux-x64.tar.gz.sig Caissalytics-linux-x64.tar.gz
+```
+
+**Changing the key**: generate a new pair, ship a release signed with the *old* key that embeds the *new* public key, and only then switch the secret. Releases signed with the new key are accepted only by versions that already contain it.
