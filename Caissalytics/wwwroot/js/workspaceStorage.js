@@ -1,6 +1,7 @@
 const STORAGE_KEY = 'caissalytics_workspace_state';
 const BACKUP_KEY = 'caissalytics_workspace_state_backup';
 
+// Returns false when the state could not be stored (e.g. localStorage quota exceeded)
 export function saveWorkspaceState(json) {
     try {
         if (json) {
@@ -8,8 +9,10 @@ export function saveWorkspaceState(json) {
         } else {
             localStorage.removeItem(STORAGE_KEY);
         }
+        return true;
     } catch (e) {
         console.warn('Unable to save workspace state to localStorage:', e);
+        return false;
     }
 }
 

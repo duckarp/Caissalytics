@@ -228,9 +228,18 @@ else
 				await Task.Delay(250, token);
 				if (!token.IsCancellationRequested && _storageModule != null)
 				{
-					string json = Workspace.ExportStateJson();
-					await _storageModule.InvokeVoidAsync("saveWorkspaceState", json);
-					_isDirty = false;
+					// Snapshot on the renderer's thread: the UI mutates tabs and game trees there
+					string json = "";
+					await InvokeAsync(() => json = Workspace.ExportStateJson());
+					bool saved = await _storageModule.InvokeAsync<bool>("saveWorkspaceState", json);
+					if (saved)
+					{
+						_isDirty = false;
+					}
+					else
+					{
+						Console.Error.WriteLine($"Workspace could not be saved to browser storage ({json.Length:N0} characters); it may be over the storage quota.");
+					}
 				}
 			}
 			catch (OperationCanceledException) { }

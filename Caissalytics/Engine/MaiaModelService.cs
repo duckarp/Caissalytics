@@ -178,6 +178,8 @@ public class MaiaModelService : IMaiaModelService
             {
                 foreach (var dir in pathEnv.Split(':', StringSplitOptions.RemoveEmptyEntries))
                 {
+                    // A relative entry (".", "bin") would resolve against the current directory
+                    if (!Path.IsPathRooted(dir)) continue;
                     try
                     {
                         var candidate = Path.Combine(dir, "lc0");
@@ -421,6 +423,12 @@ public class MaiaModelService : IMaiaModelService
             };
             using var proc = System.Diagnostics.Process.Start(psi);
             if (proc == null) return false;
+
+            // On cancellation stop the build (git/meson/ninja) instead of leaving it running
+            using var killOnCancel = ct.Register(() =>
+            {
+                try { proc.Kill(entireProcessTree: true); } catch { }
+            });
 
             // Drain stdout/stderr to prevent deadlock on large output
             var stdoutTask = proc.StandardOutput.ReadToEndAsync();
