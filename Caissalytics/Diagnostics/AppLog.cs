@@ -49,6 +49,8 @@ public sealed class LogTeeWriter(TextWriter console, TextWriter file, string lev
 {
     // Shared by the Out and Error writers, which append to the same file
     private static readonly object FileLock = new();
+    // Longer lines are payload dumps, not diagnostics; keep the start so the source is still visible
+    public const int MaxLineLength = 4000;
     private readonly StringBuilder _line = new();
 
     public override Encoding Encoding => console.Encoding;
@@ -95,7 +97,10 @@ public sealed class LogTeeWriter(TextWriter console, TextWriter file, string lev
     {
         try
         {
-            file.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{level}] {_line}");
+            string text = _line.Length <= MaxLineLength
+                ? _line.ToString()
+                : $"{_line.ToString(0, MaxLineLength)}... ({(_line.Length - MaxLineLength).ToString("N0", System.Globalization.CultureInfo.InvariantCulture)} more characters)";
+            file.WriteLine($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{level}] {text}");
         }
         catch
         {

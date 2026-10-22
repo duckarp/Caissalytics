@@ -138,7 +138,10 @@ internal class Program
             .SetMinSize(1000, 650)
             .SetMediaAutoplayEnabled(true)
             .SetUseOsDefaultLocation(false)
-            .SetDevToolsEnabled(true);
+            .SetDevToolsEnabled(true)
+            // The default (2) traces every message between .NET and the web view, including render
+            // batches and the saved workspace, which would flood the log file
+            .SetLogVerbosity(1);
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {

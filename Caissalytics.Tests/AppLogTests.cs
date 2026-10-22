@@ -25,6 +25,22 @@ public class AppLogTests
     }
 
     [Fact]
+    public void TeeWriter_TruncatesHugeLinesInTheFileOnly()
+    {
+        var console = new StringWriter();
+        var file = new StringWriter();
+        var tee = new LogTeeWriter(console, file, "INFO");
+        string huge = new string('x', LogTeeWriter.MaxLineLength + 5000);
+
+        tee.WriteLine(huge);
+
+        Assert.Equal(huge + "\n", console.ToString());
+        string logged = file.ToString().TrimEnd();
+        Assert.EndsWith("... (5,000 more characters)", logged);
+        Assert.True(logged.Length < LogTeeWriter.MaxLineLength + 100);
+    }
+
+    [Fact]
     public void RotateIfLarge_KeepsOnePreviousLog()
     {
         string dir = Path.Combine(Path.GetTempPath(), "caissalytics_log_" + Guid.NewGuid().ToString("N"));
