@@ -7,14 +7,23 @@ public static class SanParser
     public static string ToSan(BoardPosition pos, Move move)
     {
         if (move.IsEmpty) return "";
+        return ToSan(pos, move, MoveGenerator.GenerateLegalMoves(pos), includeCheckSuffix: true);
+    }
 
+    /// <param name="legalMoves">The legal moves of <paramref name="pos"/>, when the caller already has them.</param>
+    /// <param name="includeCheckSuffix">Append "+"/"#"; needs the move applied and the reply generated, so parsing skips it.</param>
+    private static string ToSan(BoardPosition pos, Move move, IReadOnlyList<Move> legalMoves, bool includeCheckSuffix)
+    {
         var p = pos[move.From];
-        var legalMoves = MoveGenerator.GenerateLegalMoves(pos);
-        var nextPos = MoveGenerator.ApplyMove(pos, move);
-        bool isCheck = MoveGenerator.IsInCheck(nextPos, nextPos.ActiveColor);
-        bool isCheckmate = isCheck && MoveGenerator.GenerateLegalMoves(nextPos).Count == 0;
 
-        string checkSuffix = isCheckmate ? "#" : (isCheck ? "+" : "");
+        string checkSuffix = "";
+        if (includeCheckSuffix)
+        {
+            var nextPos = MoveGenerator.ApplyMove(pos, move);
+            bool isCheck = MoveGenerator.IsInCheck(nextPos, nextPos.ActiveColor);
+            bool isCheckmate = isCheck && MoveGenerator.GenerateLegalMoves(nextPos).Count == 0;
+            checkSuffix = isCheckmate ? "#" : (isCheck ? "+" : "");
+        }
 
         // Castling
         if (move.IsCastling)
@@ -96,6 +105,21 @@ public static class SanParser
         return sb.ToString();
     }
 
+    /// <summary>The last square (file letter + rank digit) written in a SAN token, e.g. f3 in "Nxf3+".</summary>
+    private static Square? LastSquareIn(string san)
+    {
+        for (int i = san.Length - 2; i >= 0; i--)
+        {
+            char file = char.ToLowerInvariant(san[i]);
+            char rank = san[i + 1];
+            if (file >= 'a' && file <= 'h' && rank >= '1' && rank <= '8')
+            {
+                return SquareExtensions.Parse($"{file}{rank}");
+            }
+        }
+        return null;
+    }
+
     public static Move ParseSan(BoardPosition pos, string san)
     {
         if (string.IsNullOrWhiteSpace(san))
@@ -104,9 +128,16 @@ public static class SanParser
         san = san.Trim().TrimEnd('+', '#', '!', '?');
         var legalMoves = MoveGenerator.GenerateLegalMoves(pos);
 
+        // Only moves to the square named in the SAN can match, and generating SAN (which itself
+        // generates legal moves) is the expensive part, so skip every other move up front
+        Square? namedSquare = LastSquareIn(san);
+        var candidates = namedSquare is Square t
+            ? legalMoves.Where(m => m.To == t || m.IsCastling)
+            : legalMoves;
+
         // Exact match against generated SANs. Case matters: "bxc6" (pawn) and
         // "Bxc6" (bishop) can both be legal in the same position.
-        var generated = legalMoves.Select(m => (Move: m, San: ToSan(pos, m).TrimEnd('+', '#', '!', '?'))).ToList();
+        var generated = candidates.Select(m => (Move: m, San: ToSan(pos, m, legalMoves, includeCheckSuffix: false))).ToList();
         foreach (var g in generated)
         {
             if (g.San.Equals(san, StringComparison.Ordinal))
