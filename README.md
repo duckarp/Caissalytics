@@ -169,6 +169,8 @@ Customize your theme and audio preferences in **Control Center → Board & Audio
 - **OS Drag & Drop on Linux (WebKitGTK)**: Dragging and dropping files directly from native desktop file managers (GNOME Files/Nautilus, Dolphin) into the app window is currently not handled reliably due to native GTK/WebKitGTK sandbox event translation.
   - **Workaround**: Click the dropzone box to open the native system file dialog to select `.pgn`, `.zip`, or `.7z` files, or use the "Paste PGN" tab directly.
 
+**Reporting a problem**: the app writes a log to `~/.local/share/Caissalytics/logs/caissalytics.log` on Linux and `%LOCALAPPDATA%\Caissalytics\logs\caissalytics.log` on Windows (the previous log is kept as `caissalytics.1.log`). Please attach it to bug reports.
+
 ---
 
 ## 🤝 Contributing

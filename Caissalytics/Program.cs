@@ -2,10 +2,12 @@ using System.Runtime.InteropServices;
 using System.Text.Json;
 using Caissalytics.Components;
 using Caissalytics.Data;
+using Caissalytics.Diagnostics;
 using Caissalytics.Engine;
 using Caissalytics.Localization;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Logging;
 using Photino.Blazor;
 
 namespace Caissalytics;
@@ -20,6 +22,16 @@ internal class Program
     {
         SetLinuxProgramName("caissalytics");
 
+        AppLog.Initialize(Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Caissalytics", "logs"));
+        Console.WriteLine($"[Caissalytics] Starting version {typeof(Program).Assembly.GetName().Version}");
+        TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            Console.Error.WriteLine($"[Caissalytics] Unobserved task exception: {e.Exception}");
+            e.SetObserved();
+        };
+
         // Configure WebView2 arguments for low-latency mouse tracking and hardware acceleration toggle
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
@@ -30,7 +42,7 @@ internal class Program
         var appBuilder = PhotinoBlazorAppBuilder.CreateDefault(args);
 
         // Register application services
-        appBuilder.Services.AddLogging();
+        appBuilder.Services.AddLogging(logging => logging.AddProvider(new ConsoleErrorLoggerProvider()));
         appBuilder.Services.AddHttpClient();
         appBuilder.Services.AddSingleton<IEngineService, EngineManager>();
         appBuilder.Services.AddSingleton<IMaiaModelService, MaiaModelService>();
