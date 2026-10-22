@@ -160,6 +160,8 @@ The in-app updater only installs an update whose archive has a valid detached si
 
 The workflow fails instead of publishing if the secret is missing or doesn't match the committed public key, because the updater would reject such a release.
 
+To check the key setup without releasing, run the workflow manually (*Actions → Release Packages → Run workflow*) with **dry run** ticked (the default): it builds, tests and signs, but publishes nothing.
+
 To sign or check a file by hand:
 
 ```bash

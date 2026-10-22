@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Build and sign only (checks the signing key); do not publish a release'
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -70,6 +75,8 @@ jobs:
           rm -f signing-key.pem
 
       - name: Create GitHub Release
+        # Manual runs default to a dry run: everything up to signing, nothing published
+        if: github.event_name == 'push' || inputs.dry_run == false
         uses: softprops/action-gh-release@v2
         with:
           files: |
