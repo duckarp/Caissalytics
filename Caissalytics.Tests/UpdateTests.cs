@@ -174,6 +174,61 @@ public class UpdateTests : IDisposable
         Assert.False(requested);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task UnixApplyScript_OnlyReplacesTheAppWhenUnpackingSucceeds(bool validArchive)
+    {
+        if (OperatingSystem.IsWindows()) return;
+
+        string root = Path.Combine(_dir, "apply test's dir"); // space and quote: exercises the shell quoting
+        string appDir = Path.Combine(root, "app");
+        string staging = Path.Combine(root, "staging");
+        Directory.CreateDirectory(appDir);
+        Directory.CreateDirectory(staging);
+
+        // The "app": writes a marker when (re)launched
+        string exe = Path.Combine(appDir, "Caissalytics");
+        string marker = Path.Combine(root, "launched");
+        await File.WriteAllTextAsync(exe, "#!/bin/sh\necho old > \"$(dirname \"$0\")/../launched\"\n");
+        File.SetUnixFileMode(exe, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+
+        string archive = Path.Combine(staging, "Caissalytics-linux-x64.tar.gz");
+        if (validArchive)
+        {
+            string payload = Path.Combine(root, "payload");
+            Directory.CreateDirectory(payload);
+            await File.WriteAllTextAsync(Path.Combine(payload, "Caissalytics"), "#!/bin/sh\necho new > \"$(dirname \"$0\")/../launched\"\n");
+            await using var gz = new System.IO.Compression.GZipStream(File.Create(archive), System.IO.Compression.CompressionLevel.Fastest);
+            await System.Formats.Tar.TarFile.CreateFromDirectoryAsync(payload, gz, includeBaseDirectory: false);
+        }
+        else
+        {
+            await File.WriteAllTextAsync(archive, "truncated download");
+        }
+
+        // A process id that has already exited
+        using var finished = System.Diagnostics.Process.Start("true")!;
+        await finished.WaitForExitAsync();
+
+        string script = Path.Combine(staging, "apply_update.sh");
+        await File.WriteAllTextAsync(script, UpdateService.BuildUnixApplyScript(finished.Id, appDir, archive, exe));
+        using (var sh = System.Diagnostics.Process.Start("/bin/sh", $"\"{script}\"")!)
+        {
+            await sh.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(20));
+        }
+
+        for (int i = 0; i < 50 && !File.Exists(marker); i++) await Task.Delay(100);
+
+        Assert.Equal(validArchive ? "new" : "old", (await File.ReadAllTextAsync(marker)).Trim());
+        Assert.False(File.Exists(script));
+        Assert.False(Directory.Exists(Path.Combine(staging, "extracted")));
+        if (!validArchive)
+        {
+            Assert.Contains("keeping the current version", await File.ReadAllTextAsync(Path.Combine(staging, "apply_update.log")));
+        }
+    }
+
     [Fact]
     public void PrepareUpdateStagingDirectory_RecreatesEmptyOwnerOnlyFolder()
     {

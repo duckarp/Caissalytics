@@ -566,6 +566,79 @@ public class UpdateService : IUpdateService
         return string.Equals(actualSha256, update.AssetSha256, StringComparison.OrdinalIgnoreCase);
     }
 
+    // Both scripts wait for the app to exit, unpack into a separate folder next to the script, and only
+    // copy over the installed app when unpacking succeeded; otherwise the current version is relaunched
+    // untouched. Output goes to apply_update.log next to the script.
+
+    public static string BuildUnixApplyScript(int pid, string appDir, string archive, string exe) => $"""
+        #!/bin/sh
+        PID={pid}
+        APP_DIR={ShQuote(appDir)}
+        ARCHIVE={ShQuote(archive)}
+        EXE={ShQuote(exe)}
+        HERE="$(dirname "$0")"
+        LOG="$HERE/apply_update.log"
+        EXTRACT_DIR="$HERE/extracted"
+
+        while kill -0 "$PID" 2>/dev/null; do
+            sleep 1
+        done
+
+        rm -rf "$EXTRACT_DIR" && mkdir -p "$EXTRACT_DIR"
+        case "$ARCHIVE" in
+            *.zip) unzip -o "$ARCHIVE" -d "$EXTRACT_DIR" > "$LOG" 2>&1 ;;
+            *) tar -xzf "$ARCHIVE" -C "$EXTRACT_DIR" > "$LOG" 2>&1 ;;
+        esac
+        STATUS=$?
+
+        if [ "$STATUS" -eq 0 ] && [ -n "$(ls -A "$EXTRACT_DIR")" ]; then
+            cp -Rf "$EXTRACT_DIR"/. "$APP_DIR"/ >> "$LOG" 2>&1 || echo "Copying the update failed" >> "$LOG"
+        else
+            echo "Unpacking failed (status $STATUS); keeping the current version" >> "$LOG"
+        fi
+
+        rm -rf "$EXTRACT_DIR"
+        chmod +x "$EXE"
+        "$EXE" &
+        rm -f "$0"
+
+        """;
+
+    public static string BuildWindowsApplyScript(int pid, string appDir, string archive, string exe) => $"""
+        @echo off
+        set PID={pid}
+        set APP_DIR="{appDir}"
+        set ARCHIVE="{archive}"
+        set EXE="{exe}"
+        set LOG="%~dp0apply_update.log"
+        set EXTRACT_DIR="%~dp0extracted"
+
+        :waitloop
+        tasklist /fi "PID eq %PID%" 2>nul | find "%PID%" >nul
+        if not errorlevel 1 (
+            timeout /t 1 /nobreak >nul
+            goto waitloop
+        )
+
+        if exist %EXTRACT_DIR% rmdir /s /q %EXTRACT_DIR%
+        mkdir %EXTRACT_DIR%
+        tar -xf %ARCHIVE% -C %EXTRACT_DIR% > %LOG% 2>&1
+        if errorlevel 1 (
+            echo Unpacking failed; keeping the current version>> %LOG%
+            goto launch
+        )
+        xcopy "%~dp0extracted\*" %APP_DIR% /E /Y /I >> %LOG% 2>&1
+
+        :launch
+        if exist %EXTRACT_DIR% rmdir /s /q %EXTRACT_DIR%
+        start "" %EXE%
+        del "%~f0"
+
+        """;
+
+    /// <summary>Single-quotes a value for POSIX sh, so paths with spaces, $ or quotes stay literal.</summary>
+    private static string ShQuote(string value) => "'" + value.Replace("'", "'\\''") + "'";
+
     public Task ApplyUpdateAndRestartAsync()
     {
         if (string.IsNullOrEmpty(_stagedFilePath) || !File.Exists(_stagedFilePath))
@@ -591,24 +664,7 @@ public class UpdateService : IUpdateService
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             string batScript = Path.Combine(stagingDir, "apply_update.bat");
-            string scriptContent = $@"@echo off
-set PID={pid}
-set APP_DIR=""{appDir}""
-set ARCHIVE=""{_stagedFilePath}""
-set EXE=""{currentExe}""
-
-:waitloop
-tasklist /fi ""PID eq %PID%"" 2>nul | find ""%PID%"" >nul
-if not errorlevel 1 (
-    timeout /t 1 /nobreak >nul
-    goto waitloop
-)
-
-tar -xf %ARCHIVE% -C %APP_DIR% > ""%~dp0apply_update.log"" 2>&1
-start """" %EXE%
-del ""%~f0""
-";
-            File.WriteAllText(batScript, scriptContent);
+            File.WriteAllText(batScript, BuildWindowsApplyScript(pid, appDir, _stagedFilePath, currentExe));
 
             var psi = new ProcessStartInfo
             {
@@ -624,27 +680,8 @@ del ""%~f0""
         else
         {
             string shScript = Path.Combine(stagingDir, "apply_update.sh");
-            string scriptContent = $@"#!/bin/sh
-PID={pid}
-APP_DIR=""{appDir}""
-ARCHIVE=""{_stagedFilePath}""
-EXE=""{currentExe}""
-
-while kill -0 $PID 2>/dev/null; do
-    sleep 1
-done
-
-LOG=""$(dirname ""$0"")/apply_update.log""
-case ""$ARCHIVE"" in
-    *.zip) unzip -o ""$ARCHIVE"" -d ""$APP_DIR"" > ""$LOG"" 2>&1 ;;
-    *) tar -xzf ""$ARCHIVE"" -C ""$APP_DIR"" > ""$LOG"" 2>&1 ;;
-esac
-chmod +x ""$EXE""
-""$EXE"" &
-rm -f ""$0""
-";
-            File.WriteAllText(shScript, scriptContent);
-            try { Process.Start("chmod", $"+x \"{shScript}\"").WaitForExit(); } catch { }
+            File.WriteAllText(shScript, BuildUnixApplyScript(pid, appDir, _stagedFilePath, currentExe));
+            File.SetUnixFileMode(shScript, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
 
             var psi = new ProcessStartInfo
             {
