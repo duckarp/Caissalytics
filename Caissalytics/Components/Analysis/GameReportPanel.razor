@@ -158,18 +158,14 @@
 	private bool _isAnnotated = false;
 	private bool _isDisposed = false;
 
+	// Ply of the current move within the analyzed line; null when the current move isn't on it
 	private int? CurrentPlyIndex
 	{
 		get
 		{
-			int count = -1;
-			var curr = Tab.Tree.CurrentNode;
-			while (curr.Parent != null)
-			{
-				count++;
-				curr = curr.Parent;
-			}
-			return curr == Tab.Tree.Root && count >= 0 ? count : null;
+			if (Tab.AnalysisReport == null) return null;
+			int index = Caissalytics.Engine.GameAnalysisService.ResolveReportLine(Tab.Tree, Tab.AnalysisReport).IndexOf(Tab.Tree.CurrentNode);
+			return index >= 0 ? index : null;
 		}
 	}
 
@@ -247,19 +243,10 @@
 
 	private void HandleChartPlySelected(int plyIndex)
 	{
-		var curr = Tab.Tree.Root;
-		for (int i = 0; i <= plyIndex; i++)
-		{
-			if (curr.Children.Count > 0)
-			{
-				curr = curr.Children[0];
-			}
-			else
-			{
-				break;
-			}
-		}
-		Tab.Tree.NavigateTo(curr);
+		if (Tab.AnalysisReport == null) return;
+		var line = Caissalytics.Engine.GameAnalysisService.ResolveReportLine(Tab.Tree, Tab.AnalysisReport);
+		if (line.Count == 0) return;
+		Tab.Tree.NavigateTo(line[Math.Clamp(plyIndex, 0, line.Count - 1)]);
 		OnSelectPly.InvokeAsync(plyIndex);
 	}
 

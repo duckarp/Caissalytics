@@ -50,6 +50,12 @@ public class GameAnalysisReport
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public List<PlyAnalysis> Plies { get; set; } = new();
 
+    /// <summary>
+    /// The analyzed line as child indices from the root (Plies[i] is the move reached by the first i+1
+    /// steps). Empty for reports saved before this existed: those cover the main line.
+    /// </summary>
+    public List<int> LinePath { get; set; } = new();
+
     public double WhiteAccuracy { get; set; }
     public double BlackAccuracy { get; set; }
 

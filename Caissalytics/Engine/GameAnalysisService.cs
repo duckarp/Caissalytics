@@ -23,28 +23,20 @@ public class GameAnalysisService : IGameAnalysisService
             throw new InvalidOperationException("Stockfish engine is not installed or available. Please install it from the Dashboard.");
         }
 
-        // If the current mainline is shorter than another branch in the tree (e.g. from takebacks or variations),
-        // promote the deepest branch to mainline so the full game is analyzed.
+        // Which line to analyze, without reordering the user's tree: the deepest branch if it is longer
+        // than the main line (e.g. after takebacks), else the variation the user is in, else the main line.
+        MoveNode? lineThrough = null;
         var deepestLeaf = tree.FindDeepestLeaf();
         if (deepestLeaf != null && !deepestLeaf.IsMainline && GameTree.GetDepth(deepestLeaf) > tree.GetMainlineDepth())
         {
-            tree.PromoteVariation(deepestLeaf);
+            lineThrough = deepestLeaf;
         }
         else if (tree.CurrentNode != null && !tree.CurrentNode.IsRoot && !tree.CurrentNode.IsMainline)
         {
-            // Or if user actively navigated to a variation, promote it to mainline for analysis
-            tree.PromoteVariation(tree.CurrentNode);
+            lineThrough = tree.CurrentNode;
         }
 
-        // Collect mainline nodes
-        var mainlineNodes = new List<MoveNode>();
-        var curr = tree.Root;
-        while (curr.Children.Count > 0)
-        {
-            var next = curr.Children[0];
-            mainlineNodes.Add(next);
-            curr = next;
-        }
+        var mainlineNodes = CollectLine(tree, lineThrough);
 
         if (mainlineNodes.Count == 0)
         {
@@ -218,6 +210,7 @@ public class GameAnalysisService : IGameAnalysisService
         var report = new GameAnalysisReport
         {
             Plies = plies,
+            LinePath = mainlineNodes.Select(n => n.Parent!.Children.IndexOf(n)).ToList(),
             WhiteAccuracy = CalculateAccuracy(whitePlies),
             BlackAccuracy = CalculateAccuracy(blackPlies),
             WhiteAcpl = CalculateAcpl(whitePlies),
@@ -241,16 +234,47 @@ public class GameAnalysisService : IGameAnalysisService
         return report;
     }
 
-    public void AnnotateGameTree(GameTree tree, GameAnalysisReport report)
+    /// <summary>Path from the root through <paramref name="through"/> (if given), then on along first children to the end.</summary>
+    private static List<MoveNode> CollectLine(GameTree tree, MoveNode? through)
     {
-        var mainlineNodes = new List<MoveNode>();
-        var curr = tree.Root;
+        var line = new List<MoveNode>();
+        if (through != null)
+        {
+            for (var n = through; n.Parent != null; n = n.Parent) line.Add(n);
+            line.Reverse();
+        }
+
+        var curr = line.Count > 0 ? line[^1] : tree.Root;
         while (curr.Children.Count > 0)
         {
-            var next = curr.Children[0];
-            mainlineNodes.Add(next);
-            curr = next;
+            curr = curr.Children[0];
+            line.Add(curr);
         }
+        return line;
+    }
+
+    /// <summary>The moves a report covers, in order (its recorded line, or the main line for older reports).</summary>
+    public static List<MoveNode> ResolveReportLine(GameTree tree, GameAnalysisReport report)
+    {
+        if (report.LinePath.Count == 0)
+        {
+            return CollectLine(tree, null);
+        }
+
+        var line = new List<MoveNode>();
+        var curr = tree.Root;
+        foreach (int childIndex in report.LinePath)
+        {
+            if (childIndex < 0 || childIndex >= curr.Children.Count) break; // tree changed since the analysis
+            curr = curr.Children[childIndex];
+            line.Add(curr);
+        }
+        return line;
+    }
+
+    public void AnnotateGameTree(GameTree tree, GameAnalysisReport report)
+    {
+        var mainlineNodes = ResolveReportLine(tree, report);
 
         foreach (var ply in report.Plies)
         {

@@ -163,6 +163,41 @@ public class GameAnalysisTests
     }
 
     [Fact]
+    public async Task AnalyzeGame_DeeperVariation_IsAnalyzedWithoutReorderingTheTree()
+    {
+        if (!FakeUciEngine.IsSupported) return;
+
+        using var fakeEngine = new FakeUciEngine("""
+                go*) echo "info depth 1 score cp 0 pv 0000"; echo "bestmove 0000" ;;
+            """);
+        var engines = new FakeEngineService
+        {
+            ActiveEngine = new EngineInfo { Id = "fake", Name = "Fake", ExecutablePath = fakeEngine.ExecutablePath, IsInstalled = true }
+        };
+        var service = new GameAnalysisService(engines);
+
+        // The variation 1...c5 is longer than the main line, so it is the one analyzed
+        var tree = PgnHandler.ImportPgn("1. e4 e5 (1... c5 2. Nf3 d6 3. d4) 2. Nf3 *");
+        var e4 = tree.Root.Children[0];
+
+        var report = await service.AnalyzeGameAsync(tree, GameAnalysisOptions.Quick);
+
+        // Main line untouched
+        Assert.Equal("e5", e4.Children[0].San);
+        Assert.Equal("c5", e4.Children[1].San);
+
+        Assert.Equal(new[] { "e4", "c5", "Nf3", "d6", "d4" }, report.Plies.Select(p => p.MoveSan));
+        Assert.Equal(new[] { 0, 1, 0, 0, 0 }, report.LinePath);
+        var line = GameAnalysisService.ResolveReportLine(tree, report);
+        Assert.Equal(report.Plies.Select(p => p.MoveSan), line.Select(n => n.San));
+
+        // Annotations land on the analyzed variation, not on the main line
+        service.AnnotateGameTree(tree, report);
+        Assert.StartsWith("[", e4.Children[1].Comment);
+        Assert.True(string.IsNullOrEmpty(e4.Children[0].Comment));
+    }
+
+    [Fact]
     public void PlyAnalysis_WithoutStoredSide_FallsBackToPlyParity()
     {
         // Reports persisted before IsWhiteMove/MoveNumber were stored
