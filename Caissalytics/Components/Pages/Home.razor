@@ -38,97 +38,97 @@ else
 		@foreach (var tab in Workspace.Tabs.OfType<AnalysisTab>())
 		{
 			bool isActive = tab == Workspace.ActiveTab;
-			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+			<TabPane @key="tab.Id" IsActive="isActive">
 				<AnalysisWorkbench Tab="tab" />
-			</div>
+			</TabPane>
 		}
 
 		@foreach (var tab in Workspace.Tabs.OfType<DatabaseBrowserTab>())
 		{
 			bool isActive = tab == Workspace.ActiveTab;
-			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+			<TabPane @key="tab.Id" IsActive="isActive">
 				<DatabaseBrowser Tab="tab" />
-			</div>
+			</TabPane>
 		}
 
 		@foreach (var tab in Workspace.Tabs.OfType<SettingsTab>())
 		{
 			bool isActive = tab == Workspace.ActiveTab;
-			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+			<TabPane @key="tab.Id" IsActive="isActive">
 				<SettingsControlCenter Tab="tab" />
-			</div>
+			</TabPane>
 		}
 
 		@foreach (var tab in Workspace.Tabs.OfType<AnalyticsTab>())
 		{
 			bool isActive = tab == Workspace.ActiveTab;
-			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+			<TabPane @key="tab.Id" IsActive="isActive">
 				<PersonalAnalyticsDashboard Tab="tab" />
-			</div>
+			</TabPane>
 		}
 
 		@foreach (var tab in Workspace.Tabs.OfType<PuzzleTrainerTab>())
 		{
 			bool isActive = tab == Workspace.ActiveTab;
-			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+			<TabPane @key="tab.Id" IsActive="isActive">
 				<PuzzleWorkbench Tab="tab" />
-			</div>
+			</TabPane>
 		}
 
 		@foreach (var tab in Workspace.Tabs.OfType<RepertoireExplorerTab>())
 		{
 			bool isActive = tab == Workspace.ActiveTab;
-			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+			<TabPane @key="tab.Id" IsActive="isActive">
 				<RepertoireWorkbench Tab="tab" />
-			</div>
+			</TabPane>
 		}
 
 		@foreach (var tab in Workspace.Tabs.OfType<OpponentDossierTab>())
 		{
 			bool isActive = tab == Workspace.ActiveTab;
-			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+			<TabPane @key="tab.Id" IsActive="isActive">
 				<OpponentDossierWorkbench Tab="tab" />
-			</div>
+			</TabPane>
 		}
 
 		@foreach (var tab in Workspace.Tabs.OfType<EndgameTrainerTab>())
 		{
 			bool isActive = tab == Workspace.ActiveTab;
-			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+			<TabPane @key="tab.Id" IsActive="isActive">
 				<EndgameTrainerWorkbench Tab="tab" />
-			</div>
+			</TabPane>
 		}
 
 		@foreach (var tab in Workspace.Tabs.OfType<PracticeTab>())
 		{
 			bool isActive = tab == Workspace.ActiveTab;
-			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+			<TabPane @key="tab.Id" IsActive="isActive">
 				<PracticeWorkbench Tab="tab" />
-			</div>
+			</TabPane>
 		}
 
 		@foreach (var tab in Workspace.Tabs.OfType<HomeworkTab>())
 		{
 			bool isActive = tab == Workspace.ActiveTab;
-			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+			<TabPane @key="tab.Id" IsActive="isActive">
 				<HomeworkWorkbench Tab="tab" />
-			</div>
+			</TabPane>
 		}
 
 		@foreach (var tab in Workspace.Tabs.OfType<ClubHomeworkTab>())
 		{
 			bool isActive = tab == Workspace.ActiveTab;
-			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+			<TabPane @key="tab.Id" IsActive="isActive">
 				<ClubHomeworkWorkbench Tab="tab" />
-			</div>
+			</TabPane>
 		}
 
 		@foreach (var tab in Workspace.Tabs.OfType<ClubMessagesTab>())
 		{
 			bool isActive = tab == Workspace.ActiveTab;
-			<div @key="tab.Id" class="@(isActive ? "workspace-view" : "workspace-view view-hidden")">
+			<TabPane @key="tab.Id" IsActive="isActive">
 				<ClubMessagesWorkbench Tab="tab" />
-			</div>
+			</TabPane>
 		}
 	</div>
 }

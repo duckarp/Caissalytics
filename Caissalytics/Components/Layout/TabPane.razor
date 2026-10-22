@@ -1,0 +1,20 @@
+@* Hosts one workspace tab. Hidden tabs stay mounted (keeping their state), but are not re-rendered
+   on every workspace change; they catch up when shown again. A workbench can still re-render
+   itself (e.g. live engine output) through its own StateHasChanged. *@
+<div class="@(IsActive ? "workspace-view" : "workspace-view view-hidden")">
+	@ChildContent
+</div>
+
+@code {
+	[Parameter] public bool IsActive { get; set; }
+	[Parameter] public RenderFragment? ChildContent { get; set; }
+
+	private bool _renderedActive;
+
+	protected override bool ShouldRender() => IsActive || IsActive != _renderedActive;
+
+	protected override void OnAfterRender(bool firstRender)
+	{
+		_renderedActive = IsActive;
+	}
+}
