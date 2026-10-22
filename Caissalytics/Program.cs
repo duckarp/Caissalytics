@@ -234,21 +234,43 @@ internal class Program
 
         app.Run();
 
-        // Dispose singletons after the window closes so engine processes are shut down cleanly
-        try
+        ShutDownAppServices(app.Services);
+    }
+
+    /// <summary>
+    /// Stops our own services that own external processes or timers (engines, polling) once the window
+    /// has closed. Deliberately not the whole container: disposing the Photino/Blazor web view services
+    /// after the message loop has ended blocks the main thread forever and the process never exits.
+    /// Runs off the main thread with a time limit so a stuck engine can't keep the app alive either.
+    /// </summary>
+    private static void ShutDownAppServices(IServiceProvider services)
+    {
+        Type[] owningProcessesOrTimers =
+        [
+            typeof(IEngineService),
+            typeof(IPracticeEngineService),
+            typeof(ISkppIntegrationService),
+            typeof(ITablebaseService)
+        ];
+
+        var shutdown = Task.Run(() =>
         {
-            if (app.Services is IAsyncDisposable asyncDisposable)
+            foreach (var type in owningProcessesOrTimers)
             {
-                asyncDisposable.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(5));
+                try
+                {
+                    (services.GetService(type) as IDisposable)?.Dispose();
+                }
+                catch (Exception ex)
+                {
+                    Console.Error.WriteLine($"[Caissalytics] Error shutting down {type.Name}: {ex.Message}");
+                }
             }
-            else if (app.Services is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
-        }
-        catch (Exception ex)
+        });
+
+        if (!shutdown.Wait(TimeSpan.FromSeconds(5)))
         {
-            Console.Error.WriteLine($"[Caissalytics] Error during shutdown: {ex.Message}");
+            Console.Error.WriteLine("[Caissalytics] Services did not shut down within 5 s; exiting anyway");
         }
     }
 
