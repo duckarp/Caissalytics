@@ -1,6 +1,7 @@
 // Keyboard navigation for lists and tables (used by KeyboardList.razor). Offline, no dependencies.
 // The decision to claim a key has to be made synchronously (to stop arrows scrolling the page), so it
-// happens here; the .NET side gets the action name and moves the active row or runs the row action.
+// happens here; the .NET side gets the action name (and whether Shift was held) and moves the active
+// row, extends the selection or runs the row action.
 (function () {
 	"use strict";
 
@@ -23,19 +24,35 @@
 			var id = nextId++;
 			var entry = { el: container, ref: dotNetRef, actions: actions || {} };
 			entry.handler = function (e) {
-				if (e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey) return;
+				if (e.defaultPrevented || e.altKey) return;
 				if (isInnerControl(e.target, container)) return;
 
-				var name = NAVIGATION[e.key];
-				if (!name && entry.actions[ACTIONS[e.key]]) name = ACTIONS[e.key];
+				var name = null;
+				if (e.ctrlKey || e.metaKey) {
+					// Only Ctrl+A (select all) is ours; other Ctrl shortcuts belong to the app
+					if ((e.key === "a" || e.key === "A") && entry.actions.select) name = "selectAll";
+				} else if (e.key === "Escape") {
+					if (entry.actions.select) name = "clearSelection";
+				} else {
+					name = NAVIGATION[e.key];
+					if (!name && entry.actions[ACTIONS[e.key]]) name = ACTIONS[e.key];
+				}
 				if (!name) return;
 
 				e.preventDefault();
 				// Keep window-level shortcut handlers (e.g. board navigation) from also acting on it
 				e.stopPropagation();
-				entry.ref.invokeMethodAsync("OnListKey", name).catch(function () { });
+				entry.ref.invokeMethodAsync("OnListKey", name, e.shiftKey).catch(function () { });
+			};
+			// Shift+click selects a range of rows; without this the browser would also select page text
+			entry.mouseHandler = function (e) {
+				if (e.shiftKey && entry.actions.select && !isInnerControl(e.target, container)) {
+					e.preventDefault();
+					container.focus({ preventScroll: true });
+				}
 			};
 			container.addEventListener("keydown", entry.handler);
+			container.addEventListener("mousedown", entry.mouseHandler);
 			lists[id] = entry;
 			return id;
 		},
@@ -57,6 +74,7 @@
 			var entry = lists[id];
 			if (!entry) return;
 			entry.el.removeEventListener("keydown", entry.handler);
+			entry.el.removeEventListener("mousedown", entry.mouseHandler);
 			delete lists[id];
 		}
 	};

@@ -1,7 +1,10 @@
 @* Wraps a list or table to make it keyboard-driven. The consumer renders the rows, marks the active
    one with the "kl-row-active" class and sets ActiveIndex when a row is clicked; this component keeps
    focus, moves the active row with the arrow keys and runs the row actions for the action keys.
-   Only actions with a handler claim their key (e.g. Delete does nothing in a list without OnDelete). *@
+   Only actions with a handler claim their key (e.g. Delete does nothing in a list without OnDelete).
+   Multi-select (optional): give IsSelected + OnSelectionChange and forward row presses to
+   HandleRowMouseDown; then Shift+arrows / Shift+click select a range, Ctrl+click toggles a row,
+   Ctrl+A selects all rows and Escape clears the selection. *@
 @implements IAsyncDisposable
 @inject IJSRuntime JS
 
@@ -11,6 +14,11 @@
 	{
 		<div class="keyboard-list-hint" aria-hidden="true">
 			<span><kbd>↑</kbd><kbd>↓</kbd> @Loc["List_HintMove"]</span>
+			@if (SelectionEnabled)
+			{
+				<span><kbd>Shift</kbd>+<kbd>↑</kbd><kbd>↓</kbd> @Loc["List_HintSelectRange"]</span>
+				<span><kbd>Ctrl</kbd>+<kbd>A</kbd> @Loc["List_HintSelectAll"]</span>
+			}
 			@if (OnOpen.HasDelegate)
 			{
 				<span><kbd>Enter</kbd> @(OpenLabel ?? Loc["List_HintOpen"])</span>
@@ -54,6 +62,16 @@
 	/// <summary>Arrow pressed past the first (-1) or last (+1) row, e.g. to turn the page.</summary>
 	[Parameter] public EventCallback<int> OnBoundary { get; set; }
 
+	/// <summary>Whether a row is selected; enables multi-select together with OnSelectionChange.</summary>
+	[Parameter] public Func<int, bool>? IsSelected { get; set; }
+
+	/// <summary>Rows to select and to deselect after a range, toggle, select-all or clear.</summary>
+	[Parameter] public EventCallback<SelectionChange> OnSelectionChange { get; set; }
+
+	public sealed record SelectionChange(IReadOnlyList<int> Selected, IReadOnlyList<int> Deselected);
+
+	private bool SelectionEnabled => IsSelected != null && OnSelectionChange.HasDelegate;
+
 	[Parameter] public string? OpenLabel { get; set; }
 	[Parameter] public string? EditLabel { get; set; }
 	[Parameter] public string? DeleteLabel { get; set; }
@@ -71,6 +89,11 @@
 	private string _sentActions = "";
 	private int _scrolledIndex = -1;
 	private bool _isDisposed;
+
+	// Range selection: rows between the anchor and the active row are selected on top of the rows that
+	// were selected when the range started (so shrinking a range gives rows back their earlier state)
+	private int _anchor = -1;
+	private HashSet<int>? _rangeBase;
 
 	/// <summary>Row index after a navigation key, staying within 0..count-1 (-1 when the list is empty).</summary>
 	public static int NextIndex(string key, int current, int count, int pageStep)
@@ -101,10 +124,51 @@
 		catch (TaskCanceledException) { }
 	}
 
-	[JSInvokable]
-	public Task OnListKey(string key) => InvokeAsync(() => HandleKeyAsync(key));
+	/// <summary>Row indices a range from <paramref name="anchor"/> to <paramref name="active"/> selects, on top of <paramref name="baseSelection"/>.</summary>
+	public static SelectionChange RangeChange(int anchor, int active, int count, ISet<int> baseSelection, Func<int, bool> isSelected)
+	{
+		int from = Math.Min(anchor, active), to = Math.Max(anchor, active);
+		var selected = new List<int>();
+		var deselected = new List<int>();
+		for (int i = 0; i < count; i++)
+		{
+			bool want = (i >= from && i <= to) || baseSelection.Contains(i);
+			bool has = isSelected(i);
+			if (want && !has) selected.Add(i);
+			else if (!want && has) deselected.Add(i);
+		}
+		return new SelectionChange(selected, deselected);
+	}
 
-	private async Task HandleKeyAsync(string key)
+	/// <summary>
+	/// Forward a row's mousedown here (multi-select lists): plain press makes the row active, Shift
+	/// selects the range from the anchor, Ctrl toggles the row.
+	/// </summary>
+	public async Task HandleRowMouseDown(int index, MouseEventArgs e)
+	{
+		if (index < 0 || index >= Count) return;
+
+		if (SelectionEnabled && e.ShiftKey)
+		{
+			await ExtendSelectionToAsync(index);
+		}
+		else if (SelectionEnabled && (e.CtrlKey || e.MetaKey))
+		{
+			bool select = !IsSelected!(index);
+			await OnSelectionChange.InvokeAsync(select ? new SelectionChange([index], []) : new SelectionChange([], [index]));
+			SetAnchor(index);
+		}
+		else
+		{
+			SetAnchor(index);
+		}
+		await SetActiveAsync(index);
+	}
+
+	[JSInvokable]
+	public Task OnListKey(string key, bool shift) => InvokeAsync(() => HandleKeyAsync(key, shift));
+
+	private async Task HandleKeyAsync(string key, bool shift)
 	{
 		int current = ActiveIndex >= 0 && ActiveIndex < Count ? ActiveIndex : -1;
 		switch (key)
@@ -112,22 +176,65 @@
 			case "open": if (current >= 0) await OnOpen.InvokeAsync(current); return;
 			case "edit": if (current >= 0) await OnEdit.InvokeAsync(current); return;
 			case "delete": if (current >= 0) await OnDelete.InvokeAsync(current); return;
-			case "toggle": if (current >= 0) await OnToggle.InvokeAsync(current); return;
+			case "toggle":
+				if (current >= 0) await OnToggle.InvokeAsync(current);
+				SetAnchor(current);
+				return;
 			case "add": await OnAdd.InvokeAsync(); return;
+			case "selectAll":
+				if (SelectionEnabled) await OnSelectionChange.InvokeAsync(new SelectionChange(Enumerable.Range(0, Count).Where(i => !IsSelected!(i)).ToList(), []));
+				return;
+			case "clearSelection":
+				if (SelectionEnabled) await OnSelectionChange.InvokeAsync(new SelectionChange([], Enumerable.Range(0, Count).Where(i => IsSelected!(i)).ToList()));
+				SetAnchor(current);
+				return;
 		}
 
 		if (Count == 0) return;
-		if (OnBoundary.HasDelegate && ((key == "up" && current == 0) || (key == "down" && current == Count - 1)))
+		bool extend = shift && SelectionEnabled;
+		if (!extend && OnBoundary.HasDelegate && ((key == "up" && current == 0) || (key == "down" && current == Count - 1)))
 		{
 			await OnBoundary.InvokeAsync(key == "up" ? -1 : 1);
+			SetAnchor(ActiveIndex);
 			return;
 		}
 
 		int next = NextIndex(key, current, Count, PageStep);
-		if (next != ActiveIndex)
+		if (extend)
 		{
-			ActiveIndex = next;
-			await ActiveIndexChanged.InvokeAsync(next);
+			if (_anchor < 0 || _anchor >= Count) SetAnchor(current >= 0 ? current : next);
+			await ExtendSelectionToAsync(next);
+		}
+		else
+		{
+			SetAnchor(next);
+		}
+		await SetActiveAsync(next);
+	}
+
+	private void SetAnchor(int index)
+	{
+		_anchor = index;
+		_rangeBase = null;
+	}
+
+	private async Task ExtendSelectionToAsync(int index)
+	{
+		if (_anchor < 0 || _anchor >= Count) SetAnchor(ActiveIndex >= 0 && ActiveIndex < Count ? ActiveIndex : index);
+		_rangeBase ??= Enumerable.Range(0, Count).Where(i => IsSelected!(i)).ToHashSet();
+		var change = RangeChange(_anchor, index, Count, _rangeBase, IsSelected!);
+		if (change.Selected.Count > 0 || change.Deselected.Count > 0)
+		{
+			await OnSelectionChange.InvokeAsync(change);
+		}
+	}
+
+	private async Task SetActiveAsync(int index)
+	{
+		if (index != ActiveIndex)
+		{
+			ActiveIndex = index;
+			await ActiveIndexChanged.InvokeAsync(index);
 		}
 	}
 
@@ -135,14 +242,15 @@
 	{
 		try
 		{
-			string actions = $"{OnOpen.HasDelegate}{OnEdit.HasDelegate}{OnDelete.HasDelegate}{OnToggle.HasDelegate}{OnAdd.HasDelegate}";
+			string actions = $"{OnOpen.HasDelegate}{OnEdit.HasDelegate}{OnDelete.HasDelegate}{OnToggle.HasDelegate}{OnAdd.HasDelegate}{SelectionEnabled}";
 			var actionFlags = new
 			{
 				open = OnOpen.HasDelegate,
 				edit = OnEdit.HasDelegate,
 				delete = OnDelete.HasDelegate,
 				toggle = OnToggle.HasDelegate,
-				add = OnAdd.HasDelegate
+				add = OnAdd.HasDelegate,
+				select = SelectionEnabled
 			};
 
 			if (firstRender)

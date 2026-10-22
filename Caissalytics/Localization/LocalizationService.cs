@@ -335,7 +335,11 @@ public class LocalizationService : ILocalizationService
         ["List_HintDelete"] = "Delete",
         ["List_HintToggle"] = "Select",
         ["List_HintAdd"] = "Add",
+        ["List_HintSelectRange"] = "Select range",
+        ["List_HintSelectAll"] = "Select all",
         ["Db_GameListLabel"] = "Games",
+        ["Db_DeleteSelectedGames"] = "Delete ({0})",
+        ["Db_BulkDeleteConfirm_Question"] = "Delete {0} selected games from '{1}'?",
 
         // Engine Removal Dialog
         // Engine Removal Dialog
@@ -1266,7 +1270,11 @@ public class LocalizationService : ILocalizationService
         ["List_HintDelete"] = "Zmazať",
         ["List_HintToggle"] = "Označiť",
         ["List_HintAdd"] = "Pridať",
+        ["List_HintSelectRange"] = "Označiť rozsah",
+        ["List_HintSelectAll"] = "Označiť všetko",
         ["Db_GameListLabel"] = "Partie",
+        ["Db_DeleteSelectedGames"] = "Zmazať ({0})",
+        ["Db_BulkDeleteConfirm_Question"] = "Zmazať {0} označených partií z databázy '{1}'?",
 
         // Engine Removal Dialog
         ["Engine_RemoveConfirm_Title"] = "Odstránenie šachového motora",

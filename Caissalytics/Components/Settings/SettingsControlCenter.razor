@@ -2596,6 +2596,7 @@
 						style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; padding: 5px 8px; border-radius: 4px; border: 1px solid @(isRecordingPrimary ? "var(--accent-blue)" : "var(--border-subtle)"); background: @(isRecordingPrimary ? "rgba(56, 139, 253, 0.15)" : "rgba(0, 0, 0, 0.2)"); color: @(isRecordingPrimary ? "var(--accent-blue)" : (primary.IsConfigured ? "var(--text-primary)" : "var(--text-muted)")); cursor: pointer; width: 100px; text-align: center; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"
 						tabindex="0"
 						title="@(primary.IsConfigured ? primary.ToDisplayString() : Loc["Settings_Shortcuts_ClickToSet"])"
+						data-shortcut-recorder
 						@onkeydown="(e) => HandleShortcutKeyDown(actionName, true, e)"
 						@onclick="() => StartRecordingShortcut(primaryKey)">
 					@(isRecordingPrimary ? Loc["Settings_Shortcuts_PressKey"] : primary.ToDisplayString())
@@ -2605,6 +2606,7 @@
 						style="font-family: var(--font-mono); font-size: 12px; font-weight: 600; padding: 5px 8px; border-radius: 4px; border: 1px solid @(isRecordingAlt ? "var(--accent-blue)" : "var(--border-subtle)"); background: @(isRecordingAlt ? "rgba(56, 139, 253, 0.15)" : "rgba(0, 0, 0, 0.2)"); color: @(isRecordingAlt ? "var(--accent-blue)" : (alt.IsConfigured ? "var(--text-primary)" : "var(--text-muted)")); cursor: pointer; width: 100px; text-align: center; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"
 						tabindex="0"
 						title="@(alt.IsConfigured ? alt.ToDisplayString() : Loc["Settings_Shortcuts_ClickToSet"])"
+						data-shortcut-recorder
 						@onkeydown="(e) => HandleShortcutKeyDown(actionName, false, e)"
 						@onclick="() => StartRecordingShortcut(altKey)">
 					@(isRecordingAlt ? Loc["Settings_Shortcuts_PressKey"] : alt.ToDisplayString())

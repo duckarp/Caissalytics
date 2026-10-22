@@ -5,6 +5,8 @@
 @inject IDatabaseService DatabaseService
 @inject IUpdateService UpdateService
 @inject ISkppIntegrationService SkppService
+@inject IAppearanceService AppearanceService
+@inject IJSRuntime JS
 @implements IDisposable
 
 <header class="app-header">
@@ -130,6 +132,7 @@
 		Loc.OnLanguageChanged += StateHasChanged;
 		SkppService.OnUnreadCountChanged += HandleUnreadCountChanged;
 		SkppService.OnConnectionStateChanged += HandleSkppStateChanged;
+		AppearanceService.OnAppearanceChanged += HandleAppearanceChanged;
 
 		_unreadMessagesCount = SkppService.UnreadMessageCount;
 		_availableUpdate = UpdateService.CachedUpdate;
@@ -342,5 +345,56 @@
 		Loc.OnLanguageChanged -= StateHasChanged;
 		SkppService.OnUnreadCountChanged -= HandleUnreadCountChanged;
 		SkppService.OnConnectionStateChanged -= HandleSkppStateChanged;
+		AppearanceService.OnAppearanceChanged -= HandleAppearanceChanged;
+		_ = UnregisterShortcutsAsync();
+	}
+
+	// App-wide Close Tab shortcut (appShortcuts.js); it used to work only on tabs with a board
+	private DotNetObjectReference<WorkspaceTabs>? _shortcutRef;
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (!firstRender) return;
+		try
+		{
+			var settings = await AppearanceService.GetSettingsAsync();
+			_shortcutRef = DotNetObjectReference.Create(this);
+			await JS.InvokeVoidAsync("appShortcuts.register", _shortcutRef, CloseTabBindings(settings.Shortcuts));
+		}
+		catch (Exception ex) when (ex is JSDisconnectedException or TaskCanceledException or JSException)
+		{
+			Console.Error.WriteLine($"[WorkspaceTabs] Could not register shortcuts: {ex.Message}");
+		}
+	}
+
+	private static object[] CloseTabBindings(KeyboardShortcutSettings shortcuts) =>
+		new[] { shortcuts.CloseTab, shortcuts.CloseTabAlt }
+			.Where(b => b.IsConfigured)
+			.Select(b => (object)new { key = b.Key, ctrl = b.Ctrl, alt = b.Alt, shift = b.Shift })
+			.ToArray();
+
+	private async void HandleAppearanceChanged(AppearanceSettings settings)
+	{
+		try
+		{
+			await InvokeAsync(() => JS.InvokeVoidAsync("appShortcuts.setCloseTabBindings", CloseTabBindings(settings.Shortcuts)).AsTask());
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[WorkspaceTabs] HandleAppearanceChanged failed: {ex.Message}");
+		}
+	}
+
+	[JSInvokable]
+	public Task OnCloseTabShortcut() => InvokeAsync(() => Workspace.CloseActiveTab());
+
+	private async Task UnregisterShortcutsAsync()
+	{
+		try
+		{
+			await JS.InvokeVoidAsync("appShortcuts.unregister");
+		}
+		catch { }
+		_shortcutRef?.Dispose();
 	}
 }

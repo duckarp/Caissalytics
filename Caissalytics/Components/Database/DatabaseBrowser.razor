@@ -371,6 +371,9 @@
 							<button type="button" class="btn-primary-small btn-bulk-move" @onclick="OpenBulkMoveModal">
 								📁 @Loc["Db_MoveSelectedGames", _selectedGameIds.Count]
 							</button>
+							<button type="button" class="btn-danger-small" @onclick="PromptDeleteSelectedGames">
+								🗑️ @Loc["Db_DeleteSelectedGames", _selectedGameIds.Count]
+							</button>
 						</div>
 					</div>
 				}
@@ -383,6 +386,8 @@
 							  OnToggle="ToggleActiveGameSelection"
 							  OnDelete="DeleteActiveGame"
 							  OnBoundary="TurnGamePageAsync"
+							  IsSelected="IsGameRowSelected"
+							  OnSelectionChange="ApplyGameSelection"
 							  EditLabel="@Loc["Db_EditNote"]"
 							  AriaLabel="@Loc["Db_GameListLabel"]">
 				<table class="db-games-table">
@@ -433,9 +438,9 @@
 								@ondragover:preventDefault="true"
 								@ondrop="() => HandleRowDropAsync(rowIndex)"
 								@ondragend="HandleRowDragEnd"
-								@onmousedown="() => _activeGameIndex = rowIndex"
+								@onmousedown="e => _gameList?.HandleRowMouseDown(rowIndex, e) ?? Task.CompletedTask"
 								@ondblclick="() => OpenGameInAnalysis(game)">
-								<td class="col-select" @onclick:stopPropagation="true" @ondblclick:stopPropagation="true">
+								<td class="col-select" @onclick:stopPropagation="true" @ondblclick:stopPropagation="true" @onmousedown:stopPropagation="true">
 									<input type="checkbox"
 										   class="db-game-checkbox"
 										   checked="@_selectedGameIds.Contains(game.Id)"
@@ -1054,6 +1059,32 @@
 	</div>
 }
 
+<!-- Delete Selected Games Confirmation Modal -->
+@if (_showBulkDeleteModal)
+{
+	<div class="modal-backdrop" @onclick="CancelBulkDelete">
+		<div class="modal-dialog" @onclick:stopPropagation="true" @onkeydown="HandleBulkDeleteModalKeyDown">
+			<div class="modal-header">
+				<h3 class="modal-title">@Loc["Db_DeleteConfirm_Title"]</h3>
+				<button class="modal-close-btn" @onclick="CancelBulkDelete">✕</button>
+			</div>
+			<div class="modal-body">
+				<div class="modal-warning-box">
+					<div class="modal-warning-title">@Loc["Db_DeleteConfirm_Warning"]</div>
+					<div>@Loc["Db_BulkDeleteConfirm_Question", _selectedGameIds.Count, _currentDbName]</div>
+					<div class="modal-irreversible-warning">
+						@Loc["Db_DeleteConfirm_Irreversible"]
+					</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="CancelBulkDelete">@Loc["Common_Cancel"]</button>
+				<button class="btn-danger" autofocus @onclick="ConfirmBulkDeleteAsync">@Loc["Db_DeleteSelectedGames", _selectedGameIds.Count]</button>
+			</div>
+		</div>
+	</div>
+}
+
 <!-- Delete Database Confirmation Modal -->
 @if (_showDeleteDbModal && _dbToDelete != null)
 {
@@ -1612,7 +1643,7 @@
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
 		// After a dialog or reload took focus away from the game list, give it back
-		if (_refocusGameList && !_showDeleteModal && _editingNoteGameId == null && _gameList != null)
+		if (_refocusGameList && !_showDeleteModal && !_showBulkDeleteModal && _editingNoteGameId == null && _gameList != null)
 		{
 			_refocusGameList = false;
 			await _gameList.FocusAsync();
@@ -3469,9 +3500,47 @@
 		if (!_selectedGameIds.Remove(id)) _selectedGameIds.Add(id);
 	}
 
+	// Delete acts on the selection when there is one, otherwise on the active game
 	private void DeleteActiveGame(int index)
 	{
-		if (index < _games.Count) PromptDeleteGame(_games[index]);
+		if (_selectedGameIds.Count > 0) PromptDeleteSelectedGames();
+		else if (index < _games.Count) PromptDeleteGame(_games[index]);
+	}
+
+	private bool IsGameRowSelected(int index) => index < _games.Count && _selectedGameIds.Contains(_games[index].Id);
+
+	private void ApplyGameSelection(KeyboardList.SelectionChange change)
+	{
+		foreach (int i in change.Selected.Where(i => i < _games.Count)) _selectedGameIds.Add(_games[i].Id);
+		foreach (int i in change.Deselected.Where(i => i < _games.Count)) _selectedGameIds.Remove(_games[i].Id);
+	}
+
+	private bool _showBulkDeleteModal;
+
+	private void PromptDeleteSelectedGames()
+	{
+		if (_selectedGameIds.Count > 0) _showBulkDeleteModal = true;
+	}
+
+	private void CancelBulkDelete()
+	{
+		_showBulkDeleteModal = false;
+		_refocusGameList = true;
+	}
+
+	private void HandleBulkDeleteModalKeyDown(KeyboardEventArgs e)
+	{
+		if (e.Key == "Escape") CancelBulkDelete();
+	}
+
+	private async Task ConfirmBulkDeleteAsync()
+	{
+		var ids = _selectedGameIds.ToList();
+		_showBulkDeleteModal = false;
+		await DatabaseService.DeleteGamesAsync(_currentDbName, ids);
+		_selectedGameIds.Clear();
+		_refocusGameList = true;
+		await LoadGamesAsync();
 	}
 
 	// Arrow past the first/last row turns the page, keeping the list (and its focus) in place

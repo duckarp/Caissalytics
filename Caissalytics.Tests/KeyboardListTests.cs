@@ -32,4 +32,35 @@ public class KeyboardListTests
     {
         Assert.Equal(-1, KeyboardList.NextIndex(key, current: 0, count: 0, pageStep: 10));
     }
+
+    private static KeyboardList.SelectionChange Range(int anchor, int active, int[] baseSelection, int[] currentlySelected) =>
+        KeyboardList.RangeChange(anchor, active, count: 10, baseSelection.ToHashSet(), i => currentlySelected.Contains(i));
+
+    [Fact]
+    public void RangeChange_SelectsRowsFromAnchorToActive()
+    {
+        var change = Range(anchor: 2, active: 5, baseSelection: [], currentlySelected: []);
+
+        Assert.Equal(new[] { 2, 3, 4, 5 }, change.Selected);
+        Assert.Empty(change.Deselected);
+    }
+
+    [Fact]
+    public void RangeChange_ShrinkingGivesRowsBackTheirEarlierState()
+    {
+        // Range 2..5 is selected (row 4 was already selected before the range started); shrink to 2..3
+        var change = Range(anchor: 2, active: 3, baseSelection: [4], currentlySelected: [2, 3, 4, 5]);
+
+        Assert.Empty(change.Selected);
+        Assert.Equal(new[] { 5 }, change.Deselected); // row 4 stays: it was selected before
+    }
+
+    [Fact]
+    public void RangeChange_WorksUpwardsAndKeepsOtherSelections()
+    {
+        var change = Range(anchor: 6, active: 4, baseSelection: [0, 9], currentlySelected: [0, 9]);
+
+        Assert.Equal(new[] { 4, 5, 6 }, change.Selected);
+        Assert.Empty(change.Deselected);
+    }
 }
