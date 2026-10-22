@@ -13,6 +13,8 @@ public class StockfishUpdateInfo
     public string DownloadUrl { get; set; } = string.Empty;
     public string AssetName { get; set; } = string.Empty;
     public long AssetSizeBytes { get; set; }
+    /// <summary>Lowercase hex SHA-256 GitHub publishes for the asset; the download is verified against it.</summary>
+    public string? AssetSha256 { get; set; }
     public bool IsUpdateAvailable { get; set; }
     public bool IsChecking { get; set; }
     public string StatusMessage { get; set; } = string.Empty;
@@ -29,7 +31,7 @@ public class StockfishUpdateInfo
     }
 }
 
-public record StockfishReleaseAsset(string Name, string Url, long Size);
+public record StockfishReleaseAsset(string Name, string Url, long Size, string? Sha256 = null);
 
 public static class StockfishVersionHelper
 {

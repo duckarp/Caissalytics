@@ -888,9 +888,10 @@ public class EngineManager : IEngineService, IDisposable
                     string aName = a.TryGetProperty("name", out var nameP) ? nameP.GetString() ?? "" : "";
                     string aUrl = a.TryGetProperty("browser_download_url", out var urlP) ? urlP.GetString() ?? "" : "";
                     long aSize = a.TryGetProperty("size", out var sizeP) ? sizeP.GetInt64() : 0;
+                    string? aSha = UpdateService.ParseSha256Digest(a.TryGetProperty("digest", out var digestP) ? digestP.GetString() : null);
                     if (!string.IsNullOrEmpty(aName) && !string.IsNullOrEmpty(aUrl))
                     {
-                        assetTuples.Add(new StockfishReleaseAsset(aName, aUrl, aSize));
+                        assetTuples.Add(new StockfishReleaseAsset(aName, aUrl, aSize, aSha));
                     }
                 }
             }
@@ -913,6 +914,7 @@ public class EngineManager : IEngineService, IDisposable
                 updateInfo.AssetName = bestAsset.Name;
                 updateInfo.DownloadUrl = bestAsset.Url;
                 updateInfo.AssetSizeBytes = bestAsset.Size;
+                updateInfo.AssetSha256 = bestAsset.Sha256;
             }
 
             if (isUpdateAvailable)
@@ -975,11 +977,28 @@ public class EngineManager : IEngineService, IDisposable
         {
             progress?.Report(10);
 
+            if (string.IsNullOrEmpty(update.AssetSha256))
+            {
+                throw new InvalidOperationException("The Stockfish release does not publish a SHA-256 checksum for this download, so it cannot be verified. Check for updates again or install it manually.");
+            }
+
             using (var response = await _httpClient.GetAsync(update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct))
             {
                 response.EnsureSuccessStatusCode();
                 using var fs = new FileStream(tempArchive, FileMode.Create, FileAccess.Write, FileShare.None);
                 await response.Content.CopyToAsync(fs, ct);
+            }
+
+            // The binary is executed right after extraction, so it must match what the release published
+            string actualSha256;
+            using (var downloaded = File.OpenRead(tempArchive))
+            {
+                actualSha256 = Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(downloaded, ct)).ToLowerInvariant();
+            }
+            if (!string.Equals(actualSha256, update.AssetSha256, StringComparison.OrdinalIgnoreCase))
+            {
+                try { File.Delete(tempArchive); } catch { }
+                throw new InvalidDataException("The downloaded Stockfish archive failed checksum verification and was discarded.");
             }
 
             progress?.Report(60);

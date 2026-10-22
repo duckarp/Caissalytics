@@ -273,8 +273,10 @@ public class EngineTests
         }
     }
 
-    [Fact]
-    public async Task UpdateStockfishAsync_ExtractsAndRegistersStockfish()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task UpdateStockfishAsync_ExtractsAndRegistersStockfish_OnlyWhenChecksumMatches(bool checksumMatches)
     {
         string tempDir = Path.Combine(Path.GetTempPath(), $"caissa_sfupdate_{Guid.NewGuid():N}");
         string zipDir = Path.Combine(Path.GetTempPath(), $"caissa_zip_{Guid.NewGuid():N}");
@@ -296,6 +298,9 @@ public class EngineTests
             System.IO.Compression.ZipFile.CreateFromDirectory(zipDir, zipPath);
             byte[] zipBytes = await File.ReadAllBytesAsync(zipPath);
             try { File.Delete(zipPath); } catch { }
+            string digest = checksumMatches
+                ? Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(zipBytes)).ToLowerInvariant()
+                : new string('0', 64);
 
             string releaseJson = $$"""
             {
@@ -306,11 +311,13 @@ public class EngineTests
                 {
                   "name": "stockfish-linux-x86-64-universal.zip",
                   "size": {{zipBytes.Length}},
+                  "digest": "sha256:{{digest}}",
                   "browser_download_url": "https://example.com/download/sf.zip"
                 },
                 {
                   "name": "stockfish-windows-x86-64-universal.zip",
                   "size": {{zipBytes.Length}},
+                  "digest": "sha256:{{digest}}",
                   "browser_download_url": "https://example.com/download/sf.zip"
                 }
               ]
@@ -340,7 +347,13 @@ public class EngineTests
 
             var progress = new Progress<int>();
             bool updated = await manager.UpdateStockfishAsync(progress);
-            Assert.True(updated);
+            Assert.Equal(checksumMatches, updated);
+            if (!checksumMatches)
+            {
+                // A tampered download must not be installed
+                Assert.DoesNotContain(await manager.GetEnginesAsync(), e => e.Id == "stockfish-19" && e.IsInstalled);
+                return;
+            }
 
             var active = await manager.GetActiveEngineAsync();
             Assert.NotNull(active);
