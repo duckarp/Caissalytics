@@ -75,6 +75,85 @@ public class DatabaseMaintenanceTests : IDisposable
     }
 
     [Fact]
+    public async Task DatabaseWithImportRunning_CannotBeDeletedOrRenamed()
+    {
+        var db = new DatabaseManager(_dir);
+        await db.CreateDatabaseAsync("Importing");
+
+        // A PGN stream that blocks after the first game until released
+        var gate = new SemaphoreSlim(0);
+        var stream = new GatedPgnStream("[Event \"E\"]\n[White \"A\"]\n[Black \"B\"]\n[Result \"*\"]\n\n1. e4 *\n\n", gate);
+        var import = db.ImportPgnStreamAsync("Importing", stream);
+
+        await Task.Delay(200);
+        Assert.True(db.IsImportInProgress("Importing"));
+        await Assert.ThrowsAsync<DatabaseBusyException>(() => db.DeleteDatabaseAsync("Importing"));
+        await Assert.ThrowsAsync<DatabaseBusyException>(() => db.RenameDatabaseAsync("Importing", "Renamed"));
+
+        gate.Release();
+        await import.WaitAsync(TimeSpan.FromSeconds(10));
+
+        Assert.False(db.IsImportInProgress("Importing"));
+        Assert.True(await db.DeleteDatabaseAsync("Importing"));
+    }
+
+    /// <summary>Serves the given text, then blocks the next read until the gate is released (then reports end of stream).</summary>
+    private sealed class GatedPgnStream(string text, SemaphoreSlim gate) : Stream
+    {
+        private readonly byte[] _data = System.Text.Encoding.UTF8.GetBytes(text);
+        private int _pos;
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (_pos >= _data.Length)
+            {
+                await gate.WaitAsync(cancellationToken);
+                return 0;
+            }
+            int n = Math.Min(buffer.Length, _data.Length - _pos);
+            _data.AsMemory(_pos, n).CopyTo(buffer);
+            _pos += n;
+            return n;
+        }
+
+        public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+            => ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+        public override int Read(byte[] buffer, int offset, int count) => ReadAsync(buffer, offset, count, default).GetAwaiter().GetResult();
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => _pos; set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    [Fact]
+    public async Task DeleteGames_RemovesGamesAndPositionsInOneBatch()
+    {
+        var db = new DatabaseManager(_dir);
+        await db.CreateDatabaseAsync("Batch");
+        long a = await db.SaveGameAsync("Batch", new GameHeader { White = "A", Black = "B", Result = "*", Pgn = "1. e4 e5 *" });
+        long b = await db.SaveGameAsync("Batch", new GameHeader { White = "C", Black = "D", Result = "*", Pgn = "1. e4 c5 *" });
+        long c = await db.SaveGameAsync("Batch", new GameHeader { White = "E", Black = "F", Result = "*", Pgn = "1. d4 d5 *" });
+
+        int modifiedEvents = 0;
+        db.OnDatabaseModified += _ => modifiedEvents++;
+
+        int deleted = await db.DeleteGamesAsync("Batch", [a, b, 999_999]);
+
+        Assert.Equal(2, deleted);
+        Assert.Equal(1, modifiedEvents);
+        var (games, total) = await db.SearchGamesAsync("Batch", new GameFilter());
+        Assert.Equal(1, total);
+        Assert.Equal(c, Assert.Single(games).Id);
+        var afterE4 = await db.QueryPositionAsync("Batch", KeyOf("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"));
+        Assert.Equal(0, afterE4.TotalPositionGames);
+    }
+
+    [Fact]
     public async Task Import_IgnoresSemicolonCommentsAndEscapeLines()
     {
         var db = new DatabaseManager(_dir);

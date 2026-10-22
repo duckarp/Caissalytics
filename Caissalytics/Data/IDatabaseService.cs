@@ -26,6 +26,17 @@ public interface IDatabaseService
     Task<GameHeader?> GetGameByIdAsync(string? databaseName, long gameId);
     Task<long> SaveGameAsync(string databaseName, GameHeader game);
     Task<bool> DeleteGameAsync(string databaseName, long gameId);
+    /// <summary>Deletes several games in one transaction and raises one change notification. Returns how many were deleted.</summary>
+    async Task<int> DeleteGamesAsync(string databaseName, IReadOnlyCollection<long> gameIds, CancellationToken cancellationToken = default)
+    {
+        int deleted = 0;
+        foreach (var id in gameIds)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (await DeleteGameAsync(databaseName, id)) deleted++;
+        }
+        return deleted;
+    }
     Task UpdateGameNoteAsync(string databaseName, long gameId, string note) => Task.CompletedTask;
     Task ReorderGamesAsync(string databaseName, IReadOnlyList<long> orderedGameIds) => Task.CompletedTask;
 

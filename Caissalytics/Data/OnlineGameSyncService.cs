@@ -423,14 +423,10 @@ public class OnlineGameSyncService : IOnlineGameSyncService
             return !isUserGame || !isOnlinePlatform;
         }).ToList();
 
-        int purgedCount = 0;
-        foreach (var fg in foreignGames)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            bool deleted = await _databaseService.DeleteGameAsync(OnlineGamesDatabaseName, fg.Id);
-            if (deleted) purgedCount++;
-        }
-
-        return purgedCount;
+        // One transaction and one change notification instead of a UI refresh per deleted game
+        return await _databaseService.DeleteGamesAsync(
+            OnlineGamesDatabaseName,
+            foreignGames.Select(g => g.Id).ToList(),
+            cancellationToken);
     }
 }

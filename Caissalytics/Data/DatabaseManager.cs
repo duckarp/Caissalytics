@@ -412,6 +412,7 @@ public class DatabaseManager : IDatabaseService
         }
 
         progress?.Report((5, 100, $"Preparing database '{item.DatabaseName}'..."));
+        using var importScope = BeginImport(item.DatabaseName);
         await CreateDatabaseAsync(item.DatabaseName);
         string dbPath = GetDbPath(item.DatabaseName);
 
@@ -516,6 +517,32 @@ public class DatabaseManager : IDatabaseService
         };
     }
 
+    // Databases with an import running (count per name): they can't be deleted or renamed meanwhile,
+    // as the importer would keep writing to an unlinked or moved file
+    private readonly ConcurrentDictionary<string, int> _importsInProgress = new(StringComparer.OrdinalIgnoreCase);
+
+    private sealed class ImportScope(Action release) : IDisposable
+    {
+        private Action? _release = release;
+        public void Dispose() => Interlocked.Exchange(ref _release, null)?.Invoke();
+    }
+
+    private IDisposable BeginImport(string databaseName)
+    {
+        string key = SanitizeDatabaseName(databaseName);
+        _importsInProgress.AddOrUpdate(key, 1, (_, n) => n + 1);
+        return new ImportScope(() =>
+        {
+            if (_importsInProgress.AddOrUpdate(key, 0, (_, n) => n - 1) <= 0)
+            {
+                _importsInProgress.TryRemove(new KeyValuePair<string, int>(key, 0));
+            }
+        });
+    }
+
+    public bool IsImportInProgress(string databaseName)
+        => _importsInProgress.TryGetValue(SanitizeDatabaseName(databaseName), out int n) && n > 0;
+
     public async Task<bool> DeleteDatabaseAsync(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
@@ -525,6 +552,10 @@ public class DatabaseManager : IDatabaseService
 
         string safeName = SanitizeDatabaseName(name);
         string path = GetDbPath(safeName);
+        if (IsImportInProgress(safeName))
+        {
+            throw new DatabaseBusyException(safeName);
+        }
 
         await _lock.WaitAsync();
         try
@@ -609,6 +640,11 @@ public class DatabaseManager : IDatabaseService
         if (File.Exists(newPath) && !string.Equals(oldPath, newPath, StringComparison.OrdinalIgnoreCase))
         {
             return false;
+        }
+
+        if (IsImportInProgress(safeOldName))
+        {
+            throw new DatabaseBusyException(safeOldName);
         }
 
         await _lock.WaitAsync();
@@ -1839,6 +1875,7 @@ public class DatabaseManager : IDatabaseService
                 await CreateDatabaseAsync(dst);
             }
 
+            var moved = new List<long>();
             foreach (var id in gameIds)
             {
                 var header = await GetGameByIdAsync(src, id);
@@ -1847,9 +1884,10 @@ public class DatabaseManager : IDatabaseService
                     header.Id = 0;
                     header.FolderId = targetFolderId;
                     await SaveGameAsync(dst, header);
-                    await DeleteGameAsync(src, id);
+                    moved.Add(id);
                 }
             }
+            await DeleteGamesAsync(src, moved);
 
             OnDatabaseModified?.Invoke(src);
             OnDatabaseModified?.Invoke(dst);
@@ -1857,25 +1895,45 @@ public class DatabaseManager : IDatabaseService
     }
 
     public async Task<bool> DeleteGameAsync(string databaseName, long gameId)
+        => await DeleteGamesAsync(databaseName, [gameId]) > 0;
+
+    public async Task<int> DeleteGamesAsync(string databaseName, IReadOnlyCollection<long> gameIds, CancellationToken cancellationToken = default)
     {
         string dbName = string.IsNullOrWhiteSpace(databaseName) ? _activeDatabaseName : databaseName;
         string path = GetDbPath(dbName);
-        if (!File.Exists(path)) return false;
+        if (!File.Exists(path) || gameIds.Count == 0) return 0;
 
-        using var conn = new SqliteConnection(ConnectionString(path));
-        await conn.OpenAsync();
+        int deleted = 0;
+        using (var conn = new SqliteConnection(ConnectionString(path)))
+        {
+            await conn.OpenAsync(cancellationToken);
+            using var tx = conn.BeginTransaction();
 
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
-            PRAGMA foreign_keys = ON;
-            DELETE FROM positions WHERE game_id = $id;
-            DELETE FROM games WHERE id = $id;";
-        cmd.Parameters.AddWithValue("$id", gameId);
-        int rows = await cmd.ExecuteNonQueryAsync();
+            using var delPositions = conn.CreateCommand();
+            delPositions.Transaction = tx;
+            delPositions.CommandText = "DELETE FROM positions WHERE game_id = $id;";
+            var pPosId = delPositions.Parameters.Add("$id", SqliteType.Integer);
+
+            using var delGame = conn.CreateCommand();
+            delGame.Transaction = tx;
+            delGame.CommandText = "DELETE FROM games WHERE id = $id;";
+            var pGameId = delGame.Parameters.Add("$id", SqliteType.Integer);
+
+            foreach (var id in gameIds)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                pPosId.Value = id;
+                await delPositions.ExecuteNonQueryAsync(cancellationToken);
+                pGameId.Value = id;
+                deleted += await delGame.ExecuteNonQueryAsync(cancellationToken);
+            }
+
+            await tx.CommitAsync(cancellationToken);
+        }
 
         OnDatabaseModified?.Invoke(dbName);
         OnActiveDatabaseChanged?.Invoke();
-        return rows > 0;
+        return deleted;
     }
 
     public Task ImportPgnStreamAsync(
@@ -1903,6 +1961,7 @@ public class DatabaseManager : IDatabaseService
             throw new InvalidOperationException($"Manual PGN import into '{IDatabaseService.ProtectedOnlineDatabaseName}' is restricted. Games can only be added through online API sync.");
         }
 
+        using var importScope = BeginImport(databaseName);
         string path = GetDbPath(databaseName);
         await InitializeSchemaAsync(path);
 
@@ -1989,6 +2048,7 @@ public class DatabaseManager : IDatabaseService
             throw new InvalidOperationException($"Manual PGN import into '{IDatabaseService.ProtectedOnlineDatabaseName}' is restricted. Games can only be added through online API sync.");
         }
 
+        using var importScope = BeginImport(databaseName);
         string path = GetDbPath(databaseName);
         await InitializeSchemaAsync(path);
 

@@ -1021,6 +1021,13 @@
 						@Loc["Db_DeleteConfirm_Irreversible"]
 					</div>
 				</div>
+				@if (!string.IsNullOrEmpty(_deleteDbError))
+				{
+					<div class="modal-error-message">
+						<span>⚠️</span>
+						<span>@_deleteDbError</span>
+					</div>
+				}
 			</div>
 			<div class="modal-footer">
 				<button class="btn-secondary" @onclick="() => _showDeleteModal = false">@Loc["Common_Cancel"]</button>
@@ -1428,6 +1435,7 @@
 	private DatabaseInfo? _dbToRename;
 	private string _renameDbNewName = "";
 	private string _renameDbError = "";
+	private string _deleteDbError = "";
 	private bool _showOnlineSyncModal = false;
 	private bool _showCleanForeignModal = false;
 	private bool _isScanningForeign = false;
@@ -3116,6 +3124,7 @@
 	{
 		if (IsOnlineGamesDb(db.Name)) return;
 		_dbToDelete = db;
+		_deleteDbError = "";
 		_showDeleteDbModal = true;
 	}
 
@@ -3233,6 +3242,10 @@
 				_renameDbError = Loc["Db_RenameDb_Error_Exists"];
 			}
 		}
+		catch (DatabaseBusyException)
+		{
+			_renameDbError = Loc["Db_Error_ImportInProgress"];
+		}
 		catch (Exception ex)
 		{
 			_renameDbError = ex.Message;
@@ -3243,6 +3256,7 @@
 	{
 		_showDeleteDbModal = false;
 		_dbToDelete = null;
+		_deleteDbError = "";
 	}
 
 	private async Task ConfirmDeleteDatabaseAsync()
@@ -3250,10 +3264,22 @@
 		if (_dbToDelete != null)
 		{
 			string dbName = _dbToDelete.Name;
+
+			bool deleted;
+			try
+			{
+				deleted = await DatabaseService.DeleteDatabaseAsync(dbName);
+			}
+			catch (DatabaseBusyException)
+			{
+				// Keep the dialog open with the reason
+				_deleteDbError = Loc["Db_Error_ImportInProgress"];
+				return;
+			}
+
 			_showDeleteDbModal = false;
 			_dbToDelete = null;
-
-			bool deleted = await DatabaseService.DeleteDatabaseAsync(dbName);
+			_deleteDbError = "";
 			if (deleted)
 			{
 				if (string.Equals(dbName, _currentDbName, StringComparison.OrdinalIgnoreCase))

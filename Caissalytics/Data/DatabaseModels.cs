@@ -340,3 +340,9 @@ public class PgnImportProgress
     public double GamesPerSecond => Elapsed.TotalSeconds > 0 ? GamesSaved / Elapsed.TotalSeconds : 0;
 }
 
+/// <summary>Thrown when a database can't be deleted or renamed because an import into it is still running.</summary>
+public class DatabaseBusyException(string databaseName)
+    : InvalidOperationException($"Database '{databaseName}' is still importing games. Wait for the import to finish or cancel it first.")
+{
+    public string DatabaseName { get; } = databaseName;
+}
