@@ -130,7 +130,7 @@
 		{
 			if (_dropInstance != null)
 			{
-				try { await _dropInstance.InvokeVoidAsync("dispose"); } catch { }
+				await _dropInstance.DisposeJsInstanceAsync();
 				_dropInstance = null;
 			}
 		}
@@ -316,7 +316,7 @@
 	{
 		if (_dropInstance != null)
 		{
-			try { await _dropInstance.InvokeVoidAsync("dispose"); } catch { }
+			await _dropInstance.DisposeJsInstanceAsync();
 			_dropInstance = null;
 		}
 		_errorMessage = null;
@@ -327,7 +327,7 @@
 	{
 		if (_dropInstance != null)
 		{
-			try { await _dropInstance.InvokeVoidAsync("dispose"); } catch { }
+			await _dropInstance.DisposeJsInstanceAsync();
 			_dropInstance = null;
 		}
 		if (_dropModule != null)

@@ -1604,7 +1604,7 @@
 		{
 			if (_newDbDropInstance != null)
 			{
-				try { await _newDbDropInstance.InvokeVoidAsync("dispose"); } catch { }
+				await _newDbDropInstance.DisposeJsInstanceAsync();
 				_newDbDropInstance = null;
 			}
 		}
@@ -1775,7 +1775,7 @@
 		{
 			if (_newDbDropInstance != null)
 			{
-				try { _ = _newDbDropInstance.InvokeVoidAsync("dispose"); } catch { }
+				_ = _newDbDropInstance.DisposeJsInstanceAsync();
 				_newDbDropInstance = null;
 			}
 			_showNewDbModal = false;
@@ -3689,12 +3689,12 @@
 		Loc.OnLanguageChanged -= StateHasChanged;
 		if (_newDbDropInstance != null)
 		{
-			try { _ = _newDbDropInstance.InvokeVoidAsync("dispose"); } catch { }
+			_ = _newDbDropInstance.DisposeJsInstanceAsync();
 			_newDbDropInstance = null;
 		}
 		if (_browserDropInstance != null)
 		{
-			try { _ = _browserDropInstance.InvokeVoidAsync("dispose"); } catch { }
+			_ = _browserDropInstance.DisposeJsInstanceAsync();
 			_browserDropInstance = null;
 		}
 		if (_newDbDroppedStreamRef != null)

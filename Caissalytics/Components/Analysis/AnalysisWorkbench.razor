@@ -975,7 +975,7 @@
 		catch { }
 		if (_workbenchDropInstance != null)
 		{
-			try { _ = _workbenchDropInstance.InvokeVoidAsync("dispose"); } catch { }
+			_ = _workbenchDropInstance.DisposeJsInstanceAsync();
 			_workbenchDropInstance = null;
 		}
 		if (_dropModule != null)

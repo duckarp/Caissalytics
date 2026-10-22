@@ -426,35 +426,49 @@
 	{
 		if (firstRender)
 		{
-			AppearanceService.SetJSRuntime(JS);
-			_dotNetRef = DotNetObjectReference.Create(this);
-			_module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/chessgroundInterop.js");
-
-			var dests = MoveGenerator.GetLegalDestinations(Position);
-			string turnColor = Position.ActiveColor == PieceColor.White ? "white" : "black";
-			string fen = FenParser.ToFen(Position, includeCounters: false);
-
-			var config = new
+			// The tab can be closed while the board is still being set up
+			try
 			{
-				fen = fen,
-				orientation = Orientation,
-				turnColor = turnColor,
-				dests = dests,
-				shapes = _currentShapes
-			};
-
-			await _module.InvokeVoidAsync("initBoard", _elementId, _dotNetRef, config);
-			_lastRenderedZobrist = Position.ZobristKey;
-			_lastRenderedOrientation = Orientation;
-			_isInitialized = true;
-
-			if (_currentShapes != null && _currentShapes.Count > 0)
-			{
-				try
+				AppearanceService.SetJSRuntime(JS);
+				_dotNetRef = DotNetObjectReference.Create(this);
+				_module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/chessgroundInterop.js");
+				if (_isDisposed)
 				{
-					await _module.InvokeVoidAsync("drawShapes", _elementId, _currentShapes);
+					// DisposeAsync ran before the module arrived, so release it here
+					await _module.DisposeAsync();
+					return;
 				}
-				catch { }
+
+				var dests = MoveGenerator.GetLegalDestinations(Position);
+				string turnColor = Position.ActiveColor == PieceColor.White ? "white" : "black";
+				string fen = FenParser.ToFen(Position, includeCounters: false);
+
+				var config = new
+				{
+					fen = fen,
+					orientation = Orientation,
+					turnColor = turnColor,
+					dests = dests,
+					shapes = _currentShapes
+				};
+
+				await _module.InvokeVoidAsync("initBoard", _elementId, _dotNetRef, config);
+				_lastRenderedZobrist = Position.ZobristKey;
+				_lastRenderedOrientation = Orientation;
+				_isInitialized = true;
+
+				if (_currentShapes != null && _currentShapes.Count > 0)
+				{
+					try
+					{
+						await _module.InvokeVoidAsync("drawShapes", _elementId, _currentShapes);
+					}
+					catch { }
+				}
+			}
+			catch (Exception ex) when (ex is JSDisconnectedException or TaskCanceledException or ObjectDisposedException || _isDisposed)
+			{
+				// Torn down mid-initialization; nothing to show any more
 			}
 		}
 	}
