@@ -133,15 +133,15 @@ internal class Program
         var iconFile = EnsureIconOnDisk(fileProvider);
 
         app.MainWindow
+            // Levels 1+ trace every message between .NET and the web view, including render
+            // batches and the saved workspace, which would flood the log file
+            .SetLogVerbosity(0)
             .SetTitle("Caissalytics")
             .SetSize(1400, 900)
             .SetMinSize(1000, 650)
             .SetMediaAutoplayEnabled(true)
             .SetUseOsDefaultLocation(false)
-            .SetDevToolsEnabled(true)
-            // The default (2) traces every message between .NET and the web view, including render
-            // batches and the saved workspace, which would flood the log file
-            .SetLogVerbosity(1);
+            .SetDevToolsEnabled(true);
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
