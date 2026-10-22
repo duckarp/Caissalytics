@@ -116,6 +116,10 @@ public static class GameResultHelper
             {
                 desc = "Draw by stalemate";
             }
+            else if (term is "Threefold repetition" or "Fifty-move rule" or "Insufficient material")
+            {
+                desc = $"Draw by {term.ToLowerInvariant()}";
+            }
             else
             {
                 desc = term;

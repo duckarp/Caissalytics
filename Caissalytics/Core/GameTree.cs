@@ -50,20 +50,25 @@ public class GameTree
         CurrentNode.Children.Add(newNode);
         CurrentNode = newNode;
 
-        if (MoveGenerator.IsCheckmate(nextPos))
+        // Only the main line decides the game result; a mate or draw explored in a side line doesn't
+        bool resultOpen = !Headers.TryGetValue("Result", out var currentResult) || currentResult == "*";
+        if (resultOpen && newNode.IsMainline)
         {
-            if (!Headers.ContainsKey("Result") || Headers["Result"] == "*")
+            if (MoveGenerator.IsCheckmate(nextPos))
             {
                 Headers["Result"] = nextPos.ActiveColor == PieceColor.Black ? "1-0" : "0-1";
                 Headers["Termination"] = "Checkmate";
             }
-        }
-        else if (MoveGenerator.IsStalemate(nextPos))
-        {
-            if (!Headers.ContainsKey("Result") || Headers["Result"] == "*")
+            else if (MoveGenerator.IsStalemate(nextPos))
             {
                 Headers["Result"] = "1/2-1/2";
                 Headers["Termination"] = "Stalemate";
+            }
+            else if (DrawRules.IsInsufficientMaterial(nextPos))
+            {
+                // Automatic draw. Repetition and the 50-move rule are only claimable, so play may go on
+                Headers["Result"] = "1/2-1/2";
+                Headers["Termination"] = DrawRules.Termination(DrawReason.InsufficientMaterial)!;
             }
         }
 

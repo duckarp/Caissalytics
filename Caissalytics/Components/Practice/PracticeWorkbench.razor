@@ -467,6 +467,18 @@
 			return true;
 		}
 
+		// Claimable draws are applied automatically against the computer
+		var drawReason = DrawRules.Detect(Tab.Tree.CurrentNode);
+		if (drawReason != DrawReason.None)
+		{
+			_isGameOver = true;
+			_isVictory = false;
+			_isDefeat = false;
+			_gameOverTitle = Loc["Practice_Draw"];
+			_gameOverReason = $"Draw by {DrawRules.Termination(drawReason)!.ToLowerInvariant()}.";
+			return true;
+		}
+
 		return false;
 	}
 
