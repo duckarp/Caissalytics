@@ -693,7 +693,17 @@
 	private ViewMode _viewMode = ViewMode.Hub;
 
 	private List<HomeworkSheet> _sheets = new();
-	private HomeworkSheet? _activeSheet;
+	// Mirrored into the tab so a restored workspace reopens the same sheet
+	private HomeworkSheet? _activeSheetValue;
+	private HomeworkSheet? _activeSheet
+	{
+		get => _activeSheetValue;
+		set
+		{
+			_activeSheetValue = value;
+			Tab.InitialSheetId = value?.Id;
+		}
+	}
 	private HomeworkExercise? _editingExercise;
 	private HomeworkSheet? _deletingSheet;
 

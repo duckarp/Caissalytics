@@ -193,6 +193,8 @@ public class DatabaseBrowserTab : WorkspaceTab
     public override string Title => "Database";
     public override string Icon => "🗄️";
     public string? TargetDatabase { get; set; }
+    /// <summary>Database the browser currently shows; saved so a restored tab reopens it.</summary>
+    public string? LastDatabase { get; set; }
     public ulong? InitialPositionZobrist { get; set; }
     public string? InitialPositionFen { get; set; }
 
@@ -764,7 +766,8 @@ public class WorkspaceState
                     {
                         Id = db.Id,
                         Type = "database",
-                        Title = db.Title
+                        Title = db.Title,
+                        TargetDatabase = db.LastDatabase ?? db.TargetDatabase
                     });
                     break;
 
@@ -831,7 +834,8 @@ public class WorkspaceState
                     {
                         Id = hw.Id,
                         Type = "homework",
-                        Title = hw.Title
+                        Title = hw.Title,
+                        SheetId = hw.InitialSheetId
                     });
                     break;
 
@@ -840,7 +844,8 @@ public class WorkspaceState
                     {
                         Id = clubHw.Id,
                         Type = "club_homework",
-                        Title = clubHw.Title
+                        Title = clubHw.Title,
+                        ClubItemId = clubHw.InitialTaskId
                     });
                     break;
 
@@ -849,7 +854,8 @@ public class WorkspaceState
                     {
                         Id = msg.Id,
                         Type = "club_messages",
-                        Title = msg.Title
+                        Title = msg.Title,
+                        ClubItemId = msg.InitialMessageId
                     });
                     break;
 
@@ -924,7 +930,7 @@ public class WorkspaceState
                 }
                 else if (tabDto.Type == "database")
                 {
-                    var dbTab = new DatabaseBrowserTab { Id = tabDto.Id };
+                    var dbTab = new DatabaseBrowserTab(tabDto.TargetDatabase) { Id = tabDto.Id };
                     restored.Add(dbTab);
                 }
                 else if (tabDto.Type == "settings")
@@ -959,17 +965,17 @@ public class WorkspaceState
                 }
                 else if (tabDto.Type == "homework")
                 {
-                    var hwTab = new HomeworkTab { Id = tabDto.Id };
+                    var hwTab = new HomeworkTab(tabDto.SheetId) { Id = tabDto.Id };
                     restored.Add(hwTab);
                 }
                 else if (tabDto.Type == "club_homework")
                 {
-                    var clubHwTab = new ClubHomeworkTab { Id = tabDto.Id };
+                    var clubHwTab = new ClubHomeworkTab(tabDto.ClubItemId) { Id = tabDto.Id };
                     restored.Add(clubHwTab);
                 }
                 else if (tabDto.Type == "club_messages")
                 {
-                    var msgTab = new ClubMessagesTab { Id = tabDto.Id };
+                    var msgTab = new ClubMessagesTab(tabDto.ClubItemId) { Id = tabDto.Id };
                     restored.Add(msgTab);
                 }
                 else if (tabDto.Type == "practice")

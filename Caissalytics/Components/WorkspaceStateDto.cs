@@ -30,4 +30,6 @@ public class WorkspaceTabDto
     public string? PlayerColor { get; set; }
     public string? StartFen { get; set; }
     public string? BotType { get; set; }
+    public string? SheetId { get; set; }
+    public int? ClubItemId { get; set; }
 }

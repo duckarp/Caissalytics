@@ -1387,7 +1387,17 @@
 	[Parameter] public DatabaseBrowserTab? Tab { get; set; }
 
 	private List<DatabaseInfo> _databases = new();
-	private string _currentDbName = "";
+	// Mirrored into the tab so a restored workspace reopens the same database
+	private string _currentDbNameValue = "";
+	private string _currentDbName
+	{
+		get => _currentDbNameValue;
+		set
+		{
+			_currentDbNameValue = value;
+			if (Tab != null) Tab.LastDatabase = value;
+		}
+	}
 	private string _referenceDbName = "ClassicalMasters";
 	private List<GameHeader> _games = new();
 	private int _totalCount = 0;

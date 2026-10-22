@@ -331,4 +331,23 @@ public class WorkspacePersistenceTests
         Assert.Contains(existing, ws.Tabs);
         Assert.Contains(ws.ActiveTab, ws.Tabs);
     }
+
+    [Fact]
+    public void Restore_ReopensTheSameDatabaseSheetTaskAndMessage()
+    {
+        var ws = new WorkspaceState();
+        var dbTab = ws.CreateDatabaseTab();
+        dbTab.LastDatabase = "Sicilians";
+        ws.CreateHomeworkTab().InitialSheetId = "sheet-42";
+        ws.CreateClubHomeworkTab().InitialTaskId = 7;
+        ws.CreateMessagesTab().InitialMessageId = 13;
+
+        var restored = new WorkspaceState();
+        Assert.True(restored.RestoreStateFromJson(ws.ExportStateJson()));
+
+        Assert.Equal("Sicilians", restored.Tabs.OfType<DatabaseBrowserTab>().Single().TargetDatabase);
+        Assert.Equal("sheet-42", restored.Tabs.OfType<HomeworkTab>().Single().InitialSheetId);
+        Assert.Equal(7, restored.Tabs.OfType<ClubHomeworkTab>().Single().InitialTaskId);
+        Assert.Equal(13, restored.Tabs.OfType<ClubMessagesTab>().Single().InitialMessageId);
+    }
 }

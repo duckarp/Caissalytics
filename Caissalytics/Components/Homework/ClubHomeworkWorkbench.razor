@@ -364,7 +364,17 @@
 	private List<SkppHomeworkDto> _assignedHomeworks = new();
 	private bool _isLoadingTasks = false;
 
-	private SkppHomeworkDto? _activeTask;
+	// Mirrored into the tab so a restored workspace reopens the same task
+	private SkppHomeworkDto? _activeTaskValue;
+	private SkppHomeworkDto? _activeTask
+	{
+		get => _activeTaskValue;
+		set
+		{
+			_activeTaskValue = value;
+			Tab.InitialTaskId = value?.Id;
+		}
+	}
 	private ChessgroundBoard? _boardRef;
 	private BoardPosition _initialPosition = FenParser.Parse(BoardPosition.StartFen);
 	private BoardPosition _currentPosition = FenParser.Parse(BoardPosition.StartFen);
