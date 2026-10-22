@@ -1,0 +1,188 @@
+@* Wraps a list or table to make it keyboard-driven. The consumer renders the rows, marks the active
+   one with the "kl-row-active" class and sets ActiveIndex when a row is clicked; this component keeps
+   focus, moves the active row with the arrow keys and runs the row actions for the action keys.
+   Only actions with a handler claim their key (e.g. Delete does nothing in a list without OnDelete). *@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+<div @ref="_element" class="keyboard-list @Class" tabindex="0" aria-label="@AriaLabel">
+	@ChildContent
+	@if (ShowHint && Count > 0)
+	{
+		<div class="keyboard-list-hint" aria-hidden="true">
+			<span><kbd>↑</kbd><kbd>↓</kbd> @Loc["List_HintMove"]</span>
+			@if (OnOpen.HasDelegate)
+			{
+				<span><kbd>Enter</kbd> @(OpenLabel ?? Loc["List_HintOpen"])</span>
+			}
+			@if (OnEdit.HasDelegate)
+			{
+				<span><kbd>F2</kbd> @(EditLabel ?? Loc["List_HintEdit"])</span>
+			}
+			@if (OnToggle.HasDelegate)
+			{
+				<span><kbd>Space</kbd> @(ToggleLabel ?? Loc["List_HintToggle"])</span>
+			}
+			@if (OnDelete.HasDelegate)
+			{
+				<span><kbd>Del</kbd> @(DeleteLabel ?? Loc["List_HintDelete"])</span>
+			}
+			@if (OnAdd.HasDelegate)
+			{
+				<span><kbd>Insert</kbd> @(AddLabel ?? Loc["List_HintAdd"])</span>
+			}
+		</div>
+	}
+</div>
+
+@code {
+	[Parameter] public RenderFragment? ChildContent { get; set; }
+
+	/// <summary>Number of selectable rows.</summary>
+	[Parameter] public int Count { get; set; }
+
+	/// <summary>Index of the active row, -1 for none. Bind with @bind-ActiveIndex.</summary>
+	[Parameter] public int ActiveIndex { get; set; } = -1;
+	[Parameter] public EventCallback<int> ActiveIndexChanged { get; set; }
+
+	[Parameter] public EventCallback<int> OnOpen { get; set; }
+	[Parameter] public EventCallback<int> OnEdit { get; set; }
+	[Parameter] public EventCallback<int> OnDelete { get; set; }
+	[Parameter] public EventCallback<int> OnToggle { get; set; }
+	[Parameter] public EventCallback OnAdd { get; set; }
+
+	/// <summary>Arrow pressed past the first (-1) or last (+1) row, e.g. to turn the page.</summary>
+	[Parameter] public EventCallback<int> OnBoundary { get; set; }
+
+	[Parameter] public string? OpenLabel { get; set; }
+	[Parameter] public string? EditLabel { get; set; }
+	[Parameter] public string? DeleteLabel { get; set; }
+	[Parameter] public string? ToggleLabel { get; set; }
+	[Parameter] public string? AddLabel { get; set; }
+
+	[Parameter] public bool ShowHint { get; set; } = true;
+	[Parameter] public int PageStep { get; set; } = 10;
+	[Parameter] public string? Class { get; set; }
+	[Parameter] public string? AriaLabel { get; set; }
+
+	private ElementReference _element;
+	private DotNetObjectReference<KeyboardList>? _dotNetRef;
+	private int? _listId;
+	private string _sentActions = "";
+	private int _scrolledIndex = -1;
+	private bool _isDisposed;
+
+	/// <summary>Row index after a navigation key, staying within 0..count-1 (-1 when the list is empty).</summary>
+	public static int NextIndex(string key, int current, int count, int pageStep)
+	{
+		if (count <= 0) return -1;
+		int from = Math.Clamp(current, -1, count - 1);
+		int next = key switch
+		{
+			"up" => from <= 0 ? 0 : from - 1,
+			"down" => from + 1,
+			"first" => 0,
+			"last" => count - 1,
+			"pageUp" => from - pageStep,
+			"pageDown" => from < 0 ? pageStep - 1 : from + pageStep,
+			_ => from
+		};
+		return Math.Clamp(next, 0, count - 1);
+	}
+
+	/// <summary>Moves keyboard focus to the list.</summary>
+	public async ValueTask FocusAsync()
+	{
+		try
+		{
+			await JS.InvokeVoidAsync("keyboardList.focus", _element);
+		}
+		catch (JSDisconnectedException) { }
+		catch (TaskCanceledException) { }
+	}
+
+	[JSInvokable]
+	public Task OnListKey(string key) => InvokeAsync(() => HandleKeyAsync(key));
+
+	private async Task HandleKeyAsync(string key)
+	{
+		int current = ActiveIndex >= 0 && ActiveIndex < Count ? ActiveIndex : -1;
+		switch (key)
+		{
+			case "open": if (current >= 0) await OnOpen.InvokeAsync(current); return;
+			case "edit": if (current >= 0) await OnEdit.InvokeAsync(current); return;
+			case "delete": if (current >= 0) await OnDelete.InvokeAsync(current); return;
+			case "toggle": if (current >= 0) await OnToggle.InvokeAsync(current); return;
+			case "add": await OnAdd.InvokeAsync(); return;
+		}
+
+		if (Count == 0) return;
+		if (OnBoundary.HasDelegate && ((key == "up" && current == 0) || (key == "down" && current == Count - 1)))
+		{
+			await OnBoundary.InvokeAsync(key == "up" ? -1 : 1);
+			return;
+		}
+
+		int next = NextIndex(key, current, Count, PageStep);
+		if (next != ActiveIndex)
+		{
+			ActiveIndex = next;
+			await ActiveIndexChanged.InvokeAsync(next);
+		}
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		try
+		{
+			string actions = $"{OnOpen.HasDelegate}{OnEdit.HasDelegate}{OnDelete.HasDelegate}{OnToggle.HasDelegate}{OnAdd.HasDelegate}";
+			var actionFlags = new
+			{
+				open = OnOpen.HasDelegate,
+				edit = OnEdit.HasDelegate,
+				delete = OnDelete.HasDelegate,
+				toggle = OnToggle.HasDelegate,
+				add = OnAdd.HasDelegate
+			};
+
+			if (firstRender)
+			{
+				_dotNetRef = DotNetObjectReference.Create(this);
+				_listId = await JS.InvokeAsync<int>("keyboardList.attach", _element, _dotNetRef, actionFlags);
+				_sentActions = actions;
+			}
+			else if (_listId.HasValue && actions != _sentActions)
+			{
+				await JS.InvokeVoidAsync("keyboardList.setActions", _listId.Value, actionFlags);
+				_sentActions = actions;
+			}
+
+			if (ActiveIndex != _scrolledIndex)
+			{
+				_scrolledIndex = ActiveIndex;
+				if (ActiveIndex >= 0)
+				{
+					await JS.InvokeVoidAsync("keyboardList.scrollActiveIntoView", _element);
+				}
+			}
+		}
+		catch (Exception ex) when (ex is JSDisconnectedException or TaskCanceledException || _isDisposed)
+		{
+			// Torn down while rendering
+		}
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		_isDisposed = true;
+		if (_listId.HasValue)
+		{
+			try
+			{
+				await JS.InvokeVoidAsync("keyboardList.detach", _listId.Value);
+			}
+			catch { }
+		}
+		_dotNetRef?.Dispose();
+	}
+}

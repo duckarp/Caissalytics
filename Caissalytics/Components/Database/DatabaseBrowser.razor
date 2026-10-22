@@ -26,12 +26,23 @@
 			<button class="btn-secondary" @onclick="() => OpenNewDbModal(NewDbMode.Create)">@Loc["Db_NewDb"]</button>
 		</div>
 
-		<div class="db-list-wrapper">
-			@foreach (var db in _databases)
+		<KeyboardList Class="db-list-wrapper"
+					  Count="_databases.Count"
+					  @bind-ActiveIndex="_activeDbIndex"
+					  OnOpen="OpenActiveDatabaseAsync"
+					  OnEdit="RenameActiveDatabase"
+					  OnDelete="DeleteActiveDatabase"
+					  EditLabel="@Loc["Db_Rename"]"
+					  AriaLabel="@Loc["Db_Databases"]">
+			@for (int dbIndex = 0; dbIndex < _databases.Count; dbIndex++)
 			{
+				int cardIndex = dbIndex;
+				var db = _databases[cardIndex];
 				bool isSelected = string.Equals(db.Name, _currentDbName, StringComparison.OrdinalIgnoreCase);
 				bool isOnlineDb = IsOnlineGamesDb(db.Name);
-				<div class="db-card @(isSelected ? "db-card-active" : "")" @onclick="() => SelectDatabaseAsync(db.Name)">
+				<div class="db-card @(isSelected ? "db-card-active" : "") @(cardIndex == _activeDbIndex ? "kl-row-active" : "")"
+					 @onmousedown="() => _activeDbIndex = cardIndex"
+					 @onclick="() => SelectDatabaseAsync(db.Name)">
 					<div class="db-card-top">
 						<span class="db-card-name">@db.Name</span>
 						<div class="db-card-badges">
@@ -70,7 +81,7 @@
 					</div>
 				</div>
 			}
-		</div>
+		</KeyboardList>
 
 		<div class="db-sidebar-footer">
 			@if (!IsOnlineGamesDb(_currentDbName))
@@ -364,6 +375,16 @@
 					</div>
 				}
 
+				<KeyboardList @ref="_gameList"
+							  Count="_games.Count"
+							  @bind-ActiveIndex="_activeGameIndex"
+							  OnOpen="OpenActiveGameAsync"
+							  OnEdit="EditActiveGameNote"
+							  OnToggle="ToggleActiveGameSelection"
+							  OnDelete="DeleteActiveGame"
+							  OnBoundary="TurnGamePageAsync"
+							  EditLabel="@Loc["Db_EditNote"]"
+							  AriaLabel="@Loc["Db_GameListLabel"]">
 				<table class="db-games-table">
 					<thead>
 						<tr>
@@ -406,12 +427,13 @@
 							<tr @key="game.Id"
 								data-game-id="@game.Id"
 								draggable="@(_editingNoteGameId != game.Id ? "true" : "false")"
-								class="db-game-row @(IsUserGame(game) ? "db-game-row-user" : "") @(_selectedGameIds.Contains(game.Id) ? "row-selected" : "") @(isDragging ? "row-dragging" : "") @(isDragOverTop ? "row-drag-over-top" : "") @(isDragOverBottom ? "row-drag-over-bottom" : "")"
+								class="db-game-row @(rowIndex == _activeGameIndex ? "kl-row-active" : "") @(IsUserGame(game) ? "db-game-row-user" : "") @(_selectedGameIds.Contains(game.Id) ? "row-selected" : "") @(isDragging ? "row-dragging" : "") @(isDragOverTop ? "row-drag-over-top" : "") @(isDragOverBottom ? "row-drag-over-bottom" : "")"
 								@ondragstart="() => HandleRowDragStart(rowIndex, game)"
 								@ondragover="() => HandleRowDragOver(rowIndex)"
 								@ondragover:preventDefault="true"
 								@ondrop="() => HandleRowDropAsync(rowIndex)"
 								@ondragend="HandleRowDragEnd"
+								@onmousedown="() => _activeGameIndex = rowIndex"
 								@ondblclick="() => OpenGameInAnalysis(game)">
 								<td class="col-select" @onclick:stopPropagation="true" @ondblclick:stopPropagation="true">
 									<input type="checkbox"
@@ -540,6 +562,7 @@
 						}
 					</tbody>
 				</table>
+				</KeyboardList>
 			}
 		</div>
 
@@ -1003,11 +1026,11 @@
 <!-- Delete Game Confirmation Modal -->
 @if (_showDeleteModal && _gameToDelete != null)
 {
-	<div class="modal-backdrop" @onclick="() => _showDeleteModal = false">
-		<div class="modal-dialog" @onclick:stopPropagation="true">
+	<div class="modal-backdrop" @onclick="CancelDeleteGame">
+		<div class="modal-dialog" @onclick:stopPropagation="true" @onkeydown="HandleDeleteGameModalKeyDown">
 			<div class="modal-header">
 				<h3 class="modal-title">@Loc["Db_DeleteConfirm_Title"]</h3>
-				<button class="modal-close-btn" @onclick="() => _showDeleteModal = false">✕</button>
+				<button class="modal-close-btn" @onclick="CancelDeleteGame">✕</button>
 			</div>
 			<div class="modal-body">
 				<div class="modal-warning-box">
@@ -1021,17 +1044,11 @@
 						@Loc["Db_DeleteConfirm_Irreversible"]
 					</div>
 				</div>
-				@if (!string.IsNullOrEmpty(_deleteDbError))
-				{
-					<div class="modal-error-message">
-						<span>⚠️</span>
-						<span>@_deleteDbError</span>
-					</div>
-				}
 			</div>
 			<div class="modal-footer">
-				<button class="btn-secondary" @onclick="() => _showDeleteModal = false">@Loc["Common_Cancel"]</button>
-				<button class="btn-danger" @onclick="ConfirmDeleteGameAsync">@Loc["Common_Delete"]</button>
+				<button class="btn-secondary" @onclick="CancelDeleteGame">@Loc["Common_Cancel"]</button>
+				@* Focused on open so Enter confirms when the dialog was opened with the Delete key *@
+				<button class="btn-danger" autofocus @onclick="ConfirmDeleteGameAsync">@Loc["Common_Delete"]</button>
 			</div>
 		</div>
 	</div>
@@ -1057,6 +1074,13 @@
 						@Loc["Db_DeleteConfirm_Irreversible"]
 					</div>
 				</div>
+				@if (!string.IsNullOrEmpty(_deleteDbError))
+				{
+					<div class="modal-error-message">
+						<span>⚠️</span>
+						<span>@_deleteDbError</span>
+					</div>
+				}
 			</div>
 			<div class="modal-footer">
 				<button class="btn-secondary" @onclick="CancelDeleteDatabase">@Loc["Common_Cancel"]</button>
@@ -1439,6 +1463,31 @@
 	private bool _showDeleteModal = false;
 	private GameHeader? _gameToDelete;
 
+	// Keyboard navigation of the database list
+	private int _activeDbIndex = -1;
+
+	private async Task OpenActiveDatabaseAsync(int index)
+	{
+		if (index < _databases.Count) await SelectDatabaseAsync(_databases[index].Name);
+	}
+
+	// Same conditions as the card buttons: the online-games database can't be renamed or deleted,
+	// and the last database can't be deleted
+	private void RenameActiveDatabase(int index)
+	{
+		if (index < _databases.Count && !IsOnlineGamesDb(_databases[index].Name)) PromptRenameDatabase(_databases[index]);
+	}
+
+	private void DeleteActiveDatabase(int index)
+	{
+		if (index < _databases.Count && _databases.Count > 1 && !IsOnlineGamesDb(_databases[index].Name)) PromptDeleteDatabase(_databases[index]);
+	}
+
+	// Keyboard navigation of the game list
+	private KeyboardList? _gameList;
+	private int _activeGameIndex = -1;
+	private bool _refocusGameList;
+
 	private bool _showDeleteDbModal = false;
 	private DatabaseInfo? _dbToDelete;
 	private bool _showRenameDbModal = false;
@@ -1562,6 +1611,13 @@
 
 	protected override async Task OnAfterRenderAsync(bool firstRender)
 	{
+		// After a dialog or reload took focus away from the game list, give it back
+		if (_refocusGameList && !_showDeleteModal && _editingNoteGameId == null && _gameList != null)
+		{
+			_refocusGameList = false;
+			await _gameList.FocusAsync();
+		}
+
 		if (firstRender)
 		{
 			try
@@ -2126,6 +2182,7 @@
 
 			var (games, count) = await DatabaseService.SearchGamesAsync(_currentDbName, _filter);
 			_games = games;
+			if (_activeGameIndex >= _games.Count) _activeGameIndex = _games.Count - 1;
 			_totalCount = count;
 		}
 		catch (Exception ex)
@@ -2943,10 +3000,12 @@
 	{
 		if (e.Key == "Enter")
 		{
+			_refocusGameList = true;
 			await CommitNoteEditAsync(game);
 		}
 		else if (e.Key == "Escape")
 		{
+			_refocusGameList = true;
 			CancelNoteEdit();
 		}
 	}
@@ -3372,7 +3431,63 @@
 			await DatabaseService.DeleteGameAsync(_currentDbName, _gameToDelete.Id);
 			_showDeleteModal = false;
 			_gameToDelete = null;
+			_refocusGameList = true;
 			await LoadGamesAsync();
+		}
+	}
+
+	private void CancelDeleteGame()
+	{
+		_showDeleteModal = false;
+		_gameToDelete = null;
+		_refocusGameList = true;
+	}
+
+	private void HandleDeleteGameModalKeyDown(KeyboardEventArgs e)
+	{
+		if (e.Key == "Escape")
+		{
+			CancelDeleteGame();
+		}
+	}
+
+	private Task OpenActiveGameAsync(int index)
+	{
+		if (index < _games.Count) OpenGameInAnalysis(_games[index]);
+		return Task.CompletedTask;
+	}
+
+	private void EditActiveGameNote(int index)
+	{
+		if (index < _games.Count) StartEditingNote(_games[index]);
+	}
+
+	private void ToggleActiveGameSelection(int index)
+	{
+		if (index >= _games.Count) return;
+		long id = _games[index].Id;
+		if (!_selectedGameIds.Remove(id)) _selectedGameIds.Add(id);
+	}
+
+	private void DeleteActiveGame(int index)
+	{
+		if (index < _games.Count) PromptDeleteGame(_games[index]);
+	}
+
+	// Arrow past the first/last row turns the page, keeping the list (and its focus) in place
+	private async Task TurnGamePageAsync(int direction)
+	{
+		if (direction > 0 && _filter.PageNumber < TotalPages)
+		{
+			_filter.PageNumber++;
+			await LoadGamesAsync(showLoading: false);
+			_activeGameIndex = 0;
+		}
+		else if (direction < 0 && _filter.PageNumber > 1)
+		{
+			_filter.PageNumber--;
+			await LoadGamesAsync(showLoading: false);
+			_activeGameIndex = _games.Count - 1;
 		}
 	}
 

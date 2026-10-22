@@ -71,7 +71,13 @@
 				</div>
 			</div>
 
-			<div class="homework-sheets-grid">
+			<KeyboardList Class="homework-sheets-grid"
+						  Count="_sheets.Count"
+						  @bind-ActiveIndex="_activeSheetIndex"
+						  OnOpen="OpenActiveSheet"
+						  OnDelete="DeleteActiveSheet"
+						  OpenLabel="@Loc["Homework_Edit"]"
+						  AriaLabel="@Loc["Homework_Title"]">
 				@if (_sheets.Count == 0)
 				{
 					<div class="reference-empty-state">
@@ -92,9 +98,11 @@
 				}
 				else
 				{
-					@foreach (var sheet in _sheets)
+					@for (int sheetIndex = 0; sheetIndex < _sheets.Count; sheetIndex++)
 					{
-						<div class="sheet-hub-card">
+						int cardIndex = sheetIndex;
+						var sheet = _sheets[cardIndex];
+						<div class="sheet-hub-card @(cardIndex == _activeSheetIndex ? "kl-row-active" : "")" @onmousedown="() => _activeSheetIndex = cardIndex">
 							<div class="sheet-card-top">
 								<div class="sheet-card-title-group">
 									<h3 class="sheet-card-title" @onclick="() => OpenEditor(sheet)">@sheet.Title</h3>
@@ -153,7 +161,7 @@
 						</div>
 					}
 				}
-			</div>
+			</KeyboardList>
 		</div>
 	}
 	else if (_viewMode == ViewMode.Editor && _activeSheet != null)
@@ -750,6 +758,19 @@
 		{
 			Console.Error.WriteLine($"[HomeworkWorkbench] HandleSheetsChanged failed: {ex.Message}");
 		}
+	}
+
+	// Keyboard navigation of the sheet list
+	private int _activeSheetIndex = -1;
+
+	private void OpenActiveSheet(int index)
+	{
+		if (index < _sheets.Count) OpenEditor(_sheets[index]);
+	}
+
+	private void DeleteActiveSheet(int index)
+	{
+		if (index < _sheets.Count) PromptDeleteSheet(_sheets[index]);
 	}
 
 	private void OpenEditor(HomeworkSheet sheet)

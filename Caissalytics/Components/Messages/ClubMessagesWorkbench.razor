@@ -87,11 +87,16 @@
 					}
 					else
 					{
-						@foreach (var msg in FilteredMessages)
+						var messages = FilteredMessages;
+						<KeyboardList Count="messages.Count"
+									  ActiveIndex="ActiveMessageIndex"
+									  ActiveIndexChanged="SelectMessageAtAsync"
+									  AriaLabel="@Loc["Messages_Title"]">
+						@foreach (var msg in messages)
 						{
 							bool isSelected = !_isComposing && _selectedMessage?.Id == msg.Id;
 							string itemClass = "message-item" +
-								(isSelected ? " active" : "") +
+								(isSelected ? " active kl-row-active" : "") +
 								(!msg.IsRead ? " unread" : "");
 
 							<div class="@itemClass" @onclick="() => SelectMessageAsync(msg)">
@@ -123,6 +128,7 @@
 								</div>
 							</div>
 						}
+						</KeyboardList>
 					}
 				</div>
 			</div>
@@ -423,6 +429,17 @@
 			_isLoading = false;
 			StateHasChanged();
 		}
+	}
+
+	// Keyboard navigation: the list cursor is the open message, so arrows read through the inbox
+	private int ActiveMessageIndex => _isComposing || _selectedMessage == null
+		? -1
+		: FilteredMessages.FindIndex(m => m.Id == _selectedMessage.Id);
+
+	private async Task SelectMessageAtAsync(int index)
+	{
+		var messages = FilteredMessages;
+		if (index >= 0 && index < messages.Count) await SelectMessageAsync(messages[index]);
 	}
 
 	private async Task SelectMessageAsync(SkppMessageDto msg)

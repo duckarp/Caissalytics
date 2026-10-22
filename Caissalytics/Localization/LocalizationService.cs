@@ -329,6 +329,13 @@ public class LocalizationService : ILocalizationService
         ["Common_Undo"] = "Undo",
         ["Common_PreferencesSaved"] = "✓ Preferences saved!",
         ["Common_Copied"] = "Copied",
+        ["List_HintMove"] = "Move",
+        ["List_HintOpen"] = "Open",
+        ["List_HintEdit"] = "Edit",
+        ["List_HintDelete"] = "Delete",
+        ["List_HintToggle"] = "Select",
+        ["List_HintAdd"] = "Add",
+        ["Db_GameListLabel"] = "Games",
 
         // Engine Removal Dialog
         // Engine Removal Dialog
@@ -1253,6 +1260,13 @@ public class LocalizationService : ILocalizationService
         ["Common_Undo"] = "Vrátiť ťah",
         ["Common_PreferencesSaved"] = "✓ Nastavenia boli uložené!",
         ["Common_Copied"] = "Skopírované",
+        ["List_HintMove"] = "Pohyb",
+        ["List_HintOpen"] = "Otvoriť",
+        ["List_HintEdit"] = "Upraviť",
+        ["List_HintDelete"] = "Zmazať",
+        ["List_HintToggle"] = "Označiť",
+        ["List_HintAdd"] = "Pridať",
+        ["Db_GameListLabel"] = "Partie",
 
         // Engine Removal Dialog
         ["Engine_RemoveConfirm_Title"] = "Odstránenie šachového motora",

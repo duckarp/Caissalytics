@@ -71,10 +71,16 @@
 			}
 			else
 			{
-				<div class="club-tasks-grid">
-					@foreach (var task in _assignedHomeworks)
+				<KeyboardList Class="club-tasks-grid"
+							  Count="_assignedHomeworks.Count"
+							  @bind-ActiveIndex="_activeTaskIndex"
+							  OnOpen="OpenActiveTask"
+							  AriaLabel="@Loc["Tab_ClubHomework"]">
+					@for (int taskIndex = 0; taskIndex < _assignedHomeworks.Count; taskIndex++)
 					{
-						<div class="club-task-card @(task.IsOverdue ? "task-overdue" : "")">
+						int cardIndex = taskIndex;
+						var task = _assignedHomeworks[cardIndex];
+						<div class="club-task-card @(task.IsOverdue ? "task-overdue" : "") @(cardIndex == _activeTaskIndex ? "kl-row-active" : "")" @onmousedown="() => _activeTaskIndex = cardIndex">
 							<div class="sheet-card-top">
 								<div class="sheet-card-title-group">
 									<h3 class="sheet-card-title" @onclick="() => OpenSolver(task)">@task.Title</h3>
@@ -150,7 +156,7 @@
 							</div>
 						</div>
 					}
-				</div>
+				</KeyboardList>
 			}
 		</div>
 	}
@@ -441,6 +447,14 @@
 		{
 			_assignedHomeworks.Clear();
 		}
+	}
+
+	// Keyboard navigation of the task list
+	private int _activeTaskIndex = -1;
+
+	private void OpenActiveTask(int index)
+	{
+		if (index < _assignedHomeworks.Count) OpenSolver(_assignedHomeworks[index]);
 	}
 
 	private void OpenSolver(SkppHomeworkDto task)

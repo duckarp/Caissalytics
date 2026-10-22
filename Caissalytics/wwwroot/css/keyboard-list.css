@@ -1,0 +1,66 @@
+/* Keyboard-navigable lists (KeyboardList.razor) */
+
+.keyboard-list {
+  position: relative;
+  outline: none;
+}
+
+.keyboard-list:focus-visible {
+  box-shadow: 0 0 0 1px var(--border-focus);
+}
+
+/* Active row: accent bar on the first cell plus a tint; stays visible when the list loses focus */
+.kl-row-active td {
+  background-color: color-mix(in srgb, var(--accent-primary) 10%, transparent);
+}
+
+.kl-row-active td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent-primary);
+}
+
+.keyboard-list:focus .kl-row-active td,
+.keyboard-list:focus-within .kl-row-active td {
+  background-color: color-mix(in srgb, var(--accent-primary) 18%, transparent);
+}
+
+/* Non-table items (cards, list entries) */
+.kl-row-active:not(tr) {
+  box-shadow: inset 3px 0 0 var(--accent-primary);
+}
+
+.keyboard-list:focus-within .kl-row-active:not(tr) {
+  box-shadow: inset 3px 0 0 var(--accent-primary), 0 0 0 1px var(--accent-primary);
+}
+
+/* Shortcut hint: only while the list has keyboard focus */
+.keyboard-list-hint {
+  display: none;
+  grid-column: 1 / -1; /* full row when the list itself is a grid */
+  position: sticky;
+  bottom: 0;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 5px 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-surface-elevated);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.keyboard-list:focus-within .keyboard-list-hint {
+  display: flex;
+}
+
+.keyboard-list-hint kbd {
+  display: inline-block;
+  min-width: 16px;
+  padding: 0 4px;
+  margin-right: 2px;
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  border: 1px solid var(--border-subtle);
+  border-radius: 3px;
+  background: var(--bg-surface);
+}
