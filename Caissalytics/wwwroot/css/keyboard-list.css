@@ -23,6 +23,11 @@
   background-color: color-mix(in srgb, var(--accent-primary) 18%, transparent);
 }
 
+/* Rows in a multi-select list's selection (lists may use their own selected style instead) */
+.kl-row-selected td {
+  background-color: color-mix(in srgb, var(--accent-primary) 8%, transparent);
+}
+
 /* Non-table items (cards, list entries) */
 .kl-row-active:not(tr) {
   box-shadow: inset 3px 0 0 var(--accent-primary);
