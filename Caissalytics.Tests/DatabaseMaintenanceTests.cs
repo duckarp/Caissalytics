@@ -75,6 +75,23 @@ public class DatabaseMaintenanceTests : IDisposable
     }
 
     [Fact]
+    public async Task Import_IgnoresSemicolonCommentsAndEscapeLines()
+    {
+        var db = new DatabaseManager(_dir);
+        await db.CreateDatabaseAsync("Imported");
+
+        // "d5" in the ';' comment is a legal reply to 1.e4 and must not be indexed as the move played
+        const string pgn = "[Event \"Club\"]\n[White \"A\"]\n[Black \"B\"]\n[Result \"*\"]\n\n%tool output Nf3\n1. e4 ; d5 looks fine\ne5 2. Nf3 *\n";
+        await db.ImportPgnTextAsync("Imported", pgn);
+
+        var (games, _) = await db.SearchGamesAsync("Imported", new GameFilter());
+        Assert.Equal(3, Assert.Single(games).PlyCount);
+
+        var afterE4E5 = await db.QueryPositionAsync("Imported", KeyOf("rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2"));
+        Assert.Equal(1, afterE4E5.TotalPositionGames);
+    }
+
+    [Fact]
     public async Task LegacyDatabase_BackfillReachesGamesBehindManyUnindexableOnes()
     {
         // A database from before the position index: games but no positions table rows.

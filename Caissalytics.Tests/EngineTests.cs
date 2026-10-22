@@ -11,7 +11,10 @@ public class EngineTests
     [Fact]
     public async Task InstallAndRun_Stockfish_Works()
     {
-        using var manager = new EngineManager();
+        // Network integration test: downloads Stockfish once into a shared temp cache,
+        // never into the user's real engines folder
+        string engineCache = Path.Combine(Path.GetTempPath(), "caissalytics_test_engines");
+        using var manager = new EngineManager(engineCache);
         var engines = await manager.GetEnginesAsync();
         Assert.NotEmpty(engines);
 

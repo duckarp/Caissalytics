@@ -148,7 +148,8 @@ public class StreamingPgnImporter
                 else
                 {
                     readingMovetext = true;
-                    movetext.Append(' ');
+                    // Keep line breaks: they end ';' comments and '%' escape lines
+                    movetext.Append('\n');
                     movetext.Append(trimmed);
 
                     // Track curly brace comment depth across lines to prevent
@@ -416,6 +417,14 @@ public class StreamingPgnImporter
                 continue;
             }
 
+            // Skip escape lines (% at the start of a line) and rest-of-line comments (;)
+            if ((c == '%' && (i == 0 || text[i - 1] == '\n')) || c == ';')
+            {
+                int eol = text.IndexOf('\n', i);
+                i = eol == -1 ? len : eol + 1;
+                continue;
+            }
+
             // Skip comments { ... }
             if (c == '{')
             {
@@ -450,7 +459,7 @@ public class StreamingPgnImporter
             if (ravDepth > 0)
             {
                 // Consume token until next whitespace or bracket
-                while (i < len && !char.IsWhiteSpace(text[i]) && text[i] != '(' && text[i] != ')' && text[i] != '{' && text[i] != '[')
+                while (i < len && !char.IsWhiteSpace(text[i]) && text[i] != '(' && text[i] != ')' && text[i] != '{' && text[i] != '[' && text[i] != ';')
                 {
                     i++;
                 }
@@ -459,7 +468,7 @@ public class StreamingPgnImporter
 
             // Read token
             int start = i;
-            while (i < len && !char.IsWhiteSpace(text[i]) && text[i] != '(' && text[i] != ')' && text[i] != '{' && text[i] != '[')
+            while (i < len && !char.IsWhiteSpace(text[i]) && text[i] != '(' && text[i] != ')' && text[i] != '{' && text[i] != '[' && text[i] != ';')
             {
                 i++;
             }
