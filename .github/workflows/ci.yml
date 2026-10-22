@@ -1,9 +1,9 @@
 name: CI
 
 on:
+  # Every push to any branch is tested; there is no pull request step
   push:
-    branches: [ main ]
-  pull_request:
+    branches: [ '**' ]
   workflow_dispatch:
 
 permissions:
