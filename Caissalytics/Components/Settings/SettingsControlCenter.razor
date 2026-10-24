@@ -1729,6 +1729,14 @@
 									</div>
 								</label>
 							</div>
+							<div class="form-field-block form-field-full">
+								<h4 class="card-section-subtitle">@Loc["Settings_ArrowOpacity_Title"]</h4>
+								<p class="field-hint">@Loc["Settings_ArrowOpacity_Desc"]</p>
+								@RenderOpacitySlider(Loc["Settings_ArrowOpacity_EngineBest"], _appearanceSettings.EngineBestArrowOpacity, (s, v) => s.EngineBestArrowOpacity = v)
+								@RenderOpacitySlider(Loc["Settings_ArrowOpacity_EngineAlt"], _appearanceSettings.EngineAltArrowOpacity, (s, v) => s.EngineAltArrowOpacity = v)
+								@RenderOpacitySlider(Loc["Settings_ArrowOpacity_Variation"], _appearanceSettings.VariationArrowOpacity, (s, v) => s.VariationArrowOpacity = v)
+								@RenderOpacitySlider(Loc["Settings_ArrowOpacity_Drawn"], _appearanceSettings.DrawnArrowOpacity, (s, v) => s.DrawnArrowOpacity = v)
+							</div>
 						</div>
 
 						<div class="section-divider"></div>
@@ -2800,6 +2808,28 @@
 		if (e.Value is bool on)
 		{
 			set(_appearanceSettings, on);
+			await AppearanceService.SaveSettingsAsync(_appearanceSettings);
+		}
+	}
+
+	private RenderFragment RenderOpacitySlider(string label, int value, Action<AppearanceSettings, int> set) => __builder =>
+	{
+		<div class="audio-volume-panel">
+			<div class="volume-slider-header">
+				<span class="volume-label">@label</span>
+				<span class="volume-value-badge">@value%</span>
+			</div>
+			<input type="range" class="volume-slider-input" min="0" max="100" step="10"
+				   value="@value"
+				   @oninput="e => HandleOpacityChanged(e, set)" />
+		</div>
+	};
+
+	private async Task HandleOpacityChanged(ChangeEventArgs e, Action<AppearanceSettings, int> set)
+	{
+		if (int.TryParse(e.Value?.ToString(), out int percent))
+		{
+			set(_appearanceSettings, percent);
 			await AppearanceService.SaveSettingsAsync(_appearanceSettings);
 		}
 	}

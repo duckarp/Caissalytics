@@ -55,12 +55,35 @@ export function initBoard(elementId, dotNetHelper, config) {
     drawable: {
       enabled: true,
       visible: true,
-      autoShapes: config.shapes || []
+      autoShapes: config.shapes || [],
+      // Engine arrows get brushes of their own so their opacity is set apart from arrows drawn by hand
+      brushes: {
+        engineBest: { key: 'eb', color: '#15781B', opacity: 1, lineWidth: 10 },
+        engineAlt: { key: 'ea', color: '#003088', opacity: 0.4, lineWidth: 15 }
+      }
     }
   };
 
   const cg = Chessground(el, cgConfig);
   boards.set(elementId, { cg, dotNetHelper });
+  if (config.arrowOpacity) setArrowOpacity(elementId, config.arrowOpacity);
+}
+
+// Opacities 0-1: engineBest, engineAlt, drawn (the right-click brushes)
+export function setArrowOpacity(elementId, opacity) {
+  const instance = boards.get(elementId);
+  if (!instance) return;
+
+  const brushes = instance.cg.state.drawable.brushes;
+  brushes.engineBest.opacity = opacity.engineBest;
+  brushes.engineAlt.opacity = opacity.engineAlt;
+  for (const name of ['green', 'red', 'blue', 'yellow']) {
+    brushes[name].opacity = opacity.drawn;
+  }
+
+  // Shapes are only redrawn when they change, so force it
+  instance.cg.state.drawable.prevSvgHash = '';
+  instance.cg.redrawAll();
 }
 
 export function updateBoard(elementId, fen, orientation, turnColor, dests, lastMove, check, shapes) {

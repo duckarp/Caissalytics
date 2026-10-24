@@ -34,6 +34,12 @@ public class AppearanceSettings
     public bool ShowBoardVariationBadges { get; set; } = true;
     public bool ShowMoveGameCounts { get; set; } = true;
 
+    // Opacity of the helper arrows on the board, in percent
+    public int EngineBestArrowOpacity { get; set => field = Math.Clamp(value, 0, 100); } = 100;
+    public int EngineAltArrowOpacity { get; set => field = Math.Clamp(value, 0, 100); } = 40;
+    public int VariationArrowOpacity { get; set => field = Math.Clamp(value, 0, 100); } = 55;
+    public int DrawnArrowOpacity { get; set => field = Math.Clamp(value, 0, 100); } = 100;
+
     // Games shown at once in the database list
     public int GamesPerPage { get; set; } = 50;
     public static readonly int[] AvailableGamesPerPage = [25, 50, 100, 200, 500, 1000];
