@@ -101,7 +101,8 @@
 					<ReferenceTreePanel Position="@Tab.Tree.CurrentNode.Position"
 										InitialDatabase="@Tab.TargetDatabase"
 										OnPlayMove="HandleReferenceMoveSelected"
-										OnOpenGame="HandleReferenceGameOpened" />
+										OnOpenGame="HandleReferenceGameOpened"
+										OnMergeGame="HandleReferenceGameMerged" />
 				</div>
 			}
 			else if (_activeRightTab == "tablebase")
@@ -193,6 +194,11 @@
 				ExistingGameId="@Tab.DatabaseGameId"
 				OnGameSaved="HandleGameSaved"
 				OnClose="() => _showSaveModal = false" />
+
+@if (_notice != null)
+{
+	<div class="db-copy-toast" role="status" aria-live="polite">@_notice</div>
+}
 
 <LoadPgnDialog IsOpen="_showLoadModal"
 			   OnPgnLoaded="HandlePgnLoaded"
@@ -388,6 +394,14 @@
 
 		try
 		{
+			if (result.Merge)
+			{
+				MergeIntoCurrentGame(PgnHandler.ImportPgn(result.Pgn));
+				_showLoadModal = false;
+				_activeRightTab = "moves";
+				return;
+			}
+
 			if (result.OpenInNewTab)
 			{
 				var tempTree = PgnHandler.ImportPgn(result.Pgn);
@@ -638,6 +652,37 @@
 	{
 		string title = $"{game.White} vs {game.Black} ({game.FormattedDate})";
 		Workspace.CreateAnalysisTab(title: title, pgn: game.Pgn);
+	}
+
+	private void HandleReferenceGameMerged(GameHeader game)
+	{
+		MergeIntoCurrentGame(PgnHandler.ImportPgn(game.Pgn));
+	}
+
+	// ChessBase-style merge: the other game's new moves join this one as variations, named after it
+	private void MergeIntoCurrentGame(GameTree source)
+	{
+		var result = Tab.Tree.Merge(source, GameMerger.BuildLabel(source.Headers));
+		ShowNotice(result.StartPositionMismatch ? Loc["Analysis_Merge_DifferentStart"]
+			: result.MovesAdded == 0 ? Loc["Analysis_Merge_NothingNew"]
+			: Loc["Analysis_Merge_Done", result.MovesAdded]);
+	}
+
+	private string? _notice;
+	private int _noticeId;
+
+	private async void ShowNotice(string notice)
+	{
+		_notice = notice;
+		int noticeId = ++_noticeId;
+		StateHasChanged();
+
+		await Task.Delay(2500);
+		if (noticeId == _noticeId)
+		{
+			_notice = null;
+			await InvokeAsync(StateHasChanged);
+		}
 	}
 
 	private async Task HandleSelectNode(MoveNode node)

@@ -1,6 +1,7 @@
 @namespace Caissalytics.Components.Analysis
 @using Caissalytics.Core
 @using Caissalytics.Data
+@using Caissalytics.Components.Common
 @using Caissalytics.Components.Database
 @inject IDatabaseService DatabaseService
 @inject IUserProfileService ProfileService
@@ -108,7 +109,9 @@
 			{
 				@foreach (var game in _refResult.TopGames)
 				{
-					<div class="ref-game-item" @onclick="() => OpenGame(game)">
+					<div class="ref-game-item" @onclick="() => OpenGame(game)"
+						 @oncontextmenu="e => OpenGameMenu(game, e)"
+						 @oncontextmenu:preventDefault="true">
 						<div class="ref-game-players">
 							<div class="ref-player-line">
 								<span class="ref-player-name @(_userProfile.MatchesPlayer(game.White) ? "player-name-user" : "")">
@@ -158,11 +161,14 @@
 	</div>
 </div>
 
+<ContextMenu @ref="_gameMenu" AriaLabel="@Loc["Db_Menu_Label"]" />
+
 @code {
 	[Parameter, EditorRequired] public BoardPosition Position { get; set; } = default!;
 	[Parameter] public string? InitialDatabase { get; set; }
 	[Parameter] public EventCallback<string> OnPlayMove { get; set; }
 	[Parameter] public EventCallback<GameHeader> OnOpenGame { get; set; }
+	[Parameter] public EventCallback<GameHeader> OnMergeGame { get; set; }
 
 	private List<DatabaseInfo> _databases = new();
 	private string _selectedDb = "";
@@ -362,6 +368,18 @@
 		{
 			await OnOpenGame.InvokeAsync(game);
 		}
+	}
+
+	private ContextMenu? _gameMenu;
+
+	private void OpenGameMenu(GameHeader game, MouseEventArgs e)
+	{
+		if (_gameMenu == null) return;
+		_gameMenu.Show(new(e.ClientX, e.ClientY),
+		[
+			new(Loc["Db_Menu_Open"], () => OpenGame(game)) { Icon = "♟", IsDefault = true },
+			new(Loc["RefTree_MergeGame"], () => OnMergeGame.InvokeAsync(game)) { Icon = "🔀", Title = Loc["RefTree_MergeGameTooltip"], Disabled = !OnMergeGame.HasDelegate || string.IsNullOrWhiteSpace(game.Pgn) },
+		]);
 	}
 
 	private void ViewInDatabaseBrowser()

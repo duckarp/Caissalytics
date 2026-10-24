@@ -203,6 +203,17 @@ public class GameTree
         }
     }
 
+    /// <summary>Adds another game's moves as variations; see <see cref="GameMerger"/>.</summary>
+    public MergeResult Merge(GameTree source, string? label = null)
+    {
+        var result = GameMerger.Merge(this, source, label);
+        if (!result.StartPositionMismatch)
+        {
+            PositionChanged?.Invoke();
+        }
+        return result;
+    }
+
     public MoveNode? FindDeepestLeaf()
     {
         return FindDeepestLeaf(Root);

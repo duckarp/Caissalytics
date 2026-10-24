@@ -79,7 +79,10 @@
 
 			<div class="modal-footer">
 				<button class="btn-secondary" @onclick="CloseDialog">Cancel</button>
-				<button class="btn-primary" disabled="@(string.IsNullOrWhiteSpace(_pgnText) || _isParsing)" @onclick="OpenGameAsync">
+				<button class="btn-secondary" disabled="@(string.IsNullOrWhiteSpace(_pgnText) || _isParsing)" title="@Loc["Analysis_LoadPgn_MergeTooltip"]" @onclick="() => OpenGameAsync(merge: true)">
+					@Loc["Analysis_LoadPgn_Merge"]
+				</button>
+				<button class="btn-primary" disabled="@(string.IsNullOrWhiteSpace(_pgnText) || _isParsing)" @onclick="() => OpenGameAsync(merge: false)">
 					@Loc["Analysis_LoadPgn_Open"]
 				</button>
 			</div>
@@ -96,6 +99,9 @@
 	{
 		public string Pgn { get; set; } = string.Empty;
 		public bool OpenInNewTab { get; set; }
+
+		/// <summary>Add the game's moves to the current game as variations instead of replacing it.</summary>
+		public bool Merge { get; set; }
 	}
 
 	private string _pgnText = "";
@@ -269,7 +275,7 @@
 		return m.Success ? m.Groups[1].Value : null;
 	}
 
-	private async Task OpenGameAsync()
+	private async Task OpenGameAsync(bool merge)
 	{
 		if (string.IsNullOrWhiteSpace(_pgnText))
 		{
@@ -293,7 +299,8 @@
 			var result = new LoadPgnResult
 			{
 				Pgn = _pgnText,
-				OpenInNewTab = _openInNewTab
+				OpenInNewTab = _openInNewTab && !merge,
+				Merge = merge
 			};
 
 			_errorMessage = null;

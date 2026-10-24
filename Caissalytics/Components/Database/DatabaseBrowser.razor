@@ -3568,6 +3568,7 @@
 			[
 				ContextMenu.Item.Header(Loc["Db_SelectedGamesCount", count]),
 				open,
+				new(Loc["Db_Menu_MergeSelected", count], () => MergeSelectedGamesAsync(game)) { Icon = "🔀", Title = Loc["Db_Menu_MergeSelectedTooltip"] },
 				ContextMenu.Item.Separator,
 				new(Loc["Db_ModifySelected"] + "…", OpenBulkEditModal) { Icon = "✏️", Title = Loc["Db_ModifySelectedTooltip"] },
 				new(Loc["Db_MoveSelectedGames", count], OpenBulkMoveModal) { Icon = "📁" },
@@ -3599,6 +3600,34 @@
 		return items;
 	}
 
+	// ChessBase-style merge: the right-clicked game is the main line and every other selected game adds
+	// its own moves as variations. The result opens as a new, unsaved game.
+	private async Task MergeSelectedGamesAsync(GameHeader mainGame)
+	{
+		var games = new List<GameHeader> { mainGame };
+		games.AddRange(_games.Where(g => g.Id != mainGame.Id && _selectedGameIds.Contains(g.Id)));
+		// Selected on other pages of the list
+		foreach (long id in _selectedGameIds.Where(id => games.All(g => g.Id != id)).Order())
+		{
+			if (await DatabaseService.GetGameByIdAsync(_currentDbName, id) is { } other) games.Add(other);
+		}
+
+		var merged = PgnHandler.ImportPgn(mainGame.Pgn);
+		int skipped = 0;
+		foreach (var game in games.Skip(1))
+		{
+			var source = PgnHandler.ImportPgn(game.Pgn);
+			if (GameMerger.Merge(merged, source, GameMerger.BuildLabel(source.Headers)).StartPositionMismatch) skipped++;
+		}
+
+		string title = Loc["Db_MergedGameTitle", mainGame.White, mainGame.Black, games.Count - 1 - skipped];
+		Workspace.CreateAnalysisTab(title: title, pgn: PgnHandler.ExportPgn(merged), targetDatabase: _currentDbName);
+		if (skipped > 0)
+		{
+			await ShowNoticeAsync(Loc["Db_MergeSkipped", skipped]);
+		}
+	}
+
 	private static string FinalPositionFen(string pgn)
 	{
 		var tree = PgnHandler.ImportPgn(pgn);
@@ -3611,13 +3640,18 @@
 		try
 		{
 			await JS.InvokeVoidAsync("navigator.clipboard.writeText", getText());
-			_copyNotice = notice;
 		}
 		catch (Exception ex)
 		{
 			Console.Error.WriteLine($"[DatabaseBrowser] Copy to clipboard failed: {ex.Message}");
-			_copyNotice = Loc["Db_Menu_CopyFailed"];
+			notice = Loc["Db_Menu_CopyFailed"];
 		}
+		await ShowNoticeAsync(notice);
+	}
+
+	private async Task ShowNoticeAsync(string notice)
+	{
+		_copyNotice = notice;
 		int noticeId = ++_copyNoticeId;
 		StateHasChanged();
 
