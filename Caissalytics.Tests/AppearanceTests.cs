@@ -7,6 +7,23 @@ namespace Caissalytics.Tests;
 public class AppearanceTests
 {
     [Fact]
+    public void Stylesheets_DoNotUseBackdropBlur()
+    {
+        // With hardware acceleration off, a backdrop blur is redrawn in software on every frame
+        // and makes dialogs stutter; users who need acceleration off for smooth piece dragging
+        // were stuck choosing between the two.
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Caissalytics.slnx"))) dir = dir.Parent;
+        Assert.NotNull(dir);
+
+        var offenders = Directory.GetFiles(Path.Combine(dir.FullName, "Caissalytics", "wwwroot", "css"), "*.css")
+            .Where(f => File.ReadAllText(f).Contains("backdrop-filter"))
+            .Select(Path.GetFileName)
+            .ToList();
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
     public void AppearanceSettings_Defaults_AreValid()
     {
         var settings = new AppearanceSettings();
