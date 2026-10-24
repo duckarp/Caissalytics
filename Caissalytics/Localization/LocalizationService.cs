@@ -1074,6 +1074,10 @@ public class LocalizationService : ILocalizationService
         ["Messages_SentSuccess"] = "Message sent successfully!",
 
         // Practice & Play vs PC
+        ["Analysis_DeleteFromHere"] = "Delete from here",
+        ["Analysis_DeleteFromHere_Tooltip"] = "Delete this move and all moves after it, including their variations",
+        ["Analysis_DeleteFromHere_Title"] = "Delete moves",
+        ["Analysis_DeleteFromHere_Question"] = "Delete {0} moves, starting with {1}? This includes all variations after it.",
         ["Analysis_PlayVsPc"] = "Play vs PC",
         ["PlayVsPc_Title"] = "Play vs Computer From Position",
         ["PlayVsPc_Desc"] = "Start a practice match from the current board position. Choose your side and the opponent's simulated Elo rating.",
@@ -2030,6 +2034,10 @@ public class LocalizationService : ILocalizationService
         ["Messages_SentSuccess"] = "Správa bola úspešne odoslaná!",
 
         // Practice & Play vs PC
+        ["Analysis_DeleteFromHere"] = "Zmazať odtiaľto",
+        ["Analysis_DeleteFromHere_Tooltip"] = "Zmazať tento ťah a všetky ťahy po ňom vrátane ich variantov",
+        ["Analysis_DeleteFromHere_Title"] = "Zmazať ťahy",
+        ["Analysis_DeleteFromHere_Question"] = "Zmazať {0} ťahov počnúc ťahom {1}? Zmažú sa aj všetky varianty po ňom.",
         ["Analysis_PlayVsPc"] = "Hrať proti PC",
         ["PlayVsPc_Title"] = "Hrať proti PC z tejto pozície",
         ["PlayVsPc_Desc"] = "Začnite tréningovú partiu z aktuálnej pozície na šachovnici. Zvoľte si farbu a simulované Elo súpera.",

@@ -25,7 +25,11 @@
 		@if (!ActiveNode.IsRoot && !ActiveNode.IsMainline)
 		{
 			<button class="glyph-btn" @onclick="() => OnPromoteVariation.InvokeAsync(ActiveNode)" title="Promote Variation to Mainline">⬆ Main</button>
-			<button class="glyph-btn" @onclick="() => OnDeleteSubtree.InvokeAsync(ActiveNode)" title="Delete Variation">🗑</button>
+		}
+
+		@if (!ActiveNode.IsRoot)
+		{
+			<button class="glyph-btn" @onclick="() => OnDeleteSubtree.InvokeAsync(ActiveNode)" title="@Loc["Analysis_DeleteFromHere_Tooltip"]">🗑 @Loc["Analysis_DeleteFromHere"]</button>
 		}
 	</div>
 

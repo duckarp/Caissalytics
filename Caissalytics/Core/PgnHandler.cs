@@ -296,6 +296,21 @@ public static class PgnHandler
     // Tokens shaped like a SAN move; other unparseable tokens (stray annotations etc.) are just ignored
     private static readonly Regex SanLikeRegex = new(@"^(?:[KQRBN][a-h]?[1-8]?x?[a-h][1-8]|[a-h](?:x[a-h])?[1-8](?:=?[QRBNqrbn])?|O-O(?:-O)?|0-0(?:-0)?)[+#]?[!?]*$", RegexOptions.Compiled);
 
+    /// <summary>
+    /// Collapses spaces and tabs within each line but keeps line breaks (at most one empty line in a row),
+    /// so comments written with Enter keep their layout.
+    /// </summary>
+    private static string NormalizeCommentWhitespace(string comment)
+    {
+        var lines = comment.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n')
+            .Select(line => HorizontalWhitespaceRegex.Replace(line, " ").Trim());
+        string joined = string.Join("\n", lines);
+        return ExtraBlankLinesRegex.Replace(joined, "\n\n").Trim();
+    }
+
+    private static readonly Regex HorizontalWhitespaceRegex = new(@"[^\S\n]+", RegexOptions.Compiled);
+    private static readonly Regex ExtraBlankLinesRegex = new(@"\n{3,}", RegexOptions.Compiled);
+
     private static void ParseAndAttachComment(MoveNode node, string rawComment)
     {
         if (string.IsNullOrWhiteSpace(rawComment)) return;
@@ -324,8 +339,8 @@ public static class PgnHandler
         // Strip any remaining machine annotations (e.g. [%emt ...], [%csl ...], [%cal ...])
         rawComment = MachineTagRegex.Replace(rawComment, "");
 
-        // Keep real human commentary
-        string cleaned = Regex.Replace(rawComment, @"\s+", " ").Trim();
+        // Keep real human commentary, including the line breaks the author typed
+        string cleaned = NormalizeCommentWhitespace(rawComment);
         if (!string.IsNullOrEmpty(cleaned))
         {
             node.Comment = string.IsNullOrEmpty(node.Comment)

@@ -268,7 +268,8 @@ public class LoadPgnTests
 
         Assert.Equal("c3", c3Node.San);
         Assert.NotNull(c3Node.Comment);
-        Assert.Contains("There are 4 essential common tries", c3Node.Comment);
+        // Line breaks inside comments are kept as written, including this file's wrapping
+        Assert.Contains("There are 4\nessential common tries", c3Node.Comment);
 
         // 4. c3 must have 4 alternative continuations: a6 (mainline), d6 (option 2), Bg7, Nge7
         Assert.Equal(4, c3Node.Children.Count);

@@ -102,4 +102,26 @@ public class PgnRoundTripTests
 
         Assert.Equal(new[] { "e8=Q", "Kb2" }, Mainline(tree));
     }
+
+    [Fact]
+    public void CommentLineBreaks_SurviveImportAndExport()
+    {
+        var tree = PgnHandler.ImportPgn("1. e4 {First line\r\n  second   line\n\n\n\nnew paragraph} e5 *");
+        var e4 = tree.Root.Children[0];
+        Assert.Equal("First line\nsecond line\n\nnew paragraph", e4.Comment);
+
+        var reimported = PgnHandler.ImportPgn(PgnHandler.ExportPgn(tree));
+
+        Assert.Equal(e4.Comment, reimported.Root.Children[0].Comment);
+        Assert.Equal(new[] { "e4", "e5" }, Mainline(reimported));
+    }
+
+    [Fact]
+    public void CommentWithClock_KeepsLineBreaks()
+    {
+        var tree = PgnHandler.ImportPgn("1. e4 {[%clk 0:05:00] Plan:\nkingside attack} *");
+        var e4 = tree.Root.Children[0];
+        Assert.Equal("0:05:00", e4.Clock);
+        Assert.Equal("Plan:\nkingside attack", e4.Comment);
+    }
 }

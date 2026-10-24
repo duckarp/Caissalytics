@@ -253,6 +253,17 @@ public class GameTree
         return depth;
     }
 
+    /// <summary>The move itself plus every move after it, including all variations below it.</summary>
+    public static int CountMoves(MoveNode node)
+    {
+        int count = node.IsRoot ? 0 : 1;
+        foreach (var child in node.Children)
+        {
+            count += CountMoves(child);
+        }
+        return count;
+    }
+
     public void DeleteSubtree(MoveNode node)
     {
         if (node.Parent == null) return;

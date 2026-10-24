@@ -194,6 +194,28 @@
 					   Tree="@Tab.Tree"
 					   OnClose="() => _showPlayVsPcModal = false" />
 
+@if (_pendingDeleteNode != null)
+{
+	<div class="modal-backdrop" @onclick="CancelDeleteFromHere">
+		<div class="modal-dialog" @onclick:stopPropagation="true" @onkeydown="HandleDeleteFromHereKeyDown">
+			<div class="modal-header">
+				<h3 class="modal-title">@Loc["Analysis_DeleteFromHere_Title"]</h3>
+				<button class="modal-close-btn" @onclick="CancelDeleteFromHere">✕</button>
+			</div>
+			<div class="modal-body">
+				<div class="modal-warning-box">
+					<div>@Loc["Analysis_DeleteFromHere_Question", GameTree.CountMoves(_pendingDeleteNode), FormatMoveLabel(_pendingDeleteNode)]</div>
+				</div>
+			</div>
+			<div class="modal-footer">
+				<button class="btn-secondary" @onclick="CancelDeleteFromHere">@Loc["Common_Cancel"]</button>
+				@* Focused on open so Enter confirms *@
+				<button class="btn-danger" autofocus @onclick="ConfirmDeleteFromHere">@Loc["Common_Delete"]</button>
+			</div>
+		</div>
+	</div>
+}
+
 @if (_showBoardEditorModal)
 {
 	<BoardEditorModal Title="@Loc["BoardEditor_Title"]"
@@ -609,10 +631,41 @@
 		Tab.Tree.PromoteVariation(node);
 	}
 
+	// Deleting more than the one move asks first: the moves after it can't be brought back
+	private MoveNode? _pendingDeleteNode;
+
 	private void HandleDeleteSubtree(MoveNode node)
 	{
+		if (node.IsRoot) return;
+		if (GameTree.CountMoves(node) > 1)
+		{
+			_pendingDeleteNode = node;
+			return;
+		}
 		Tab.Tree.DeleteSubtree(node);
 	}
+
+	private void ConfirmDeleteFromHere()
+	{
+		if (_pendingDeleteNode != null)
+		{
+			Tab.Tree.DeleteSubtree(_pendingDeleteNode);
+		}
+		_pendingDeleteNode = null;
+	}
+
+	private void CancelDeleteFromHere() => _pendingDeleteNode = null;
+
+	private void HandleDeleteFromHereKeyDown(KeyboardEventArgs e)
+	{
+		if (e.Key == "Escape")
+		{
+			CancelDeleteFromHere();
+		}
+	}
+
+	private static string FormatMoveLabel(MoveNode node) =>
+		$"{node.MoveNumber}{(node.IsWhiteMove ? "." : "...")} {node.San}";
 
 	private async Task HandleAnalyzingToggled(bool analyzing)
 	{
@@ -838,7 +891,7 @@
 	public void OnGlobalKeyDown(KeyEventDto e)
 	{
 		if (_isDisposed || Workspace.ActiveTab != Tab) return;
-		if (_showSaveModal || _showLoadModal || _showPlayVsPcModal || _showBoardEditorModal) return;
+		if (_showSaveModal || _showLoadModal || _showPlayVsPcModal || _showBoardEditorModal || _pendingDeleteNode != null) return;
 		if (!e.AltKey && !e.ShiftKey &&
             ((e.Code.StartsWith("Numpad") && e.Code.Length == 7 && char.IsDigit(e.Code[6])) ||
              (e.CtrlKey && e.Code.StartsWith("Digit") && e.Code.Length == 6 && char.IsDigit(e.Code[5]))))

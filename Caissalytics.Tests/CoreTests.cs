@@ -328,4 +328,21 @@ public class CoreTests
         Assert.Equal("", SanParser.ToSan(startPos, Move.Empty));
         Assert.Equal("", SanParser.ToSan(startPos, new Move(Square.A1, Square.A1)));
     }
+
+    [Fact]
+    public void DeleteFromHere_OnMainline_RemovesMoveAndEverythingAfter()
+    {
+        var tree = PgnHandler.ImportPgn("1. e4 e5 2. Nf3 (2. Bc4 Nf6) 2... Nc6 3. Bb5 *");
+        var e5 = tree.Root.Children[0].Children[0];
+        Assert.Equal(6, GameTree.CountMoves(e5)); // e5 Nf3 Nc6 Bb5 + Bc4 Nf6
+
+        var bb5 = e5.Children[0].Children[0].Children[0];
+        tree.NavigateTo(bb5);
+        tree.DeleteSubtree(e5);
+
+        Assert.Single(tree.Root.Children);
+        Assert.Empty(tree.Root.Children[0].Children);
+        Assert.Equal(tree.Root.Children[0], tree.CurrentNode); // board goes back to the position before e5
+        Assert.Equal(1, GameTree.CountMoves(tree.Root));
+    }
 }
