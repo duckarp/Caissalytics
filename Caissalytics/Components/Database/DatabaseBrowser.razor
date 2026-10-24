@@ -8,6 +8,7 @@
 @inject WorkspaceState Workspace
 @inject IJSRuntime JS
 @inject IAppWindowProvider WindowProvider
+@inject IAppearanceService AppearanceService
 @implements IDisposable
 
 <div class="db-browser-container" @ref="_dbBrowserRef">
@@ -160,7 +161,14 @@
 		<div class="db-filter-bar">
 			<div class="filter-group">
 				<label class="filter-label">@Loc["Db_Filter_Player"]</label>
-				<input class="filter-input" placeholder="@Loc["Db_Filter_PlayerPlaceholder"]" @bind="_filter.Player" @bind:event="oninput" @onkeydown="HandleFilterKeyDown" />
+				<div class="filter-player-row">
+					<input class="filter-input" placeholder="@Loc["Db_Filter_PlayerPlaceholder"]" @bind="_filter.Player" @bind:event="oninput" @onkeydown="HandleFilterKeyDown" />
+					<select class="filter-select filter-select-color" title="@Loc["Db_Filter_PlayerColorTooltip"]" @bind="_filter.PlayerColor">
+						<option value="">@Loc["Db_Filter_ColorAny"]</option>
+						<option value="white">@Loc["Db_Filter_ColorWhite"]</option>
+						<option value="black">@Loc["Db_Filter_ColorBlack"]</option>
+					</select>
+				</div>
 			</div>
 
 			<div class="filter-group">
@@ -581,6 +589,15 @@
 			</div>
 
 			<div class="pagination-controls">
+				<label class="pagination-info pagination-size">
+					@Loc["Db_GamesPerPage"]
+					<select class="filter-select" value="@_filter.PageSize" @onchange="ChangePageSizeAsync">
+						@foreach (int size in AppearanceSettings.AvailableGamesPerPage)
+						{
+							<option value="@size">@size</option>
+						}
+					</select>
+				</label>
 				<button class="btn-secondary" disabled="@(_filter.PageNumber <= 1)" @onclick="PreviousPageAsync">@Loc["Db_PrevPage"]</button>
 				<span class="pagination-info">@Loc["Db_PageOf", _filter.PageNumber, TotalPages]</span>
 				<button class="btn-secondary" disabled="@(_filter.PageNumber >= TotalPages)" @onclick="NextPageAsync">@Loc["Db_NextPage"]</button>
@@ -1605,6 +1622,8 @@
 		ProfileService.OnProfileChanged += HandleProfileChanged;
 		Loc.OnLanguageChanged += StateHasChanged;
 		await LoadProfileAsync();
+		int savedPageSize = (await AppearanceService.GetSettingsAsync()).GamesPerPage;
+		if (AppearanceSettings.AvailableGamesPerPage.Contains(savedPageSize)) _filter.PageSize = savedPageSize;
 
 		if (Tab != null && !string.IsNullOrWhiteSpace(Tab.TargetDatabase))
 		{
@@ -3141,7 +3160,7 @@
 
 	private async Task ResetFilterAsync()
 	{
-		_filter = new GameFilter { PageSize = 50 };
+		_filter = new GameFilter { PageSize = _filter.PageSize };
 		await LoadGamesAsync();
 	}
 
@@ -3188,6 +3207,20 @@
 		{
 			await SearchAsync();
 		}
+	}
+
+	private async Task ChangePageSizeAsync(ChangeEventArgs e)
+	{
+		if (!int.TryParse(e.Value?.ToString(), out int size) || size == _filter.PageSize) return;
+		// Keep the first game of the current page in view
+		int firstRow = (_filter.PageNumber - 1) * _filter.PageSize;
+		_filter.PageSize = size;
+		_filter.PageNumber = firstRow / size + 1;
+		await LoadGamesAsync();
+
+		var settings = await AppearanceService.GetSettingsAsync();
+		settings.GamesPerPage = size;
+		await AppearanceService.SaveSettingsAsync(settings);
 	}
 
 	private async Task PreviousPageAsync()
@@ -3613,14 +3646,17 @@
 		}
 
 		var merged = PgnHandler.ImportPgn(mainGame.Pgn);
+		var mergedHeaders = new List<IReadOnlyDictionary<string, string>> { new Dictionary<string, string>(merged.Headers) };
 		int skipped = 0;
 		foreach (var game in games.Skip(1))
 		{
 			var source = PgnHandler.ImportPgn(game.Pgn);
 			if (GameMerger.Merge(merged, source, GameMerger.BuildLabel(source.Headers)).StartPositionMismatch) skipped++;
+			else mergedHeaders.Add(source.Headers);
 		}
+		GameMerger.SetMergedHeaders(merged, mergedHeaders, Loc["Db_MergedVarious"]);
 
-		string title = Loc["Db_MergedGameTitle", mainGame.White, mainGame.Black, games.Count - 1 - skipped];
+		string title = Loc["Db_MergedGameTitle", merged.Headers.GetValueOrDefault("White", "?"), merged.Headers.GetValueOrDefault("Black", "?"), mergedHeaders.Count];
 		Workspace.CreateAnalysisTab(title: title, pgn: PgnHandler.ExportPgn(merged), targetDatabase: _currentDbName);
 		if (skipped > 0)
 		{

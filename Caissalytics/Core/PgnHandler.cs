@@ -79,17 +79,13 @@ public static class PgnHandler
             sb.Append($" ${nag}");
         }
 
-        if (!string.IsNullOrWhiteSpace(node.Clock) && !string.IsNullOrWhiteSpace(node.Comment))
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(node.Clock)) parts.Add($"[%clk {node.Clock}]");
+        if (node.GameCount > 1) parts.Add($"[%games {node.GameCount}]");
+        if (!string.IsNullOrWhiteSpace(node.Comment)) parts.Add(SanitizeComment(node.Comment));
+        if (parts.Count > 0)
         {
-            sb.Append($" {{[%clk {node.Clock}] {SanitizeComment(node.Comment)}}}");
-        }
-        else if (!string.IsNullOrWhiteSpace(node.Clock))
-        {
-            sb.Append($" {{[%clk {node.Clock}]}}");
-        }
-        else if (!string.IsNullOrWhiteSpace(node.Comment))
-        {
-            sb.Append($" {{{SanitizeComment(node.Comment)}}}");
+            sb.Append($" {{{string.Join(' ', parts)}}}");
         }
     }
 
@@ -289,6 +285,7 @@ public static class PgnHandler
 
     private static readonly Regex ClkRegex = new(@"\[%clk\s+([0-9:.]+)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex EvalRegex = new(@"\[%eval\s+([#+-]?[0-9.]+)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    private static readonly Regex GamesRegex = new(@"\[%games\s+([0-9]{1,6})\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex MachineTagRegex = new(@"\[%[a-zA-Z0-9_]+(?:\s+[^\]]*)?\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     private static readonly Regex MoveNumberPrefixRegex = new(@"^\d+\.+", RegexOptions.Compiled);
     private static readonly Regex LeadingHeaderRegex = new(@"\G\s*\[(\w+)\s+""((?:[^""\\]|\\.)*)""\]", RegexOptions.Compiled);
@@ -334,6 +331,13 @@ public static class PgnHandler
             }
             node.Eval = evalVal;
             rawComment = EvalRegex.Replace(rawComment, "");
+        }
+
+        // How many merged games played this move (see GameMerger)
+        var gamesMatch = GamesRegex.Match(rawComment);
+        if (gamesMatch.Success)
+        {
+            node.GameCount = int.Parse(gamesMatch.Groups[1].Value);
         }
 
         // Strip any remaining machine annotations (e.g. [%emt ...], [%csl ...], [%cal ...])

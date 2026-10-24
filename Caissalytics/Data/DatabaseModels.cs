@@ -287,6 +287,8 @@ public class GameFolder
 public class GameFilter
 {
     public string? Player { get; set; }
+    /// <summary>"white" or "black" limits <see cref="Player"/> to games with that color; anything else matches both.</summary>
+    public string? PlayerColor { get; set; }
     public string? Eco { get; set; }
     public string? Opening { get; set; }
     public int? MinElo { get; set; }
@@ -307,6 +309,7 @@ public class GameFilter
     public GameFilter Clone() => new()
     {
         Player = Player,
+        PlayerColor = PlayerColor,
         Eco = Eco,
         Opening = Opening,
         MinElo = MinElo,

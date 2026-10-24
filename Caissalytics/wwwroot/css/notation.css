@@ -830,3 +830,17 @@
 }
 
 
+
+/* Number of merged games that played the move */
+.move-game-count-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background-color: #1464c7;
+  border-radius: 8px;
+  padding: 0 5px;
+  margin: 0 2px;
+  line-height: 15px;
+  display: inline-block;
+  vertical-align: middle;
+}

@@ -14,6 +14,9 @@ public class MoveNode
     public string? Eval { get; set; }
     public List<int> Nags { get; } = new();
 
+    /// <summary>How many merged games reached this move along their main line; 0 when the game wasn't merged.</summary>
+    public int GameCount { get; set; }
+
     public string? FormattedClock
     {
         get

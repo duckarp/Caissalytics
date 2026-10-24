@@ -2469,3 +2469,10 @@
   font-size: 13px;
   pointer-events: none;
 }
+
+/* Player filter with its color choice */
+.filter-player-row { display: flex; gap: 6px; align-items: center; }
+.filter-select-color { width: auto; }
+
+/* Games per page next to the page buttons */
+.pagination-size { display: flex; align-items: center; gap: 6px; margin-right: 8px; }

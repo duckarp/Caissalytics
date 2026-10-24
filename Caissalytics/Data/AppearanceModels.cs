@@ -30,6 +30,14 @@ public class AppearanceSettings
     public bool PlayVictorySound { get; set; } = true;
     public bool PlayLowTimeSound { get; set; } = true;
 
+    // Analysis board
+    public bool ShowBoardVariationBadges { get; set; } = true;
+    public bool ShowMoveGameCounts { get; set; } = true;
+
+    // Games shown at once in the database list
+    public int GamesPerPage { get; set; } = 50;
+    public static readonly int[] AvailableGamesPerPage = [25, 50, 100, 200, 500, 1000];
+
     // Performance & Rendering options
     public bool HardwareAccelerationEnabled { get; set; } = true;
 

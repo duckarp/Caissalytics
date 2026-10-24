@@ -9,6 +9,8 @@ public readonly record struct MergeResult(bool StartPositionMismatch, int MovesA
 /// Merges games into one move tree the way ChessBase does: moves both games share are walked together,
 /// and wherever the source goes its own way the rest of it is added as a variation. The target's lines
 /// keep their order, so its main line stays the main line. Matching is by move order, not by position.
+/// Each move counts the games whose main line played it (<see cref="MoveNode.GameCount"/>); a game merged
+/// for the first time counts as one game along its main line.
 /// </summary>
 public static class GameMerger
 {
@@ -19,8 +21,46 @@ public static class GameMerger
             return new MergeResult(true, 0);
         }
 
-        int added = MergeChildren(target.Root, source.Root, label, sourceMainline: true);
+        if (!HasCounts(target.Root))
+        {
+            for (var node = target.Root; node.Children.Count > 0; node = node.Children[0])
+            {
+                node.Children[0].GameCount = 1;
+            }
+        }
+
+        int added = MergeChildren(target.Root, source.Root, label, sourceMainline: true, HasCounts(source.Root));
         return new MergeResult(false, added);
+    }
+
+    /// <summary>
+    /// Headers for a game merged from several: a tag the games agree on is kept, players and event that
+    /// differ become <paramref name="various"/>, and other differing tags are dropped.
+    /// </summary>
+    public static void SetMergedHeaders(GameTree merged, IReadOnlyList<IReadOnlyDictionary<string, string>> games, string various)
+    {
+        foreach (string tag in merged.Headers.Keys.ToList())
+        {
+            if (tag is "SetUp" or "FEN") continue;
+            string value = merged.Headers[tag];
+            if (games.All(g => g.TryGetValue(tag, out var v) && v == value)) continue;
+
+            switch (tag)
+            {
+                case "White" or "Black" or "Event":
+                    merged.Headers[tag] = various;
+                    break;
+                case "Date":
+                    merged.Headers[tag] = "????.??.??";
+                    break;
+                case "Result":
+                    merged.Headers[tag] = "*";
+                    break;
+                default:
+                    merged.Headers.Remove(tag);
+                    break;
+            }
+        }
     }
 
     /// <summary>"White – Black, Event Year (Result)", leaving out what the headers don't say.</summary>
@@ -54,7 +94,7 @@ public static class GameMerger
         return label;
     }
 
-    private static int MergeChildren(MoveNode target, MoveNode source, string? label, bool sourceMainline)
+    private static int MergeChildren(MoveNode target, MoveNode source, string? label, bool sourceMainline, bool sourceCounted)
     {
         int added = 0;
         for (int i = 0; i < source.Children.Count; i++)
@@ -65,11 +105,12 @@ public static class GameMerger
             if (match != null)
             {
                 CopyMissingAnnotations(match, sourceChild);
-                added += MergeChildren(match, sourceChild, label, childMainline);
+                match.GameCount += SourceCount(sourceChild, childMainline, sourceCounted);
+                added += MergeChildren(match, sourceChild, label, childMainline, sourceCounted);
             }
             else
             {
-                var copy = CopySubtree(sourceChild, target);
+                var copy = CopySubtree(sourceChild, target, childMainline, sourceCounted);
                 // The game's own departure from the target is where it gets named
                 if (childMainline && !string.IsNullOrWhiteSpace(label))
                 {
@@ -91,20 +132,27 @@ public static class GameMerger
     }
 
     // Clock times belong to the source game's timing, not to the analysis they join
-    private static MoveNode CopySubtree(MoveNode source, MoveNode parent)
+    private static MoveNode CopySubtree(MoveNode source, MoveNode parent, bool sourceMainline, bool sourceCounted)
     {
         var copy = new MoveNode(source.Move, source.San, source.Position, parent)
         {
             Comment = source.Comment,
             Eval = source.Eval,
+            GameCount = SourceCount(source, sourceMainline, sourceCounted),
         };
         copy.Nags.AddRange(source.Nags);
-        foreach (var child in source.Children)
+        for (int i = 0; i < source.Children.Count; i++)
         {
-            copy.Children.Add(CopySubtree(child, copy));
+            copy.Children.Add(CopySubtree(source.Children[i], copy, sourceMainline && i == 0, sourceCounted));
         }
         return copy;
     }
+
+    // A game that was merged before brings its own counts; any other game is one game along its main line
+    private static int SourceCount(MoveNode node, bool onMainline, bool sourceCounted) =>
+        sourceCounted ? node.GameCount : onMainline ? 1 : 0;
+
+    private static bool HasCounts(MoveNode node) => node.GameCount > 0 || node.Children.Any(HasCounts);
 
     private static bool SameMove(Move a, Move b) => a.From == b.From && a.To == b.To && a.Promotion == b.Promotion;
 

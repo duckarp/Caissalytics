@@ -169,4 +169,74 @@ public class GameMergerTests
         Assert.Equal("Novak – ?", GameMerger.BuildLabel(headers));
         Assert.Equal("", GameMerger.BuildLabel(new Dictionary<string, string>()));
     }
+    [Fact]
+    public void GameCount_CountsGamesThatPlayedEachMove()
+    {
+        var target = PgnHandler.ImportPgn("1. e4 e5 2. Nf3 *");
+        GameMerger.Merge(target, PgnHandler.ImportPgn("1. e4 c5 2. Nf3 *"));
+        GameMerger.Merge(target, PgnHandler.ImportPgn("1. e4 c5 2. Nc3 *"));
+
+        Assert.Equal(3, Walk(target, "e4").GameCount);
+        Assert.Equal(1, Walk(target, "e4", "e5").GameCount);
+        Assert.Equal(2, Walk(target, "e4", "c5").GameCount);
+        Assert.Equal(1, Walk(target, "e4", "c5", "Nf3").GameCount);
+        Assert.Equal(1, Walk(target, "e4", "c5", "Nc3").GameCount);
+    }
+
+    [Fact]
+    public void GameCount_IgnoresSourceSideLines()
+    {
+        var target = PgnHandler.ImportPgn("1. e4 e5 *");
+        GameMerger.Merge(target, PgnHandler.ImportPgn("1. e4 e5 (1... c5) *"));
+
+        Assert.Equal(2, Walk(target, "e4", "e5").GameCount);
+        Assert.Equal(0, Walk(target, "e4", "c5").GameCount);
+    }
+
+    [Fact]
+    public void GameCount_AddsUpWhenMergedGamesAreMergedAgain()
+    {
+        var first = PgnHandler.ImportPgn("1. d4 d5 *");
+        GameMerger.Merge(first, PgnHandler.ImportPgn("1. d4 Nf6 *"));
+        var second = PgnHandler.ImportPgn("1. d4 d5 *");
+        GameMerger.Merge(second, PgnHandler.ImportPgn("1. d4 d5 *"));
+
+        GameMerger.Merge(first, second);
+
+        Assert.Equal(4, Walk(first, "d4").GameCount);
+        Assert.Equal(3, Walk(first, "d4", "d5").GameCount);
+        Assert.Equal(1, Walk(first, "d4", "Nf6").GameCount);
+    }
+
+    [Fact]
+    public void GameCount_SurvivesPgnRoundTrip_NextToClockAndComment()
+    {
+        var target = PgnHandler.ImportPgn("1. e4 { [%clk 0:05:00] Good } e5 *");
+        GameMerger.Merge(target, PgnHandler.ImportPgn("1. e4 e5 *"));
+
+        string pgn = PgnHandler.ExportPgn(target);
+        var reimported = PgnHandler.ImportPgn(pgn);
+
+        Assert.Contains("[%games 2]", pgn);
+        var e4 = Walk(reimported, "e4");
+        Assert.Equal(2, e4.GameCount);
+        Assert.Equal("0:05:00", e4.Clock);
+        Assert.Equal("Good", e4.Comment);
+    }
+
+    [Fact]
+    public void SetMergedHeaders_KeepsCommonTags_AndMarksDifferingPlayers()
+    {
+        var a = PgnHandler.ImportPgn("[Event \"Open\"]\n[White \"Novak\"]\n[Black \"Kral\"]\n[Date \"2024.01.01\"]\n[Result \"1-0\"]\n[ECO \"C20\"]\n\n1. e4 e5 1-0");
+        var b = PgnHandler.ImportPgn("[Event \"Open\"]\n[White \"Novak\"]\n[Black \"Horak\"]\n[Date \"2024.02.01\"]\n[Result \"0-1\"]\n[ECO \"B20\"]\n\n1. e4 c5 0-1");
+
+        GameMerger.SetMergedHeaders(a, [a.Headers, b.Headers], "Various");
+
+        Assert.Equal("Novak", a.Headers["White"]);
+        Assert.Equal("Various", a.Headers["Black"]);
+        Assert.Equal("Open", a.Headers["Event"]);
+        Assert.Equal("????.??.??", a.Headers["Date"]);
+        Assert.Equal("*", a.Headers["Result"]);
+        Assert.False(a.Headers.ContainsKey("ECO"));
+    }
 }

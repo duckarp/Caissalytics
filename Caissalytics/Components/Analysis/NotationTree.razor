@@ -1,6 +1,7 @@
 @namespace Caissalytics.Components.Analysis
 @using Caissalytics.Core
 @inject IJSRuntime JS
+@inject IAppearanceService AppearanceService
 @implements IDisposable
 
 <div class="notation-panel-container">
@@ -206,6 +207,7 @@
 
 	private NotationViewMode _viewMode = NotationViewMode.Structured;
 	private bool _showClocks = true;
+	private bool _showGameCounts = true;
 	private readonly HashSet<Guid> _collapsedVariations = new();
 	private GameTree? _lastTree;
 	private MoveNode? _lastScrolledNode;
@@ -219,6 +221,18 @@
 	{
 		if (string.IsNullOrWhiteSpace(comment)) return "";
 		return CommentSplitRegex.Replace(comment, "\n");
+	}
+
+	protected override async Task OnInitializedAsync()
+	{
+		AppearanceService.OnAppearanceChanged += HandleAppearanceChanged;
+		_showGameCounts = (await AppearanceService.GetSettingsAsync()).ShowMoveGameCounts;
+	}
+
+	private void HandleAppearanceChanged(AppearanceSettings settings)
+	{
+		_showGameCounts = settings.ShowMoveGameCounts;
+		InvokeAsync(StateHasChanged);
 	}
 
 	protected override void OnParametersSet()
@@ -249,6 +263,7 @@
 
 	public void Dispose()
 	{
+		AppearanceService.OnAppearanceChanged -= HandleAppearanceChanged;
 		UnsubscribeFromTree(_lastTree);
 	}
 
@@ -540,6 +555,8 @@
 			}
 		</button>
 
+		@RenderGameCount(node)
+
 		@if (!string.IsNullOrWhiteSpace(node.FormattedClock) && _showClocks)
 		{
 			<span class="move-clock-badge" title="Time remaining: @node.Clock">@node.FormattedClock</span>
@@ -548,6 +565,15 @@
 		@if (!string.IsNullOrWhiteSpace(node.Comment))
 		{
 			<span class="move-comment-text">{@FormatComment(node.Comment)}</span>
+		}
+	};
+
+	// How many merged games played the move (see GameMerger); a move from a single game needs no badge
+	private RenderFragment RenderGameCount(MoveNode node) => __builder =>
+	{
+		if (_showGameCounts && node.GameCount > 1)
+		{
+			<span class="move-game-count-badge" title="@Loc["Notation_GameCount", node.GameCount]">@(node.GameCount)x</span>
 		}
 	};
 
@@ -635,6 +661,7 @@
 			{
 				<span class="nag-glyph @GetNagClass(node.Nags[0])">@node.NagSymbol()</span>
 			}
+			@RenderGameCount(node)
 			@if (!string.IsNullOrWhiteSpace(node.FormattedClock) && _showClocks)
 			{
 				<span class="move-clock-badge scoresheet-clock" title="Time remaining: @node.Clock">@node.FormattedClock</span>

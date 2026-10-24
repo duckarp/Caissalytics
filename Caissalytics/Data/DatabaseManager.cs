@@ -955,7 +955,12 @@ public class DatabaseManager : IDatabaseService
 
         if (!string.IsNullOrWhiteSpace(filter.Player))
         {
-            whereClauses.Add("(white LIKE $player OR black LIKE $player)");
+            whereClauses.Add(filter.PlayerColor switch
+            {
+                "white" => "white LIKE $player",
+                "black" => "black LIKE $player",
+                _ => "(white LIKE $player OR black LIKE $player)"
+            });
             parameters.Add(new SqliteParameter("$player", $"%{filter.Player.Trim()}%"));
         }
 

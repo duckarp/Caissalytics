@@ -366,6 +366,13 @@ public class DatabaseTests : IDisposable
         var (kasparovGames, kasparovCount) = await _dbManager.SearchGamesAsync("SearchTest", new GameFilter { Player = "Kasparov" });
         Assert.Equal(2, kasparovCount);
 
+        // Only the games where the player had the chosen color
+        var (_, kasparovWhiteCount) = await _dbManager.SearchGamesAsync("SearchTest", new GameFilter { Player = "Kasparov", PlayerColor = "white" });
+        var (kasparovBlack, kasparovBlackCount) = await _dbManager.SearchGamesAsync("SearchTest", new GameFilter { Player = "Kasparov", PlayerColor = "black" });
+        Assert.Equal(1, kasparovWhiteCount);
+        Assert.Equal(1, kasparovBlackCount);
+        Assert.Equal("Anand, Viswanathan", kasparovBlack[0].White);
+
         // 2. Filter by ECO
         var (b80Games, b80Count) = await _dbManager.SearchGamesAsync("SearchTest", new GameFilter { Eco = "B8" });
         Assert.Equal(2, b80Count); // B80 and B88

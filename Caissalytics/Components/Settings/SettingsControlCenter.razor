@@ -1701,6 +1701,41 @@
 						<div class="card-section-header">
 							<h3 class="card-section-title">
 								<span class="card-title-badge badge-theme-security"><AppIcon Name="settings" Size="16" /></span>
+								<span>@Loc["Settings_AnalysisBoard_Title"]</span>
+							</h3>
+							<p class="card-section-desc">@Loc["Settings_AnalysisBoard_Desc"]</p>
+						</div>
+
+						<div class="control-form-grid">
+							<div class="form-field-block form-field-full">
+								<label class="sound-checkbox-label">
+									<input type="checkbox" class="sound-check-box"
+										   checked="@_appearanceSettings.ShowBoardVariationBadges"
+										   @onchange="e => ToggleAppearanceFlag(e, (s, on) => s.ShowBoardVariationBadges = on)" />
+									<div>
+										<strong>@Loc["Settings_AnalysisBoard_VariationBadges"]</strong>
+										<p class="field-hint">@Loc["Settings_AnalysisBoard_VariationBadges_Desc"]</p>
+									</div>
+								</label>
+							</div>
+							<div class="form-field-block form-field-full">
+								<label class="sound-checkbox-label">
+									<input type="checkbox" class="sound-check-box"
+										   checked="@_appearanceSettings.ShowMoveGameCounts"
+										   @onchange="e => ToggleAppearanceFlag(e, (s, on) => s.ShowMoveGameCounts = on)" />
+									<div>
+										<strong>@Loc["Settings_AnalysisBoard_GameCounts"]</strong>
+										<p class="field-hint">@Loc["Settings_AnalysisBoard_GameCounts_Desc"]</p>
+									</div>
+								</label>
+							</div>
+						</div>
+
+						<div class="section-divider"></div>
+
+						<div class="card-section-header">
+							<h3 class="card-section-title">
+								<span class="card-title-badge badge-theme-security"><AppIcon Name="settings" Size="16" /></span>
 								<span>@Loc["Settings_Performance_Title"]</span>
 							</h3>
 							<p class="card-section-desc">@Loc["Settings_Performance_Desc"]</p>
@@ -2756,6 +2791,15 @@
 		if (e.Value is bool b)
 		{
 			_appearanceSettings.HardwareAccelerationEnabled = b;
+			await AppearanceService.SaveSettingsAsync(_appearanceSettings);
+		}
+	}
+
+	private async Task ToggleAppearanceFlag(ChangeEventArgs e, Action<AppearanceSettings, bool> set)
+	{
+		if (e.Value is bool on)
+		{
+			set(_appearanceSettings, on);
 			await AppearanceService.SaveSettingsAsync(_appearanceSettings);
 		}
 	}

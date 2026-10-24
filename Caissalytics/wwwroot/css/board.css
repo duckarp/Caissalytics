@@ -407,3 +407,5 @@
 .board-selected-variation-overlay { position:absolute; inset:0; pointer-events:none; z-index:9; }
 .board-selected-variation-square { position:absolute; width:12.5%; height:12.5%; display:flex; justify-content:flex-end; align-items:flex-start; padding:2px; box-sizing:border-box; pointer-events:none; }
 .board-selected-variation-badge { display:grid; place-items:center; min-width:19px; height:19px; padding:0 4px; border:1px solid #b8f1ce; border-radius:12px; background:#16834c; color:#fff; font-size:11px; font-weight:700; line-height:1; box-shadow:0 1px 4px #0009; }
+.board-variation-badge:has(.board-variation-count) { display:flex; gap:3px; }
+.board-variation-count { font-size:9px; font-weight:600; opacity:.85; }
