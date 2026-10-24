@@ -19,9 +19,7 @@ public class OnlineGameSyncService : IOnlineGameSyncService
         _databaseService = databaseService;
         _httpClientFactory = httpClientFactory;
 
-        string configDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Caissalytics");
+        string configDir = AppPaths.DataDirectory;
         Directory.CreateDirectory(configDir);
         _configFilePath = Path.Combine(configDir, "online_sync_config.json");
 

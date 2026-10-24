@@ -14,9 +14,7 @@ public class RepertoireService : IRepertoireService
 
     public RepertoireService(string? storageDirectory = null)
     {
-        string baseDir = storageDirectory ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Caissalytics");
+        string baseDir = storageDirectory ?? AppPaths.DataDirectory;
         Directory.CreateDirectory(baseDir);
         _repertoireFilePath = Path.Combine(baseDir, "repertoire_data.json");
 

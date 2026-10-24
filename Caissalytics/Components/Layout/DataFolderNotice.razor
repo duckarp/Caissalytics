@@ -1,0 +1,41 @@
+@implements IDisposable
+
+@if (!_dismissed && _message != null)
+{
+	<div class="data-folder-notice" role="alert">
+		<AppIcon Name="warning" Size="16" />
+		<span class="data-folder-notice-text">@_message</span>
+		<button class="data-folder-notice-close" @onclick="() => _dismissed = true">@Loc["Common_Close"]</button>
+	</div>
+}
+
+@code {
+	private bool _dismissed;
+	private string? _message;
+
+	protected override void OnInitialized()
+	{
+		BuildMessage();
+		Loc.OnLanguageChanged += HandleLanguageChanged;
+	}
+
+	private void BuildMessage()
+	{
+		if (DataFolderLock.Current?.OtherHolder is { } holder)
+		{
+			_message = string.Format(Loc["Notice_DataFolder_InUse"], holder.Machine, holder.User);
+		}
+		else if (!string.IsNullOrEmpty(AppPaths.StartupError))
+		{
+			_message = string.Format(Loc["Notice_DataFolder_Error"], AppPaths.StartupError);
+		}
+	}
+
+	private void HandleLanguageChanged()
+	{
+		BuildMessage();
+		InvokeAsync(StateHasChanged);
+	}
+
+	public void Dispose() => Loc.OnLanguageChanged -= HandleLanguageChanged;
+}

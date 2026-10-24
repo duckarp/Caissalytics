@@ -40,9 +40,7 @@ public class UpdateService : IUpdateService
             _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Caissalytics-Desktop/1.0");
         }
 
-        string baseDir = storageDirectory ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Caissalytics");
+        string baseDir = storageDirectory ?? AppPaths.LocalDirectory;
         Directory.CreateDirectory(baseDir);
         _settingsPath = Path.Combine(baseDir, "update_settings.json");
 

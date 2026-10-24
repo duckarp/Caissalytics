@@ -150,6 +150,12 @@
   color: #38bdf8;
 }
 
+.nav-icon-data {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
+}
+
 .nav-icon-updates {
   background: rgba(34, 211, 238, 0.12);
   border: 1px solid rgba(34, 211, 238, 0.25);
@@ -346,6 +352,12 @@
   background: rgba(129, 140, 248, 0.12);
   border: 1px solid rgba(129, 140, 248, 0.25);
   color: #818cf8;
+}
+
+.badge-theme-data {
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  color: #fbbf24;
 }
 
 .badge-theme-sync {

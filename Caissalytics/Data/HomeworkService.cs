@@ -21,9 +21,7 @@ public class HomeworkService : IHomeworkService
     {
         _profileService = profileService;
         _clubService = clubService;
-        string baseDir = storageDirectory ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Caissalytics");
+        string baseDir = storageDirectory ?? AppPaths.DataDirectory;
         Directory.CreateDirectory(baseDir);
         _filePath = Path.Combine(baseDir, "homework_sheets.json");
 

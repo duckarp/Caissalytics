@@ -393,3 +393,49 @@
   user-select: none;
 }
 
+
+/* Warning about the data folder (open on another computer, or unavailable); floats so it doesn't change the layout height */
+.data-folder-notice {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 3000;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: min(720px, calc(100vw - 32px));
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.45;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.data-folder-notice > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: #fbbf24;
+}
+
+.data-folder-notice-text {
+  flex: 1;
+}
+
+.data-folder-notice-close {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.data-folder-notice-close:hover {
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}

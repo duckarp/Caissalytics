@@ -36,7 +36,7 @@ public class StreamingPgnImporter
         // Optimize SQLite for bulk writes
         using (var pragmaCmd = connection.CreateCommand())
         {
-            pragmaCmd.CommandText = "PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;";
+            pragmaCmd.CommandText = $"PRAGMA journal_mode = {DatabaseManager.JournalMode}; PRAGMA synchronous = NORMAL;";
             await pragmaCmd.ExecuteNonQueryAsync(cancellationToken);
         }
 

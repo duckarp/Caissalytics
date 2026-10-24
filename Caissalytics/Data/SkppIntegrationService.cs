@@ -39,9 +39,7 @@ public class SkppIntegrationService : ISkppIntegrationService, IDisposable
     {
         _httpClient = httpClient ?? new HttpClient();
         _userProfileService = userProfileService;
-        string configDir = storageDirectory ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Caissalytics");
+        string configDir = storageDirectory ?? AppPaths.LocalDirectory;
         Directory.CreateDirectory(configDir);
         _sessionFilePath = Path.Combine(configDir, "skpp_session.json");
 

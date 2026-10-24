@@ -12,9 +12,7 @@ public class ChessClubService : IChessClubService
 
     public ChessClubService(string? storageDirectory = null)
     {
-        string configDir = storageDirectory ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Caissalytics");
+        string configDir = storageDirectory ?? AppPaths.DataDirectory;
         Directory.CreateDirectory(configDir);
         _settingsFilePath = Path.Combine(configDir, "chess_club_settings.json");
     }

@@ -29,9 +29,7 @@ public class LocalizationService : ILocalizationService
             // 1. Fast synchronous check of appearance_settings.json for instant startup without flicker
             try
             {
-                string configDir = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "Caissalytics");
+                string configDir = AppPaths.DataDirectory;
                 string settingsPath = Path.Combine(configDir, "appearance_settings.json");
                 if (File.Exists(settingsPath))
                 {
@@ -290,6 +288,28 @@ public class LocalizationService : ILocalizationService
         ["Settings_Performance_Desc"] = "Configure display rendering and GPU acceleration. Useful for high-refresh displays or graphics driver troubleshooting.",
         ["Settings_Performance_HwAccel"] = "Hardware GPU Acceleration",
         ["Settings_Performance_HwAccel_Desc"] = "Enable DirectX/GPU rasterization. If cursor hovering or scrolling stutters on your graphics driver, disabling this switches to software rendering.",
+        ["Settings_Nav_Data"] = "Data Folder",
+        ["Settings_Nav_Data_Desc"] = "Where databases & settings live",
+        ["Settings_Data_Title"] = "Data Folder",
+        ["Settings_Data_Desc"] = "Keep your databases and settings in a folder of your choice, e.g. a network folder shared by several computers on your LAN.",
+        ["Settings_Data_Current"] = "Data folder in use",
+        ["Settings_Data_IsDefault"] = "This is the default folder on this computer.",
+        ["Settings_Data_NewFolder"] = "Move data to folder",
+        ["Settings_Data_Placeholder"] = "e.g. /mnt/chess/Caissalytics or \\\\SERVER\\Chess\\Caissalytics",
+        ["Settings_Data_Browse"] = "Browse…",
+        ["Settings_Data_UseDefault"] = "Use the default folder",
+        ["Settings_Data_Hint"] = "Takes effect after restarting Caissalytics. If the folder has no Caissalytics data yet, your current data is copied there; if it already has data (set up from another computer), that data is used. The current files are left where they are.",
+        ["Settings_Data_Pending"] = "Restart Caissalytics to switch to {0}.",
+        ["Settings_Data_Error"] = "Can't use this folder: {0}",
+        ["Settings_Data_Shared"] = "Stored in the data folder: game databases, repertoire, homework, puzzles, profile, online sync and club settings, and appearance (theme, board, pieces, language, sounds, shortcuts).",
+        ["Settings_Data_Local"] = "Stays on each computer: engines and Maia models, tablebase path, ŠK Považské Podhradie login, update settings, window size, graphics acceleration, open tabs and logs.",
+        ["Settings_Data_OneAtATime"] = "Use the shared folder from one computer at a time. If two computers have Caissalytics open on it, changes can overwrite each other and databases can be damaged; Caissalytics warns you when it notices this.",
+        ["Settings_Logs_Title"] = "Log files",
+        ["Settings_Logs_Desc"] = "Caissalytics records what it does and any errors in a log on this computer. When something goes wrong, attach these files to your feedback.",
+        ["Settings_Logs_Open"] = "Open folder",
+        ["Settings_Logs_Hint"] = "caissalytics.log is the current log, caissalytics.1.log the previous one. The logs always stay on this computer and don't move with the data folder.",
+        ["Notice_DataFolder_InUse"] = "Your data folder is also open in Caissalytics on {0} (user {1}). Close it there before making changes: when two computers write at once, settings overwrite each other and databases can be damaged.",
+        ["Notice_DataFolder_Error"] = "{0} Check Settings → Data Folder.",
         ["Settings_Performance_RestartNote"] = "Restart the application after changing graphics acceleration for changes to take effect.",
 
         ["Settings_Shortcuts_Title"] = "Keyboard Shortcuts",
@@ -1225,6 +1245,28 @@ public class LocalizationService : ILocalizationService
         ["Settings_Performance_Desc"] = "Nastavenie vykresľovania zobrazenia a GPU akcelerácie. Užitočné pri monitoroch s vysokou obnovovacou frekvenciou alebo problémoch s grafickým ovládačom.",
         ["Settings_Performance_HwAccel"] = "Hardvérová GPU akcelerácia",
         ["Settings_Performance_HwAccel_Desc"] = "Povoliť DirectX/GPU akceleráciu. Ak vám pri vašom ovládači trhá pohyb kurzora alebo scrollovanie, vypnutím prepnete na softvérové vykresľovanie.",
+        ["Settings_Nav_Data"] = "Priečinok s dátami",
+        ["Settings_Nav_Data_Desc"] = "Kde sú databázy a nastavenia",
+        ["Settings_Data_Title"] = "Priečinok s dátami",
+        ["Settings_Data_Desc"] = "Databázy a nastavenia môžete mať v priečinku podľa vlastného výberu, napr. v sieťovom priečinku zdieľanom viacerými počítačmi v lokálnej sieti.",
+        ["Settings_Data_Current"] = "Používaný priečinok s dátami",
+        ["Settings_Data_IsDefault"] = "Toto je predvolený priečinok na tomto počítači.",
+        ["Settings_Data_NewFolder"] = "Presunúť dáta do priečinka",
+        ["Settings_Data_Placeholder"] = "napr. /mnt/sach/Caissalytics alebo \\\\SERVER\\Sach\\Caissalytics",
+        ["Settings_Data_Browse"] = "Vybrať…",
+        ["Settings_Data_UseDefault"] = "Použiť predvolený priečinok",
+        ["Settings_Data_Hint"] = "Prejaví sa po reštarte Caissalytics. Ak v priečinku ešte nie sú dáta Caissalytics, skopírujú sa tam vaše súčasné dáta; ak tam už sú (nastavené z iného počítača), použijú sa tie. Súčasné súbory zostanú na pôvodnom mieste.",
+        ["Settings_Data_Pending"] = "Reštartujte Caissalytics a prepne sa na {0}.",
+        ["Settings_Data_Error"] = "Tento priečinok nemožno použiť: {0}",
+        ["Settings_Data_Shared"] = "Ukladá sa do priečinka s dátami: databázy partií, repertoár, domáce úlohy, úlohy (puzzle), profil, nastavenia synchronizácie a klubu a vzhľad (téma, šachovnica, figúrky, jazyk, zvuky, skratky).",
+        ["Settings_Data_Local"] = "Zostáva na každom počítači: motory a modely Maia, cesta k tabuľkovým databázam, prihlásenie do ŠK Považské Podhradie, nastavenia aktualizácií, veľkosť okna, grafická akcelerácia, otvorené karty a logy.",
+        ["Settings_Data_OneAtATime"] = "Zdieľaný priečinok používajte vždy len z jedného počítača naraz. Ak má Caissalytics otvorený na ňom viac počítačov, zmeny sa môžu navzájom prepísať a databázy sa môžu poškodiť; Caissalytics vás upozorní, keď to zistí.",
+        ["Settings_Logs_Title"] = "Logy",
+        ["Settings_Logs_Desc"] = "Caissalytics zapisuje svoju činnosť a chyby do logu na tomto počítači. Keď sa niečo pokazí, priložte tieto súbory k spätnej väzbe.",
+        ["Settings_Logs_Open"] = "Otvoriť priečinok",
+        ["Settings_Logs_Hint"] = "caissalytics.log je aktuálny log, caissalytics.1.log predchádzajúci. Logy zostávajú vždy na tomto počítači a nepresúvajú sa s priečinkom s dátami.",
+        ["Notice_DataFolder_InUse"] = "Váš priečinok s dátami je otvorený aj v Caissalytics na počítači {0} (používateľ {1}). Pred úpravami ho tam zatvorte: keď zapisujú dva počítače naraz, nastavenia sa navzájom prepíšu a databázy sa môžu poškodiť.",
+        ["Notice_DataFolder_Error"] = "{0} Skontrolujte Nastavenia → Priečinok s dátami.",
         ["Settings_Performance_RestartNote"] = "Po zmene grafickej akcelerácie je potrebné aplikáciu reštartovať.",
 
         ["Settings_Shortcuts_Title"] = "Klávesové skratky",

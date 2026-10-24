@@ -62,9 +62,7 @@ public static class NativeAudioPlayer
         // If running as a standalone single-file binary, extract from embedded resources into user data directory
         try
         {
-            string userSoundsDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Caissalytics", "sounds");
+            string userSoundsDir = Path.Combine(AppPaths.LocalDirectory, "sounds");
             string extractedPath = Path.Combine(userSoundsDir, fileName);
             var asm = typeof(NativeAudioPlayer).Assembly;
             string? resName = asm.GetManifestResourceNames()

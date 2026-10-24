@@ -64,8 +64,7 @@ public class TablebaseService : ITablebaseService, IDisposable
             _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Caissalytics/1.0 (chess analysis app; https://github.com/duckarp/Caissalytics)");
         }
 
-        string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        string configDir = Path.Combine(localAppData, "Caissalytics");
+        string configDir = AppPaths.LocalDirectory;
         Directory.CreateDirectory(configDir);
         _configFilePath = Path.Combine(configDir, "tablebase_config.json");
 

@@ -33,9 +33,7 @@ public class DatabaseManager : IDatabaseService
 
     public DatabaseManager()
     {
-        _storageDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Caissalytics", "databases");
+        _storageDir = Path.Combine(AppPaths.DataDirectory, AppPaths.DatabasesFolderName);
 
         Directory.CreateDirectory(_storageDir);
         _configFilePath = Path.Combine(_storageDir, "database_settings.json");
@@ -2160,6 +2158,12 @@ public class DatabaseManager : IDatabaseService
         _schemaReady[key] = true;
     }
 
+    /// <summary>
+    /// WAL needs shared memory between connections, which network file systems don't provide, so a data
+    /// folder chosen by the user (typically a LAN share) uses the classic rollback journal instead.
+    /// </summary>
+    internal static string JournalMode => AppPaths.IsCustomDataDirectory ? "DELETE" : "WAL";
+
     private static void ForgetSchema(string dbPath) => _schemaReady.TryRemove(Path.GetFullPath(dbPath), out _);
 
     private static async Task InitializeSchemaCoreAsync(string dbPath)
@@ -2168,8 +2172,8 @@ public class DatabaseManager : IDatabaseService
         await conn.OpenAsync();
 
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = @"
-            PRAGMA journal_mode = WAL;
+        cmd.CommandText = $@"
+            PRAGMA journal_mode = {JournalMode};
             PRAGMA synchronous = NORMAL;
 
             CREATE TABLE IF NOT EXISTS folders (

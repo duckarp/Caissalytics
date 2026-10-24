@@ -14,6 +14,7 @@
 @inject WorkspaceState Workspace
 @inject IJSRuntime JS
 @inject IMaiaModelService MaiaService
+@inject IAppWindowProvider WindowProvider
 @using System.Runtime.InteropServices
 @implements IDisposable
 
@@ -84,6 +85,14 @@
 					<div class="nav-item-content">
 						<span class="nav-item-title">@Loc["Settings_Nav_Sync"]</span>
 						<span class="nav-item-desc">@Loc["Settings_Nav_Sync_Desc"]</span>
+					</div>
+				</button>
+
+				<button class="@GetNavClass("data")" @onclick='() => SetCategory("data")'>
+					<span class="nav-item-icon nav-icon-data"><AppIcon Name="folder" Size="18" /></span>
+					<div class="nav-item-content">
+						<span class="nav-item-title">@Loc["Settings_Nav_Data"]</span>
+						<span class="nav-item-desc">@Loc["Settings_Nav_Data_Desc"]</span>
 					</div>
 				</button>
 
@@ -1226,6 +1235,119 @@
 				</div>
 			}
 
+			@if (_activeCategory == "data")
+			{
+				<div class="control-section-card">
+					<div class="card-section-header">
+						<h3 class="card-section-title">
+							<span class="card-title-badge badge-theme-data"><AppIcon Name="folder" Size="16" /></span>
+							<span>@Loc["Settings_Data_Title"]</span>
+						</h3>
+						<p class="card-section-desc">@Loc["Settings_Data_Desc"]</p>
+					</div>
+
+					@if (!string.IsNullOrEmpty(AppPaths.StartupError))
+					{
+						<div class="probe-feedback-box probe-error" style="margin-bottom: 14px; background: rgba(239, 83, 80, 0.12); border: 1px solid rgba(239, 83, 80, 0.35); padding: 10px 14px; border-radius: 6px; color: #ef5350; font-size: 13px;">
+							<AppIcon Name="warning" Size="14" Class="alert-inline-icon" />
+							<span>@AppPaths.StartupError</span>
+						</div>
+					}
+
+					<div class="control-form-grid">
+						<div class="form-field-block form-field-full">
+							<label class="field-label">@Loc["Settings_Data_Current"]</label>
+							<code>@AppPaths.DataDirectory</code>
+							@if (!AppPaths.IsCustomDataDirectory)
+							{
+								<span class="field-hint">@Loc["Settings_Data_IsDefault"]</span>
+							}
+						</div>
+
+						<div class="form-field-block form-field-full">
+							<label class="field-label">@Loc["Settings_Data_NewFolder"]</label>
+							<div class="input-with-action-row">
+								<input class="field-input"
+									   placeholder="@Loc["Settings_Data_Placeholder"]"
+									   @bind="_dataFolderInput"
+									   @bind:event="oninput" />
+								<button class="btn-secondary" @onclick="BrowseDataFolderAsync">
+									<AppIcon Name="folder" Size="14" Class="btn-inline-icon" />
+									<span>@Loc["Settings_Data_Browse"]</span>
+								</button>
+								<button class="btn-primary" @onclick="SaveDataFolder">
+									<AppIcon Name="save" Size="14" Class="btn-inline-icon" />
+									<span>@Loc["Common_Save"]</span>
+								</button>
+							</div>
+							<span class="field-hint">@Loc["Settings_Data_Hint"]</span>
+							@if (AppPaths.IsCustomDataDirectory || _configuredDataFolder != null)
+							{
+								<div style="margin-top: 8px;">
+									<button class="btn-secondary" @onclick="ResetDataFolder">
+										<AppIcon Name="refresh" Size="14" Class="btn-inline-icon" />
+										<span>@Loc["Settings_Data_UseDefault"]</span>
+									</button>
+								</div>
+							}
+						</div>
+
+						@if (DataFolderChangePending)
+						{
+							<div class="form-field-block form-field-full">
+								<span class="save-status-badge">
+									<AppIcon Name="info" Size="13" Class="btn-inline-icon" />
+									@string.Format(Loc["Settings_Data_Pending"], _configuredDataFolder ?? AppPaths.LocalDirectory)
+								</span>
+							</div>
+						}
+
+						@if (!string.IsNullOrEmpty(_dataFolderError))
+						{
+							<div class="form-field-block form-field-full">
+								<div class="probe-feedback-box probe-error" style="background: rgba(239, 83, 80, 0.12); border: 1px solid rgba(239, 83, 80, 0.35); padding: 10px 14px; border-radius: 6px; color: #ef5350; font-size: 13px;">
+									<AppIcon Name="warning" Size="14" Class="alert-inline-icon" />
+									<span>@_dataFolderError</span>
+								</div>
+							</div>
+						}
+
+						<div class="form-field-block form-field-full">
+							<p class="field-hint">@Loc["Settings_Data_Shared"]</p>
+							<p class="field-hint">@Loc["Settings_Data_Local"]</p>
+							<p class="field-hint">@Loc["Settings_Data_OneAtATime"]</p>
+						</div>
+					</div>
+
+					<div class="section-divider"></div>
+
+					<div class="card-section-header">
+						<h4 class="card-section-subtitle">
+							<span class="card-subtitle-badge badge-theme-blue"><AppIcon Name="info" Size="13" /></span>
+							<span>@Loc["Settings_Logs_Title"]</span>
+						</h4>
+						<p class="card-section-desc">@Loc["Settings_Logs_Desc"]</p>
+					</div>
+
+					<div class="control-form-grid">
+						<div class="form-field-block form-field-full">
+							<div class="input-with-action-row">
+								<code style="flex: 1; align-self: center; word-break: break-all;">@LogsDirectory</code>
+								<button class="btn-secondary" @onclick="OpenLogsFolder">
+									<AppIcon Name="folder" Size="14" Class="btn-inline-icon" />
+									<span>@Loc["Settings_Logs_Open"]</span>
+								</button>
+							</div>
+							<span class="field-hint">@Loc["Settings_Logs_Hint"]</span>
+							@if (!string.IsNullOrEmpty(_logsFolderError))
+							{
+								<span class="field-hint" style="color: #ef5350;">@_logsFolderError</span>
+							}
+						</div>
+					</div>
+				</div>
+			}
+
 			@if (_activeCategory == "updates")
 			{
 				<div class="control-section-card">
@@ -1807,6 +1929,20 @@
 	private AppearanceSettings _appearanceSettings = new();
 	private bool _appearanceSettingsSaved = false;
 
+	// Data Folder State
+	private string _dataFolderInput = "";
+	private string? _configuredDataFolder = AppPaths.GetConfiguredDirectory();
+	private string? _dataFolderError;
+
+	private string? _logsFolderError;
+
+	// Always on this computer: the log describes this installation, whichever data folder is in use
+	private static string LogsDirectory =>
+		Path.GetDirectoryName(Caissalytics.Diagnostics.AppLog.LogFilePath) ?? Path.Combine(AppPaths.LocalDirectory, "logs");
+
+	private bool DataFolderChangePending =>
+		!AppPaths.SamePath(_configuredDataFolder ?? AppPaths.LocalDirectory, AppPaths.DataDirectory);
+
 	// Tablebase State
 	private string? _localSyzygyPath;
 	private bool _onlineTbEnabled = true;
@@ -1879,6 +2015,60 @@
 		{
 			_activeCategory = Tab.InitialCategory;
 			Tab.InitialCategory = null;
+		}
+	}
+
+	private async Task BrowseDataFolderAsync()
+	{
+		try
+		{
+			string start = string.IsNullOrWhiteSpace(_dataFolderInput) ? AppPaths.DataDirectory : _dataFolderInput;
+			var picked = await WindowProvider.Window.ShowOpenFolderAsync(Loc["Settings_Data_Browse"], start);
+			if (picked?.FirstOrDefault() is { Length: > 0 } folder)
+			{
+				_dataFolderInput = folder;
+			}
+		}
+		catch (Exception ex)
+		{
+			_dataFolderError = ex.Message;
+		}
+	}
+
+	private void OpenLogsFolder()
+	{
+		_logsFolderError = null;
+		try
+		{
+			// Shell execute opens a folder in Explorer on Windows and via xdg-open on Linux
+			System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(LogsDirectory) { UseShellExecute = true });
+		}
+		catch (Exception ex)
+		{
+			_logsFolderError = ex.Message;
+		}
+	}
+
+	private void SaveDataFolder()
+	{
+		if (string.IsNullOrWhiteSpace(_dataFolderInput)) return;
+		ApplyDataFolder(_dataFolderInput);
+	}
+
+	private void ResetDataFolder() => ApplyDataFolder(null);
+
+	private void ApplyDataFolder(string? folder)
+	{
+		_dataFolderError = null;
+		try
+		{
+			AppPaths.SetConfiguredDirectory(folder);
+			_configuredDataFolder = AppPaths.GetConfiguredDirectory();
+			_dataFolderInput = "";
+		}
+		catch (Exception ex)
+		{
+			_dataFolderError = string.Format(Loc["Settings_Data_Error"], ex.Message);
 		}
 	}
 

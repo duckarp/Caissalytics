@@ -41,11 +41,7 @@ public class MaiaModelService : IMaiaModelService
             _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Caissalytics/1.0 (Desktop; Open Source)");
         }
 
-        string baseDir = customStorageDir ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Caissalytics",
-            "engines"
-        );
+        string baseDir = customStorageDir ?? Path.Combine(AppPaths.LocalDirectory, "engines");
 
         _modelsDirectory = Path.Combine(baseDir, "maia");
         _lc0Directory = Path.Combine(baseDir, "lc0");

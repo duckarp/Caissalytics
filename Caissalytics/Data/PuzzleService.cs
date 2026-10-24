@@ -21,9 +21,7 @@ public class PuzzleService : IPuzzleService
         _databaseService = databaseService;
         _profileService = profileService;
 
-        string baseDir = storageDirectory ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Caissalytics");
+        string baseDir = storageDirectory ?? AppPaths.DataDirectory;
         Directory.CreateDirectory(baseDir);
         _statsFilePath = Path.Combine(baseDir, "puzzles_progress.json");
         _extractedPuzzlesPath = Path.Combine(baseDir, "extracted_puzzles.json");

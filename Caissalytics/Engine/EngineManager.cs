@@ -40,8 +40,7 @@ public class EngineManager : IEngineService, IDisposable
             _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("Caissalytics/1.0 (Desktop; Open Source)");
         }
 
-        string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        _engineStorageDir = Path.Combine(localAppData, "Caissalytics", "engines");
+        _engineStorageDir = Path.Combine(AppPaths.LocalDirectory, "engines");
         Directory.CreateDirectory(_engineStorageDir);
         _configFilePath = Path.Combine(_engineStorageDir, "engines_config.json");
 

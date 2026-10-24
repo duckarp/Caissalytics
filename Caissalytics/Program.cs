@@ -22,10 +22,17 @@ internal class Program
     {
         SetLinuxProgramName("caissalytics");
 
-        AppLog.Initialize(Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Caissalytics", "logs"));
+        AppLog.Initialize(Path.Combine(AppPaths.DefaultDirectory, "logs"));
         Console.WriteLine($"[Caissalytics] Starting version {typeof(Program).Assembly.GetName().Version}");
+
+        // Before any service starts: they all read their files from the resolved folders
+        AppPaths.Initialize(AppPaths.Resolve(AppPaths.DefaultDirectory));
+        Console.WriteLine($"[Caissalytics] Data folder: {AppPaths.DataDirectory}");
+        using var dataFolderLock = DataFolderLock.Acquire(AppPaths.DataDirectory);
+        if (dataFolderLock.OtherHolder is { } holder)
+        {
+            Console.Error.WriteLine($"[Caissalytics] Data folder is also open on {holder.Machine} ({holder.User})");
+        }
         TaskScheduler.UnobservedTaskException += (_, e) =>
         {
             Console.Error.WriteLine($"[Caissalytics] Unobserved task exception: {e.Exception}");
@@ -186,26 +193,8 @@ internal class Program
             }
         }
 
-        // Configure window maximized state persistence
-        string configDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Caissalytics");
-        string settingsFilePath = Path.Combine(configDir, "appearance_settings.json");
-
-        bool launchMaximized = false;
-        try
-        {
-            if (File.Exists(settingsFilePath))
-            {
-                var json = File.ReadAllText(settingsFilePath);
-                var settings = JsonSerializer.Deserialize<AppearanceSettings>(json);
-                if (settings != null && settings.WindowMaximized)
-                {
-                    launchMaximized = true;
-                }
-            }
-        }
-        catch { }
+        // Configure window maximized state persistence (per computer, see MachineSettings)
+        bool launchMaximized = MachineSettings.LoadAppearance(AppPaths.DataDirectory, AppPaths.LocalDirectory).WindowMaximized;
 
         if (launchMaximized)
         {
@@ -216,7 +205,7 @@ internal class Program
         {
             try
             {
-                SaveWindowMaximizedState(settingsFilePath, app.MainWindow.Maximized);
+                SaveWindowMaximizedState(app.MainWindow.Maximized);
             }
             catch { }
             return false;
@@ -224,12 +213,12 @@ internal class Program
 
         app.MainWindow.WindowMaximized += (sender, e) =>
         {
-            try { SaveWindowMaximizedState(settingsFilePath, true); } catch { }
+            try { SaveWindowMaximizedState(true); } catch { }
         };
 
         app.MainWindow.WindowRestored += (sender, e) =>
         {
-            try { SaveWindowMaximizedState(settingsFilePath, false); } catch { }
+            try { SaveWindowMaximizedState(false); } catch { }
         };
 
         app.Run();
@@ -274,31 +263,13 @@ internal class Program
         }
     }
 
-    private static void SaveWindowMaximizedState(string settingsFilePath, bool isMaximized)
+    private static void SaveWindowMaximizedState(bool isMaximized)
     {
         try
         {
-            AppearanceSettings settings;
-            if (File.Exists(settingsFilePath))
+            if (MachineSettings.Load(AppPaths.LocalDirectory).WindowMaximized != isMaximized)
             {
-                string json = File.ReadAllText(settingsFilePath);
-                settings = JsonSerializer.Deserialize<AppearanceSettings>(json) ?? new AppearanceSettings();
-            }
-            else
-            {
-                settings = new AppearanceSettings();
-            }
-
-            if (settings.WindowMaximized != isMaximized)
-            {
-                settings.WindowMaximized = isMaximized;
-                string? dir = Path.GetDirectoryName(settingsFilePath);
-                if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-                {
-                    Directory.CreateDirectory(dir);
-                }
-                string output = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
-                AtomicFile.WriteAllText(settingsFilePath, output);
+                MachineSettings.Update(AppPaths.LocalDirectory, m => m.WindowMaximized = isMaximized);
             }
         }
         catch { }
@@ -489,19 +460,7 @@ internal class Program
         bool hwAccel = true;
         try
         {
-            string configDir = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "Caissalytics");
-            string settingsFilePath = Path.Combine(configDir, "appearance_settings.json");
-            if (File.Exists(settingsFilePath))
-            {
-                string json = File.ReadAllText(settingsFilePath);
-                var settings = System.Text.Json.JsonSerializer.Deserialize<AppearanceSettings>(json);
-                if (settings != null)
-                {
-                    hwAccel = settings.HardwareAccelerationEnabled;
-                }
-            }
+            hwAccel = MachineSettings.LoadAppearance(AppPaths.DataDirectory, AppPaths.LocalDirectory).HardwareAccelerationEnabled;
         }
         catch
         {

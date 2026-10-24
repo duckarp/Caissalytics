@@ -7,6 +7,8 @@ public class AppearanceService : IAppearanceService
 {
     private IJSRuntime? _jsRuntime;
     private readonly string _settingsFilePath;
+    // Folder for this computer's own settings (see MachineSettings); null keeps everything in the one file
+    private readonly string? _machineDirectory;
     private readonly SemaphoreSlim _lock = new(1, 1);
     private AppearanceSettings? _cachedSettings;
 
@@ -15,11 +17,10 @@ public class AppearanceService : IAppearanceService
     public AppearanceService(IJSRuntime? jsRuntime = null)
     {
         _jsRuntime = jsRuntime;
-        string configDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Caissalytics");
+        string configDir = AppPaths.DataDirectory;
         Directory.CreateDirectory(configDir);
         _settingsFilePath = Path.Combine(configDir, "appearance_settings.json");
+        _machineDirectory = AppPaths.LocalDirectory;
     }
 
     public AppearanceService(string customFilePath, IJSRuntime? jsRuntime = null)
@@ -54,12 +55,20 @@ public class AppearanceService : IAppearanceService
                 var settings = JsonSerializer.Deserialize<AppearanceSettings>(json);
                 if (settings != null)
                 {
+                    if (_machineDirectory != null)
+                    {
+                        MachineSettings.Load(_machineDirectory).ApplyTo(settings);
+                    }
                     _cachedSettings = settings;
                     return _cachedSettings;
                 }
             }
 
             _cachedSettings = new AppearanceSettings();
+            if (_machineDirectory != null)
+            {
+                MachineSettings.Load(_machineDirectory).ApplyTo(_cachedSettings);
+            }
             return _cachedSettings;
         }
         catch
@@ -81,6 +90,11 @@ public class AppearanceService : IAppearanceService
             _cachedSettings = settings;
             string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions { WriteIndented = true });
             await AtomicFile.WriteAllTextAsync(_settingsFilePath, json);
+            if (_machineDirectory != null)
+            {
+                // Window state is written by Program.cs as it changes; this copy of it may be stale
+                MachineSettings.Update(_machineDirectory, m => m.HardwareAccelerationEnabled = settings.HardwareAccelerationEnabled);
+            }
         }
         finally
         {

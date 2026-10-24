@@ -14,9 +14,7 @@ public class UserProfileService : IUserProfileService
     public UserProfileService(IOnlineGameSyncService? syncService = null)
     {
         _syncService = syncService;
-        string configDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Caissalytics");
+        string configDir = AppPaths.DataDirectory;
         Directory.CreateDirectory(configDir);
         _profileFilePath = Path.Combine(configDir, "user_profile.json");
 
