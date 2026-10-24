@@ -1,0 +1,185 @@
+@* Right-click menu shared by lists and tables. The owner opens it with ShowAsync at the pointer (from an
+   @oncontextmenu handler with :preventDefault) and builds the items for what was clicked; WatchKeysAsync
+   adds the Menu key / Shift+F10, which raise OnKeyboardOpen with a position next to the active row.
+   Placement, arrow keys, Escape and closing on an outside press live in wwwroot/js/contextMenu.js. *@
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@if (_visible)
+{
+	<div @key="_generation"
+		 @ref="_menu"
+		 class="ctx-menu"
+		 role="menu"
+		 tabindex="-1"
+		 aria-label="@AriaLabel"
+		 @oncontextmenu:preventDefault="true">
+		@foreach (var item in _items)
+		{
+			if (item.IsSeparator)
+			{
+				<div class="ctx-menu-separator" role="separator"></div>
+			}
+			else if (item.Run == null)
+			{
+				<div class="ctx-menu-header">@item.Label</div>
+			}
+			else
+			{
+				<button type="button"
+						role="menuitem"
+						class="ctx-menu-item @(item.Danger ? "ctx-menu-item-danger" : "") @(item.IsDefault ? "ctx-menu-item-default" : "")"
+						disabled="@item.Disabled"
+						title="@item.Title"
+						@onclick="() => RunAsync(item)">
+					<span class="ctx-menu-icon" aria-hidden="true">@item.Icon</span>
+					<span class="ctx-menu-label">@item.Label</span>
+					@if (!string.IsNullOrEmpty(item.Shortcut))
+					{
+						<kbd class="ctx-menu-shortcut">@item.Shortcut</kbd>
+					}
+				</button>
+			}
+		}
+	</div>
+}
+
+@code {
+	/// <summary>A menu entry; with no Run it is a non-clickable heading.</summary>
+	public sealed record Item(string Label, Func<Task>? Run)
+	{
+		public Item(string label, Action run) : this(label, () => { run(); return Task.CompletedTask; }) { }
+
+		public string? Icon { get; init; }
+		public string? Shortcut { get; init; }
+		public string? Title { get; init; }
+		public bool Disabled { get; init; }
+		public bool Danger { get; init; }
+
+		/// <summary>The action a double-click or Enter would run; shown in bold.</summary>
+		public bool IsDefault { get; init; }
+
+		public bool IsSeparator { get; private init; }
+
+		public static Item Separator { get; } = new("", (Func<Task>?)null) { IsSeparator = true };
+		public static Item Header(string label) => new(label, (Func<Task>?)null);
+	}
+
+	public readonly record struct Position(double X, double Y);
+
+	/// <summary>Menu key or Shift+F10 pressed in a watched element (see WatchKeysAsync).</summary>
+	[Parameter] public EventCallback<Position> OnKeyboardOpen { get; set; }
+
+	[Parameter] public string? AriaLabel { get; set; }
+
+	private ElementReference _menu;
+	private DotNetObjectReference<ContextMenu>? _dotNetRef;
+	private IReadOnlyList<Item> _items = [];
+	private bool _visible;
+	private int _generation;
+	private Position _position;
+	private bool _focusFirst;
+	private bool _placePending;
+	private readonly List<int> _watchIds = new();
+	private bool _isDisposed;
+
+	public bool IsOpen => _visible;
+
+	/// <summary>
+	/// Opens the menu at a viewport position (MouseEventArgs.ClientX/ClientY), replacing one already open.
+	/// focusFirst focuses the first item, for menus opened from the keyboard.
+	/// </summary>
+	public void Show(Position position, IReadOnlyList<Item> items, bool focusFirst = false)
+	{
+		// Drop separators at the edges or next to each other, left by items the owner leaves out
+		var cleaned = new List<Item>(items.Count);
+		foreach (var item in items)
+		{
+			if (item.IsSeparator && (cleaned.Count == 0 || cleaned[^1].IsSeparator)) continue;
+			cleaned.Add(item);
+		}
+		if (cleaned.Count > 0 && cleaned[^1].IsSeparator) cleaned.RemoveAt(cleaned.Count - 1);
+		if (cleaned.Count == 0) return;
+
+		_generation++;
+		_items = cleaned;
+		_position = position;
+		_focusFirst = focusFirst;
+		_visible = true;
+		_placePending = true;
+		StateHasChanged();
+	}
+
+	public async Task CloseAsync(bool restoreFocus = true)
+	{
+		if (!_visible) return;
+		_visible = false;
+		StateHasChanged();
+		await InvokeJsAsync("contextMenu.hide", restoreFocus);
+	}
+
+	/// <summary>
+	/// Opens the menu from the keyboard (Menu key, Shift+F10) when focus is on an element inside scope that
+	/// matches triggerSelector; the position is next to its descendant matching anchorSelector.
+	/// </summary>
+	public async Task WatchKeysAsync(ElementReference scope, string triggerSelector, string? anchorSelector = null)
+	{
+		_dotNetRef ??= DotNetObjectReference.Create(this);
+		try
+		{
+			int id = await JS.InvokeAsync<int>("contextMenu.watchKeys", scope, _dotNetRef, triggerSelector, anchorSelector);
+			if (id > 0) _watchIds.Add(id);
+		}
+		catch (Exception ex) when (ex is JSDisconnectedException or TaskCanceledException || _isDisposed) { }
+	}
+
+	[JSInvokable]
+	public Task OnKeyboardTrigger(double x, double y) => InvokeAsync(() => OnKeyboardOpen.InvokeAsync(new Position(x, y)));
+
+	[JSInvokable]
+	public Task OnDismissed(int generation) => InvokeAsync(() =>
+	{
+		// A dismissal from an older menu must not close one opened since (press on another row, then its contextmenu)
+		if (generation != _generation || !_visible) return;
+		_visible = false;
+		StateHasChanged();
+	});
+
+	private async Task RunAsync(Item item)
+	{
+		// Focus goes back to where the menu was opened from before the action runs, so a dialog the
+		// action opens can take it from there
+		await CloseAsync(restoreFocus: true);
+		if (item.Run != null) await item.Run();
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (_placePending && _visible)
+		{
+			_placePending = false;
+			_dotNetRef ??= DotNetObjectReference.Create(this);
+			await InvokeJsAsync("contextMenu.show", _menu, _dotNetRef, _generation, _position.X, _position.Y, _focusFirst);
+		}
+	}
+
+	private async Task InvokeJsAsync(string identifier, params object?[] args)
+	{
+		try
+		{
+			await JS.InvokeVoidAsync(identifier, args);
+		}
+		catch (Exception ex) when (ex is JSDisconnectedException or TaskCanceledException || _isDisposed)
+		{
+			// Torn down while open
+		}
+	}
+
+	public async ValueTask DisposeAsync()
+	{
+		_isDisposed = true;
+		if (_visible) await InvokeJsAsync("contextMenu.hide", false);
+		foreach (int id in _watchIds) await InvokeJsAsync("contextMenu.unwatchKeys", id);
+		_dotNetRef?.Dispose();
+	}
+}

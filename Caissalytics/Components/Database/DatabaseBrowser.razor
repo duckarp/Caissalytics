@@ -379,6 +379,7 @@
 				}
 
 				<KeyboardList @ref="_gameList"
+							  Class="db-game-list"
 							  Count="_games.Count"
 							  @bind-ActiveIndex="_activeGameIndex"
 							  OnOpen="OpenActiveGameAsync"
@@ -439,7 +440,9 @@
 								@ondrop="() => HandleRowDropAsync(rowIndex)"
 								@ondragend="HandleRowDragEnd"
 								@onmousedown="e => _gameList?.HandleRowMouseDown(rowIndex, e) ?? Task.CompletedTask"
-								@ondblclick="() => OpenGameInAnalysis(game)">
+								@ondblclick="() => OpenGameInAnalysis(game)"
+								@oncontextmenu="e => OpenGameMenu(rowIndex, e)"
+								@oncontextmenu:preventDefault="true">
 								<td class="col-select" @onclick:stopPropagation="true" @ondblclick:stopPropagation="true" @onmousedown:stopPropagation="true">
 									<input type="checkbox"
 										   class="db-game-checkbox"
@@ -585,6 +588,13 @@
 		</div>
 	</div>
 </div>
+
+<ContextMenu @ref="_gameMenu" OnKeyboardOpen="OpenActiveGameMenu" AriaLabel="@Loc["Db_Menu_Label"]" />
+
+@if (_copyNotice != null)
+{
+	<div class="db-copy-toast" role="status" aria-live="polite">@_copyNotice</div>
+}
 
 <!-- New Database Modal (blank / download / import PGN) -->
 @if (_showNewDbModal)
@@ -1266,12 +1276,12 @@
 	<div class="modal-backdrop" @onclick="CloseBulkMoveModal">
 		<div class="modal-dialog" @onclick:stopPropagation="true">
 			<div class="modal-header">
-				<h3 class="modal-title">📁 @Loc["Db_BulkMove_Title", _bulkMoveGameIds.Count]</h3>
+				<h3 class="modal-title">📁 @Loc[CountKey("Db_BulkMove_Title", _bulkMoveGameIds.Count), _bulkMoveGameIds.Count]</h3>
 				<button class="modal-close-btn" @onclick="CloseBulkMoveModal" disabled="@_isBulkMoving">✕</button>
 			</div>
 			<div class="modal-body">
 				<p class="modal-desc">
-					@Loc["Db_BulkMove_Desc", _bulkMoveGameIds.Count]
+					@Loc[CountKey("Db_BulkMove_Desc", _bulkMoveGameIds.Count), _bulkMoveGameIds.Count]
 				</p>
 
 				<div class="modal-form-group">
@@ -1316,7 +1326,7 @@
 					}
 					else
 					{
-						<span>@Loc["Db_BulkMove_Btn", _bulkMoveGameIds.Count]</span>
+						<span>@Loc[CountKey("Db_BulkMove_Btn", _bulkMoveGameIds.Count), _bulkMoveGameIds.Count]</span>
 					}
 				</button>
 			</div>
@@ -1330,12 +1340,12 @@
 	<div class="modal-backdrop" @onclick="CloseBulkEditModal">
 		<div class="modal-dialog" @onclick:stopPropagation="true">
 			<div class="modal-header">
-				<h3 class="modal-title">✏️ @Loc["Db_BulkEdit_Title", _bulkEditGameIds.Count]</h3>
+				<h3 class="modal-title">✏️ @Loc[CountKey("Db_BulkEdit_Title", _bulkEditGameIds.Count), _bulkEditGameIds.Count]</h3>
 				<button class="modal-close-btn" @onclick="CloseBulkEditModal" disabled="@_isBulkEditing">✕</button>
 			</div>
 			<div class="modal-body">
 				<p class="modal-desc">
-					@Loc["Db_BulkEdit_Desc", _bulkEditGameIds.Count]
+					@Loc[CountKey("Db_BulkEdit_Desc", _bulkEditGameIds.Count), _bulkEditGameIds.Count]
 				</p>
 
 				<div class="modal-form-group">
@@ -1416,7 +1426,7 @@
 					}
 					else
 					{
-						<span>@Loc["Db_BulkEdit_Btn", _bulkEditGameIds.Count]</span>
+						<span>@Loc[CountKey("Db_BulkEdit_Btn", _bulkEditGameIds.Count), _bulkEditGameIds.Count]</span>
 					}
 				</button>
 			</div>
@@ -1647,6 +1657,12 @@
 		{
 			_refocusGameList = false;
 			await _gameList.FocusAsync();
+		}
+
+		if (!_gameMenuKeysWatched && _gameMenu != null)
+		{
+			_gameMenuKeysWatched = true;
+			await _gameMenu.WatchKeysAsync(_dbBrowserRef, ".db-game-list", ".kl-row-active");
 		}
 
 		if (firstRender)
@@ -2660,10 +2676,12 @@
 		_selectedGameIds.Clear();
 	}
 
-	private async Task OpenBulkMoveModal()
+	private Task OpenBulkMoveModal() => OpenBulkMoveModalFor(_selectedGameIds);
+
+	private async Task OpenBulkMoveModalFor(IEnumerable<long> gameIds)
 	{
-		if (_selectedGameIds.Count == 0) return;
-		_bulkMoveGameIds = _selectedGameIds.ToList();
+		_bulkMoveGameIds = gameIds.ToList();
+		if (_bulkMoveGameIds.Count == 0) return;
 		_bulkMoveTargetDb = _currentDbName;
 		_bulkMoveTargetFolderId = _currentFolderId;
 		_bulkMoveError = "";
@@ -2762,14 +2780,16 @@
 		}
 	}
 
-	private void OpenBulkEditModal()
+	private void OpenBulkEditModal() => OpenBulkEditModalFor(_selectedGameIds);
+
+	private void OpenBulkEditModalFor(IEnumerable<long> gameIds)
 	{
-		if (_selectedGameIds.Count == 0) return;
-		_bulkEditGameIds = _selectedGameIds.ToList();
+		_bulkEditGameIds = gameIds.ToList();
+		if (_bulkEditGameIds.Count == 0) return;
 		_bulkEditError = "";
 		_isBulkEditing = false;
 
-		var selectedGames = _games.Where(g => _selectedGameIds.Contains(g.Id)).ToList();
+		var selectedGames = _games.Where(g => _bulkEditGameIds.Contains(g.Id)).ToList();
 		var events = selectedGames.Select(g => g.Event ?? "").Distinct().ToList();
 		_bulkEditEvent = events.Count == 1 ? events[0] : "";
 		_updateEvent = false;
@@ -2862,8 +2882,8 @@
 
 			await DatabaseService.BulkUpdateGamesMetadataAsync(_currentDbName, _bulkEditGameIds, update);
 			_showBulkEditModal = false;
+			_selectedGameIds.ExceptWith(_bulkEditGameIds);
 			_bulkEditGameIds.Clear();
-			_selectedGameIds.Clear();
 			await LoadGamesAsync(showLoading: false);
 		}
 		catch (Exception ex)
@@ -3514,6 +3534,103 @@
 		foreach (int i in change.Selected.Where(i => i < _games.Count)) _selectedGameIds.Add(_games[i].Id);
 		foreach (int i in change.Deselected.Where(i => i < _games.Count)) _selectedGameIds.Remove(_games[i].Id);
 	}
+
+	// --- Game row context menu ---
+	private ContextMenu? _gameMenu;
+	private bool _gameMenuKeysWatched;
+	private string? _copyNotice;
+	private int _copyNoticeId;
+
+	private void OpenGameMenu(int rowIndex, MouseEventArgs e)
+	{
+		if (_gameMenu == null || rowIndex >= _games.Count) return;
+		_activeGameIndex = rowIndex;
+		_gameMenu.Show(new(e.ClientX, e.ClientY), BuildGameMenu(_games[rowIndex]));
+	}
+
+	// Menu key / Shift+F10 on the focused game list
+	private void OpenActiveGameMenu(ContextMenu.Position position)
+	{
+		if (_gameMenu == null || _activeGameIndex < 0 || _activeGameIndex >= _games.Count) return;
+		_gameMenu.Show(position, BuildGameMenu(_games[_activeGameIndex]), focusFirst: true);
+	}
+
+	// A game that is part of a multi-game selection gets the selection's actions (like a file manager);
+	// any other game is acted on alone and the selection is left as it is
+	private List<ContextMenu.Item> BuildGameMenu(GameHeader game)
+	{
+		var open = new ContextMenu.Item(Loc["Db_Menu_Open"], () => OpenGameInAnalysis(game)) { Icon = "♟", Shortcut = "Enter", IsDefault = true };
+
+		if (_selectedGameIds.Count > 1 && _selectedGameIds.Contains(game.Id))
+		{
+			int count = _selectedGameIds.Count;
+			return
+			[
+				ContextMenu.Item.Header(Loc["Db_SelectedGamesCount", count]),
+				open,
+				ContextMenu.Item.Separator,
+				new(Loc["Db_ModifySelected"] + "…", OpenBulkEditModal) { Icon = "✏️", Title = Loc["Db_ModifySelectedTooltip"] },
+				new(Loc["Db_MoveSelectedGames", count], OpenBulkMoveModal) { Icon = "📁" },
+				new(Loc["Db_DeselectAll"], ClearSelection) { Icon = "☐", Shortcut = "Esc" },
+				ContextMenu.Item.Separator,
+				new(Loc["Db_Menu_DeleteSelected", count], PromptDeleteSelectedGames) { Icon = "🗑️", Shortcut = "Del", Danger = true },
+			];
+		}
+
+		bool selected = _selectedGameIds.Contains(game.Id);
+		var items = new List<ContextMenu.Item>
+		{
+			open,
+			ContextMenu.Item.Separator,
+			new(Loc["Db_Menu_CopyPgn"], () => CopyToClipboardAsync(() => game.Pgn, Loc["Db_Menu_PgnCopied"])) { Icon = "📋", Disabled = string.IsNullOrWhiteSpace(game.Pgn) },
+			new(Loc["Db_Menu_CopyFen"], () => CopyToClipboardAsync(() => FinalPositionFen(game.Pgn), Loc["Db_Menu_FenCopied"])) { Icon = "📋", Disabled = string.IsNullOrWhiteSpace(game.Pgn) },
+			ContextMenu.Item.Separator,
+			new(Loc["Db_Menu_EditNote"], () => StartEditingNote(game)) { Icon = "🏷️", Shortcut = "F2" },
+			new(Loc["Db_Menu_EditDetails"], () => OpenBulkEditModalFor([game.Id])) { Icon = "✏️", Title = Loc["Db_ModifySelectedTooltip"] },
+			new(Loc["Db_Menu_Move"], () => OpenBulkMoveModalFor([game.Id])) { Icon = "📁" },
+		};
+		if (_showAllGamesFlat && game.FolderId.HasValue)
+		{
+			items.Add(new(Loc["Db_Menu_ShowInFolder"], () => NavigateToFolderAsync(game.FolderId)) { Icon = "📂", Title = GetFolderPath(game.FolderId.Value) });
+		}
+		items.Add(new(Loc[selected ? "Db_Menu_Deselect" : "Db_Menu_Select"], () => { if (!_selectedGameIds.Remove(game.Id)) _selectedGameIds.Add(game.Id); }) { Icon = selected ? "☐" : "☑️", Shortcut = "Space" });
+		items.Add(ContextMenu.Item.Separator);
+		items.Add(new(Loc["Db_Menu_Delete"], () => PromptDeleteGame(game)) { Icon = "🗑️", Shortcut = _selectedGameIds.Count == 0 ? "Del" : null, Danger = true });
+		return items;
+	}
+
+	private static string FinalPositionFen(string pgn)
+	{
+		var tree = PgnHandler.ImportPgn(pgn);
+		tree.GoToEnd();
+		return FenParser.ToFen(tree.CurrentNode.Position);
+	}
+
+	private async Task CopyToClipboardAsync(Func<string> getText, string notice)
+	{
+		try
+		{
+			await JS.InvokeVoidAsync("navigator.clipboard.writeText", getText());
+			_copyNotice = notice;
+		}
+		catch (Exception ex)
+		{
+			Console.Error.WriteLine($"[DatabaseBrowser] Copy to clipboard failed: {ex.Message}");
+			_copyNotice = Loc["Db_Menu_CopyFailed"];
+		}
+		int noticeId = ++_copyNoticeId;
+		StateHasChanged();
+
+		await Task.Delay(2000);
+		if (noticeId == _copyNoticeId)
+		{
+			_copyNotice = null;
+			StateHasChanged();
+		}
+	}
+
+	// Dialog texts for a single game ("Move Game") instead of "Move 1 Games"
+	private static string CountKey(string key, int count) => count == 1 ? key + "_One" : key;
 
 	private bool _showBulkDeleteModal;
 

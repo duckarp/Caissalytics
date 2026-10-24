@@ -2454,3 +2454,19 @@
   text-align: right;
   width: 110px;
 }
+
+/* Confirmation after copying from the game list's context menu */
+.db-copy-toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 1050;
+  padding: 10px 16px;
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  color: var(--text-primary);
+  font-size: 13px;
+  pointer-events: none;
+}
