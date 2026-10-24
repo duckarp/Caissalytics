@@ -22,6 +22,11 @@ internal class Program
     {
         SetLinuxProgramName("caissalytics");
 
+        if (UpdateService.IsInsideStagingDirectory(Environment.CurrentDirectory))
+        {
+            Environment.CurrentDirectory = AppContext.BaseDirectory;
+        }
+
         AppLog.Initialize(Path.Combine(AppPaths.DefaultDirectory, "logs"));
         Console.WriteLine($"[Caissalytics] Starting version {typeof(Program).Assembly.GetName().Version}");
 

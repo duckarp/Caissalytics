@@ -342,6 +342,29 @@ public class UpdateTests : IDisposable
     }
 
     [Fact]
+    public void ApplyScripts_StartTheAppFromItsOwnFolder()
+    {
+        string windows = UpdateService.BuildWindowsApplyScript(1, @"C:\Apps\Caissalytics", @"C:\Staging\u.zip", @"C:\Apps\Caissalytics\Caissalytics.exe");
+        string unix = UpdateService.BuildUnixApplyScript(1, "/opt/caissalytics", "/tmp/u.tar.gz", "/opt/caissalytics/Caissalytics");
+
+        Assert.Contains("cd /d %APP_DIR%", windows);
+        Assert.Contains("start \"\" /D %APP_DIR% %EXE%", windows);
+        Assert.True(unix.IndexOf("cd \"$APP_DIR\"", StringComparison.Ordinal) < unix.IndexOf("\"$EXE\" &", StringComparison.Ordinal));
+    }
+
+    [Theory]
+    [InlineData("update_staging", true)]
+    [InlineData("update_staging/extracted", true)]
+    [InlineData("Update_Staging", true)]
+    [InlineData("update_staging_old", false)]
+    [InlineData("app", false)]
+    public void IsInsideStagingDirectory_MatchesTheStagingFolderAndBelow(string relative, bool expected)
+    {
+        string dir = Path.Combine(Path.GetTempPath(), "caissalytics", relative);
+        Assert.Equal(expected, UpdateService.IsInsideStagingDirectory(dir));
+    }
+
+    [Fact]
     public void PrepareUpdateStagingDirectory_RecreatesEmptyOwnerOnlyFolder()
     {
         string baseDir = Path.Combine(Path.GetTempPath(), "caissalytics_update_test_" + Guid.NewGuid().ToString("N"));

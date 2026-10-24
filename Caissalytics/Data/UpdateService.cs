@@ -501,10 +501,19 @@ public class UpdateService : IUpdateService
     /// </summary>
     public static string PrepareUpdateStagingDirectory(string baseDir)
     {
-        string updateDir = Path.Combine(baseDir, "update_staging");
+        string updateDir = Path.Combine(baseDir, StagingFolderName);
         if (Directory.Exists(updateDir))
         {
-            Directory.Delete(updateDir, recursive: true);
+            try
+            {
+                Directory.Delete(updateDir, recursive: true);
+            }
+            catch (IOException) when (OperatingSystem.IsWindows())
+            {
+                // Windows won't delete a folder some process has as its working directory (an app
+                // started by an older apply script, an Explorer window); emptying it is enough
+                EmptyDirectory(updateDir);
+            }
         }
 
         if (OperatingSystem.IsWindows())
@@ -517,6 +526,22 @@ public class UpdateService : IUpdateService
         }
         return updateDir;
     }
+
+    public const string StagingFolderName = "update_staging";
+
+    private static void EmptyDirectory(string dir)
+    {
+        foreach (string sub in Directory.EnumerateDirectories(dir)) Directory.Delete(sub, recursive: true);
+        foreach (string file in Directory.EnumerateFiles(dir)) File.Delete(file);
+    }
+
+    /// <summary>
+    /// Apply scripts before v1.9.32 started the updated app from inside the staging folder, which then
+    /// stayed its working directory and kept Windows from deleting the folder for the next update.
+    /// </summary>
+    public static bool IsInsideStagingDirectory(string directory) =>
+        Path.GetFullPath(directory).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+            .Contains(StagingFolderName, StringComparer.OrdinalIgnoreCase);
 
     public async Task DownloadUpdateAsync(
         UpdateInfo update,
@@ -662,6 +687,8 @@ public class UpdateService : IUpdateService
 
         rm -rf "$EXTRACT_DIR"
         chmod +x "$EXE"
+        # Start the app from its own folder, not from this staging folder
+        cd "$APP_DIR"
         "$EXE" &
         rm -f "$0"
 
@@ -694,7 +721,9 @@ public class UpdateService : IUpdateService
 
         :launch
         if exist %EXTRACT_DIR% rmdir /s /q %EXTRACT_DIR%
-        start "" %EXE%
+        rem Start the app from its own folder: a working directory in here would lock this folder
+        cd /d %APP_DIR%
+        start "" /D %APP_DIR% %EXE%
         del "%~f0"
 
         """;
