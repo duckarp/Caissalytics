@@ -41,6 +41,15 @@
 				</SideGauge>
 			</ChessgroundBoard>
 		</div>
+		@{ var opening = GetCurrentOpening(); }
+		@if (opening is not null)
+		{
+			<div class="board-opening-label" title="@($"{opening.Value.Eco} {opening.Value.Name} ({opening.Value.Moves})")">
+				<span class="board-opening-eco">@opening.Value.Eco</span>
+				<span class="board-opening-name">@opening.Value.Name</span>
+				<span class="board-opening-moves">(@opening.Value.Moves)</span>
+			</div>
+		}
 	</div>
 
 	<div class="workbench-right-panel">
@@ -320,6 +329,32 @@
 		}
 		string? classified = EcoClassifier.Classify(mainline);
 		return !string.IsNullOrEmpty(classified) ? classified : "-";
+	}
+
+	// Opening of the line leading to the current node (follows variations too).
+	// Only meaningful for games that start from the standard position.
+	private (string Eco, string Name, string Moves)? GetCurrentOpening()
+	{
+		if (FenParser.ToFen(Tab.Tree.Root.Position) != BoardPosition.StartFen) return null;
+
+		var path = new List<string>();
+		for (var node = Tab.Tree.CurrentNode; node.Parent != null; node = node.Parent)
+		{
+			path.Add(node.San);
+		}
+		path.Reverse();
+
+		var (eco, plies) = EcoClassifier.Match(path);
+		if (eco is null || plies == 0) return null;
+
+		var moves = new System.Text.StringBuilder();
+		for (int i = 0; i < plies; i++)
+		{
+			if (i > 0) moves.Append(' ');
+			if (i % 2 == 0) moves.Append(i / 2 + 1).Append(". ");
+			moves.Append(path[i]);
+		}
+		return (eco, OpeningCatalog.ResolveOpeningName(eco), moves.ToString());
 	}
 
 	private string GetTimeControlHeader()

@@ -56,6 +56,20 @@ public class EcoClassifierTests : IDisposable
         Assert.Equal(expected, EcoClassifier.Classify(moves));
     }
 
+    [Theory]
+    [InlineData(new[] { "f4" }, "A02", 1)]
+    [InlineData(new[] { "f4", "e5" }, "A02", 1)]
+    [InlineData(new[] { "f4", "d5", "Nf3", "Nf6" }, "A03", 2)]
+    [InlineData(new[] { "e4", "c5", "Nf3", "d6", "d4" }, "B53", 5)]
+    [InlineData(new[] { "a3" }, null, 0)]
+    [InlineData(new string[0], null, 0)]
+    public void Match_ReturnsCodeAndMatchedPlies(string[] moves, string? expectedEco, int expectedPlies)
+    {
+        var (eco, plies) = EcoClassifier.Match(moves);
+        Assert.Equal(expectedEco, eco);
+        Assert.Equal(expectedPlies, plies);
+    }
+
     [Fact]
     public void Classify_KingsideAndQueensideCastling_Normalized()
     {

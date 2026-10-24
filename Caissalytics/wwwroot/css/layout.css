@@ -439,3 +439,33 @@
   background: var(--bg-surface-hover);
   color: var(--text-primary);
 }
+
+.board-opening-label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  max-width: 100%;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.board-opening-eco {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.board-opening-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.board-opening-moves {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

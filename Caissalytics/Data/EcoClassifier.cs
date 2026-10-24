@@ -19,31 +19,39 @@ public static class EcoClassifier
     /// Classifies a game from its mainline SAN moves.
     /// </summary>
     /// <param name="sanMoves">Mainline SAN moves in game order (may include check/checkmate and annotation suffixes).</param>
-    public static string? Classify(IReadOnlyList<string> sanMoves)
+    public static string? Classify(IReadOnlyList<string> sanMoves) => Match(sanMoves).Eco;
+
+    /// <summary>
+    /// Like <see cref="Classify"/>, but also returns how many leading plies of
+    /// <paramref name="sanMoves"/> make up the matched ECO line.
+    /// </summary>
+    public static (string? Eco, int Plies) Match(IReadOnlyList<string> sanMoves)
     {
         if (sanMoves == null || sanMoves.Count == 0)
         {
-            return null;
+            return (null, 0);
         }
 
         var node = Root;
         string? lastEco = null;
-        foreach (var raw in sanMoves)
+        int lastPlies = 0;
+        for (int i = 0; i < sanMoves.Count; i++)
         {
             if (node.Eco is not null)
             {
                 lastEco = node.Eco;
+                lastPlies = i;
             }
 
-            if (node.Children is null || !node.Children.TryGetValue(Normalize(raw), out var child))
+            if (node.Children is null || !node.Children.TryGetValue(Normalize(sanMoves[i]), out var child))
             {
-                return lastEco;
+                return (lastEco, lastPlies);
             }
 
             node = child;
         }
 
-        return node.Eco ?? lastEco;
+        return node.Eco is not null ? (node.Eco, sanMoves.Count) : (lastEco, lastPlies);
     }
 
     /// <summary>Normalizes a SAN token for tree matching (strips check/annotation suffixes, canonicalizes castling).</summary>
