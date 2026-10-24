@@ -242,6 +242,21 @@ public class UpdateTests : IDisposable
     }
 
     [Fact]
+    public void CurrentVersion_MatchesTheProjectVersion()
+    {
+        // Pinned Assembly/File/InformationalVersion lines once went stale while <Version> was bumped,
+        // so 1.9.26 and 1.9.27 reported 1.9.25 and kept offering themselves as an update.
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "Caissalytics.slnx"))) dir = dir.Parent;
+        Assert.NotNull(dir);
+
+        var csproj = System.Xml.Linq.XDocument.Load(Path.Combine(dir.FullName, "Caissalytics", "Caissalytics.csproj"));
+        string projectVersion = csproj.Descendants("Version").Single().Value.Trim();
+
+        Assert.Equal(projectVersion, new UpdateService(new HttpClient(), _dir).GetCurrentVersion());
+    }
+
+    [Fact]
     public void VerifyReleaseSignature_AcceptsOpensslSignatures_AndRejectsOthers()
     {
         if (OperatingSystem.IsWindows()) return; // uses the openssl CLI exactly like the release workflow

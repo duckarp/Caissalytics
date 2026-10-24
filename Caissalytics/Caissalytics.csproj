@@ -6,9 +6,6 @@
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Version>1.9.27</Version>
-		<AssemblyVersion>1.9.25.0</AssemblyVersion>
-		<FileVersion>1.9.25.0</FileVersion>
-		<InformationalVersion>1.9.25</InformationalVersion>
 		<GenerateEmbeddedFilesManifest>true</GenerateEmbeddedFilesManifest>
 		<ApplicationIcon>icon.ico</ApplicationIcon>
 	</PropertyGroup>
