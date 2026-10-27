@@ -495,7 +495,7 @@
 			</div>
 
 			<!-- The Printable A4 Document Container -->
-			<div class="printable-document">
+			<div class="printable-document" @ref="_printableDocument">
 				<!-- Page 1: Student Worksheet -->
 				<div class="a4-page-sheet printable-page @(IsOverflowingPage() ? "has-overflow" : "")" style="--sheet-scale: @(GetEffectiveScaleCss());">
 					<div class="a4-sheet-content" style="zoom: @(GetEffectiveScaleCss());">
@@ -782,6 +782,7 @@
 	private void OpenPrintPreview(HomeworkSheet sheet)
 	{
 		_activeSheet = sheet;
+		_measuredHeightsMm = null;
 		_viewMode = ViewMode.PrintPreview;
 	}
 
@@ -1167,19 +1168,64 @@
 
 		if (_activeSheet == null) return 1.0;
 
-		double estimatedRaw = CalculateEstimatedSheetHeightMmRaw(false);
+		double raw = GetSheetContentHeightMm(false);
 		if (_activeSheet.IncludeAnswerKey)
 		{
-			estimatedRaw = Math.Max(estimatedRaw, CalculateEstimatedSheetHeightMmRaw(true));
+			raw = Math.Max(raw, GetSheetContentHeightMm(true));
 		}
 
-		if (estimatedRaw <= 265.0)
+		if (raw <= PrintableContentHeightMm)
 		{
 			return 1.0;
 		}
 
-		double targetScale = 258.0 / estimatedRaw;
-		return Math.Max(0.75, Math.Min(1.0, Math.Round(targetScale, 2)));
+		// Round down so the scaled content never ends up a fraction over the page
+		double targetScale = Math.Floor((PrintableContentHeightMm - 3.0) / raw * 100.0) / 100.0;
+		return Math.Max(0.6, Math.Min(1.0, targetScale));
+	}
+
+	// A4 height (297mm) minus the sheet's own 10mm top/bottom padding, with a little slack
+	private const double PrintableContentHeightMm = 275.0;
+
+	// Real heights of the rendered sheet contents (worksheet, answer key) measured in the
+	// preview; the estimate only covers the first render before the measurement arrives.
+	private ElementReference _printableDocument;
+	private double[]? _measuredHeightsMm;
+
+	private double GetSheetContentHeightMm(bool isAnswerKey)
+	{
+		int index = isAnswerKey ? 1 : 0;
+		if (_measuredHeightsMm != null && index < _measuredHeightsMm.Length)
+		{
+			return _measuredHeightsMm[index];
+		}
+		return CalculateEstimatedSheetHeightMmRaw(isAnswerKey);
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (_viewMode != ViewMode.PrintPreview || _activeSheet == null) return;
+
+		double[]? heights;
+		try
+		{
+			heights = await JS.InvokeAsync<double[]>("homeworkEditor.measureSheetContents", _printableDocument);
+		}
+		catch
+		{
+			return;
+		}
+
+		// A hidden workspace tab lays out nothing; keep the last measurement
+		if (heights == null || heights.Length == 0 || heights.All(h => h <= 0)) return;
+
+		bool changed = _measuredHeightsMm == null
+			|| _measuredHeightsMm.Length != heights.Length
+			|| heights.Where((h, i) => Math.Abs(h - _measuredHeightsMm[i]) > 0.5).Any();
+		if (!changed) return;
+
+		_measuredHeightsMm = heights;
+		StateHasChanged();
 	}
 
 	private string GetEffectiveScaleCss()
@@ -1189,14 +1235,12 @@
 
 	private bool IsOverflowingPage()
 	{
-		double effectiveHeight = CalculateEstimatedSheetHeightMmRaw(false) * GetEffectiveScale();
-		return effectiveHeight > 270.0;
+		return GetSheetContentHeightMm(false) * GetEffectiveScale() > PrintableContentHeightMm;
 	}
 
 	private bool IsAnswerKeyOverflowing()
 	{
-		double effectiveHeight = CalculateEstimatedSheetHeightMmRaw(true) * GetEffectiveScale();
-		return effectiveHeight > 270.0;
+		return GetSheetContentHeightMm(true) * GetEffectiveScale() > PrintableContentHeightMm;
 	}
 
 	private async Task TriggerBrowserPrint()

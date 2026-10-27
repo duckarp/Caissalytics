@@ -65,6 +65,26 @@
             textarea.focus();
             textarea.dispatchEvent(new Event('input', { bubbles: true }));
             return textarea.value;
+        },
+
+        // Natural (unscaled, unstretched) height in mm of each sheet's content in the print preview.
+        // Zoom and flex are reset synchronously, so nothing is painted in between.
+        measureSheetContents: function (container) {
+            if (!container) return [];
+            var pxPerMm = 96 / 25.4;
+            var nodes = container.querySelectorAll('.a4-sheet-content');
+            var heights = [];
+            for (var i = 0; i < nodes.length; i++) {
+                var el = nodes[i];
+                var prevZoom = el.style.zoom;
+                var prevFlex = el.style.flex;
+                el.style.zoom = '1';
+                el.style.flex = 'none';
+                heights.push(el.getBoundingClientRect().height / pxPerMm);
+                el.style.zoom = prevZoom;
+                el.style.flex = prevFlex;
+            }
+            return heights;
         }
     };
 })();
