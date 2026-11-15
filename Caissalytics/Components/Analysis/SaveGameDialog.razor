@@ -224,10 +224,23 @@
 	private bool CanOverwrite => ExistingGameId.HasValue && ExistingGameId.Value > 0 &&
 		string.Equals(_selectedDb, InitialDatabase, StringComparison.OrdinalIgnoreCase);
 
+	// The parent (AnalysisWorkbench) re-renders constantly while the dialog is open
+	// (engine output, clocks, ...), and Blazor re-runs OnParametersSetAsync on every
+	// such render because Tree is a reference type. Only initialise the form when the
+	// dialog transitions from closed to open, otherwise in-progress edits get wiped.
+	private bool _initializedForOpen;
+
 	protected override async Task OnParametersSetAsync()
 	{
-		if (IsOpen && Tree != null)
+		if (!IsOpen)
 		{
+			_initializedForOpen = false;
+			return;
+		}
+
+		if (!_initializedForOpen && Tree != null)
+		{
+			_initializedForOpen = true;
 			var allDbs = await DatabaseService.GetDatabasesAsync();
 			_databases = allDbs.Where(d => !string.Equals(d.Name, IDatabaseService.ProtectedOnlineDatabaseName, StringComparison.OrdinalIgnoreCase)).ToList();
 			var activeDb = _databases.FirstOrDefault(d => d.IsActive) ?? _databases.FirstOrDefault();
